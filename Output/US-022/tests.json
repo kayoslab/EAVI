@@ -1,0 +1,39 @@
+{
+  "tests": [
+    {
+      "description": "overlay text identifies EAVI as an art installation",
+      "file": "tests/ui/infoOverlay.test.ts",
+      "code": "it('overlay text identifies EAVI as an art installation', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const text = overlay.textContent || '';\n  expect(text).toMatch(/art\\s*installation/i);\n});",
+      "block": "US-022: Privacy and artwork copy"
+    },
+    {
+      "description": "overlay text states no data is stored",
+      "file": "tests/ui/infoOverlay.test.ts",
+      "code": "it('overlay text states no data is stored', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const text = overlay.textContent || '';\n  expect(text).toMatch(/no.*(data|information).*(stored|saved|retained|collected)/i);\n});",
+      "block": "US-022: Privacy and artwork copy"
+    },
+    {
+      "description": "overlay text states visitor context influences the scene",
+      "file": "tests/ui/infoOverlay.test.ts",
+      "code": "it('overlay text states visitor context influences the scene', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const text = overlay.textContent || '';\n  expect(text).toMatch(/visitor.*(context|presence).*(influence|shape|affect)/i);\n});",
+      "block": "US-022: Privacy and artwork copy"
+    },
+    {
+      "description": "overlay copy stays concise (under 500 characters)",
+      "file": "tests/ui/infoOverlay.test.ts",
+      "code": "it('overlay copy stays concise (under 500 characters)', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const panel = overlay.querySelector('.eavi-info-panel');\n  const closeBtn = panel?.querySelector('.eavi-info-close');\n  const allText = Array.from(panel?.childNodes || [])\n    .filter((node) => node !== closeBtn)\n    .map((node) => node.textContent || '')\n    .join('');\n  expect(allText.length).toBeLessThanOrEqual(500);\n});",
+      "block": "US-022: Privacy and artwork copy"
+    },
+    {
+      "description": "overlay still describes EAVI as an ephemeral experience",
+      "file": "tests/ui/infoOverlay.test.ts",
+      "code": "it('overlay still describes EAVI as an ephemeral experience', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const text = overlay.textContent || '';\n  expect(text).toMatch(/ephemeral/i);\n});",
+      "block": "US-022: Privacy and artwork copy"
+    }
+  ],
+  "describeBlock": {
+    "name": "US-022: Privacy and artwork copy",
+    "file": "tests/ui/infoOverlay.test.ts",
+    "beforeEach": "beforeEach(() => {\n  vi.resetModules();\n  document.body.innerHTML = '<div id=\"app\"></div>';\n});"
+  }
+}
