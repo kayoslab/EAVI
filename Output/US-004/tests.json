@@ -1,0 +1,117 @@
+{
+  "tests": [
+    {
+      "description": "returns hardwareConcurrency when available",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns hardwareConcurrency when available', () => {\n  Object.defineProperty(navigator, 'hardwareConcurrency', { value: 8, configurable: true });\n  const signals = readSignals();\n  expect(signals.hardwareConcurrency).toBe(8);\n});",
+      "acceptance_criteria": "Read hardwareConcurrency if available"
+    },
+    {
+      "description": "returns null hardwareConcurrency when undefined",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns null hardwareConcurrency when undefined', () => {\n  Object.defineProperty(navigator, 'hardwareConcurrency', { value: undefined, configurable: true });\n  const signals = readSignals();\n  expect(signals.hardwareConcurrency).toBeNull();\n});",
+      "acceptance_criteria": "Read hardwareConcurrency if available"
+    },
+    {
+      "description": "returns dark when prefers-color-scheme is dark",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns dark when prefers-color-scheme is dark', () => {\n  window.matchMedia = vi.fn((query: string) => ({\n    matches: query === '(prefers-color-scheme: dark)',\n    media: query,\n    onchange: null,\n    addListener: vi.fn(),\n    removeListener: vi.fn(),\n    addEventListener: vi.fn(),\n    removeEventListener: vi.fn(),\n    dispatchEvent: vi.fn(),\n  })) as unknown as typeof window.matchMedia;\n  const signals = readSignals();\n  expect(signals.prefersColorScheme).toBe('dark');\n});",
+      "acceptance_criteria": "Read prefers-color-scheme"
+    },
+    {
+      "description": "returns light when prefers-color-scheme is light",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns light when prefers-color-scheme is light', () => {\n  window.matchMedia = vi.fn((query: string) => ({\n    matches: query === '(prefers-color-scheme: light)',\n    media: query,\n    onchange: null,\n    addListener: vi.fn(),\n    removeListener: vi.fn(),\n    addEventListener: vi.fn(),\n    removeEventListener: vi.fn(),\n    dispatchEvent: vi.fn(),\n  })) as unknown as typeof window.matchMedia;\n  const signals = readSignals();\n  expect(signals.prefersColorScheme).toBe('light');\n});",
+      "acceptance_criteria": "Read prefers-color-scheme"
+    },
+    {
+      "description": "returns null prefersColorScheme when matchMedia is unavailable",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns null prefersColorScheme when matchMedia is unavailable', () => {\n  const original = window.matchMedia;\n  // @ts-expect-error — intentionally removing matchMedia for fallback test\n  window.matchMedia = undefined;\n  const signals = readSignals();\n  expect(signals.prefersColorScheme).toBeNull();\n  window.matchMedia = original;\n});",
+      "acceptance_criteria": "Read prefers-color-scheme"
+    },
+    {
+      "description": "returns true when prefers-reduced-motion is reduce",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns true when prefers-reduced-motion is reduce', () => {\n  window.matchMedia = vi.fn((query: string) => ({\n    matches: query === '(prefers-reduced-motion: reduce)',\n    media: query,\n    onchange: null,\n    addListener: vi.fn(),\n    removeListener: vi.fn(),\n    addEventListener: vi.fn(),\n    removeEventListener: vi.fn(),\n    dispatchEvent: vi.fn(),\n  })) as unknown as typeof window.matchMedia;\n  const signals = readSignals();\n  expect(signals.prefersReducedMotion).toBe(true);\n});",
+      "acceptance_criteria": "Read prefers-reduced-motion"
+    },
+    {
+      "description": "returns false when prefers-reduced-motion is not set",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns false when prefers-reduced-motion is not set', () => {\n  window.matchMedia = vi.fn((query: string) => ({\n    matches: false,\n    media: query,\n    onchange: null,\n    addListener: vi.fn(),\n    removeListener: vi.fn(),\n    addEventListener: vi.fn(),\n    removeEventListener: vi.fn(),\n    dispatchEvent: vi.fn(),\n  })) as unknown as typeof window.matchMedia;\n  const signals = readSignals();\n  expect(signals.prefersReducedMotion).toBe(false);\n});",
+      "acceptance_criteria": "Read prefers-reduced-motion"
+    },
+    {
+      "description": "returns null prefersReducedMotion when matchMedia is unavailable",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns null prefersReducedMotion when matchMedia is unavailable', () => {\n  const original = window.matchMedia;\n  // @ts-expect-error — intentionally removing matchMedia for fallback test\n  window.matchMedia = undefined;\n  const signals = readSignals();\n  expect(signals.prefersReducedMotion).toBeNull();\n  window.matchMedia = original;\n});",
+      "acceptance_criteria": "Read prefers-reduced-motion"
+    },
+    {
+      "description": "returns true for touchCapable when ontouchstart exists",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns true for touchCapable when ontouchstart exists', () => {\n  Object.defineProperty(window, 'ontouchstart', { value: null, configurable: true });\n  const signals = readSignals();\n  expect(signals.touchCapable).toBe(true);\n  delete (window as any).ontouchstart;\n});",
+      "acceptance_criteria": "Read touch capability from available browser APIs"
+    },
+    {
+      "description": "returns true for touchCapable when maxTouchPoints > 0",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns true for touchCapable when maxTouchPoints > 0', () => {\n  delete (window as any).ontouchstart;\n  Object.defineProperty(navigator, 'maxTouchPoints', { value: 5, configurable: true });\n  const signals = readSignals();\n  expect(signals.touchCapable).toBe(true);\n});",
+      "acceptance_criteria": "Read touch capability from available browser APIs"
+    },
+    {
+      "description": "returns false for touchCapable when no touch APIs available",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns false for touchCapable when no touch APIs available', () => {\n  delete (window as any).ontouchstart;\n  Object.defineProperty(navigator, 'maxTouchPoints', { value: 0, configurable: true });\n  const signals = readSignals();\n  expect(signals.touchCapable).toBe(false);\n});",
+      "acceptance_criteria": "Read touch capability from available browser APIs"
+    },
+    {
+      "description": "returns object with exactly the expected keys including new signals",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('returns object with exactly the expected keys', () => {\n  const signals = readSignals();\n  const keys = Object.keys(signals).sort();\n  expect(keys).toEqual([\n    'devicePixelRatio',\n    'hardwareConcurrency',\n    'language',\n    'prefersColorScheme',\n    'prefersReducedMotion',\n    'screenHeight',\n    'screenWidth',\n    'timezone',\n    'touchCapable',\n  ]);\n});",
+      "acceptance_criteria": "All values stay in memory only",
+      "replaces": "existing key-check test at line 66"
+    },
+    {
+      "description": "does not access localStorage or sessionStorage",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('does not access localStorage or sessionStorage', () => {\n  const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');\n  const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');\n  readSignals();\n  expect(getItemSpy).not.toHaveBeenCalled();\n  expect(setItemSpy).not.toHaveBeenCalled();\n});",
+      "acceptance_criteria": "All values stay in memory only",
+      "note": "existing test — kept as-is to confirm no regression with new signals"
+    },
+    {
+      "description": "does not set cookies",
+      "file": "tests/signals.test.ts",
+      "type": "unit",
+      "code": "it('does not set cookies', () => {\n  const cookieSpy = vi.spyOn(document, 'cookie', 'set');\n  readSignals();\n  expect(cookieSpy).not.toHaveBeenCalled();\n});",
+      "acceptance_criteria": "All values stay in memory only",
+      "note": "existing test — kept as-is to confirm no regression with new signals"
+    }
+  ],
+  "test_file": "tests/signals.test.ts",
+  "framework": "vitest",
+  "environment": "jsdom",
+  "new_describe_block": "US-004: Read capability and preference signals",
+  "existing_describe_block": "US-003: Read low-entropy browser signals",
+  "total_new_tests": 11,
+  "notes": [
+    "The existing key-check test (line 66) must be updated to include the 4 new keys",
+    "matchMedia mock must implement the full MediaQueryList interface to avoid type errors",
+    "Tests that remove matchMedia must save and restore the original to avoid polluting other tests",
+    "ontouchstart must be cleaned up after touch tests using delete"
+  ]
+}
