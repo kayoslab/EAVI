@@ -1,0 +1,78 @@
+{
+  "testFile": "tests/signals.test.ts",
+  "framework": "vitest",
+  "environment": "jsdom",
+  "tests": [
+    {
+      "id": "US-003-T01",
+      "name": "returns language from navigator.language",
+      "description": "readSignals().language reflects navigator.language",
+      "criteria": ["Read language"],
+      "code": "it('returns language from navigator.language', () => {\n  vi.spyOn(navigator, 'language', 'get').mockReturnValue('fr-FR');\n  const signals = readSignals();\n  expect(signals.language).toBe('fr-FR');\n});"
+    },
+    {
+      "id": "US-003-T02",
+      "name": "falls back to en when navigator.language is empty",
+      "description": "readSignals().language defaults to 'en' when navigator.language is falsy",
+      "criteria": ["Read language"],
+      "code": "it('falls back to en when navigator.language is empty', () => {\n  vi.spyOn(navigator, 'language', 'get').mockReturnValue('');\n  const signals = readSignals();\n  expect(signals.language).toBe('en');\n});"
+    },
+    {
+      "id": "US-003-T03",
+      "name": "returns timezone from Intl.DateTimeFormat",
+      "description": "readSignals().timezone is a non-empty string from Intl API",
+      "criteria": ["Read timezone"],
+      "code": "it('returns timezone from Intl.DateTimeFormat', () => {\n  const signals = readSignals();\n  expect(typeof signals.timezone).toBe('string');\n  expect(signals.timezone.length).toBeGreaterThan(0);\n});"
+    },
+    {
+      "id": "US-003-T04",
+      "name": "falls back to UTC when Intl is unavailable",
+      "description": "readSignals().timezone defaults to 'UTC' when Intl.DateTimeFormat fails",
+      "criteria": ["Read timezone"],
+      "code": "it('falls back to UTC when Intl is unavailable', () => {\n  const original = globalThis.Intl;\n  // @ts-expect-error — intentionally breaking Intl for fallback test\n  globalThis.Intl = undefined;\n  const signals = readSignals();\n  expect(signals.timezone).toBe('UTC');\n  globalThis.Intl = original;\n});"
+    },
+    {
+      "id": "US-003-T05",
+      "name": "returns screen dimensions as positive numbers",
+      "description": "readSignals().screenWidth and screenHeight are positive",
+      "criteria": ["Read screen dimensions"],
+      "code": "it('returns screen dimensions as positive numbers', () => {\n  const signals = readSignals();\n  expect(signals.screenWidth).toBeGreaterThan(0);\n  expect(signals.screenHeight).toBeGreaterThan(0);\n  expect(Number.isFinite(signals.screenWidth)).toBe(true);\n  expect(Number.isFinite(signals.screenHeight)).toBe(true);\n});"
+    },
+    {
+      "id": "US-003-T06",
+      "name": "returns devicePixelRatio when available",
+      "description": "readSignals().devicePixelRatio is a number when window.devicePixelRatio exists",
+      "criteria": ["Read devicePixelRatio if available"],
+      "code": "it('returns devicePixelRatio when available', () => {\n  Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });\n  const signals = readSignals();\n  expect(signals.devicePixelRatio).toBe(2);\n});"
+    },
+    {
+      "id": "US-003-T07",
+      "name": "returns null devicePixelRatio when undefined",
+      "description": "readSignals().devicePixelRatio is null when window.devicePixelRatio is undefined",
+      "criteria": ["Read devicePixelRatio if available"],
+      "code": "it('returns null devicePixelRatio when undefined', () => {\n  Object.defineProperty(window, 'devicePixelRatio', { value: undefined, configurable: true });\n  const signals = readSignals();\n  expect(signals.devicePixelRatio).toBeNull();\n});"
+    },
+    {
+      "id": "US-003-T08",
+      "name": "does not access localStorage or sessionStorage",
+      "description": "readSignals() must not touch Storage APIs",
+      "criteria": ["All values stay in memory only"],
+      "code": "it('does not access localStorage or sessionStorage', () => {\n  const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');\n  const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');\n  readSignals();\n  expect(getItemSpy).not.toHaveBeenCalled();\n  expect(setItemSpy).not.toHaveBeenCalled();\n});"
+    },
+    {
+      "id": "US-003-T09",
+      "name": "does not set cookies",
+      "description": "readSignals() must not write to document.cookie",
+      "criteria": ["All values stay in memory only"],
+      "code": "it('does not set cookies', () => {\n  const cookieSpy = vi.spyOn(document, 'cookie', 'set');\n  readSignals();\n  expect(cookieSpy).not.toHaveBeenCalled();\n});"
+    },
+    {
+      "id": "US-003-T10",
+      "name": "returns object with exactly the expected keys",
+      "description": "readSignals() returns a plain object with only the specified BrowserSignals keys",
+      "criteria": ["All values stay in memory only"],
+      "code": "it('returns object with exactly the expected keys', () => {\n  const signals = readSignals();\n  const keys = Object.keys(signals).sort();\n  expect(keys).toEqual(['devicePixelRatio', 'language', 'screenHeight', 'screenWidth', 'timezone']);\n});"
+    }
+  ],
+  "fileContent": "import { describe, it, expect, vi } from 'vitest';\nimport { readSignals } from '../src/input/signals';\n\ndescribe('US-003: Read low-entropy browser signals', () => {\n  it('returns language from navigator.language', () => {\n    vi.spyOn(navigator, 'language', 'get').mockReturnValue('fr-FR');\n    const signals = readSignals();\n    expect(signals.language).toBe('fr-FR');\n  });\n\n  it('falls back to en when navigator.language is empty', () => {\n    vi.spyOn(navigator, 'language', 'get').mockReturnValue('');\n    const signals = readSignals();\n    expect(signals.language).toBe('en');\n  });\n\n  it('returns timezone from Intl.DateTimeFormat', () => {\n    const signals = readSignals();\n    expect(typeof signals.timezone).toBe('string');\n    expect(signals.timezone.length).toBeGreaterThan(0);\n  });\n\n  it('falls back to UTC when Intl is unavailable', () => {\n    const original = globalThis.Intl;\n    // @ts-expect-error — intentionally breaking Intl for fallback test\n    globalThis.Intl = undefined;\n    const signals = readSignals();\n    expect(signals.timezone).toBe('UTC');\n    globalThis.Intl = original;\n  });\n\n  it('returns screen dimensions as positive numbers', () => {\n    const signals = readSignals();\n    expect(signals.screenWidth).toBeGreaterThan(0);\n    expect(signals.screenHeight).toBeGreaterThan(0);\n    expect(Number.isFinite(signals.screenWidth)).toBe(true);\n    expect(Number.isFinite(signals.screenHeight)).toBe(true);\n  });\n\n  it('returns devicePixelRatio when available', () => {\n    Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });\n    const signals = readSignals();\n    expect(signals.devicePixelRatio).toBe(2);\n  });\n\n  it('returns null devicePixelRatio when undefined', () => {\n    Object.defineProperty(window, 'devicePixelRatio', { value: undefined, configurable: true });\n    const signals = readSignals();\n    expect(signals.devicePixelRatio).toBeNull();\n  });\n\n  it('does not access localStorage or sessionStorage', () => {\n    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');\n    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');\n    readSignals();\n    expect(getItemSpy).not.toHaveBeenCalled();\n    expect(setItemSpy).not.toHaveBeenCalled();\n  });\n\n  it('does not set cookies', () => {\n    const cookieSpy = vi.spyOn(document, 'cookie', 'set');\n    readSignals();\n    expect(cookieSpy).not.toHaveBeenCalled();\n  });\n\n  it('returns object with exactly the expected keys', () => {\n    const signals = readSignals();\n    const keys = Object.keys(signals).sort();\n    expect(keys).toEqual(['devicePixelRatio', 'language', 'screenHeight', 'screenWidth', 'timezone']);\n  });\n});\n"
+}
