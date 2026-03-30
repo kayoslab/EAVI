@@ -199,6 +199,53 @@ describe('US-021: Add info button shell', () => {
     });
   });
 
+  describe('US-022: Privacy and artwork copy', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      document.body.innerHTML = '<div id="app"></div>';
+    });
+
+    it('overlay text identifies EAVI as an art installation', async () => {
+      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
+      const overlay = createInfoOverlay();
+      const text = overlay.textContent || '';
+      expect(text).toMatch(/art\s*installation/i);
+    });
+
+    it('overlay text states no data is stored', async () => {
+      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
+      const overlay = createInfoOverlay();
+      const text = overlay.textContent || '';
+      expect(text).toMatch(/no.*(data|information).*(stored|saved|retained|collected)/i);
+    });
+
+    it('overlay text states visitor context influences the scene', async () => {
+      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
+      const overlay = createInfoOverlay();
+      const text = overlay.textContent || '';
+      expect(text).toMatch(/visitor.*(context|presence).*(influence|shape|affect)/i);
+    });
+
+    it('overlay copy stays concise (under 500 characters)', async () => {
+      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
+      const overlay = createInfoOverlay();
+      const panel = overlay.querySelector('.eavi-info-panel');
+      const closeBtn = panel?.querySelector('.eavi-info-close');
+      const allText = Array.from(panel?.childNodes || [])
+        .filter((node) => node !== closeBtn)
+        .map((node) => node.textContent || '')
+        .join('');
+      expect(allText.length).toBeLessThanOrEqual(500);
+    });
+
+    it('overlay still describes EAVI as an ephemeral experience', async () => {
+      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
+      const overlay = createInfoOverlay();
+      const text = overlay.textContent || '';
+      expect(text).toMatch(/ephemeral/i);
+    });
+  });
+
   describe('privacy: no forbidden storage APIs', () => {
     beforeEach(() => {
       vi.resetModules();

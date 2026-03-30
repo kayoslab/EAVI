@@ -35,12 +35,22 @@ export function createInfoOverlay(): HTMLDivElement {
   closeBtn.textContent = '✕';
   closeBtn.addEventListener('click', hideOverlay);
 
-  const content = document.createElement('p');
-  content.textContent =
-    'EAVI is an ephemeral generative audiovisual experience. Each visit creates a unique, non-repeatable scene.';
+  const p1 = document.createElement('p');
+  p1.textContent =
+    'EAVI is an ephemeral generative art installation. Each visit creates a unique, non-repeatable audiovisual scene.';
+
+  const p2 = document.createElement('p');
+  p2.textContent =
+    'No data is stored. There are no cookies, no tracking, and nothing is saved or collected.';
+
+  const p3 = document.createElement('p');
+  p3.textContent =
+    'Your visitor context — time, device, and movement — subtly influences and shapes the scene you see.';
 
   panel.appendChild(closeBtn);
-  panel.appendChild(content);
+  panel.appendChild(p1);
+  panel.appendChild(p2);
+  panel.appendChild(p3);
   overlay.appendChild(panel);
 
   document.addEventListener('keydown', (e) => {
