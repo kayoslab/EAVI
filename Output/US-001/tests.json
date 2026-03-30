@@ -1,0 +1,109 @@
+{
+  "ticket_id": "US-001",
+  "title": "Scaffold browser app",
+  "test_framework": {
+    "unit": "vitest",
+    "environment": "jsdom",
+    "notes": "Vitest integrates natively with Vite; jsdom environment for DOM assertions"
+  },
+  "tests": [
+    {
+      "id": "US-001-T01",
+      "type": "build",
+      "description": "Production build succeeds without errors",
+      "acceptance_criteria": "Production build succeeds",
+      "strategy": "Run `npm run build` and assert exit code 0 and dist/ output exists",
+      "file": "tests/scaffold.build.test.ts",
+      "body": "import { describe, it, expect } from 'vitest';\nimport { execSync } from 'child_process';\nimport { existsSync } from 'fs';\nimport { resolve } from 'path';\n\ndescribe('US-001: Production build', () => {\n  it('npm run build exits with code 0', () => {\n    expect(() => execSync('npm run build', { stdio: 'pipe' })).not.toThrow();\n  });\n\n  it('dist/index.html is generated', () => {\n    execSync('npm run build', { stdio: 'pipe' });\n    expect(existsSync(resolve(__dirname, '..', 'dist', 'index.html'))).toBe(true);\n  });\n});"
+    },
+    {
+      "id": "US-001-T02",
+      "type": "unit",
+      "description": "Root canvas container is rendered into #app",
+      "acceptance_criteria": "A root canvas container is rendered",
+      "strategy": "Import main.ts in jsdom environment and assert a <canvas> element is appended to #app",
+      "file": "tests/scaffold.dom.test.ts",
+      "body": "import { describe, it, expect, beforeEach } from 'vitest';\n\ndescribe('US-001: Canvas container', () => {\n  beforeEach(() => {\n    document.body.innerHTML = '<div id=\"app\"></div>';\n  });\n\n  it('renders a <canvas> element inside #app', async () => {\n    await import('../src/main');\n    const canvas = document.querySelector('#app canvas');\n    expect(canvas).not.toBeNull();\n    expect(canvas?.tagName.toLowerCase()).toBe('canvas');\n  });\n\n  it('canvas has non-zero dimensions', async () => {\n    // jsdom defaults innerWidth/innerHeight to 0; set them for the test\n    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });\n    Object.defineProperty(window, 'innerHeight', { value: 768, writable: true });\n    await import('../src/main');\n    const canvas = document.querySelector('#app canvas') as HTMLCanvasElement | null;\n    expect(canvas).not.toBeNull();\n    expect(canvas!.width).toBeGreaterThan(0);\n    expect(canvas!.height).toBeGreaterThan(0);\n  });\n});"
+    },
+    {
+      "id": "US-001-T03",
+      "type": "unit",
+      "description": "No forbidden storage APIs are used",
+      "acceptance_criteria": "No runtime errors on first load",
+      "strategy": "Spy on localStorage, sessionStorage, and document.cookie before importing main.ts; assert none are called",
+      "file": "tests/scaffold.privacy.test.ts",
+      "body": "import { describe, it, expect, vi, beforeEach } from 'vitest';\n\ndescribe('US-001: No forbidden storage APIs', () => {\n  beforeEach(() => {\n    document.body.innerHTML = '<div id=\"app\"></div>';\n  });\n\n  it('does not access localStorage', async () => {\n    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');\n    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');\n    await import('../src/main');\n    expect(getItemSpy).not.toHaveBeenCalled();\n    expect(setItemSpy).not.toHaveBeenCalled();\n    getItemSpy.mockRestore();\n    setItemSpy.mockRestore();\n  });\n\n  it('does not set cookies', async () => {\n    const cookieSpy = vi.spyOn(document, 'cookie', 'set');\n    await import('../src/main');\n    expect(cookieSpy).not.toHaveBeenCalled();\n    cookieSpy.mockRestore();\n  });\n});"
+    },
+    {
+      "id": "US-001-T04",
+      "type": "static",
+      "description": "index.html contains required structure",
+      "acceptance_criteria": "A root canvas container is rendered",
+      "strategy": "Read index.html as text and assert it contains #app container, viewport meta, and module script pointing to src/main.ts",
+      "file": "tests/scaffold.html.test.ts",
+      "body": "import { describe, it, expect } from 'vitest';\nimport { readFileSync } from 'fs';\nimport { resolve } from 'path';\n\ndescribe('US-001: index.html structure', () => {\n  const html = readFileSync(resolve(__dirname, '..', 'index.html'), 'utf-8');\n\n  it('contains a #app container', () => {\n    expect(html).toContain('id=\"app\"');\n  });\n\n  it('contains a viewport meta tag', () => {\n    expect(html).toMatch(/meta.*name=[\"']viewport[\"']/);\n  });\n\n  it('loads src/main.ts as a module', () => {\n    expect(html).toMatch(/script.*type=[\"']module[\"'].*src=[\"']\\/src\\/main\\.ts[\"']/);\n  });\n\n  it('sets lang attribute to en', () => {\n    expect(html).toMatch(/html.*lang=[\"']en[\"']/);\n  });\n});"
+    },
+    {
+      "id": "US-001-T05",
+      "type": "static",
+      "description": "TypeScript compiles without errors",
+      "acceptance_criteria": "No runtime errors on first load",
+      "strategy": "Run tsc --noEmit and assert exit code 0",
+      "file": "tests/scaffold.build.test.ts",
+      "body_append": "\n  it('TypeScript compiles without errors', () => {\n    expect(() => execSync('npx tsc --noEmit', { stdio: 'pipe' })).not.toThrow();\n  });"
+    },
+    {
+      "id": "US-001-T06",
+      "type": "unit",
+      "description": "Canvas resizes on window resize event",
+      "acceptance_criteria": "A root canvas container is rendered",
+      "strategy": "Import main.ts, change window dimensions, dispatch resize event, assert canvas dimensions update",
+      "file": "tests/scaffold.dom.test.ts",
+      "body_append": "\n  it('updates canvas size on window resize', async () => {\n    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });\n    Object.defineProperty(window, 'innerHeight', { value: 768, writable: true });\n    await import('../src/main');\n    const canvas = document.querySelector('#app canvas') as HTMLCanvasElement;\n    expect(canvas).not.toBeNull();\n\n    Object.defineProperty(window, 'innerWidth', { value: 800 });\n    Object.defineProperty(window, 'innerHeight', { value: 600 });\n    window.dispatchEvent(new Event('resize'));\n\n    expect(canvas.width).toBe(800);\n    expect(canvas.height).toBe(600);\n  });"
+    },
+    {
+      "id": "US-001-T07",
+      "type": "static",
+      "description": "Global styles enforce full-screen dark layout",
+      "acceptance_criteria": "A root canvas container is rendered",
+      "strategy": "Read src/style.css and assert it contains margin:0, overflow:hidden, and dark background",
+      "file": "tests/scaffold.style.test.ts",
+      "body": "import { describe, it, expect } from 'vitest';\nimport { readFileSync } from 'fs';\nimport { resolve } from 'path';\n\ndescribe('US-001: Global styles', () => {\n  const css = readFileSync(resolve(__dirname, '..', 'src', 'style.css'), 'utf-8');\n\n  it('resets margin to 0', () => {\n    expect(css).toMatch(/margin\\s*:\\s*0/);\n  });\n\n  it('hides overflow', () => {\n    expect(css).toMatch(/overflow\\s*:\\s*hidden/);\n  });\n\n  it('sets a dark background', () => {\n    expect(css).toMatch(/background\\s*:\\s*#000|background-color\\s*:\\s*#000|background\\s*:\\s*black/);\n  });\n});"
+    },
+    {
+      "id": "US-001-T08",
+      "type": "config",
+      "description": "package.json has required dev and build scripts",
+      "acceptance_criteria": "App starts locally with a single command",
+      "strategy": "Read and parse package.json, assert scripts.dev and scripts.build exist",
+      "file": "tests/scaffold.config.test.ts",
+      "body": "import { describe, it, expect } from 'vitest';\nimport { readFileSync } from 'fs';\nimport { resolve } from 'path';\n\ndescribe('US-001: package.json scripts', () => {\n  const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));\n\n  it('has a dev script', () => {\n    expect(pkg.scripts).toHaveProperty('dev');\n  });\n\n  it('has a build script', () => {\n    expect(pkg.scripts).toHaveProperty('build');\n  });\n\n  it('has a preview script', () => {\n    expect(pkg.scripts).toHaveProperty('preview');\n  });\n});"
+    }
+  ],
+  "setup_required": {
+    "dependencies": ["vitest"],
+    "config": {
+      "file": "vitest.config.ts",
+      "content": "import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({\n  test: {\n    environment: 'jsdom',\n    globals: true,\n    restoreMocks: true\n  }\n});"
+    },
+    "scripts": {
+      "test": "vitest run",
+      "test:watch": "vitest"
+    }
+  },
+  "coverage_summary": {
+    "acceptance_criteria_covered": {
+      "App starts locally with a single command": ["US-001-T08"],
+      "A root canvas container is rendered": ["US-001-T02", "US-001-T04", "US-001-T06", "US-001-T07"],
+      "Production build succeeds": ["US-001-T01", "US-001-T05"],
+      "No runtime errors on first load": ["US-001-T03", "US-001-T05"]
+    },
+    "total_tests": 8,
+    "types": {
+      "build": 1,
+      "unit": 2,
+      "static": 3,
+      "config": 1
+    }
+  }
+}
