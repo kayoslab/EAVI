@@ -1,0 +1,93 @@
+{
+  "ticket": "US-002",
+  "title": "Create full-screen canvas shell",
+  "summary": "Wire up a full-viewport <canvas> with resize tracking, dark background, and no scrollbars. The visual modules (scene.ts, resize.ts, renderLoop.ts) and CSS already exist from prior work; the plan focuses on verifying correctness, filling any gaps, and adding acceptance-criteria tests.",
+  "currentState": {
+    "existingFiles": [
+      "src/visual/scene.ts — creates canvas, 2D context, fills black",
+      "src/visual/resize.ts — window resize listener, updates canvas dimensions",
+      "src/visual/renderLoop.ts — requestAnimationFrame loop, clears canvas",
+      "src/main.ts — imports visual modules, appends canvas to #app",
+      "src/style.css — html/body reset, overflow:hidden, 100vw/100vh, background:#000"
+    ],
+    "missingPieces": [
+      "No dedicated US-002 acceptance-criteria tests",
+      "Canvas may not account for devicePixelRatio scaling",
+      "Resize handler may not handle DPR changes"
+    ],
+    "dependencies": {
+      "threeJs": "NOT installed — not needed for US-002 (2D placeholder is sufficient)",
+      "vite": "8.0.1",
+      "typescript": "5.9.3",
+      "vitest": "3.1.1 with jsdom"
+    }
+  },
+  "steps": [
+    {
+      "id": 1,
+      "action": "Audit and harden src/style.css",
+      "detail": "Verify the existing CSS covers all acceptance criteria: margin/padding reset on *, html, body; overflow:hidden; width/height 100vw/100vh; background:#000. Add box-sizing:border-box if missing. Ensure the #app container and canvas itself also have no margin/padding and display:block to prevent inline-element whitespace gaps.",
+      "files": ["src/style.css"],
+      "risk": "low"
+    },
+    {
+      "id": 2,
+      "action": "Audit and harden src/visual/scene.ts",
+      "detail": "Ensure initScene() creates a <canvas>, sizes it to window.innerWidth × window.innerHeight, appends it to the container, and returns the canvas + context. Canvas element should have display:block and no default border. Consider devicePixelRatio for sharp rendering: set canvas.width/height to logical×DPR while keeping CSS size at 100%. Return canvas reference so resize handler can update it.",
+      "files": ["src/visual/scene.ts"],
+      "risk": "low"
+    },
+    {
+      "id": 3,
+      "action": "Audit and harden src/visual/resize.ts",
+      "detail": "Ensure the resize handler updates both canvas.width/height (backing store) and canvas.style.width/height (CSS) on window resize. Must use the same DPR logic as scene.ts. Should debounce or use requestAnimationFrame to avoid layout thrash on rapid resizing.",
+      "files": ["src/visual/resize.ts"],
+      "risk": "low"
+    },
+    {
+      "id": 4,
+      "action": "Verify src/main.ts wiring",
+      "detail": "Confirm main.ts imports style.css, calls initScene(container), attachResizeHandler(canvas), and startLoop(ctx). Ensure the #app container is found before proceeding. No changes expected unless earlier modules changed their exports.",
+      "files": ["src/main.ts"],
+      "risk": "low"
+    },
+    {
+      "id": 5,
+      "action": "Write acceptance-criteria tests",
+      "detail": "Create tests/us-002.test.ts covering all four acceptance criteria: (1) canvas fills viewport — canvas.width >= window.innerWidth and canvas.height >= window.innerHeight; (2) resize updates render size — simulate window resize event, assert canvas dimensions update; (3) no scrollbars — document.documentElement.scrollHeight <= window.innerHeight and same for width, or overflow:hidden is set; (4) dark background — computed background-color of body is #000 or rgb(0,0,0). Use jsdom environment.",
+      "files": ["tests/us-002.test.ts"],
+      "risk": "low"
+    },
+    {
+      "id": 6,
+      "action": "Run tests and build",
+      "detail": "Execute npm run test and npm run build. Fix any failures. Verify no console errors by checking test output.",
+      "files": [],
+      "risk": "low"
+    }
+  ],
+  "acceptanceCriteriaMapping": {
+    "Canvas fills the viewport": "Steps 1-2: CSS sets 100vw/100vh, scene.ts sizes canvas to window dimensions",
+    "Viewport resize updates render size": "Step 3: resize.ts listens for window resize and updates canvas",
+    "No scrollbars appear": "Step 1: overflow:hidden on html/body, box-sizing:border-box, canvas display:block",
+    "Canvas is shown on a dark background": "Step 1: background:#000 on body"
+  },
+  "testStrategy": "jsdom-based unit tests asserting DOM state after module initialization. Build verification via tsc && vite build. Manual smoke test: dev server shows black full-screen canvas with no scrollbars, resizing browser window updates canvas.",
+  "estimatedFilesTouched": [
+    "src/style.css",
+    "src/visual/scene.ts",
+    "src/visual/resize.ts",
+    "src/main.ts",
+    "tests/us-002.test.ts"
+  ],
+  "risks": [
+    "jsdom does not fully support canvas 2D context — tests may need to mock getContext or use a canvas polyfill",
+    "devicePixelRatio is not available in jsdom — DPR-aware sizing tests need to stub window.devicePixelRatio"
+  ],
+  "outOfScope": [
+    "Three.js integration (future story US-009+)",
+    "Audio playback or analysis",
+    "UI overlays (mute toggle, info button)",
+    "Any visual content beyond a black placeholder canvas"
+  ]
+}
