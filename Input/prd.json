@@ -30,7 +30,7 @@
       ],
       "priority": 1,
       "passes": true,
-      "status": "pass",
+      "status": "fail",
       "depends_on": [
         "US-001"
       ],
@@ -92,7 +92,7 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-001"
       ],
@@ -277,7 +277,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-001"
       ],
@@ -414,7 +414,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-001"
       ],
