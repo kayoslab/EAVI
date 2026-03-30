@@ -8,3 +8,5 @@
 
 ## US-002: merged from worktree
 
+## US-021: Add info button shell
+

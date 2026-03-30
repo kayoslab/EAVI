@@ -413,8 +413,8 @@
         "Overlay works on desktop and mobile"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "fail",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-001"
       ],
