@@ -1,0 +1,1 @@
+{"files_changed": ["src/ui/infoOverlay.ts", "src/style.css", "src/main.ts", "tests/ui/infoOverlay.test.ts"], "summary": "Created info button (ⓘ) fixed bottom-right with 44px tap target and info overlay with backdrop, close button, and Escape key support. All 22 tests pass, build succeeds, no forbidden storage APIs used."}
