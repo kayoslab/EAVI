@@ -1,13 +1,9 @@
 import './style.css'
+import { initScene } from './visual/scene'
+import { attachResizeHandler } from './visual/resize'
+import { startLoop } from './visual/renderLoop'
 
-const app = document.querySelector<HTMLDivElement>('#app')!
-
-const canvas = document.createElement('canvas')
-canvas.width = window.innerWidth
-canvas.height = window.innerHeight
-app.appendChild(canvas)
-
-window.addEventListener('resize', () => {
-  canvas.width = window.innerWidth
-  canvas.height = window.innerHeight
-})
+const container = document.querySelector<HTMLDivElement>('#app')!
+const { canvas, ctx } = initScene(container)
+attachResizeHandler(canvas, ctx)
+startLoop(canvas, ctx)
