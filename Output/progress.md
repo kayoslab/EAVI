@@ -14,3 +14,5 @@
 
 ## US-002: Create full-screen canvas shell
 
+## US-014: Load audio files from public folder
+

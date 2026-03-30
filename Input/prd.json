@@ -276,8 +276,8 @@
         "No external streaming service is required"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "fail",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-001"
       ],
