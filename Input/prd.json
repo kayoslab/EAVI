@@ -432,8 +432,8 @@
         "Copy stays concise"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-021"
       ],

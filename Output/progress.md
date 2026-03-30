@@ -10,3 +10,5 @@
 
 ## US-021: Add info button shell
 
+## US-022: Write privacy and artwork copy
+
