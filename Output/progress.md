@@ -12,3 +12,5 @@
 
 ## US-022: Write privacy and artwork copy
 
+## US-002: Create full-screen canvas shell
+
