@@ -49,8 +49,8 @@
         "All values stay in memory only"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-001"
       ],
