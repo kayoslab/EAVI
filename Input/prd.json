@@ -1,0 +1,547 @@
+{
+  "project": "EAVI: ephemeral-audio-visual-identity",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Scaffold browser app",
+      "description": "As a developer, I want a minimal browser app scaffold so that the project can render a full-screen experience.",
+      "acceptanceCriteria": [
+        "App starts locally with a single command",
+        "A root canvas container is rendered",
+        "Production build succeeds",
+        "No runtime errors on first load"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [],
+      "split_from": null,
+      "notes": "Use Vite. Keep the initial scaffold minimal."
+    },
+    {
+      "id": "US-002",
+      "title": "Create full-screen canvas shell",
+      "description": "As a user, I want the experience to occupy the full viewport so that it feels immersive immediately.",
+      "acceptanceCriteria": [
+        "Canvas fills the viewport",
+        "Viewport resize updates render size",
+        "No scrollbars appear",
+        "Canvas is shown on a dark background"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-001"
+      ],
+      "split_from": "US-001",
+      "notes": "Rendering backend can still be a placeholder."
+    },
+    {
+      "id": "US-003",
+      "title": "Read low-entropy browser signals",
+      "description": "As a system, I want to read basic browser and device signals so that the scene can be influenced by the current visitor context.",
+      "acceptanceCriteria": [
+        "Read language",
+        "Read timezone",
+        "Read screen dimensions",
+        "Read devicePixelRatio if available",
+        "All values stay in memory only"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-001"
+      ],
+      "split_from": "US-002",
+      "notes": "Do not persist or transmit values."
+    },
+    {
+      "id": "US-004",
+      "title": "Read capability and preference signals",
+      "description": "As a system, I want to read capability and preference hints so that the scene can adapt to the visitor environment.",
+      "acceptanceCriteria": [
+        "Read hardwareConcurrency if available",
+        "Read prefers-color-scheme",
+        "Read prefers-reduced-motion",
+        "Read touch capability from available browser APIs",
+        "All values stay in memory only"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-001"
+      ],
+      "split_from": "US-002",
+      "notes": "Treat all values as optional."
+    },
+    {
+      "id": "US-005",
+      "title": "Expose coarse geo via server endpoint",
+      "description": "As a system, I want to expose coarse geolocation hints via a server endpoint so that the client can safely use them without accessing request headers directly.",
+      "acceptanceCriteria": [
+        "Country header is read from Vercel environment",
+        "Region header is read from Vercel environment",
+        "Geo data is exposed via /api/geo endpoint",
+        "Endpoint returns only coarse values (country, region)",
+        "Endpoint uses cache-control: no-store",
+        "Client does not access request headers directly",
+        "App works if geo data is unavailable"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-001"
+      ],
+      "split_from": "US-003",
+      "notes": "Implement as Vercel serverless/edge function using geolocation()."
+    },
+    {
+      "id": "US-006",
+      "title": "Track runtime pointer entropy",
+      "description": "As a system, I want to collect pointer movement during the session so that the scene can evolve with live visitor interaction.",
+      "acceptanceCriteria": [
+        "Pointer position is tracked",
+        "Pointer velocity or delta is derived",
+        "Mouse and touch both work",
+        "No pointer history is persisted"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-002"
+      ],
+      "split_from": "US-010",
+      "notes": "Normalize coordinates to viewport space."
+    },
+    {
+      "id": "US-007",
+      "title": "Generate ephemeral session seed",
+      "description": "As a system, I want to combine visitor signals and current time into a session seed so that each visit generates a distinct scene.",
+      "acceptanceCriteria": [
+        "Seed includes current time component",
+        "Seed changes on reload",
+        "Seed remains stable during one session",
+        "Seed is derived without storing source data"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-003",
+        "US-004",
+        "US-005"
+      ],
+      "split_from": "US-004",
+      "notes": "Use a simple deterministic hash."
+    },
+    {
+      "id": "US-008",
+      "title": "Define partially legible mapping rules",
+      "description": "As a designer, I want explicit mapping rules from visitor signals to visual parameters so that the scene feels personal without revealing raw data.",
+      "acceptanceCriteria": [
+        "At least 4 signal-to-visual mappings are defined",
+        "Mappings are indirect rather than literal",
+        "Mappings avoid displaying raw identifiers",
+        "Mapping rules are documented in code comments or a small config module"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-003",
+        "US-004",
+        "US-005",
+        "US-007"
+      ],
+      "split_from": null,
+      "notes": "Example: region family to palette temperature, DPR to particle density band, time zone to motion cadence, reduced-motion to calmer motion profile."
+    },
+    {
+      "id": "US-009",
+      "title": "Render seeded base scene",
+      "description": "As a user, I want to see a generated scene based on the session seed so that the work feels unique from the first frame.",
+      "acceptanceCriteria": [
+        "Scene parameters derive from seed",
+        "At least one rendered geometry system exists",
+        "Scene animates continuously",
+        "Scene renders without audio"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-002",
+        "US-007",
+        "US-008"
+      ],
+      "split_from": "US-005",
+      "notes": "Start with one lightweight system such as points or lines."
+    },
+    {
+      "id": "US-010",
+      "title": "Map coarse location to palette",
+      "description": "As a user, I want geography to subtly influence the visual palette so that the scene feels partially legible.",
+      "acceptanceCriteria": [
+        "Country or region influences palette family when available",
+        "Fallback palette is used when geo hints are unavailable",
+        "Raw geo values are not displayed in the scene",
+        "Palette changes are deterministic within the session"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-005",
+        "US-008",
+        "US-009"
+      ],
+      "split_from": "US-008",
+      "notes": "Use coarse classes instead of exact location labels."
+    },
+    {
+      "id": "US-011",
+      "title": "Map device profile to structure",
+      "description": "As a user, I want device and browser hints to influence scene structure so that the scene feels linked to the environment I arrived with.",
+      "acceptanceCriteria": [
+        "At least two structural parameters are driven by signals",
+        "No raw browser strings are shown",
+        "Mapping remains stable within the session",
+        "Scene still works if some signals are missing"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-003",
+        "US-004",
+        "US-008",
+        "US-009"
+      ],
+      "split_from": "US-008",
+      "notes": "Example: touch capability alters curve softness, DPR alters density range."
+    },
+    {
+      "id": "US-012",
+      "title": "Add time-based evolution",
+      "description": "As a user, I want the scene to change over runtime so that the artwork feels fleeting rather than static.",
+      "acceptanceCriteria": [
+        "Elapsed time changes at least two visual parameters",
+        "Scene does not hard reset during runtime",
+        "Temporal behavior differs between sessions",
+        "Motion remains smooth"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-007",
+        "US-009"
+      ],
+      "split_from": "US-012",
+      "notes": "Use seeded modulation curves."
+    },
+    {
+      "id": "US-013",
+      "title": "Add pointer influence to scene motion",
+      "description": "As a user, I want my pointer movement to alter the scene so that I can perturb the artwork without controlling it directly.",
+      "acceptanceCriteria": [
+        "Pointer changes at least one motion parameter",
+        "Effect decays when pointer becomes idle",
+        "Touch and mouse both influence the scene",
+        "Idle mode still looks intentional"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-006",
+        "US-009"
+      ],
+      "split_from": "US-010",
+      "notes": "Treat interaction as entropy, not direct manipulation."
+    },
+    {
+      "id": "US-014",
+      "title": "Load audio files from public folder",
+      "description": "As a system, I want to load licensed audio tracks from a public folder so that the site can play background music without external services.",
+      "acceptanceCriteria": [
+        "Tracks are loaded from /public/audio",
+        "At least one supported audio format is playable",
+        "Missing or invalid files fail gracefully",
+        "No external streaming service is required"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-001"
+      ],
+      "split_from": "US-006",
+      "notes": "Prefer mp3 or ogg for browser compatibility."
+    },
+    {
+      "id": "US-015",
+      "title": "Randomize track selection",
+      "description": "As a user, I want tracks to be selected randomly so that repeated visits do not begin identically.",
+      "acceptanceCriteria": [
+        "A track is chosen randomly at start",
+        "Next track is chosen randomly after track end",
+        "System handles single-track and multi-track folders",
+        "Selection does not require persistent memory"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-014"
+      ],
+      "split_from": "US-006",
+      "notes": "Avoid immediate repeat when more than one track exists."
+    },
+    {
+      "id": "US-016",
+      "title": "Attempt muted autoplay",
+      "description": "As a user, I want the audio system to begin in muted mode automatically when allowed so that the visualizer can start without friction.",
+      "acceptanceCriteria": [
+        "Playback is attempted in muted mode",
+        "Autoplay failure is handled without crashing",
+        "Visuals continue even if autoplay is blocked",
+        "Audio can later be enabled by user action"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-014",
+        "US-015"
+      ],
+      "split_from": "US-006",
+      "notes": "Respect browser autoplay rules."
+    },
+    {
+      "id": "US-017",
+      "title": "Create analyser pipeline",
+      "description": "As a system, I want real-time audio analysis so that the scene can react to the music.",
+      "acceptanceCriteria": [
+        "Audio source is connected to an AnalyserNode",
+        "Frequency data is readable per frame",
+        "Time-domain data is readable per frame",
+        "Mute state does not disable analysis"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-016"
+      ],
+      "split_from": "US-007",
+      "notes": "Keep the audio graph simple."
+    },
+    {
+      "id": "US-018",
+      "title": "Map bass response to macro motion",
+      "description": "As a user, I want low frequencies to influence large-scale movement so that the audiovisual connection feels perceptible.",
+      "acceptanceCriteria": [
+        "Bass band influences at least one large-scale motion property",
+        "Response is smoothed to avoid jitter",
+        "Effect remains visible when audio is unmuted or muted",
+        "No clipping or visual instability occurs"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-017",
+        "US-009"
+      ],
+      "split_from": "US-008",
+      "notes": "Examples: camera drift, field expansion, large wave amplitude."
+    },
+    {
+      "id": "US-019",
+      "title": "Map treble response to fine detail",
+      "description": "As a user, I want high frequencies to influence detail behavior so that the scene reflects the texture of the audio.",
+      "acceptanceCriteria": [
+        "Treble band influences at least one detail property",
+        "Response is smoothed to avoid flicker",
+        "Effect is visibly distinct from bass mapping",
+        "Scene remains readable"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-017",
+        "US-009"
+      ],
+      "split_from": "US-008",
+      "notes": "Examples: sparkle, point jitter, line brightness modulation."
+    },
+    {
+      "id": "US-020",
+      "title": "Add mute and unmute control",
+      "description": "As a user, I want a mute control so that I can choose whether to hear the soundtrack.",
+      "acceptanceCriteria": [
+        "A visible control toggles audio gain",
+        "Toggle updates instantly",
+        "Control is accessible while the scene is running",
+        "Audio analysis continues while muted"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-016",
+        "US-017"
+      ],
+      "split_from": "US-009",
+      "notes": "Use a GainNode rather than tearing down playback."
+    },
+    {
+      "id": "US-021",
+      "title": "Add info button shell",
+      "description": "As a user, I want an info button so that I can discover what the work is about.",
+      "acceptanceCriteria": [
+        "Info button is visible",
+        "Button opens an overlay",
+        "Overlay closes without reload",
+        "Overlay works on desktop and mobile"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-001"
+      ],
+      "split_from": "US-011",
+      "notes": "Keep UI minimal and unobtrusive."
+    },
+    {
+      "id": "US-022",
+      "title": "Write privacy and artwork copy",
+      "description": "As a user, I want a short explanation of the artwork and its privacy model so that I understand the intent.",
+      "acceptanceCriteria": [
+        "Overlay states this is an art installation",
+        "Overlay states no data is stored",
+        "Overlay states visitor context influences the scene",
+        "Copy stays concise"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-021"
+      ],
+      "split_from": "US-011",
+      "notes": "Avoid legal overstatement. Keep language simple."
+    },
+    {
+      "id": "US-023",
+      "title": "Show partially legible influence hints",
+      "description": "As a user, I want subtle examples of what influences the scene so that the mapping feels discoverable.",
+      "acceptanceCriteria": [
+        "Overlay names categories of influence such as time, device, location, and motion",
+        "Overlay does not reveal raw identifier values",
+        "Hints align with actual implemented mappings",
+        "Hints can be updated from a single source of truth"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-008",
+        "US-021",
+        "US-022"
+      ],
+      "split_from": null,
+      "notes": "Keep this conceptual rather than forensic."
+    },
+    {
+      "id": "US-024",
+      "title": "Add reduced-motion fallback",
+      "description": "As a user with reduced-motion preference, I want calmer movement so that the work remains comfortable to view.",
+      "acceptanceCriteria": [
+        "Reduced-motion preference is detected",
+        "Motion amplitude is lowered",
+        "Core visual identity is preserved",
+        "No separate page is required"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-004",
+        "US-009"
+      ],
+      "split_from": "US-014",
+      "notes": "Do not disable the work entirely."
+    },
+    {
+      "id": "US-025",
+      "title": "Add mobile quality scaling",
+      "description": "As a user on a mobile device, I want the scene to degrade gracefully so that the site remains usable.",
+      "acceptanceCriteria": [
+        "Lower-capability devices use reduced scene complexity",
+        "Touch input remains supported",
+        "Mobile browsers do not crash on load",
+        "Visual output stays recognizably similar"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-004",
+        "US-009",
+        "US-013"
+      ],
+      "split_from": "US-014",
+      "notes": "Scale particle counts, shader complexity, or post-processing."
+    },
+    {
+      "id": "US-026",
+      "title": "Create second visual mode",
+      "description": "As a user, I want occasional structural variation so that longer sessions feel less repetitive.",
+      "acceptanceCriteria": [
+        "A second mode is implemented",
+        "Both modes reuse the same seed and audio inputs",
+        "Mode choice is based on seed or elapsed time",
+        "Mode switch does not break playback"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-009",
+        "US-018",
+        "US-019"
+      ],
+      "split_from": "US-013",
+      "notes": "Keep mode boundaries clean so more can be added later."
+    },
+    {
+      "id": "US-027",
+      "title": "Add runtime health check",
+      "description": "As a developer, I want a lightweight validation pass so that tickets are only closed when the experience runs cleanly.",
+      "acceptanceCriteria": [
+        "Production build succeeds",
+        "No console errors on normal load",
+        "Scene renders when audio is blocked",
+        "Mute toggle and info overlay both work"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-020",
+        "US-022"
+      ],
+      "split_from": null,
+      "notes": "Use this as a recurring definition-of-done gate."
+    }
+  ]
+}
