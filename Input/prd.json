@@ -12,8 +12,8 @@
         "No runtime errors on first load"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [],
       "split_from": null,
       "notes": "Use Vite. Keep the initial scaffold minimal."
