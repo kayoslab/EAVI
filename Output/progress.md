@@ -16,3 +16,5 @@
 
 ## US-014: Load audio files from public folder
 
+## US-006: Track runtime pointer entropy
+
