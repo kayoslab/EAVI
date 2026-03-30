@@ -1,8 +1,13 @@
 export function startLoop(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
-  const frame = () => {
+  function frame() {
     ctx.fillStyle = '#000000'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-    requestAnimationFrame(frame)
   }
-  requestAnimationFrame(frame)
+
+  function tick() {
+    frame()
+    requestAnimationFrame(tick)
+  }
+
+  requestAnimationFrame(tick)
 }
