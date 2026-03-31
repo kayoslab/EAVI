@@ -2,3 +2,5 @@
 
 ## US-015: Randomize track selection
 
+## US-016: Attempt muted autoplay
+

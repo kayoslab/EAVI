@@ -315,15 +315,14 @@
         "Audio can later be enabled by user action"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-014",
         "US-015"
       ],
       "split_from": "US-006",
-      "notes": "Respect browser autoplay rules.",
-      "claimed_by": "worker-1"
+      "notes": "Respect browser autoplay rules."
     },
     {
       "id": "US-017",
