@@ -1,0 +1,148 @@
+{
+  "ticket": "US-016",
+  "title": "Attempt muted autoplay",
+  "overview": "Create the audio player module (src/audio/player.ts) that initialises a Web Audio API graph, loads a random track from /public/audio, and attempts muted autoplay. The module must handle autoplay rejection gracefully, ensure the audio analysis graph remains connected even when muted, and expose controls so the user can later unmute. Visuals must continue rendering regardless of autoplay outcome.",
+  "files": {
+    "create": [
+      "src/audio/player.ts",
+      "src/audio/analyser.ts",
+      "src/audio/trackList.ts",
+      "tests/audio/player.test.ts",
+      "tests/audio/analyser.test.ts",
+      "tests/audio/trackList.test.ts"
+    ],
+    "modify": [
+      "src/main.ts"
+    ]
+  },
+  "steps": [
+    {
+      "id": 1,
+      "action": "Create src/audio/trackList.ts — track manifest and random selection",
+      "details": [
+        "Export a TRACKS array of relative URLs pointing to /audio/*.mp3 files (hardcoded manifest since Vite cannot glob public/ at runtime)",
+        "Export pickTrack(previous?: string): string — returns a random track URL, avoiding immediate repeat when more than one track exists",
+        "This satisfies US-014 (load from public folder) and US-015 (random selection) dependencies that are marked pass but have no implementation"
+      ]
+    },
+    {
+      "id": 2,
+      "action": "Create src/audio/analyser.ts — audio analysis graph setup",
+      "details": [
+        "Export createAnalyser(ctx: AudioContext): { analyser: AnalyserNode, gainNode: GainNode, connectSource(source: AudioNode): void }",
+        "Wire graph: source → AnalyserNode → GainNode → ctx.destination",
+        "AnalyserNode with fftSize 2048 (or 1024 for performance), smoothingTimeConstant ~0.8",
+        "Export getFrequencyData(analyser: AnalyserNode): Uint8Array — returns current frequency byte data",
+        "Export getTimeDomainData(analyser: AnalyserNode): Uint8Array — returns current waveform byte data",
+        "Analysis continues regardless of GainNode value (muted gain=0 still feeds analyser)"
+      ]
+    },
+    {
+      "id": 3,
+      "action": "Create src/audio/player.ts — muted autoplay with graceful fallback",
+      "details": [
+        "Export interface AudioPlayer { readonly state: 'loading' | 'playing' | 'suspended' | 'error'; readonly muted: boolean; setMuted(muted: boolean): void; getAnalyserNode(): AnalyserNode | null; destroy(): void }",
+        "Export initAudio(): Promise<AudioPlayer>",
+        "Create AudioContext (lazy, on call)",
+        "Call pickTrack() to select a random track URL",
+        "Create an HTMLAudioElement or use fetch+decodeAudioData to load the track",
+        "Prefer HTMLAudioElement with MediaElementSourceNode for streaming (avoids loading entire file into memory)",
+        "Set gainNode.gain.value = 0 before attempting play (muted start)",
+        "Call audioElement.play() wrapped in try/catch — if promise rejects (autoplay blocked), set state to 'suspended' and log debug message, do NOT throw",
+        "If AudioContext is in 'suspended' state, leave it — user interaction will resume it later",
+        "setMuted(false) sets gain to 1.0 and calls ctx.resume() if suspended",
+        "setMuted(true) sets gain to 0",
+        "On track ended event: pick next track (avoiding repeat), load and play it",
+        "destroy() pauses audio, disconnects nodes, closes AudioContext"
+      ]
+    },
+    {
+      "id": 4,
+      "action": "Wire audio into src/main.ts",
+      "details": [
+        "Import initAudio from src/audio/player.ts",
+        "Call initAudio() after geo fetch (non-blocking — do not await before rendering)",
+        "Store the AudioPlayer reference for future use by UI toggle and render loop",
+        "Visuals (initScene, startLoop) must be called regardless of initAudio outcome — never gate rendering on audio",
+        "Log autoplay result: console.debug('[EAVI] audio state:', player.state)"
+      ]
+    },
+    {
+      "id": 5,
+      "action": "Create tests/audio/trackList.test.ts",
+      "details": [
+        "Test: pickTrack() returns a string from the TRACKS array",
+        "Test: pickTrack(previousUrl) does not return the same URL when multiple tracks exist",
+        "Test: pickTrack() works when only one track exists (returns that track)",
+        "Test: TRACKS array is non-empty and all entries start with /audio/"
+      ]
+    },
+    {
+      "id": 6,
+      "action": "Create tests/audio/analyser.test.ts",
+      "details": [
+        "Test: createAnalyser returns analyser, gainNode, and connectSource function",
+        "Test: gainNode is connected to destination (verify via AudioContext mock or node connections)",
+        "Test: getFrequencyData returns a Uint8Array of correct length",
+        "Test: getTimeDomainData returns a Uint8Array of correct length",
+        "Note: Web Audio API requires mocking in jsdom/vitest — use minimal stubs"
+      ]
+    },
+    {
+      "id": 7,
+      "action": "Create tests/audio/player.test.ts",
+      "details": [
+        "Test: initAudio() resolves without throwing even when play() rejects (autoplay blocked simulation)",
+        "Test: initial state is muted (player.muted === true)",
+        "Test: state is 'suspended' when autoplay is blocked",
+        "Test: state is 'playing' when autoplay succeeds",
+        "Test: setMuted(false) sets gain to 1 and calls ctx.resume()",
+        "Test: setMuted(true) sets gain to 0",
+        "Test: no localStorage, sessionStorage, or cookie usage",
+        "Test: destroy() cleans up AudioContext",
+        "Mock AudioContext, HTMLAudioElement, and play() promise for jsdom environment"
+      ]
+    },
+    {
+      "id": 8,
+      "action": "Add placeholder audio file",
+      "details": [
+        "Create /public/audio/ directory",
+        "Add at least one small silent or CC0 mp3 file so the player has something to load",
+        "If no real audio is available, create a minimal valid mp3 using a generated silent buffer (or note this as a follow-up)"
+      ]
+    },
+    {
+      "id": 9,
+      "action": "Validate",
+      "details": [
+        "Run npx vitest run — all tests pass",
+        "Run npx vite build — production build succeeds",
+        "Manual check: open dev server, confirm no console errors",
+        "Manual check: visuals render even if audio autoplay is blocked (test in Chrome with strict autoplay policy)",
+        "Confirm no forbidden storage APIs (cookies, localStorage, sessionStorage) are used"
+      ]
+    }
+  ],
+  "acceptanceCriteriaMapping": {
+    "Playback is attempted in muted mode": "Step 3 — gainNode.gain.value set to 0 before play() call",
+    "Autoplay failure is handled without crashing": "Step 3 — play() wrapped in try/catch, state set to 'suspended' on rejection",
+    "Visuals continue even if autoplay is blocked": "Step 4 — initScene/startLoop called independently of audio initialization",
+    "Audio can later be enabled by user action": "Step 3 — setMuted(false) resumes context and sets gain to 1.0"
+  },
+  "designNotes": [
+    "The audio graph is wired as: MediaElementSource → AnalyserNode → GainNode → destination. This ensures frequency analysis data is available even when gain is 0 (muted), because the AnalyserNode sits before the GainNode in the chain.",
+    "HTMLAudioElement with createMediaElementSource is preferred over fetch+decodeAudioData because it streams audio progressively rather than buffering the entire file.",
+    "Muting via GainNode (gain=0) rather than audioElement.muted preserves the audio graph connection and ensures analyser data flows. The element.muted property would disconnect the signal from our graph.",
+    "AudioContext.resume() is deferred to user interaction (setMuted toggle) to comply with browser autoplay policies that require a user gesture to unlock audio.",
+    "Track list is a static manifest rather than dynamic directory listing because Vite's /public folder is served as static assets with no directory index at runtime.",
+    "US-014 and US-015 are dependencies marked as 'pass' but have no code — this plan includes their minimal implementation (trackList.ts) as a prerequisite."
+  ],
+  "risks": [
+    "Web Audio API is hard to test in jsdom — tests will need mocks/stubs for AudioContext, AnalyserNode, GainNode, and HTMLAudioElement",
+    "No audio files exist in /public/audio/ yet — Step 8 addresses this but real licensed tracks may need to be added separately",
+    "Safari has stricter autoplay policies and may require a user gesture even for muted playback — the suspended fallback handles this",
+    "createMediaElementSource can only be called once per HTMLAudioElement — track switching must create new elements or reuse carefully"
+  ],
+  "estimatedComplexity": "medium"
+}
