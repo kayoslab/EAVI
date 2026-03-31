@@ -3,6 +3,7 @@ import type { VisualParams } from './mappings';
 export interface FrameState {
   time: number;
   delta: number;
+  elapsed: number;
   params: VisualParams;
   width: number;
   height: number;

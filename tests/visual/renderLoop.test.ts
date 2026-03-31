@@ -3,6 +3,7 @@ import { startLoop, type LoopDeps } from '../../src/visual/renderLoop';
 import type { BrowserSignals } from '../../src/input/signals';
 import type { GeoHint } from '../../src/input/geo';
 import type { VisualParams } from '../../src/visual/mappings';
+import type { FrameState } from '../../src/visual/types';
 
 function createTestCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
   const canvas = document.createElement('canvas');
@@ -306,6 +307,133 @@ describe('US-009: Render loop', () => {
         expect(treble).toBeGreaterThanOrEqual(0);
         expect(treble).toBeLessThanOrEqual(1);
       });
+    });
+  });
+
+  describe('US-012: Time-based evolution in render loop', () => {
+    it('T-012-17: elapsed time is tracked from first frame and passed in FrameState', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'elapsed-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount === 1) cb(100);
+        else if (frameCount === 2) cb(116);
+        else if (frameCount === 3) cb(200);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      expect(drawSpy).toHaveBeenCalledTimes(3);
+      const elapsed0 = (drawSpy.mock.calls[0][1] as FrameState).elapsed;
+      const elapsed1 = (drawSpy.mock.calls[1][1] as FrameState).elapsed;
+      const elapsed2 = (drawSpy.mock.calls[2][1] as FrameState).elapsed;
+      expect(elapsed0).toBe(0);
+      expect(elapsed1).toBe(16);
+      expect(elapsed2).toBe(100);
+    });
+
+    it('T-012-18: evolveParams is called when seed is available', async () => {
+      const evoModule = await import('../../src/visual/evolution');
+      const evolveSpy = vi.spyOn(evoModule, 'evolveParams');
+
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'evo-call-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      expect(evolveSpy).toHaveBeenCalledTimes(3);
+      for (const call of evolveSpy.mock.calls) {
+        expect(call[2]).toBe('evo-call-seed');
+      }
+      evolveSpy.mockRestore();
+    });
+
+    it('T-012-19: evolution is skipped in the default-params fallback branch (no seed)', async () => {
+      const evoModule = await import('../../src/visual/evolution');
+      const evolveSpy = vi.spyOn(evoModule, 'evolveParams');
+
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, { signals: defaultSignals }); // no seed
+      expect(evolveSpy).not.toHaveBeenCalled();
+      evolveSpy.mockRestore();
+    });
+
+    it('T-012-20: evolved params are passed to geometry.draw instead of raw base params', async () => {
+      const evoModule = await import('../../src/visual/evolution');
+      const evolveSpy = vi.spyOn(evoModule, 'evolveParams').mockImplementation((base) => ({
+        ...base,
+        paletteHue: 999,
+      }));
+
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'evolved-draw-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 1) cb(16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      expect(drawSpy).toHaveBeenCalled();
+      const frameState = drawSpy.mock.calls[0][1] as FrameState;
+      expect(frameState.params.paletteHue).toBe(999);
+      evolveSpy.mockRestore();
+    });
+
+    it('T-012-21: elapsed time increases monotonically across frames', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'mono-elapsed-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 10) cb(100 + frameCount * 16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      const elapsedValues = drawSpy.mock.calls.map(
+        (c: unknown[]) => (c[1] as FrameState).elapsed,
+      );
+      for (let i = 1; i < elapsedValues.length; i++) {
+        expect(elapsedValues[i]).toBeGreaterThan(elapsedValues[i - 1]);
+      }
     });
   });
 
