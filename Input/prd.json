@@ -452,7 +452,7 @@
       ],
       "priority": 2,
       "passes": true,
-      "status": "fail",
+      "status": "pass",
       "depends_on": [
         "US-008",
         "US-021",
