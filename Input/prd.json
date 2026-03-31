@@ -98,7 +98,7 @@
       ],
       "split_from": "US-003",
       "notes": "Implement as Vercel serverless/edge function using geolocation().",
-      "claimed_by": "worker-3"
+      "claimed_by": "worker-2"
     },
     {
       "id": "US-006",
@@ -297,12 +297,13 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-014"
       ],
       "split_from": "US-006",
-      "notes": "Avoid immediate repeat when more than one track exists."
+      "notes": "Avoid immediate repeat when more than one track exists.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-016",
@@ -518,6 +519,7 @@
       "status": "available",
       "depends_on": [
         "US-009",
+        "US-012",
         "US-018",
         "US-019"
       ],
