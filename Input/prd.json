@@ -335,8 +335,8 @@
         "Mute state does not disable analysis"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-016"
       ],
