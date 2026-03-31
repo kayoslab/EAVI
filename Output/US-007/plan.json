@@ -1,0 +1,101 @@
+{
+  "ticket": "US-007",
+  "title": "Generate ephemeral session seed",
+  "overview": "Implement a deterministic session seed generator that combines browser signals, geo hint, and current timestamp into a stable hash. The seed is computed once at session start and remains constant for the session lifetime. No source data is stored — only the derived seed persists in memory.",
+  "depends_on": ["US-003", "US-004", "US-005"],
+  "files": {
+    "create": [
+      "src/seed/sessionSeed.ts",
+      "tests/seed/sessionSeed.test.ts"
+    ],
+    "modify": [
+      "src/main.ts"
+    ]
+  },
+  "steps": [
+    {
+      "id": 1,
+      "phase": "test",
+      "title": "Write tests for sessionSeed module",
+      "file": "tests/seed/sessionSeed.test.ts",
+      "details": [
+        "Create describe block: 'US-007: Generate ephemeral session seed'",
+        "Test: seed includes a time component — different timestamps produce different seeds",
+        "Test: seed changes on reload — different signal snapshots yield different seeds",
+        "Test: seed remains stable during one session — calling the getter multiple times returns the same value",
+        "Test: seed is derived without storing source data — only the hash string is retained, not the original inputs",
+        "Test: deterministic — identical inputs always produce the same hash",
+        "Test: handles null geo values gracefully (country/region null)",
+        "Test: handles null/missing optional signal values (devicePixelRatio null, hardwareConcurrency null)",
+        "Test: no forbidden storage APIs accessed (localStorage, sessionStorage, cookies)",
+        "Test: seed is a non-empty string of consistent format"
+      ],
+      "conventions": [
+        "Follow existing test pattern: vi.spyOn for browser APIs, vi.fn for mocks",
+        "Mock readSignals() and fetchGeoHint() to control inputs",
+        "Use beforeEach to reset module state between tests"
+      ]
+    },
+    {
+      "id": 2,
+      "phase": "implement",
+      "title": "Implement sessionSeed module",
+      "file": "src/seed/sessionSeed.ts",
+      "details": [
+        "Define SeedInputs interface: { signals: BrowserSignals; geo: GeoHint; timestamp: number }",
+        "Implement a simple synchronous deterministic hash function (djb2 or FNV-1a) — no crypto dependency needed since this is not security-sensitive",
+        "Implement hashInputs(inputs: SeedInputs): string — serializes inputs to a canonical string, then hashes to a hex/base36 string",
+        "Implement createSessionSeed(signals: BrowserSignals, geo: GeoHint): string — captures Date.now() at call time, combines with signals and geo, returns hash",
+        "Export a module-level singleton pattern: initSessionSeed(signals, geo) sets the seed once, getSessionSeed() returns it thereafter",
+        "getSessionSeed() throws if called before init to catch usage errors",
+        "No source data retained after hashing — only the derived string is kept in the module closure"
+      ],
+      "exports": [
+        "SeedInputs (interface)",
+        "hashInputs(inputs: SeedInputs): string",
+        "initSessionSeed(signals: BrowserSignals, geo: GeoHint): string",
+        "getSessionSeed(): string"
+      ],
+      "hash_approach": "Use a simple string hash (djb2 or FNV-1a) operating on JSON.stringify of a sorted/canonical input object. Output as base-36 string for compactness. No need for crypto.subtle since this is a scene seed, not a security primitive."
+    },
+    {
+      "id": 3,
+      "phase": "integrate",
+      "title": "Wire sessionSeed into main.ts",
+      "file": "src/main.ts",
+      "details": [
+        "Import readSignals from src/input/signals",
+        "Import initSessionSeed from src/seed/sessionSeed",
+        "After geoPromise resolves, call readSignals() and initSessionSeed(signals, geo)",
+        "Log the seed with console.debug('[EAVI] session seed:', seed)",
+        "Seed is now available via getSessionSeed() for downstream visual modules"
+      ]
+    },
+    {
+      "id": 4,
+      "phase": "verify",
+      "title": "Run tests and build",
+      "details": [
+        "Run vitest to confirm all new and existing tests pass",
+        "Run npm run build to confirm production build succeeds",
+        "Verify no console errors, no forbidden API usage"
+      ],
+      "commands": [
+        "npm test",
+        "npm run build"
+      ]
+    }
+  ],
+  "acceptance_verification": {
+    "seed_includes_time_component": "hashInputs uses timestamp field; test confirms different timestamps yield different seeds",
+    "seed_changes_on_reload": "Each call to initSessionSeed captures fresh Date.now(); test with different mock times confirms different output",
+    "seed_remains_stable_during_session": "Module singleton pattern — initSessionSeed sets once, getSessionSeed always returns same value; test calls getter multiple times",
+    "seed_derived_without_storing_source_data": "After hashing, only the string result is stored in the module closure; original signals/geo/timestamp are not retained; test verifies module exports no references to source data"
+  },
+  "technical_notes": {
+    "hash_function": "djb2 or FNV-1a — both are fast, deterministic, and produce good distribution for non-cryptographic use. No external dependency required.",
+    "serialization": "JSON.stringify with sorted keys to ensure deterministic input ordering across environments",
+    "no_pointer_entropy": "Pointer entropy is intentionally excluded from the session seed — it is a per-frame signal consumed by the render loop, not a session-level input. The seed must be stable for the session.",
+    "timestamp_granularity": "Date.now() milliseconds — sufficient for uniqueness across reloads"
+  }
+}
