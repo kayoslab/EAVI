@@ -1,0 +1,58 @@
+{
+  "ticket": "US-019",
+  "architectural_impact": "LOW",
+  "rationale": "The plan modifies only two source files (renderLoop.ts, particleField.ts) with additive changes that stay within existing interfaces. No type signatures, module boundaries, or data flow paths change. The VisualParams.trebleEnergy field already exists and is already consumed by particleField — the plan simply enriches what happens downstream. EMA smoothing is a single closure variable in the render loop. All four particle effects (sparkle, jitter, brightness, alpha) operate within the existing draw() method and respect the current normalized 0-1 parameter contract.",
+  "interface_changes": [],
+  "module_boundary_changes": [],
+  "data_flow_changes": [
+    {
+      "description": "Raw treble value passed to mapSignalsToVisuals is replaced by EMA-smoothed treble in renderLoop.ts",
+      "impact": "LOW",
+      "note": "The smoothing is applied before the existing normalization in trebleToShimmer(), so the output contract (trebleEnergy: 0-1) is preserved. Downstream consumers are unaffected."
+    }
+  ],
+  "dependency_changes": [],
+  "risk_assessment": [
+    {
+      "risk": "EMA alpha 0.85 may over-smooth treble, making response feel sluggish",
+      "severity": "LOW",
+      "mitigation": "Tunable constant; Web Audio smoothingTimeConstant=0.8 already provides first-stage smoothing. Alpha can be lowered to 0.7 if needed."
+    },
+    {
+      "risk": "Switching hsl() to hsla() could affect visual appearance at low treble",
+      "severity": "LOW",
+      "mitigation": "Alpha floor is 0.6 (not zero), so particles remain visible. Existing tests for bounds and readability will catch regressions."
+    },
+    {
+      "risk": "Micro-jitter applied to render position could cause sub-pixel artifacts on low-DPI displays",
+      "severity": "LOW",
+      "mitigation": "Jitter magnitude (0.003 * canvas dimension) is ~3px at 1080p — perceptible but small. Scales with trebleEnergy so it's zero when silent."
+    }
+  ],
+  "test_coverage": {
+    "new_tests": 6,
+    "test_ids": [
+      "T-019-01",
+      "T-019-02",
+      "T-019-03",
+      "T-019-04",
+      "T-019-05",
+      "T-019-06"
+    ],
+    "coverage_gaps": [],
+    "note": "Tests extend existing suites (renderLoop.test.ts, particleField.test.ts). All four acceptance criteria have dedicated test coverage."
+  },
+  "files_modified": 4,
+  "files_created": 0,
+  "concerns": [],
+  "suggestions": [
+    {
+      "suggestion": "Consider exposing the EMA alpha as a named constant (e.g., TREBLE_SMOOTH_ALPHA = 0.85) at the top of renderLoop.ts for easier tuning",
+      "priority": "LOW"
+    }
+  ],
+  "approved": true,
+  "decision": "APPROVE",
+  "adr_entry": null,
+  "failures": []
+}
