@@ -1,0 +1,76 @@
+{
+  "ticket": "US-019",
+  "tests": [
+    {
+      "id": "T-019-01",
+      "file": "tests/visual/renderLoop.test.ts",
+      "description": "Treble energy is smoothed across consecutive frames — a spike followed by silence decays gradually rather than dropping to zero instantly",
+      "code": "it('T-019-01: treble energy is smoothed across consecutive frames (spike decays gradually)', () => {\n    const drawSpy = vi.fn();\n    const mockGeo = { init: vi.fn(), draw: drawSpy };\n\n    // Frame 1: treble spike (high-frequency bins filled)\n    // Frame 2+: silence (bins zeroed)\n    let frameCount = 0;\n    const highTreble = new Uint8Array(128);\n    // Fill upper 25% with high values to create treble spike\n    for (let i = 96; i < 128; i++) highTreble[i] = 200;\n    const silence = new Uint8Array(128).fill(0);\n\n    const mockPipeline = {\n      frequency: highTreble,\n      timeDomain: new Uint8Array(128).fill(128),\n      poll: vi.fn(() => {\n        // After first frame, switch to silence\n        if (frameCount > 1) {\n          mockPipeline.frequency = silence;\n        }\n      }),\n    };\n\n    const deps: LoopDeps = {\n      geometrySystem: mockGeo,\n      seed: 'smooth-treble-seed',\n      signals: defaultSignals,\n      geo: defaultGeo,\n      getAnalyserPipeline: () => mockPipeline,\n    };\n\n    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n      frameCount++;\n      if (frameCount <= 4) cb(frameCount * 16);\n      return frameCount;\n    });\n\n    const { canvas, ctx } = createTestCanvas();\n    startLoop(canvas, ctx, deps);\n\n    // Collect trebleEnergy across frames\n    const trebleValues = drawSpy.mock.calls.map(\n      (c: unknown[]) => (c[1] as { params: VisualParams }).params.trebleEnergy,\n    );\n\n    // Frame 1 should have high treble\n    expect(trebleValues[0]).toBeGreaterThan(0);\n\n    // After silence frames, treble should still be > 0 due to smoothing\n    // (not an instant drop to zero)\n    const postSilenceTreble = trebleValues[2]; // 2nd frame after silence\n    expect(postSilenceTreble).toBeGreaterThan(0);\n\n    // But it should be decaying (later frames lower than spike frame)\n    expect(trebleValues[trebleValues.length - 1]).toBeLessThan(trebleValues[0]);\n  })",
+      "depends_on": ["T-009-24"]
+    },
+    {
+      "id": "T-019-02",
+      "file": "tests/visual/renderLoop.test.ts",
+      "description": "Smoothed treble value stays within 0-1 range after mapping",
+      "code": "it('T-019-02: smoothed treble value stays within 0-1 range', () => {\n    const drawSpy = vi.fn();\n    const mockGeo = { init: vi.fn(), draw: drawSpy };\n\n    // Max possible treble: all upper-quarter bins at 255\n    const maxTreble = new Uint8Array(128);\n    for (let i = 96; i < 128; i++) maxTreble[i] = 255;\n\n    const mockPipeline = {\n      frequency: maxTreble,\n      timeDomain: new Uint8Array(128).fill(128),\n      poll: vi.fn(),\n    };\n\n    const deps: LoopDeps = {\n      geometrySystem: mockGeo,\n      seed: 'treble-range-seed',\n      signals: defaultSignals,\n      geo: defaultGeo,\n      getAnalyserPipeline: () => mockPipeline,\n    };\n\n    let frameCount = 0;\n    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n      frameCount++;\n      if (frameCount <= 5) cb(frameCount * 16);\n      return frameCount;\n    });\n\n    const { canvas, ctx } = createTestCanvas();\n    startLoop(canvas, ctx, deps);\n\n    drawSpy.mock.calls.forEach((c: unknown[]) => {\n      const treble = (c[1] as { params: VisualParams }).params.trebleEnergy;\n      expect(treble).toBeGreaterThanOrEqual(0);\n      expect(treble).toBeLessThanOrEqual(1);\n    });\n  })",
+      "depends_on": []
+    },
+    {
+      "id": "T-019-03",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "Treble energy influences at least one visual detail property — particles rendered with high trebleEnergy produce different fillStyle/size than with trebleEnergy=0",
+      "code": "it('T-019-03: treble energy influences visual detail properties (fillStyle and size differ)', () => {\n    const canvas = document.createElement('canvas');\n    canvas.width = 400;\n    canvas.height = 400;\n    const ctx = canvas.getContext('2d')!;\n\n    const capturedStylesZero: string[] = [];\n    const capturedRectsZero: number[][] = [];\n    const capturedStylesHigh: string[] = [];\n    const capturedRectsHigh: number[][] = [];\n\n    // --- Run with trebleEnergy = 0 ---\n    const field0 = createParticleField();\n    const params0 = { ...defaultParams, trebleEnergy: 0 };\n    field0.init(ctx, 'treble-detail-seed', params0);\n\n    let styleProxy: string = '';\n    Object.defineProperty(ctx, 'fillStyle', {\n      set(v: string) { styleProxy = v; capturedStylesZero.push(v); },\n      get() { return styleProxy; },\n      configurable: true,\n    });\n    const origFillRect = ctx.fillRect.bind(ctx);\n    ctx.fillRect = (...args: [number, number, number, number]) => {\n      capturedRectsZero.push([...args]);\n      origFillRect(...args);\n    };\n\n    field0.draw(ctx, { time: 1000, delta: 16, params: params0, width: 400, height: 400 });\n\n    // --- Run with trebleEnergy = 1 ---\n    const field1 = createParticleField();\n    const params1 = { ...defaultParams, trebleEnergy: 1 };\n    field1.init(ctx, 'treble-detail-seed', params1);\n\n    Object.defineProperty(ctx, 'fillStyle', {\n      set(v: string) { styleProxy = v; capturedStylesHigh.push(v); },\n      get() { return styleProxy; },\n      configurable: true,\n    });\n    ctx.fillRect = (...args: [number, number, number, number]) => {\n      capturedRectsHigh.push([...args]);\n      origFillRect(...args);\n    };\n\n    field1.draw(ctx, { time: 1000, delta: 16, params: params1, width: 400, height: 400 });\n\n    // Filter out the black background clear\n    const particleStylesZero = capturedStylesZero.filter(s => s.startsWith('hsl'));\n    const particleStylesHigh = capturedStylesHigh.filter(s => s.startsWith('hsl'));\n\n    expect(particleStylesZero.length).toBeGreaterThan(0);\n    expect(particleStylesHigh.length).toBeGreaterThan(0);\n\n    // At least one style or rect dimension should differ\n    const stylesDiffer = particleStylesZero[0] !== particleStylesHigh[0];\n    // Compare particle sizes (3rd element = width of fillRect for particles, not bg)\n    const particleRectsZero = capturedRectsZero.filter(r => !(r[0] === 0 && r[1] === 0 && r[2] === 400 && r[3] === 400));\n    const particleRectsHigh = capturedRectsHigh.filter(r => !(r[0] === 0 && r[1] === 0 && r[2] === 400 && r[3] === 400));\n    const sizesDiffer = particleRectsZero.length > 0 && particleRectsHigh.length > 0 &&\n      particleRectsZero[0][2] !== particleRectsHigh[0][2];\n\n    expect(stylesDiffer || sizesDiffer).toBe(true);\n  })",
+      "depends_on": ["T-009-16"]
+    },
+    {
+      "id": "T-019-04",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "Treble effect is visibly distinct from bass — with only treble active particles change appearance but not macro displacement; with only bass active particles displace but don't shimmer",
+      "code": "it('T-019-04: treble effect is distinct from bass — treble changes appearance, bass changes displacement', () => {\n    const canvas = document.createElement('canvas');\n    canvas.width = 800;\n    canvas.height = 600;\n    const ctx = canvas.getContext('2d')!;\n\n    const baseFrame = { time: 0, delta: 16, width: 800, height: 600 };\n\n    // --- Treble only (bass=0, treble=1) ---\n    const trebleOnly = createParticleField();\n    const trebleParams = { ...defaultParams, bassEnergy: 0, trebleEnergy: 1 };\n    trebleOnly.init(ctx, 'distinct-seed', trebleParams);\n    const initialTreble = getParticlePositions(trebleOnly).map(p => ({ ...p }));\n    trebleOnly.draw(ctx, { ...baseFrame, params: trebleParams });\n    const afterTreble = getParticlePositions(trebleOnly);\n    const trebleDisplacement = computeTotalDisplacement(afterTreble, initialTreble);\n\n    // --- Bass only (bass=1, treble=0) ---\n    const bassOnly = createParticleField();\n    const bassParams = { ...defaultParams, bassEnergy: 1, trebleEnergy: 0 };\n    bassOnly.init(ctx, 'distinct-seed', bassParams);\n    const initialBass = getParticlePositions(bassOnly).map(p => ({ ...p }));\n    bassOnly.draw(ctx, { ...baseFrame, params: bassParams });\n    const afterBass = getParticlePositions(bassOnly);\n    const bassDisplacement = computeTotalDisplacement(afterBass, initialBass);\n\n    // Bass should cause significantly more displacement than treble\n    // because bass amplifies velocity via bassBoost = 1 + bassEnergy * 2\n    expect(bassDisplacement).toBeGreaterThan(trebleDisplacement);\n\n    // Treble influences appearance (lightness/size), not displacement\n    // shimmer = 1 + trebleEnergy * 0.5, light = 50 + trebleEnergy * 20\n    // So treble should NOT amplify displacement the way bass does\n    // (treble displacement should be same as zero-energy baseline)\n    const zeroField = createParticleField();\n    const zeroParams = { ...defaultParams, bassEnergy: 0, trebleEnergy: 0 };\n    zeroField.init(ctx, 'distinct-seed', zeroParams);\n    const initialZero = getParticlePositions(zeroField).map(p => ({ ...p }));\n    zeroField.draw(ctx, { ...baseFrame, params: zeroParams });\n    const afterZero = getParticlePositions(zeroField);\n    const zeroDisplacement = computeTotalDisplacement(afterZero, initialZero);\n\n    // Treble-only displacement should be similar to zero-energy displacement\n    // (within a small tolerance) since treble doesn't affect velocity\n    expect(Math.abs(trebleDisplacement - zeroDisplacement)).toBeLessThan(0.01);\n  })",
+      "depends_on": ["T-009-13"]
+    },
+    {
+      "id": "T-019-05",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "Scene remains readable — particle positions stay within canvas bounds even with maximum treble energy",
+      "code": "it('T-019-05: particle positions stay within bounds with maximum treble energy', () => {\n    const canvas = document.createElement('canvas');\n    canvas.width = 800;\n    canvas.height = 600;\n    const ctx = canvas.getContext('2d')!;\n\n    const field = createParticleField();\n    const maxTrebleParams = { ...defaultParams, trebleEnergy: 1, bassEnergy: 1 };\n    field.init(ctx, 'bounds-treble-seed', maxTrebleParams);\n\n    // Run many frames with max treble\n    for (let t = 0; t < 100; t++) {\n      field.draw(ctx, {\n        time: t * 100,\n        delta: 100,\n        params: maxTrebleParams,\n        width: 800,\n        height: 600,\n      });\n    }\n\n    const positions = getParticlePositions(field);\n    positions.forEach((p) => {\n      expect(p.x).toBeGreaterThanOrEqual(0);\n      expect(p.x).toBeLessThanOrEqual(1);\n      expect(p.y).toBeGreaterThanOrEqual(0);\n      expect(p.y).toBeLessThanOrEqual(1);\n    });\n  })",
+      "depends_on": ["T-009-15"]
+    },
+    {
+      "id": "T-019-06",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "Treble jitter does not accumulate in stored particle positions — positions after N frames with treble are bounded similarly to frames without treble",
+      "code": "it('T-019-06: treble does not cause unbounded position drift compared to zero treble', () => {\n    const canvas = document.createElement('canvas');\n    canvas.width = 800;\n    canvas.height = 600;\n    const ctx = canvas.getContext('2d')!;\n    const numFrames = 50;\n\n    // --- With treble ---\n    const fieldTreble = createParticleField();\n    const trebleParams = { ...defaultParams, trebleEnergy: 1 };\n    fieldTreble.init(ctx, 'drift-seed', trebleParams);\n    for (let t = 0; t < numFrames; t++) {\n      fieldTreble.draw(ctx, {\n        time: t * 16,\n        delta: 16,\n        params: trebleParams,\n        width: 800,\n        height: 600,\n      });\n    }\n    const posTreble = getParticlePositions(fieldTreble);\n\n    // --- Without treble ---\n    const fieldZero = createParticleField();\n    const zeroParams = { ...defaultParams, trebleEnergy: 0 };\n    fieldZero.init(ctx, 'drift-seed', zeroParams);\n    for (let t = 0; t < numFrames; t++) {\n      fieldZero.draw(ctx, {\n        time: t * 16,\n        delta: 16,\n        params: zeroParams,\n        width: 800,\n        height: 600,\n      });\n    }\n    const posZero = getParticlePositions(fieldZero);\n\n    // Both should be within [0, 1] bounds\n    posTreble.forEach((p) => {\n      expect(p.x).toBeGreaterThanOrEqual(0);\n      expect(p.x).toBeLessThanOrEqual(1);\n      expect(p.y).toBeGreaterThanOrEqual(0);\n      expect(p.y).toBeLessThanOrEqual(1);\n    });\n\n    posZero.forEach((p) => {\n      expect(p.x).toBeGreaterThanOrEqual(0);\n      expect(p.x).toBeLessThanOrEqual(1);\n      expect(p.y).toBeGreaterThanOrEqual(0);\n      expect(p.y).toBeLessThanOrEqual(1);\n    });\n\n    // Treble should not cause positions to diverge wildly from zero-treble run\n    // (since treble affects rendering, not stored positions in current impl)\n    const displacement = computeTotalDisplacement(posTreble, posZero);\n    // Should be very small or zero — treble doesn't modify velocity\n    expect(displacement).toBeLessThan(0.1);\n  })",
+      "depends_on": ["T-009-15"]
+    }
+  ],
+  "fileOperations": [
+    {
+      "action": "modify",
+      "path": "tests/visual/renderLoop.test.ts",
+      "insertionPoint": "after the privacy describe block (line 229), inside the outer describe",
+      "testIds": ["T-019-01", "T-019-02"],
+      "newDescribeBlock": "US-019: Treble smoothing in render loop"
+    },
+    {
+      "action": "modify",
+      "path": "tests/visual/systems/particleField.test.ts",
+      "insertionPoint": "after the privacy describe block (line 248), inside the outer describe",
+      "testIds": ["T-019-03", "T-019-04", "T-019-05", "T-019-06"],
+      "newDescribeBlock": "US-019: Treble detail effects"
+    }
+  ],
+  "testSummary": {
+    "total": 6,
+    "byFile": {
+      "tests/visual/renderLoop.test.ts": 2,
+      "tests/visual/systems/particleField.test.ts": 4
+    },
+    "coverageMapping": {
+      "AC1_treble_influences_detail": ["T-019-03"],
+      "AC2_smoothed_no_flicker": ["T-019-01", "T-019-02"],
+      "AC3_distinct_from_bass": ["T-019-04"],
+      "AC4_scene_readable": ["T-019-05", "T-019-06"]
+    }
+  }
+}
