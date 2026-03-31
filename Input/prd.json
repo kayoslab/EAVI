@@ -70,12 +70,13 @@
       ],
       "priority": 1,
       "passes": true,
-      "status": "pass",
+      "status": "in_progress",
       "depends_on": [
         "US-001"
       ],
       "split_from": "US-002",
-      "notes": "Treat all values as optional."
+      "notes": "Treat all values as optional.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-005",
@@ -415,7 +416,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-001"
       ],
