@@ -129,16 +129,15 @@
         "Seed is derived without storing source data"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-003",
         "US-004",
         "US-005"
       ],
       "split_from": "US-004",
-      "notes": "Use a simple deterministic hash.",
-      "claimed_by": "worker-3"
+      "notes": "Use a simple deterministic hash."
     },
     {
       "id": "US-008",

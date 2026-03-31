@@ -6,3 +6,5 @@
 
 ## US-017: Create analyser pipeline
 
+## US-007: Generate ephemeral session seed
+
