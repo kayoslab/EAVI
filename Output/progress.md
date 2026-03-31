@@ -18,3 +18,5 @@
 
 ## US-003: Read low-entropy browser signals
 
+## US-021: Add info button shell
+
