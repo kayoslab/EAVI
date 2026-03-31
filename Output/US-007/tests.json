@@ -1,0 +1,266 @@
+{
+  "ticket": "US-007",
+  "title": "Generate ephemeral session seed",
+  "testFile": "tests/seed/sessionSeed.test.ts",
+  "framework": "vitest",
+  "environment": "jsdom",
+  "imports": [
+    { "from": "vitest", "names": ["describe", "it", "expect", "vi", "beforeEach"] }
+  ],
+  "mocks": {
+    "readSignals": {
+      "module": "../../src/input/signals",
+      "strategy": "vi.mock with factory returning vi.fn()",
+      "note": "Returns a full BrowserSignals object with controllable values"
+    },
+    "fetchGeoHint": {
+      "module": "../../src/input/geo",
+      "strategy": "vi.mock with factory returning vi.fn()",
+      "note": "Returns a GeoHint object; tests control country/region values"
+    },
+    "Date.now": {
+      "strategy": "vi.spyOn(Date, 'now').mockReturnValue(fixedTimestamp)",
+      "note": "Control the timestamp component of the seed"
+    },
+    "Storage.prototype": {
+      "strategy": "vi.spyOn(Storage.prototype, 'getItem') and vi.spyOn(Storage.prototype, 'setItem')",
+      "note": "Privacy enforcement — verify no storage access"
+    },
+    "document.cookie": {
+      "strategy": "vi.spyOn(document, 'cookie', 'set')",
+      "note": "Privacy enforcement — verify no cookie access"
+    }
+  },
+  "helpers": {
+    "defaultSignals": {
+      "type": "BrowserSignals",
+      "value": {
+        "language": "en-US",
+        "timezone": "America/New_York",
+        "screenWidth": 1920,
+        "screenHeight": 1080,
+        "devicePixelRatio": 2,
+        "hardwareConcurrency": 8,
+        "prefersColorScheme": "dark",
+        "prefersReducedMotion": false,
+        "touchCapable": false
+      }
+    },
+    "defaultGeo": {
+      "type": "GeoHint",
+      "value": { "country": "US", "region": "CA" }
+    },
+    "nullGeo": {
+      "type": "GeoHint",
+      "value": { "country": null, "region": null }
+    }
+  },
+  "setupPattern": {
+    "beforeEach": [
+      "vi.resetModules()",
+      "vi.restoreAllMocks()",
+      "Dynamic import of ../../src/seed/sessionSeed to get fresh module state per test"
+    ],
+    "note": "Module must be re-imported each test because the singleton seed is set once per module lifetime"
+  },
+  "describe": "US-007: Generate ephemeral session seed",
+  "tests": [
+    {
+      "id": "T-007-01",
+      "name": "seed includes time component — different timestamps produce different seeds",
+      "type": "unit",
+      "arrange": [
+        "Mock Date.now to return 1000000000000",
+        "Call initSessionSeed(defaultSignals, defaultGeo) → seed1",
+        "Reset module, mock Date.now to return 1000000060000",
+        "Call initSessionSeed(defaultSignals, defaultGeo) → seed2"
+      ],
+      "act": "Compare seed1 and seed2",
+      "assert": [
+        "expect(seed1).not.toBe(seed2)"
+      ],
+      "acceptanceCriteria": "Seed includes current time component"
+    },
+    {
+      "id": "T-007-02",
+      "name": "seed changes on reload — different signal snapshots yield different seeds",
+      "type": "unit",
+      "arrange": [
+        "Fix Date.now to same value for both calls",
+        "Call initSessionSeed(signalsA, defaultGeo) → seed1 where signalsA has language='en-US'",
+        "Reset module",
+        "Call initSessionSeed(signalsB, defaultGeo) → seed2 where signalsB has language='fr-FR'"
+      ],
+      "act": "Compare seed1 and seed2",
+      "assert": [
+        "expect(seed1).not.toBe(seed2)"
+      ],
+      "acceptanceCriteria": "Seed changes on reload"
+    },
+    {
+      "id": "T-007-03",
+      "name": "seed remains stable during one session — getter returns the same value",
+      "type": "unit",
+      "arrange": [
+        "Call initSessionSeed(defaultSignals, defaultGeo)"
+      ],
+      "act": "Call getSessionSeed() three times",
+      "assert": [
+        "expect(getSessionSeed()).toBe(getSessionSeed())",
+        "All three calls return the identical string"
+      ],
+      "acceptanceCriteria": "Seed remains stable during one session"
+    },
+    {
+      "id": "T-007-04",
+      "name": "seed is derived without storing source data — module retains only the hash",
+      "type": "unit",
+      "arrange": [
+        "Call initSessionSeed(defaultSignals, defaultGeo)"
+      ],
+      "act": "Inspect the seed value returned",
+      "assert": [
+        "Seed does not contain raw signal values (language, timezone, screenWidth, etc.)",
+        "expect(seed).not.toContain('en-US')",
+        "expect(seed).not.toContain('America/New_York')",
+        "expect(seed).not.toContain('1920')",
+        "expect(seed).not.toContain('US')",
+        "expect(seed).not.toContain('CA')"
+      ],
+      "acceptanceCriteria": "Seed is derived without storing source data"
+    },
+    {
+      "id": "T-007-05",
+      "name": "deterministic — identical inputs always produce the same hash",
+      "type": "unit",
+      "arrange": [
+        "Fix Date.now to 1000000000000",
+        "Call initSessionSeed(defaultSignals, defaultGeo) → seed1",
+        "Reset module, fix Date.now to same 1000000000000",
+        "Call initSessionSeed(defaultSignals, defaultGeo) → seed2"
+      ],
+      "act": "Compare seed1 and seed2",
+      "assert": [
+        "expect(seed1).toBe(seed2)"
+      ],
+      "acceptanceCriteria": "Deterministic hash"
+    },
+    {
+      "id": "T-007-06",
+      "name": "handles null geo values gracefully",
+      "type": "unit",
+      "arrange": [
+        "Call initSessionSeed(defaultSignals, { country: null, region: null })"
+      ],
+      "act": "Get the seed",
+      "assert": [
+        "expect(seed).toBeTruthy()",
+        "expect(typeof seed).toBe('string')",
+        "No error thrown"
+      ],
+      "acceptanceCriteria": "Graceful null geo handling"
+    },
+    {
+      "id": "T-007-07",
+      "name": "handles null optional signal values gracefully",
+      "type": "unit",
+      "arrange": [
+        "Create signals with devicePixelRatio: null, hardwareConcurrency: null, prefersColorScheme: null, prefersReducedMotion: null, touchCapable: null",
+        "Call initSessionSeed(nullishSignals, defaultGeo)"
+      ],
+      "act": "Get the seed",
+      "assert": [
+        "expect(seed).toBeTruthy()",
+        "expect(typeof seed).toBe('string')",
+        "No error thrown"
+      ],
+      "acceptanceCriteria": "Graceful null signal handling"
+    },
+    {
+      "id": "T-007-08",
+      "name": "no forbidden storage APIs accessed",
+      "type": "privacy",
+      "arrange": [
+        "Spy on Storage.prototype.getItem, Storage.prototype.setItem, document.cookie setter"
+      ],
+      "act": "Call initSessionSeed(defaultSignals, defaultGeo) and getSessionSeed()",
+      "assert": [
+        "expect(getItemSpy).not.toHaveBeenCalled()",
+        "expect(setItemSpy).not.toHaveBeenCalled()",
+        "expect(cookieSpy).not.toHaveBeenCalled()"
+      ],
+      "acceptanceCriteria": "Seed is derived without storing source data"
+    },
+    {
+      "id": "T-007-09",
+      "name": "seed is a non-empty string of consistent format",
+      "type": "unit",
+      "arrange": [
+        "Call initSessionSeed(defaultSignals, defaultGeo)"
+      ],
+      "act": "Inspect the returned seed",
+      "assert": [
+        "expect(typeof seed).toBe('string')",
+        "expect(seed.length).toBeGreaterThan(0)",
+        "expect(seed).toMatch(/^[a-z0-9]+$/) — alphanumeric base-36 format"
+      ],
+      "acceptanceCriteria": "Consistent format"
+    },
+    {
+      "id": "T-007-10",
+      "name": "getSessionSeed throws if called before init",
+      "type": "unit",
+      "arrange": [
+        "Fresh module import without calling initSessionSeed"
+      ],
+      "act": "Call getSessionSeed()",
+      "assert": [
+        "expect(() => getSessionSeed()).toThrow()"
+      ],
+      "acceptanceCriteria": "Usage error detection"
+    },
+    {
+      "id": "T-007-11",
+      "name": "initSessionSeed returns the seed string",
+      "type": "unit",
+      "arrange": [
+        "Call initSessionSeed(defaultSignals, defaultGeo)"
+      ],
+      "act": "Capture return value",
+      "assert": [
+        "expect(typeof result).toBe('string')",
+        "expect(result).toBe(getSessionSeed())"
+      ],
+      "acceptanceCriteria": "API contract"
+    },
+    {
+      "id": "T-007-12",
+      "name": "hashInputs is a pure function — same inputs always yield same output",
+      "type": "unit",
+      "arrange": [
+        "Create SeedInputs with fixed signals, geo, and timestamp"
+      ],
+      "act": "Call hashInputs(inputs) twice with identical input objects",
+      "assert": [
+        "expect(result1).toBe(result2)"
+      ],
+      "acceptanceCriteria": "Deterministic hash"
+    },
+    {
+      "id": "T-007-13",
+      "name": "different geo values produce different seeds",
+      "type": "unit",
+      "arrange": [
+        "Fix Date.now to same value",
+        "Call initSessionSeed(defaultSignals, { country: 'US', region: 'CA' }) → seed1",
+        "Reset module",
+        "Call initSessionSeed(defaultSignals, { country: 'DE', region: 'BY' }) → seed2"
+      ],
+      "act": "Compare seed1 and seed2",
+      "assert": [
+        "expect(seed1).not.toBe(seed2)"
+      ],
+      "acceptanceCriteria": "Seed changes on reload"
+    }
+  ]
+}
