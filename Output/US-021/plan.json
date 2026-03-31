@@ -1,56 +1,56 @@
 {
   "ticket": "US-021",
   "title": "Add info button shell",
-  "overview": "Create a minimal info button in the bottom-right corner that toggles an overlay panel. The overlay is a shell (placeholder content) that opens/closes without page reload, works on desktop and mobile.",
-  "steps": [
+  "status": "already_implemented",
+  "summary": "The info button shell is fully implemented. createInfoButton() and createInfoOverlay() in src/ui/infoOverlay.ts provide a visible info button (fixed bottom-right), overlay toggle on click, three close mechanisms (close button, Escape, backdrop click), and responsive layout for desktop and mobile. All 27 tests pass and the build is clean.",
+  "existing_implementation": {
+    "source_files": [
+      {
+        "path": "src/ui/infoOverlay.ts",
+        "description": "Exports createInfoButton() and createInfoOverlay(). Button shows overlay on click; overlay closes via close button, Escape key, or backdrop click."
+      },
+      {
+        "path": "src/style.css",
+        "description": "CSS for .eavi-info-btn (fixed bottom-right, 44px tap target, frosted glass), .eavi-info-overlay (fixed full viewport, z-index 20, backdrop blur), .eavi-info-panel, .eavi-info-close. Includes prefers-reduced-motion support."
+      },
+      {
+        "path": "src/main.ts",
+        "description": "Appends info button and overlay to document.body immediately (no async dependency)."
+      }
+    ],
+    "test_file": "tests/ui/infoOverlay.test.ts",
+    "test_count": 27,
+    "test_status": "all_passing"
+  },
+  "acceptance_criteria_verification": [
     {
-      "id": 1,
-      "action": "Create src/ui/infoOverlay.ts",
-      "description": "Implement two exported functions: createInfoButton() which returns an HTMLButtonElement (ⓘ icon, fixed bottom-right, minimal styling), and createInfoOverlay() which returns an HTMLDivElement (full-viewport semi-transparent overlay with placeholder text and a close button). Wire button click to show overlay, close button and overlay background click to hide overlay. Escape key also closes. All DOM creation is programmatic — no innerHTML with user data.",
-      "test_focus": "Button renders, overlay toggles visibility, Escape closes, click-outside closes, no reload on close"
+      "criterion": "Info button is visible",
+      "met": true,
+      "evidence": "createInfoButton() creates a fixed-position button with class .eavi-info-btn, positioned bottom-right with z-index 10. Appended to body in main.ts."
     },
     {
-      "id": 2,
-      "action": "Add overlay and button styles to src/style.css",
-      "description": "Add styles for .eavi-info-btn (fixed, bottom-right, translucent, pointer cursor, z-index above canvas) and .eavi-info-overlay (fixed, full viewport, semi-transparent dark backdrop, centered content panel, z-index above button). Include touch-friendly sizing (min 44x44 tap target). Add reduced-motion media query to skip any transitions.",
-      "test_focus": "Visual regression: button visible, overlay covers viewport, mobile tap target size"
+      "criterion": "Button opens an overlay",
+      "met": true,
+      "evidence": "Click handler on button calls showOverlay() which sets overlay display to flex. Tested in 'clicking info button shows the overlay'."
     },
     {
-      "id": 3,
-      "action": "Integrate into src/main.ts",
-      "description": "Import createInfoButton and createInfoOverlay from src/ui/infoOverlay.ts. Append both elements to the #app container after scene init. This keeps UI layered above the canvas.",
-      "test_focus": "Button and overlay present in DOM after app init"
+      "criterion": "Overlay closes without reload",
+      "met": true,
+      "evidence": "Three close mechanisms: close button click, Escape key, backdrop click. All toggle display:none. Test verifies no location access."
     },
     {
-      "id": 4,
-      "action": "Write tests in tests/ui/infoOverlay.test.ts",
-      "description": "Unit tests using vitest + jsdom: (1) createInfoButton returns a button element, (2) createInfoOverlay returns a hidden div, (3) clicking button shows overlay, (4) clicking close hides overlay, (5) pressing Escape hides overlay, (6) overlay closes without triggering navigation or reload.",
-      "test_focus": "All acceptance criteria covered"
-    },
-    {
-      "id": 5,
-      "action": "Verify build and acceptance criteria",
-      "description": "Run vite build to confirm no TS errors. Run vitest to confirm all tests pass. Manual check: no console errors, no forbidden storage APIs, overlay works with and without autoplay context.",
-      "test_focus": "Clean build, green tests, no console errors"
+      "criterion": "Overlay works on desktop and mobile",
+      "met": true,
+      "evidence": "44px min tap targets for mobile accessibility. Panel width: 90% / max-width 28rem for responsive layout. prefers-reduced-motion disables transitions."
     }
   ],
-  "files_to_create": [
-    "src/ui/infoOverlay.ts",
-    "tests/ui/infoOverlay.test.ts"
-  ],
-  "files_to_modify": [
-    "src/style.css",
-    "src/main.ts"
-  ],
-  "acceptance_verification": {
-    "info_button_visible": "Step 1+2: button appended to DOM with fixed positioning and sufficient z-index",
-    "button_opens_overlay": "Step 1: click handler toggles overlay visibility from hidden to visible",
-    "overlay_closes_without_reload": "Step 1: close via close-button click, backdrop click, or Escape key — all use style.display toggle, no navigation",
-    "desktop_and_mobile": "Step 2: 44px min tap target, pointer and touch events, responsive overlay sizing"
-  },
-  "risks": [
-    "Overlay must not interfere with pointer entropy capture on the canvas — use stopPropagation only on overlay clicks, not globally",
-    "z-index layering must keep button above canvas but below any future modals"
-  ],
-  "estimated_complexity": "small"
+  "build_status": "passes",
+  "typescript_errors": 0,
+  "remaining_steps": [
+    {
+      "step": 1,
+      "action": "Mark ticket passes=true",
+      "description": "All acceptance criteria are met. Update ticket status to reflect implementation is complete."
+    }
+  ]
 }
