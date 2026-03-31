@@ -4,6 +4,7 @@ import { readSignals } from './input/signals';
 import { initSessionSeed } from './seed/sessionSeed';
 import { initAudio } from './audio/player';
 import { createMuteButton } from './ui/audioToggle';
+import { createInfoButton, createInfoOverlay } from './ui/infoOverlay';
 import { initScene } from './visual/scene';
 import { attachResizeHandler } from './visual/resize';
 import { startLoop } from './visual/renderLoop';
@@ -22,6 +23,10 @@ geoPromise.then((geo) => {
   const seed = initSessionSeed(signals, geo);
   console.debug('[EAVI] session seed:', seed);
 });
+
+// Info button + overlay — append immediately, no async dependency
+document.body.appendChild(createInfoButton());
+document.body.appendChild(createInfoOverlay());
 
 // Start audio (non-blocking — visuals must not depend on this)
 const audioPromise = initAudio();
