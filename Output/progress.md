@@ -8,3 +8,5 @@
 
 ## US-007: Generate ephemeral session seed
 
+## US-020: Add mute and unmute control
+
