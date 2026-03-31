@@ -1,0 +1,41 @@
+{
+  "id": "US-027",
+  "concerns": [
+    {
+      "severity": "low",
+      "area": "Group 1 — Production build",
+      "detail": "scaffold.build.test.ts already covers execSync('npm run build'), dist/index.html existence, and tsc --noEmit. Duplication is intentional per the plan notes but worth noting — if build logic changes, two files need updating.",
+      "suggestion": "Acceptable as-is since the health check is meant to be a standalone gate. Optionally import or re-export the assertions from the existing file."
+    },
+    {
+      "severity": "medium",
+      "area": "Group 2 — Console error spy during src/main import",
+      "detail": "main.ts triggers async side effects (fetchGeoHint, initAudio) that resolve after import completes. Console errors from rejected promises may fire after the spy assertion runs. Need to await the geo and audio promises or flush microtasks before asserting.",
+      "suggestion": "After importing main.ts, use `await vi.dynamicImportSettled()` or `await new Promise(r => setTimeout(r, 0))` to flush pending microtasks before checking console spies. Mock fetch to return valid geo JSON and stub AudioContext.resume to resolve (or reject cleanly) so no unhandled rejections leak."
+    },
+    {
+      "severity": "low",
+      "area": "Group 3 — Canvas dimensions check",
+      "detail": "In jsdom, canvas elements report 0×0 for offsetWidth/offsetHeight unless CSS is applied. The plan says 'non-zero dimensions' but the existing scaffold.dom.test.ts checks canvas.width/canvas.height attributes (set by initScene), not layout dimensions.",
+      "suggestion": "Assert canvas.width > 0 and canvas.height > 0 (attribute values set by initScene) rather than offsetWidth/offsetHeight."
+    },
+    {
+      "severity": "low",
+      "area": "Group 4 — Mute button presence",
+      "detail": "The plan correctly identifies that createMuteButton is only appended after audioPromise resolves. Since Group 3 stubs AudioContext.resume to reject, the mute button will NOT be in the DOM after main.ts import in that group. Group 4 should either let audio succeed or test createMuteButton in isolation.",
+      "suggestion": "Plan already proposes testing createMuteButton export directly with a mock player — this is the right approach. Just ensure Group 4 doesn't also assert .eavi-mute-btn presence in the full-app DOM when audio is blocked."
+    }
+  ],
+  "missing": [],
+  "refinements": [
+    "In Group 2, mock global fetch to return a valid /api/geo response so the geo promise doesn't reject and pollute console.error.",
+    "In Group 3, after dynamic-importing main.ts, flush microtasks to let the render loop start before checking canvas state.",
+    "Consider adding a top-level afterEach that restores document.body.innerHTML to '<div id=\"app\"></div>' since multiple groups import main.ts which appends UI elements to the body."
+  ],
+  "estimatedComplexity": "low",
+  "readyToImplement": true,
+  "approved": true,
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
