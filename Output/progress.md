@@ -28,3 +28,5 @@
 
 ## US-019: Map treble response to fine detail
 
+## US-012: Add time-based evolution
+
