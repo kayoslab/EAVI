@@ -1,8 +1,18 @@
+import './style.css';
 import { fetchGeoHint } from './input/geo';
 import { readSignals } from './input/signals';
 import { initSessionSeed } from './seed/sessionSeed';
 import { initAudio } from './audio/player';
 import { createMuteButton } from './ui/audioToggle';
+import { initScene } from './visual/scene';
+import { attachResizeHandler } from './visual/resize';
+import { startLoop } from './visual/renderLoop';
+
+// Canvas shell — render immediately so the dark canvas is visible before async work
+const app = document.getElementById('app')!;
+const { canvas, ctx } = initScene(app);
+attachResizeHandler(canvas, ctx);
+startLoop(canvas, ctx);
 
 const geoPromise = fetchGeoHint();
 
