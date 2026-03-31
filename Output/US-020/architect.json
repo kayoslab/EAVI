@@ -1,0 +1,28 @@
+{
+  "ticket": "US-020",
+  "verdict": "APPROVE",
+  "structuralRisk": "low",
+  "rationale": "The plan is well-scoped and surgically additive. It creates one new UI module (audioToggle.ts) following the exact vanilla-DOM pattern already established by infoOverlay.ts, adds matching CSS, and wires it into the existing audioPromise.then() callback in main.ts. No existing module signatures or pipelines are modified. The AudioPlayer API (muted property, setMuted method) already exists and the analyser pipeline (source→AnalyserNode→GainNode→destination) structurally guarantees continued analysis while muted — no audio graph changes needed.",
+  "filesImpacted": {
+    "created": ["src/ui/audioToggle.ts", "tests/ui/audioToggle.test.ts"],
+    "modified": ["src/style.css", "src/main.ts"],
+    "deleted": []
+  },
+  "modulesCoupled": ["src/audio/player.ts"],
+  "newDependencies": [],
+  "acceptanceCoverage": {
+    "A visible control toggles audio gain": "covered",
+    "Toggle updates instantly": "covered",
+    "Control is accessible while the scene is running": "covered",
+    "Audio analysis continues while muted": "covered"
+  },
+  "concerns": [
+    {
+      "severity": "low",
+      "area": "cross-platform rendering",
+      "detail": "Plan proposes emoji characters (🔇/🔊) for button labels. Emoji rendering varies across OS/browser combinations. The plan already identifies this risk and suggests SVG or Unicode text as fallback.",
+      "suggestion": "Prefer a simple SVG path or Unicode character over emoji for consistent rendering."
+    }
+  ],
+  "architecturalNotes": "Zero architectural impact. The plan adds a leaf UI module with a single dependency on the existing AudioPlayer interface. It follows established project conventions (vanilla DOM creation, fixed-position overlay button, CSS class naming, test structure). No new patterns, abstractions, or cross-cutting concerns are introduced."
+}
