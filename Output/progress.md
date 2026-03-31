@@ -16,3 +16,5 @@
 
 ## US-002: Create full-screen canvas shell
 
+## US-003: Read low-entropy browser signals
+
