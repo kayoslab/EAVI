@@ -91,14 +91,13 @@
         "App works if geo data is unavailable"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-001"
       ],
       "split_from": "US-003",
-      "notes": "Implement as Vercel serverless/edge function using geolocation().",
-      "claimed_by": "worker-3"
+      "notes": "Implement as Vercel serverless/edge function using geolocation()."
     },
     {
       "id": "US-006",
