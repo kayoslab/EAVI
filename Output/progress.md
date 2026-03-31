@@ -26,3 +26,5 @@
 
 ## US-009: Render seeded base scene
 
+## US-019: Map treble response to fine detail
+
