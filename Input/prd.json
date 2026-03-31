@@ -29,8 +29,8 @@
         "Canvas is shown on a dark background"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-001"
       ],
