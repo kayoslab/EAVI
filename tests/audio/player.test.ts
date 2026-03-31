@@ -186,4 +186,44 @@ describe('player', () => {
     // Source was connected to analyser (source → analyser → gain → dest)
     expect(mockSource.connect).toHaveBeenCalled();
   });
+
+  describe('player pipeline integration', () => {
+    it('getPipeline() returns an AnalyserPipeline after initAudio()', async () => {
+      const player = await loadAndInit(true);
+      const pipeline = player.getPipeline();
+      expect(pipeline).not.toBeNull();
+      expect(pipeline!.frequency).toBeInstanceOf(Uint8Array);
+      expect(pipeline!.timeDomain).toBeInstanceOf(Uint8Array);
+      expect(typeof pipeline!.poll).toBe('function');
+    });
+
+    it('pipeline.poll() works when player state is suspended (autoplay blocked)', async () => {
+      const player = await loadAndInit(false);
+      expect(player.state).toBe('suspended');
+      const pipeline = player.getPipeline();
+      expect(() => pipeline!.poll()).not.toThrow();
+      expect(mockAnalyserNode.getByteFrequencyData).toHaveBeenCalled();
+      expect(mockAnalyserNode.getByteTimeDomainData).toHaveBeenCalled();
+    });
+
+    it('pipeline.poll() works when player is muted', async () => {
+      const player = await loadAndInit(true);
+      expect(player.muted).toBe(true);
+      const pipeline = player.getPipeline();
+      expect(() => pipeline!.poll()).not.toThrow();
+      expect(mockAnalyserNode.getByteFrequencyData).toHaveBeenCalled();
+      expect(mockAnalyserNode.getByteTimeDomainData).toHaveBeenCalled();
+    });
+
+    it('pipeline buffers contain data after poll()', async () => {
+      const player = await loadAndInit(true);
+      (mockAnalyserNode.getByteFrequencyData as ReturnType<typeof vi.fn>).mockImplementation((arr: Uint8Array) => arr.fill(180));
+      (mockAnalyserNode.getByteTimeDomainData as ReturnType<typeof vi.fn>).mockImplementation((arr: Uint8Array) => arr.fill(90));
+      const pipeline = player.getPipeline();
+      pipeline!.poll();
+      expect(pipeline!.frequency.length).toBeGreaterThan(0);
+      expect(pipeline!.frequency[0]).toBe(180);
+      expect(pipeline!.timeDomain[0]).toBe(90);
+    });
+  });
 });
