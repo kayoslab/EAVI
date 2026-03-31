@@ -173,15 +173,14 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "in_progress",
+      "status": "fail",
       "depends_on": [
         "US-002",
         "US-007",
         "US-008"
       ],
       "split_from": "US-005",
-      "notes": "Start with one lightweight system such as points or lines.",
-      "claimed_by": "worker-1"
+      "notes": "Start with one lightweight system such as points or lines."
     },
     {
       "id": "US-010",
@@ -453,7 +452,7 @@
       ],
       "priority": 2,
       "passes": true,
-      "status": "pass",
+      "status": "fail",
       "depends_on": [
         "US-008",
         "US-021",
