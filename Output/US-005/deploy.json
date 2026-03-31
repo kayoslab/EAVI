@@ -1,0 +1,1 @@
+{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "Build passes. Typecheck passes. All 15 tests for US-005 pass (8 in tests/api/geo.test.ts, 7 in tests/input/geo.test.ts). One pre-existing test failure in tests/ui/infoOverlay.test.ts (missing src/style.css) is unrelated to this ticket — the file was not modified on this branch."}
