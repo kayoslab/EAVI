@@ -1,16 +1,29 @@
 {
   "verdict": "approve",
-  "ticket": "US-008",
-  "plan_version": 1,
+  "plan_id": "US-008",
+  "reviewer": "architecture",
+  "timestamp": "2026-03-31",
+  "summary": "Plan is well-structured, correctly references all existing interfaces, and fully covers the 4 acceptance criteria with 7 indirect mappings. Dependencies verified present in codebase.",
+  "checked": {
+    "interfaces_exist": true,
+    "dependency_alignment": true,
+    "acceptance_criteria_coverage": true,
+    "privacy_compliance": true,
+    "test_strategy": true,
+    "scope_appropriate": true
+  },
   "notes": [
-    "All dependency modules verified: signals.ts exports BrowserSignals, geo.ts exports GeoHint, pointer.ts exports PointerState — names and shapes match plan assumptions exactly.",
-    "src/visual/mappings.ts confirmed not yet created — no collision risk.",
-    "PointerState.speed field exists as assumed; plan's pointerToDisturbance scaling from ~0-0.1 range is consistent with the implementation in pointer.ts.",
-    "AnalyserPipeline exports frequency as Uint8Array — plan's decision to accept pre-averaged 0-255 numbers keeps mappings decoupled from buffer layout, which is correct.",
-    "sessionSeed.test.ts confirms the test patterns the plan intends to follow (vi.spyOn, vi.resetModules, describe/it, storage spies).",
-    "7 mappings exceeds the AC minimum of 4.",
-    "All 4 acceptance criteria are addressed with clear verification paths."
+    "fnv1a is exported from src/seed/sessionSeed.ts and can be reused directly — no need for a local equivalent",
+    "AnalyserPipeline.frequency is Uint8Array with fftSize 2048, confirming 1024 bins — plan's bin ranges are valid",
+    "BrowserSignals interface confirms all referenced fields: timezone, devicePixelRatio, hardwareConcurrency, prefersReducedMotion",
+    "PointerState confirms speed and active fields needed by mapPointerDisturbance",
+    "GeoHint.country and GeoHint.region are both string|null, matching null-fallback logic in step 2",
+    "Step 1 mentions PALETTE_FAMILIES lookup table but step 2 uses direct hashing — recommend dropping the lookup table in favor of the hash approach described in step 2, which is simpler and already coarse enough",
+    "Test directory structure should use tests/visual/mappings.test.ts to match existing pattern (tests/seed/, tests/audio/, etc.)"
   ],
-  "risks": [],
-  "changes_required": []
+  "risks_acknowledged": [
+    "FFT bin ranges are sample-rate-dependent — acceptable for artistic use",
+    "Pointer smoothing constants will need tuning against real interaction"
+  ],
+  "estimated_complexity": "low-medium"
 }
