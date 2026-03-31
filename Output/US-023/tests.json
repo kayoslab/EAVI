@@ -1,154 +1,165 @@
 {
-  "tests": [
-    {
-      "id": "T-023-01",
-      "description": "INFLUENCE_HINTS is a non-empty array",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('INFLUENCE_HINTS is a non-empty array', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  expect(Array.isArray(INFLUENCE_HINTS)).toBe(true);\n  expect(INFLUENCE_HINTS.length).toBeGreaterThan(0);\n});"
-    },
-    {
-      "id": "T-023-02",
-      "description": "Every entry has a non-empty category string",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('every entry has a non-empty category string', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  for (const entry of INFLUENCE_HINTS) {\n    expect(typeof entry.category).toBe('string');\n    expect(entry.category.length).toBeGreaterThan(0);\n  }\n});"
-    },
-    {
-      "id": "T-023-03",
-      "description": "Every entry has a non-empty description string",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('every entry has a non-empty description string', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  for (const entry of INFLUENCE_HINTS) {\n    expect(typeof entry.description).toBe('string');\n    expect(entry.description.length).toBeGreaterThan(0);\n  }\n});"
-    },
-    {
-      "id": "T-023-04",
-      "description": "Every entry has at least one paramKey",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('every entry has at least one paramKey', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  for (const entry of INFLUENCE_HINTS) {\n    expect(Array.isArray(entry.paramKeys)).toBe(true);\n    expect(entry.paramKeys.length).toBeGreaterThan(0);\n  }\n});"
-    },
-    {
-      "id": "T-023-05",
-      "description": "Every key of VisualParams is covered by at least one entry's paramKeys",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('every key of VisualParams is covered by at least one entry paramKeys', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  const allParamKeys = INFLUENCE_HINTS.flatMap((entry) => entry.paramKeys);\n  const expectedKeys: string[] = [\n    'paletteHue',\n    'paletteSaturation',\n    'cadence',\n    'density',\n    'motionAmplitude',\n    'pointerDisturbance',\n    'bassEnergy',\n    'trebleEnergy',\n  ];\n  for (const key of expectedKeys) {\n    expect(allParamKeys).toContain(key);\n  }\n});"
-    },
-    {
-      "id": "T-023-06",
-      "description": "No paramKey appears in more than one entry (no duplicates across entries)",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('no paramKey appears in more than one entry', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  const allParamKeys = INFLUENCE_HINTS.flatMap((entry) => entry.paramKeys);\n  const unique = new Set(allParamKeys);\n  expect(allParamKeys.length).toBe(unique.size);\n});"
-    },
-    {
-      "id": "T-023-07",
-      "description": "No description contains raw identifiers (IP, user-agent, exact location, country code, browser name)",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('no description contains raw identifiers', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  const forbidden = /\\b(ip\\s*address|user[\\s-]?agent|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|chrome|firefox|safari|mozilla|windows|linux|android|iPhone|country\\s*code|ISO\\s*3166|latitude|longitude)\\b/i;\n  for (const entry of INFLUENCE_HINTS) {\n    expect(entry.description).not.toMatch(forbidden);\n  }\n});"
-    },
-    {
-      "id": "T-023-08",
-      "description": "Each description is under 60 characters (keeps overlay concise)",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('each description is under 60 characters', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  for (const entry of INFLUENCE_HINTS) {\n    expect(entry.description.length).toBeLessThan(60);\n  }\n});"
-    },
-    {
-      "id": "T-023-09",
-      "description": "Categories include at least time, device, location, and motion",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "type": "unit",
-      "code": "it('categories include at least time, device, location, and motion', async () => {\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  const categories = INFLUENCE_HINTS.map((entry) => entry.category);\n  expect(categories).toContain('time');\n  expect(categories).toContain('device');\n  expect(categories).toContain('location');\n  expect(categories).toContain('motion');\n});"
-    },
-    {
-      "id": "T-023-10",
-      "description": "Overlay contains a .eavi-hints element",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('overlay contains a .eavi-hints element', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const hints = overlay.querySelector('.eavi-hints');\n  expect(hints).not.toBeNull();\n});"
-    },
-    {
-      "id": "T-023-11",
-      "description": "Hint list contains one <li> per INFLUENCE_HINTS entry",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('hint list contains one <li> per INFLUENCE_HINTS entry', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  const overlay = createInfoOverlay();\n  const items = overlay.querySelectorAll('.eavi-hints li');\n  expect(items.length).toBe(INFLUENCE_HINTS.length);\n});"
-    },
-    {
-      "id": "T-023-12",
-      "description": "Each <li> contains the category text",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('each <li> contains the category text', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  const overlay = createInfoOverlay();\n  const items = overlay.querySelectorAll('.eavi-hints li');\n  for (let i = 0; i < INFLUENCE_HINTS.length; i++) {\n    expect(items[i].textContent).toContain(INFLUENCE_HINTS[i].category);\n  }\n});"
-    },
-    {
-      "id": "T-023-13",
-      "description": "Each <li> contains the description text",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('each <li> contains the description text', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  const overlay = createInfoOverlay();\n  const items = overlay.querySelectorAll('.eavi-hints li');\n  for (let i = 0; i < INFLUENCE_HINTS.length; i++) {\n    expect(items[i].textContent).toContain(INFLUENCE_HINTS[i].description);\n  }\n});"
-    },
-    {
-      "id": "T-023-14",
-      "description": "No <li> text contains raw identifiers (IP address pattern, user-agent fragments, country codes)",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('no <li> text contains raw identifiers', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const items = overlay.querySelectorAll('.eavi-hints li');\n  const forbidden = /\\b(ip\\s*address|user[\\s-]?agent|\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|chrome|firefox|safari|mozilla|windows|linux|android|iPhone|country\\s*code|ISO\\s*3166|latitude|longitude)\\b/i;\n  items.forEach((li) => {\n    expect(li.textContent || '').not.toMatch(forbidden);\n  });\n});"
-    },
-    {
-      "id": "T-023-15",
-      "description": "Hint list renders at least entries for time, device, location, and motion",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('hint list renders at least entries for time, device, location, and motion', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const hintText = overlay.querySelector('.eavi-hints')?.textContent || '';\n  expect(hintText).toMatch(/time/i);\n  expect(hintText).toMatch(/device/i);\n  expect(hintText).toMatch(/location/i);\n  expect(hintText).toMatch(/motion/i);\n});"
-    },
-    {
-      "id": "T-023-16",
-      "description": "Total overlay panel text (excluding close button and hints) remains under 500 characters",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('overlay panel prose text (excluding close button and hints) remains under 500 characters', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const panel = overlay.querySelector('.eavi-info-panel');\n  const paragraphs = panel?.querySelectorAll('p') || [];\n  const proseText = Array.from(paragraphs).map((p) => p.textContent || '').join('');\n  expect(proseText.length).toBeLessThanOrEqual(500);\n});"
-    },
-    {
-      "id": "T-023-17",
-      "description": "Hint list renders correctly after toggling overlay open, closed, then open again",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('hint list renders correctly after toggling overlay open, closed, then open again', async () => {\n  const { createInfoButton, createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n  const btn = createInfoButton();\n  const overlay = createInfoOverlay();\n  const container = document.querySelector('#app')!;\n  container.appendChild(btn);\n  container.appendChild(overlay);\n\n  btn.click();\n  const closeBtn = overlay.querySelector('button')!;\n  closeBtn.click();\n  btn.click();\n\n  const items = overlay.querySelectorAll('.eavi-hints li');\n  expect(items.length).toBe(INFLUENCE_HINTS.length);\n  for (let i = 0; i < INFLUENCE_HINTS.length; i++) {\n    expect(items[i].textContent).toContain(INFLUENCE_HINTS[i].category);\n  }\n});"
-    },
-    {
-      "id": "T-023-18",
-      "description": "CSS file contains .eavi-hints rule",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "type": "integration",
-      "code": "it('CSS file contains .eavi-hints rule', () => {\n  const css = readFileSync(resolve(__dirname, '..', '..', 'src', 'style.css'), 'utf-8');\n  expect(css).toMatch(/\\.eavi-hints/);\n});"
-    }
-  ],
+  "ticket": "US-023",
+  "title": "Show partially legible influence hints",
   "testFiles": [
     {
-      "path": "tests/visual/hintRegistry.test.ts",
+      "file": "tests/visual/hintRegistry.test.ts",
       "action": "create",
-      "description": "Unit tests for the hint registry data integrity",
-      "boilerplate": "import { describe, it, expect, beforeEach, vi } from 'vitest';\n\ndescribe('US-023: Hint registry', () => {\n  beforeEach(() => {\n    vi.resetModules();\n  });\n\n  {{tests}}\n});"
+      "description": "Unit tests for the hint registry single source of truth",
+      "tests": [
+        {
+          "id": "T-023-01",
+          "name": "INFLUENCE_HINTS is a non-empty array",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nexpect(Array.isArray(INFLUENCE_HINTS)).toBe(true);\nexpect(INFLUENCE_HINTS.length).toBeGreaterThan(0);"
+        },
+        {
+          "id": "T-023-02",
+          "name": "Every entry has non-empty category, description, and paramKeys",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nfor (const hint of INFLUENCE_HINTS) {\n  expect(typeof hint.category).toBe('string');\n  expect(hint.category.length).toBeGreaterThan(0);\n  expect(typeof hint.description).toBe('string');\n  expect(hint.description.length).toBeGreaterThan(0);\n  expect(Array.isArray(hint.paramKeys)).toBe(true);\n  expect(hint.paramKeys.length).toBeGreaterThan(0);\n}"
+        },
+        {
+          "id": "T-023-03",
+          "name": "Every paramKey is a valid key of VisualParams",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nconst validKeys = ['paletteHue', 'paletteSaturation', 'cadence', 'density', 'motionAmplitude', 'pointerDisturbance', 'bassEnergy', 'trebleEnergy'];\nfor (const hint of INFLUENCE_HINTS) {\n  for (const key of hint.paramKeys) {\n    expect(validKeys).toContain(key);\n  }\n}"
+        },
+        {
+          "id": "T-023-04",
+          "name": "All 8 VisualParams keys are covered across entries",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nconst allKeys = new Set(INFLUENCE_HINTS.flatMap(h => h.paramKeys));\nconst expected = ['paletteHue', 'paletteSaturation', 'cadence', 'density', 'motionAmplitude', 'pointerDisturbance', 'bassEnergy', 'trebleEnergy'];\nfor (const key of expected) {\n  expect(allKeys.has(key)).toBe(true);\n}\nexpect(allKeys.size).toBe(expected.length);"
+        },
+        {
+          "id": "T-023-05",
+          "name": "No duplicate paramKeys across entries",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nconst allKeys = INFLUENCE_HINTS.flatMap(h => h.paramKeys);\nconst unique = new Set(allKeys);\nexpect(allKeys.length).toBe(unique.size);"
+        },
+        {
+          "id": "T-023-06",
+          "name": "No entry description contains raw identifier terms",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nconst forbidden = /\\b(IP|user-agent|user agent|fingerprint|lat|lng|latitude|longitude|cookie|localStorage)\\b/i;\nfor (const hint of INFLUENCE_HINTS) {\n  expect(hint.description).not.toMatch(forbidden);\n}"
+        },
+        {
+          "id": "T-023-07",
+          "name": "Every description is under 80 characters",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nfor (const hint of INFLUENCE_HINTS) {\n  expect(hint.description.length).toBeLessThanOrEqual(80);\n}"
+        },
+        {
+          "id": "T-023-08",
+          "name": "Every category is under 20 characters",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nfor (const hint of INFLUENCE_HINTS) {\n  expect(hint.category.length).toBeLessThanOrEqual(20);\n}"
+        },
+        {
+          "id": "T-023-09",
+          "name": "Required categories are present: location, time, device, motion",
+          "type": "unit",
+          "body": "import { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\nconst categories = new Set(INFLUENCE_HINTS.map(h => h.category));\nfor (const required of ['location', 'time', 'device', 'motion']) {\n  expect(categories.has(required)).toBe(true);\n}"
+        }
+      ],
+      "fullFileContent": "import { describe, it, expect } from 'vitest';\nimport { INFLUENCE_HINTS } from '../../src/visual/hintRegistry';\n\ndescribe('US-023: Hint registry — single source of truth', () => {\n  it('T-023-01: INFLUENCE_HINTS is a non-empty array', () => {\n    expect(Array.isArray(INFLUENCE_HINTS)).toBe(true);\n    expect(INFLUENCE_HINTS.length).toBeGreaterThan(0);\n  });\n\n  it('T-023-02: every entry has non-empty category, description, and paramKeys', () => {\n    for (const hint of INFLUENCE_HINTS) {\n      expect(typeof hint.category).toBe('string');\n      expect(hint.category.length).toBeGreaterThan(0);\n      expect(typeof hint.description).toBe('string');\n      expect(hint.description.length).toBeGreaterThan(0);\n      expect(Array.isArray(hint.paramKeys)).toBe(true);\n      expect(hint.paramKeys.length).toBeGreaterThan(0);\n    }\n  });\n\n  it('T-023-03: every paramKey is a valid key of VisualParams', () => {\n    const validKeys = ['paletteHue', 'paletteSaturation', 'cadence', 'density', 'motionAmplitude', 'pointerDisturbance', 'bassEnergy', 'trebleEnergy'];\n    for (const hint of INFLUENCE_HINTS) {\n      for (const key of hint.paramKeys) {\n        expect(validKeys).toContain(key);\n      }\n    }\n  });\n\n  it('T-023-04: all 8 VisualParams keys are covered across entries', () => {\n    const allKeys = new Set(INFLUENCE_HINTS.flatMap(h => h.paramKeys));\n    const expected = ['paletteHue', 'paletteSaturation', 'cadence', 'density', 'motionAmplitude', 'pointerDisturbance', 'bassEnergy', 'trebleEnergy'];\n    for (const key of expected) {\n      expect(allKeys.has(key)).toBe(true);\n    }\n    expect(allKeys.size).toBe(expected.length);\n  });\n\n  it('T-023-05: no duplicate paramKeys across entries', () => {\n    const allKeys = INFLUENCE_HINTS.flatMap(h => h.paramKeys);\n    const unique = new Set(allKeys);\n    expect(allKeys.length).toBe(unique.size);\n  });\n\n  it('T-023-06: no entry description contains raw identifier terms', () => {\n    const forbidden = /\\b(IP|user-agent|user agent|fingerprint|lat|lng|latitude|longitude|cookie|localStorage)\\b/i;\n    for (const hint of INFLUENCE_HINTS) {\n      expect(hint.description).not.toMatch(forbidden);\n    }\n  });\n\n  it('T-023-07: every description is under 80 characters', () => {\n    for (const hint of INFLUENCE_HINTS) {\n      expect(hint.description.length).toBeLessThanOrEqual(80);\n    }\n  });\n\n  it('T-023-08: every category is under 20 characters', () => {\n    for (const hint of INFLUENCE_HINTS) {\n      expect(hint.category.length).toBeLessThanOrEqual(20);\n    }\n  });\n\n  it('T-023-09: required categories are present — location, time, device, motion', () => {\n    const categories = new Set(INFLUENCE_HINTS.map(h => h.category));\n    for (const required of ['location', 'time', 'device', 'motion']) {\n      expect(categories.has(required)).toBe(true);\n    }\n  });\n});\n"
     },
     {
-      "path": "tests/ui/infoOverlay.test.ts",
+      "file": "tests/ui/infoOverlay.test.ts",
       "action": "edit",
-      "description": "Add US-023 influence hints describe block to existing info overlay tests",
-      "insertAfter": "describe('US-022: Privacy and artwork copy'",
-      "boilerplate": "describe('US-023: Influence hints', () => {\n  beforeEach(() => {\n    vi.resetModules();\n    document.body.innerHTML = '<div id=\"app\"></div>';\n  });\n\n  {{tests}}\n});"
+      "description": "Add US-023 integration tests for hint rendering in the overlay, and update US-022 tests affected by p3 replacement",
+      "existingTestUpdates": [
+        {
+          "id": "T-022-03-update",
+          "location": "line 222-227",
+          "reason": "p3 text ('visitor context influences...') is replaced by structured hint list; regex no longer matches",
+          "originalTest": "it('overlay text states visitor context influences the scene', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const text = overlay.textContent || '';\n  expect(text).toMatch(/visitor.*(context|presence).*(influence|shape|affect)/i);\n});",
+          "updatedTest": "it('overlay text conveys that visitor context influences the scene', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const hints = overlay.querySelectorAll('.eavi-hints li');\n  expect(hints.length).toBeGreaterThan(0);\n  const allText = Array.from(hints).map(li => li.textContent || '').join(' ');\n  expect(allText).toMatch(/(influence|shape|set|drive|disturb|tint|temper)/i);\n});"
+        },
+        {
+          "id": "T-022-04-update",
+          "location": "line 229-238",
+          "reason": "500-char budget test counts all childNodes including hint <ul>; scope to <p> elements only since hints are structured list not prose",
+          "originalTest": "it('overlay copy stays concise (under 500 characters)', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const panel = overlay.querySelector('.eavi-info-panel');\n  const closeBtn = panel?.querySelector('.eavi-info-close');\n  const allText = Array.from(panel?.childNodes || [])\n    .filter((node) => node !== closeBtn)\n    .map((node) => node.textContent || '')\n    .join('');\n  expect(allText.length).toBeLessThanOrEqual(500);\n});",
+          "updatedTest": "it('overlay prose copy stays concise (under 500 characters)', async () => {\n  const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n  const overlay = createInfoOverlay();\n  const panel = overlay.querySelector('.eavi-info-panel');\n  const proseText = Array.from(panel?.querySelectorAll('p') || [])\n    .map((p) => p.textContent || '')\n    .join('');\n  expect(proseText.length).toBeLessThanOrEqual(500);\n});"
+        }
+      ],
+      "newTests": [
+        {
+          "id": "T-023-10",
+          "name": "Overlay contains a .eavi-hints element when shown",
+          "type": "integration",
+          "body": "const { createInfoButton, createInfoOverlay } = await import('../../src/ui/infoOverlay');\nconst btn = createInfoButton();\nconst overlay = createInfoOverlay();\nconst container = document.querySelector('#app')!;\ncontainer.appendChild(btn);\ncontainer.appendChild(overlay);\nbtn.click();\nconst hints = overlay.querySelector('.eavi-hints');\nexpect(hints).not.toBeNull();"
+        },
+        {
+          "id": "T-023-11",
+          "name": "Hint list has exactly INFLUENCE_HINTS.length <li> items",
+          "type": "integration",
+          "body": "const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\nconst { createInfoOverlay } = await import('../../src/ui/infoOverlay');\nconst overlay = createInfoOverlay();\nconst items = overlay.querySelectorAll('.eavi-hints li');\nexpect(items.length).toBe(INFLUENCE_HINTS.length);"
+        },
+        {
+          "id": "T-023-12",
+          "name": "Each <li> contains a .eavi-hint-category <strong>",
+          "type": "integration",
+          "body": "const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\nconst overlay = createInfoOverlay();\nconst items = overlay.querySelectorAll('.eavi-hints li');\nexpect(items.length).toBeGreaterThan(0);\nfor (const li of items) {\n  const strong = li.querySelector('strong.eavi-hint-category');\n  expect(strong).not.toBeNull();\n}"
+        },
+        {
+          "id": "T-023-13",
+          "name": "Rendered categories match INFLUENCE_HINTS categories",
+          "type": "integration",
+          "body": "const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\nconst { createInfoOverlay } = await import('../../src/ui/infoOverlay');\nconst overlay = createInfoOverlay();\nconst rendered = Array.from(overlay.querySelectorAll('.eavi-hint-category')).map(el => el.textContent?.trim());\nconst expected = INFLUENCE_HINTS.map(h => h.category);\nexpect(rendered).toEqual(expected);"
+        },
+        {
+          "id": "T-023-14",
+          "name": "Rendered descriptions match INFLUENCE_HINTS descriptions",
+          "type": "integration",
+          "body": "const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\nconst { createInfoOverlay } = await import('../../src/ui/infoOverlay');\nconst overlay = createInfoOverlay();\nconst items = overlay.querySelectorAll('.eavi-hints li');\nfor (let i = 0; i < INFLUENCE_HINTS.length; i++) {\n  const text = items[i].textContent || '';\n  expect(text).toContain(INFLUENCE_HINTS[i].description);\n}"
+        },
+        {
+          "id": "T-023-15",
+          "name": "No <li> text contains raw identifiers",
+          "type": "integration",
+          "body": "const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\nconst overlay = createInfoOverlay();\nconst items = overlay.querySelectorAll('.eavi-hints li');\nconst forbidden = /\\b(IP|user-agent|user agent|fingerprint|lat|lng|latitude|longitude|cookie|localStorage)\\b/i;\nfor (const li of items) {\n  expect(li.textContent || '').not.toMatch(forbidden);\n}"
+        },
+        {
+          "id": "T-023-17",
+          "name": "Hints survive overlay toggle (close and reopen)",
+          "type": "integration",
+          "body": "const { createInfoButton, createInfoOverlay } = await import('../../src/ui/infoOverlay');\nconst btn = createInfoButton();\nconst overlay = createInfoOverlay();\nconst container = document.querySelector('#app')!;\ncontainer.appendChild(btn);\ncontainer.appendChild(overlay);\n\nbtn.click();\nconst closeBtn = overlay.querySelector('button')!;\ncloseBtn.click();\nbtn.click();\n\nconst hints = overlay.querySelectorAll('.eavi-hints li');\nexpect(hints.length).toBeGreaterThan(0);"
+        },
+        {
+          "id": "T-023-18",
+          "name": ".eavi-hints CSS rule is present in document",
+          "type": "integration",
+          "body": "const css = readFileSync(resolve(__dirname, '..', '..', 'src', 'style.css'), 'utf-8');\nexpect(css).toMatch(/\\.eavi-hints/);"
+        }
+      ],
+      "fullAppendContent": "\ndescribe('US-023: Show partially legible influence hints', () => {\n  beforeEach(() => {\n    vi.resetModules();\n    document.body.innerHTML = '<div id=\"app\"></div>';\n  });\n\n  it('T-023-10: overlay contains a .eavi-hints element when shown', async () => {\n    const { createInfoButton, createInfoOverlay } = await import('../../src/ui/infoOverlay');\n    const btn = createInfoButton();\n    const overlay = createInfoOverlay();\n    const container = document.querySelector('#app')!;\n    container.appendChild(btn);\n    container.appendChild(overlay);\n    btn.click();\n    const hints = overlay.querySelector('.eavi-hints');\n    expect(hints).not.toBeNull();\n  });\n\n  it('T-023-11: hint list has exactly INFLUENCE_HINTS.length <li> items', async () => {\n    const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n    const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n    const overlay = createInfoOverlay();\n    const items = overlay.querySelectorAll('.eavi-hints li');\n    expect(items.length).toBe(INFLUENCE_HINTS.length);\n  });\n\n  it('T-023-12: each <li> contains a .eavi-hint-category <strong>', async () => {\n    const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n    const overlay = createInfoOverlay();\n    const items = overlay.querySelectorAll('.eavi-hints li');\n    expect(items.length).toBeGreaterThan(0);\n    for (const li of items) {\n      const strong = li.querySelector('strong.eavi-hint-category');\n      expect(strong).not.toBeNull();\n    }\n  });\n\n  it('T-023-13: rendered categories match INFLUENCE_HINTS categories', async () => {\n    const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n    const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n    const overlay = createInfoOverlay();\n    const rendered = Array.from(overlay.querySelectorAll('.eavi-hint-category')).map(el => el.textContent?.trim());\n    const expected = INFLUENCE_HINTS.map(h => h.category);\n    expect(rendered).toEqual(expected);\n  });\n\n  it('T-023-14: rendered descriptions match INFLUENCE_HINTS descriptions', async () => {\n    const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');\n    const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n    const overlay = createInfoOverlay();\n    const items = overlay.querySelectorAll('.eavi-hints li');\n    for (let i = 0; i < INFLUENCE_HINTS.length; i++) {\n      const text = items[i].textContent || '';\n      expect(text).toContain(INFLUENCE_HINTS[i].description);\n    }\n  });\n\n  it('T-023-15: no <li> text contains raw identifiers', async () => {\n    const { createInfoOverlay } = await import('../../src/ui/infoOverlay');\n    const overlay = createInfoOverlay();\n    const items = overlay.querySelectorAll('.eavi-hints li');\n    const forbidden = /\\b(IP|user-agent|user agent|fingerprint|lat|lng|latitude|longitude|cookie|localStorage)\\b/i;\n    for (const li of items) {\n      expect(li.textContent || '').not.toMatch(forbidden);\n    }\n  });\n\n  it('T-023-17: hints survive overlay toggle (close and reopen)', async () => {\n    const { createInfoButton, createInfoOverlay } = await import('../../src/ui/infoOverlay');\n    const btn = createInfoButton();\n    const overlay = createInfoOverlay();\n    const container = document.querySelector('#app')!;\n    container.appendChild(btn);\n    container.appendChild(overlay);\n\n    btn.click();\n    const closeBtn = overlay.querySelector('button')!;\n    closeBtn.click();\n    btn.click();\n\n    const hints = overlay.querySelectorAll('.eavi-hints li');\n    expect(hints.length).toBeGreaterThan(0);\n  });\n\n  it('T-023-18: .eavi-hints CSS rule is present in stylesheet', () => {\n    const css = readFileSync(resolve(__dirname, '..', '..', 'src', 'style.css'), 'utf-8');\n    expect(css).toMatch(/\\.eavi-hints/);\n  });\n});\n"
     }
   ],
-  "coverageTargets": {
-    "hintRegistry": ["INFLUENCE_HINTS export", "HintEntry shape", "paramKeys completeness", "privacy constraints"],
-    "infoOverlay": ["hint DOM rendering", "hint content accuracy", "privacy in rendered DOM", "toggle resilience", "CSS presence"]
+  "totalTests": 17,
+  "testBreakdown": {
+    "unit": 9,
+    "integration": 8
   },
-  "notes": [
-    "T-023-16 scopes the 500-char check to <p> elements only, so the hint list text does not conflict with the existing US-022 conciseness test.",
-    "T-023-05 hardcodes the 8 VisualParams keys; if the interface changes, this test must be updated alongside the compile-time completeness check in the registry.",
-    "T-023-18 reads style.css directly via readFileSync following the existing pattern in the overlay test file."
-  ]
+  "acceptanceCriteriaMapping": {
+    "Overlay names categories of influence such as time, device, location, and motion": ["T-023-09", "T-023-13"],
+    "Overlay does not reveal raw identifier values": ["T-023-06", "T-023-15"],
+    "Hints align with actual implemented mappings": ["T-023-03", "T-023-04", "T-023-05"],
+    "Hints can be updated from a single source of truth": ["T-023-01", "T-023-11", "T-023-14"]
+  },
+  "dependencies": {
+    "imports": [
+      "../../src/visual/hintRegistry (INFLUENCE_HINTS, HintEntry)",
+      "../../src/ui/infoOverlay (createInfoButton, createInfoOverlay)",
+      "vitest (describe, it, expect, beforeEach, vi)",
+      "fs (readFileSync)",
+      "path (resolve)"
+    ],
+    "sourceFilesRequired": [
+      "src/visual/hintRegistry.ts",
+      "src/ui/infoOverlay.ts",
+      "src/style.css"
+    ]
+  }
 }
