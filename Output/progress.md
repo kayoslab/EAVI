@@ -14,3 +14,5 @@
 
 ## US-008: Define partially legible mapping rules
 
+## US-002: Create full-screen canvas shell
+
