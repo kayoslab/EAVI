@@ -415,14 +415,13 @@
         "Overlay works on desktop and mobile"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-001"
       ],
       "split_from": "US-011",
-      "notes": "Keep UI minimal and unobtrusive.",
-      "claimed_by": "worker-2"
+      "notes": "Keep UI minimal and unobtrusive."
     },
     {
       "id": "US-022",
