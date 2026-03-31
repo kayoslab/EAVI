@@ -1,25 +1,47 @@
 {
-  "verdict": "APPROVED",
-  "risk_level": "LOW",
-  "rationale": "Single pure function in a new file reading standard browser APIs. No side effects, no storage, no network calls. Aligns exactly with CLAUDE.md recommended module split (src/input/signals.ts). Zero modification to existing files means zero regression risk.",
-  "architectural_concerns": [],
-  "recommendations": [
-    "Ensure BrowserSignals interface is exported so downstream consumers (US-004 sessionSeed) can import the type directly"
-  ],
-  "files_impact": {
-    "created": ["src/input/signals.ts", "tests/signals.test.ts"],
-    "modified": [],
-    "risk_per_file": {
-      "src/input/signals.ts": "NONE — new leaf module, no imports from project code",
-      "tests/signals.test.ts": "NONE — new test file, isolated"
+  "ticket": "US-003",
+  "planHash": "signals-validation-only",
+  "verdict": "APPROVE",
+  "architecturalImpact": "none",
+  "summary": "Plan validates existing implementation from US-002. No new files, no new dependencies, no API surface changes. The module is a pure, side-effect-free reader with no persistence or transmission — fully aligned with CLAUDE.md privacy constraints.",
+  "fileImpact": {
+    "created": [],
+    "modified": ["Input/prd.json"],
+    "deleted": [],
+    "existingValidated": ["src/input/signals.ts", "tests/signals.test.ts"]
+  },
+  "dependencyImpact": {
+    "added": [],
+    "removed": [],
+    "upgraded": []
+  },
+  "apiSurfaceChanges": [],
+  "modulesCrossed": ["src/input"],
+  "privacyCompliance": {
+    "noStorage": true,
+    "noTransmission": true,
+    "noCookies": true,
+    "noGeolocationPrompt": true,
+    "memoryOnly": true
+  },
+  "risks": [
+    {
+      "area": "testing",
+      "severity": "low",
+      "description": "jsdom mocks for screen, devicePixelRatio, and matchMedia may diverge from real browser behavior, but this is mitigated by explicit Object.defineProperty and vi.spyOn usage in tests"
     }
+  ],
+  "concerns": [],
+  "alignmentWithCLAUDEmd": {
+    "recommendedModuleSplit": "src/input/signals.ts matches the recommended path exactly",
+    "mappingGuidance": "BrowserSignals interface provides all inputs referenced in the mapping table (DPR, timezone, reduced-motion, screen dimensions)",
+    "definitionOfDone": "plan step 3 covers all five DoD criteria"
   },
-  "dependency_check": {
-    "depends_on_satisfied": true,
-    "notes": "US-001 (project scaffold) is marked complete. No runtime dependencies beyond browser globals."
+  "testCoverage": {
+    "existingTests": 11,
+    "acceptanceCriteriaCovered": 5,
+    "acceptanceCriteriaTotal": 5,
+    "coverageGaps": []
   },
-  "privacy_compliance": {
-    "passes": true,
-    "notes": "All signals are low-entropy standard APIs. No cookies, no localStorage, no fetch, no geolocation prompt. Consistent with CLAUDE.md core rules."
-  }
+  "notes": "This is a validation-only pass. The BrowserSignals interface also includes fields beyond the US-003 scope (hardwareConcurrency, prefersColorScheme, prefersReducedMotion, touchCapable) which were implemented proactively in US-002. These extra fields align with CLAUDE.md mapping guidance and do not violate any constraints. No architectural changes needed."
 }
