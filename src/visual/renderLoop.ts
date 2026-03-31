@@ -1,5 +1,6 @@
 import type { VisualParams } from './mappings';
 import { mapSignalsToVisuals } from './mappings';
+import { evolveParams } from './evolution';
 import type { BrowserSignals } from '../input/signals';
 import type { GeoHint } from '../input/geo';
 import type { PointerState } from '../input/pointer';
@@ -75,10 +76,13 @@ export function startLoop(
 ): void {
   const d = deps ?? {};
   let lastTime = -1;
+  let startTime = -1;
   let geoInitialized = false;
   let smoothTreble = 0;
 
   const frame = (time: number) => {
+    if (startTime < 0) startTime = time;
+    const elapsed = time - startTime;
     const delta = lastTime < 0 ? 16 : time - lastTime;
     lastTime = time;
 
@@ -110,6 +114,7 @@ export function startLoop(
         treble,
         timeOfDay: now.getHours() + now.getMinutes() / 60,
       });
+      params = evolveParams(params, elapsed, d.seed);
     } else {
       params = computeDefaultParams();
       params.bassEnergy = 0;
@@ -131,6 +136,7 @@ export function startLoop(
       d.geometrySystem.draw(ctx, {
         time,
         delta,
+        elapsed,
         params,
         width: canvas.width,
         height: canvas.height,
