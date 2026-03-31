@@ -1,121 +1,87 @@
 {
-  "id": "US-003",
+  "ticket": "US-003",
   "title": "Read low-entropy browser signals",
-  "plan": {
-    "overview": "Create src/input/signals.ts that reads language, timezone, screen dimensions, and devicePixelRatio from browser APIs, returning them as a typed in-memory object. No persistence, no transmission.",
-    "steps": [
-      {
-        "step": 1,
-        "action": "Create src/input/signals.ts",
-        "description": "Implement a readSignals() function that reads low-entropy browser signals and returns a typed BrowserSignals object.",
-        "details": {
-          "file": "src/input/signals.ts",
-          "exports": [
-            {
-              "name": "BrowserSignals",
-              "kind": "interface",
-              "shape": {
-                "language": "string",
-                "timezone": "string",
-                "screenWidth": "number",
-                "screenHeight": "number",
-                "devicePixelRatio": "number | null"
-              }
-            },
-            {
-              "name": "readSignals",
-              "kind": "function",
-              "signature": "() => BrowserSignals",
-              "returns": "BrowserSignals"
-            }
-          ],
-          "implementation_notes": [
-            "language: navigator.language (falls back to 'en')",
-            "timezone: Intl.DateTimeFormat().resolvedOptions().timeZone (falls back to 'UTC')",
-            "screenWidth: window.screen.width",
-            "screenHeight: window.screen.height",
-            "devicePixelRatio: window.devicePixelRatio ?? null",
-            "Pure function — no side effects, no storage, no fetch calls",
-            "All values read from standard browser APIs, kept in memory only"
-          ]
-        }
-      },
-      {
-        "step": 2,
-        "action": "Create tests/signals.test.ts",
-        "description": "Test that readSignals returns correct shape and values, and verify no forbidden storage APIs are used.",
-        "details": {
-          "file": "tests/signals.test.ts",
-          "test_cases": [
-            {
-              "name": "returns language from navigator.language",
-              "approach": "Spy on navigator.language, call readSignals(), assert result.language matches"
-            },
-            {
-              "name": "returns timezone from Intl.DateTimeFormat",
-              "approach": "Call readSignals(), assert result.timezone is a non-empty string"
-            },
-            {
-              "name": "returns screen dimensions as positive numbers",
-              "approach": "Call readSignals(), assert screenWidth > 0 and screenHeight > 0"
-            },
-            {
-              "name": "returns devicePixelRatio when available",
-              "approach": "Call readSignals(), assert devicePixelRatio is a number or null"
-            },
-            {
-              "name": "returns null devicePixelRatio when undefined",
-              "approach": "Temporarily delete window.devicePixelRatio, call readSignals(), assert result.devicePixelRatio === null, restore"
-            },
-            {
-              "name": "does not access localStorage or sessionStorage",
-              "approach": "Spy on Storage.prototype.getItem/setItem, call readSignals(), assert not called"
-            },
-            {
-              "name": "does not set cookies",
-              "approach": "Spy on document.cookie setter, call readSignals(), assert not called"
-            },
-            {
-              "name": "all values are returned in a single object (in-memory only)",
-              "approach": "Assert readSignals() returns a plain object with exactly the expected keys"
-            }
-          ]
-        }
-      },
-      {
-        "step": 3,
-        "action": "Run tests and build",
-        "description": "Execute vitest and tsc build to confirm all tests pass, types are correct, and no console errors occur.",
-        "details": {
-          "commands": [
-            "npm run test",
-            "npm run build"
-          ],
-          "success_criteria": [
-            "All new and existing tests pass",
-            "TypeScript compilation succeeds with no errors",
-            "No forbidden storage API usage detected"
-          ]
-        }
-      }
-    ],
-    "files_to_create": [
+  "summary": "Implement a pure, in-memory reader for basic browser and device signals (language, timezone, screen dimensions, devicePixelRatio) that the scene can consume. The module must never persist or transmit values.",
+  "currentState": {
+    "description": "Implementation already exists from US-002 work. src/input/signals.ts exports a BrowserSignals interface and readSignals() function. Tests exist in tests/signals.test.ts.",
+    "existingFiles": [
       "src/input/signals.ts",
       "tests/signals.test.ts"
-    ],
-    "files_to_modify": [],
-    "acceptance_criteria_mapping": {
-      "Read language": "readSignals().language via navigator.language",
-      "Read timezone": "readSignals().timezone via Intl.DateTimeFormat().resolvedOptions().timeZone",
-      "Read screen dimensions": "readSignals().screenWidth and readSignals().screenHeight via window.screen",
-      "Read devicePixelRatio if available": "readSignals().devicePixelRatio via window.devicePixelRatio ?? null",
-      "All values stay in memory only": "Pure function return, no storage/cookie/fetch calls, verified by privacy tests"
-    },
-    "risks": [
-      {
-        "risk": "jsdom may not fully implement navigator.language or Intl in test env",
-        "mitigation": "Use vi.spyOn or Object.defineProperty to mock missing APIs in tests"
-      }
     ]
-  }
+  },
+  "steps": [
+    {
+      "id": 1,
+      "phase": "test",
+      "title": "Validate existing test coverage for US-003 acceptance criteria",
+      "description": "Review and run the existing tests in tests/signals.test.ts to confirm they cover all five acceptance criteria: language, timezone, screen dimensions, devicePixelRatio, and memory-only storage. The US-003 describe block already has 11 tests covering these.",
+      "files": ["tests/signals.test.ts"],
+      "commands": ["npx vitest run tests/signals.test.ts"],
+      "acceptanceCriteriaCovered": [
+        "Read language",
+        "Read timezone",
+        "Read screen dimensions",
+        "Read devicePixelRatio if available",
+        "All values stay in memory only"
+      ]
+    },
+    {
+      "id": 2,
+      "phase": "implement",
+      "title": "Verify src/input/signals.ts implementation completeness",
+      "description": "The existing readSignals() function already reads: navigator.language (fallback 'en'), Intl.DateTimeFormat timezone (fallback 'UTC'), screen.width/height (fallback innerWidth/innerHeight), and devicePixelRatio (nullable). All values are returned as a plain object with no side effects. Confirm no storage APIs are touched and no data is transmitted.",
+      "files": ["src/input/signals.ts"],
+      "keyDecisions": [
+        "language uses navigator.language with 'en' fallback",
+        "timezone uses Intl.DateTimeFormat().resolvedOptions().timeZone with 'UTC' fallback, wrapped in try-catch",
+        "screen dimensions prefer screen.width/height, fall back to innerWidth/innerHeight, then 0",
+        "devicePixelRatio uses nullish coalescing to return null when undefined",
+        "No localStorage, sessionStorage, cookies, or network calls"
+      ]
+    },
+    {
+      "id": 3,
+      "phase": "verify",
+      "title": "Run full test suite and build",
+      "description": "Run all tests to ensure no regressions, then run the production build to confirm TypeScript compiles cleanly and no console errors are introduced.",
+      "commands": [
+        "npx vitest run",
+        "npm run build"
+      ],
+      "definitionOfDone": [
+        "All tests pass",
+        "Build succeeds (tsc + vite build)",
+        "No console errors on normal load",
+        "No forbidden storage APIs used",
+        "Scene works with and without successful autoplay",
+        "Mute toggle and info overlay still work"
+      ]
+    },
+    {
+      "id": 4,
+      "phase": "verify",
+      "title": "Mark ticket as passing",
+      "description": "Update prd.json to set US-003 passes=true and update the progress log.",
+      "files": ["prd.json"]
+    }
+  ],
+  "testStrategy": {
+    "framework": "vitest",
+    "environment": "jsdom",
+    "testFile": "tests/signals.test.ts",
+    "coverage": [
+      "Happy path: each signal returns expected value from mocked browser APIs",
+      "Fallbacks: language empty -> 'en', Intl unavailable -> 'UTC', DPR undefined -> null",
+      "Privacy: no localStorage/sessionStorage getItem/setItem calls, no cookie writes",
+      "Shape: returned object has exactly the expected keys"
+    ]
+  },
+  "risks": [
+    {
+      "risk": "jsdom may not perfectly simulate all browser APIs (e.g., screen object)",
+      "mitigation": "Tests use Object.defineProperty and vi.spyOn to mock specific properties"
+    }
+  ],
+  "estimatedComplexity": "low",
+  "notes": "Implementation and tests already exist from prior work. This ticket primarily requires validation that existing code satisfies all acceptance criteria and marking it as passing."
 }
