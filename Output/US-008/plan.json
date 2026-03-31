@@ -1,109 +1,153 @@
 {
   "ticket": "US-008",
   "title": "Define partially legible mapping rules",
-  "summary": "Create src/visual/mappings.ts with pure mapping functions that transform visitor signals and audio data into visual parameters. Each mapping is indirect — visitors can feel the influence but cannot decode raw identifiers.",
+  "overview": "Create src/visual/mappings.ts with pure functions that translate visitor signals and audio data into visual parameters. Each mapping is indirect — the viewer can feel its influence but never sees raw identifiers. The module exports a VisualParams interface and a computeMappings() function consumed by the render loop.",
+  "depends_on": ["US-003", "US-004", "US-005", "US-007"],
+  "steps": [
+    {
+      "id": 1,
+      "title": "Define VisualParams interface and palette lookup table",
+      "description": "Create src/visual/mappings.ts with a VisualParams interface that captures all visual parameters the render loop will consume: paletteHue (number 0–360), cadence (number, modulation speed factor), density (number, particle/structure count factor), motionScale (number, amplitude multiplier), fieldDisturbance (number 0–1), bassMacro (number 0–1), trebleShimmer (number 0–1). Define a PALETTE_FAMILIES lookup that maps coarse geo regions to hue ranges using a small hash of country+region strings — never exposing raw values.",
+      "inputs": ["GeoHint from src/input/geo.ts", "BrowserSignals from src/input/signals.ts"],
+      "outputs": ["VisualParams interface", "PALETTE_FAMILIES config object"],
+      "file": "src/visual/mappings.ts",
+      "tests": false
+    },
+    {
+      "id": 2,
+      "title": "Implement geo-to-palette mapping",
+      "description": "Write mapGeoPalette(geo: GeoHint, seed: string): number that hashes country+region into a palette hue (0–360). When geo is null, fall back to seed-derived hue. The mapping is coarse: many countries share the same hue band, making it impossible to reverse-engineer location from colour alone. Use the existing fnv1a-style hash from sessionSeed or a local equivalent to keep it deterministic.",
+      "inputs": ["GeoHint", "session seed string"],
+      "outputs": ["paletteHue: number (0–360)"],
+      "file": "src/visual/mappings.ts",
+      "tests": true
+    },
+    {
+      "id": 3,
+      "title": "Implement timezone/time-to-cadence mapping",
+      "description": "Write mapTimeCadence(timezone: string, seed: string): number that derives a modulation speed factor (0.5–2.0) from the visitor's timezone offset and current hour. Morning/evening hours produce slower cadence; midday and late night produce faster cadence. The timezone string is hashed — never displayed. The seed adds per-session variation so the same timezone doesn't always produce identical cadence.",
+      "inputs": ["BrowserSignals.timezone", "session seed string"],
+      "outputs": ["cadence: number (0.5–2.0)"],
+      "file": "src/visual/mappings.ts",
+      "tests": true
+    },
+    {
+      "id": 4,
+      "title": "Implement DPR/capability-to-density mapping",
+      "description": "Write mapCapabilityDensity(signals: BrowserSignals): number that maps devicePixelRatio and hardwareConcurrency to a density factor (0.3–1.0). High DPR + many cores → higher density; low capability → sparser scene. Null values fall back to mid-range defaults. This provides graceful mobile degradation without exposing exact hardware specs.",
+      "inputs": ["BrowserSignals.devicePixelRatio", "BrowserSignals.hardwareConcurrency"],
+      "outputs": ["density: number (0.3–1.0)"],
+      "file": "src/visual/mappings.ts",
+      "tests": true
+    },
+    {
+      "id": 5,
+      "title": "Implement reduced-motion and pointer mappings",
+      "description": "Write mapMotionScale(prefersReducedMotion: boolean | null): number returning 0.3 for reduced-motion, 1.0 otherwise. Write mapPointerDisturbance(pointer: PointerState): number that converts pointer speed into a 0–1 field disturbance value with smoothing (not a direct 1:1 map). When pointer is inactive, disturbance decays toward 0.",
+      "inputs": ["BrowserSignals.prefersReducedMotion", "PointerState"],
+      "outputs": ["motionScale: number", "fieldDisturbance: number (0–1)"],
+      "file": "src/visual/mappings.ts",
+      "tests": true
+    },
+    {
+      "id": 6,
+      "title": "Implement audio-to-visual mappings (bass/treble)",
+      "description": "Write mapAudioBands(pipeline: AnalyserPipeline): { bassMacro: number; trebleShimmer: number } that averages low-frequency bins (0–~500Hz, roughly bins 0–23 with 2048 FFT at 44.1kHz) for bassMacro and high-frequency bins (~2kHz–8kHz, roughly bins 93–372) for trebleShimmer. Both normalised 0–1. When pipeline data is all zeros (no audio), both return 0.",
+      "inputs": ["AnalyserPipeline (frequency Uint8Array)"],
+      "outputs": ["bassMacro: number (0–1)", "trebleShimmer: number (0–1)"],
+      "file": "src/visual/mappings.ts",
+      "tests": true
+    },
+    {
+      "id": 7,
+      "title": "Compose computeMappings() orchestrator function",
+      "description": "Write computeMappings(signals, geo, seed, pointer, pipeline): VisualParams that calls all individual mapping functions and returns a single VisualParams object. This is the public API the render loop will call each frame. Signal-derived values (palette, cadence, density, motionScale) are computed once at init and cached; per-frame values (fieldDisturbance, bassMacro, trebleShimmer) are computed fresh. Export both the orchestrator and a computeStaticMappings() for init-time values.",
+      "inputs": ["All signal types"],
+      "outputs": ["VisualParams (complete)"],
+      "file": "src/visual/mappings.ts",
+      "tests": true
+    },
+    {
+      "id": 8,
+      "title": "Write comprehensive tests",
+      "description": "Create tests/visual/mappings.test.ts with tests covering: (1) geo palette returns consistent hue for same inputs, (2) null geo falls back gracefully, (3) timezone cadence stays in 0.5–2.0 range, (4) capability density clamps to 0.3–1.0, (5) reduced-motion returns lower motionScale, (6) pointer disturbance is 0 when inactive, (7) audio bands return 0 for silent input, (8) no raw identifiers appear in VisualParams output, (9) computeMappings returns all required fields. Target: at least 10 test cases.",
+      "inputs": ["Mock BrowserSignals, GeoHint, PointerState, AnalyserPipeline"],
+      "outputs": ["Passing test suite"],
+      "file": "tests/visual/mappings.test.ts",
+      "tests": true
+    },
+    {
+      "id": 9,
+      "title": "Verify build and definition of done",
+      "description": "Run npm run build to confirm no type errors. Run npm run test to confirm all tests pass. Verify no forbidden storage APIs (cookies, localStorage, sessionStorage) are referenced in mappings.ts. Confirm no raw identifiers are exposed in any output.",
+      "inputs": [],
+      "outputs": ["Clean build", "All tests green"],
+      "file": null,
+      "tests": true
+    }
+  ],
   "files_to_create": [
     "src/visual/mappings.ts",
     "tests/visual/mappings.test.ts"
   ],
   "files_to_modify": [],
-  "dependencies": {
-    "imports": [
-      { "module": "src/input/signals.ts", "types": ["BrowserSignals"] },
-      { "module": "src/input/geo.ts", "types": ["GeoHint"] },
-      { "module": "src/input/pointer.ts", "types": ["PointerState"] }
-    ],
-    "notes": "All input modules already exist and export the needed interfaces. Audio frequency data arrives as Uint8Array from AnalyserPipeline — mappings will accept pre-extracted numeric values (bass/treble energy) rather than importing the analyser directly, keeping mappings pure."
-  },
-  "steps": [
-    {
-      "id": 1,
-      "action": "Define output interface VisualParams in src/visual/mappings.ts",
-      "details": "Create an interface representing all visual parameters the render loop will consume. Fields: paletteHue (number 0-360), paletteSaturation (number 0-1), cadence (number, modulation speed multiplier), density (number, particle/structure count band), motionAmplitude (number 0-1), pointerDisturbance (number 0-1), bassEnergy (number 0-1, macro motion driver), trebleEnergy (number 0-1, shimmer/detail driver). All fields are plain numbers — no raw identifiers leak through."
-    },
-    {
-      "id": 2,
-      "action": "Define input interface MappingInputs in src/visual/mappings.ts",
-      "details": "Bundle the inputs the mapping function needs: signals (BrowserSignals), geo (GeoHint), pointer (PointerState), sessionSeed (string), bass (number 0-255 average of low freq bins), treble (number 0-255 average of high freq bins), timeOfDay (number 0-24, fractional hours). This keeps the mapping function pure and testable — callers extract raw data before calling."
-    },
-    {
-      "id": 3,
-      "action": "Implement mapping 1: Geo → Palette family",
-      "details": "Write a helper geoToPalette(country: string | null, region: string | null, seed: string): { hue: number, saturation: number }. Hash the country+region string (or fallback 'unknown') combined with the session seed to produce a hue in 0-360 and saturation in 0.3-0.8. This is indirect: the same country biases toward a hue family but the exact value shifts per session. No country name is ever displayed. Document the mapping philosophy in a code comment."
-    },
-    {
-      "id": 4,
-      "action": "Implement mapping 2: Timezone/time-of-day → Cadence",
-      "details": "Write a helper timeToCadence(timezone: string, timeOfDay: number): number. Extract fractional hour of day in the visitor's timezone. Map it to a cadence multiplier: night (0-6h) → slower 0.4-0.6, morning (6-12h) → rising 0.6-0.9, afternoon (12-18h) → peak 0.8-1.0, evening (18-24h) → winding down 0.5-0.7. Use smooth sine-based interpolation rather than hard thresholds. The timezone string is used only to contextualize — never displayed."
-    },
-    {
-      "id": 5,
-      "action": "Implement mapping 3: DPR/hardwareConcurrency → Density band",
-      "details": "Write a helper capabilityToDensity(dpr: number | null, cores: number | null): number. Combine DPR (default 1) and cores (default 4) into a capability score. Map to a density value in 0.3-1.0: low-end devices get simpler scenes, high-end get richer ones. This also serves as a performance adaptation. Clamp output to safe range. Document that raw DPR/core-count values are never exposed."
-    },
-    {
-      "id": 6,
-      "action": "Implement mapping 4: prefers-reduced-motion → Motion amplitude",
-      "details": "Write a helper motionPref(prefersReducedMotion: boolean | null): number. If true, return 0.2 (calmer profile). If false or null, return 1.0. This is the most direct mapping but still only emits a scalar multiplier, not the preference value itself. The render loop multiplies all motion-related values by this amplitude."
-    },
-    {
-      "id": 7,
-      "action": "Implement mapping 5: Pointer entropy → Field disturbance",
-      "details": "Write a helper pointerToDisturbance(pointer: PointerState): number. Use pointer.speed (already 0-~0.1 range) scaled up and clamped to 0-1. When pointer is inactive, return 0. This creates organic perturbation from mouse/touch movement without revealing coordinates."
-    },
-    {
-      "id": 8,
-      "action": "Implement mapping 6-7: Bass → Macro motion, Treble → Shimmer",
-      "details": "Write helpers bassToMacro(bassAvg: number): number and trebleToShimmer(trebleAvg: number): number. Both normalize 0-255 input to 0-1 output with slight easing (power curve) to make the response feel organic rather than linear. Bass drives camera drift / wave amplitude; treble drives point jitter / sparkle. When audio is silent or unavailable both return 0."
-    },
-    {
-      "id": 9,
-      "action": "Implement main mapSignalsToVisuals(inputs: MappingInputs): VisualParams",
-      "details": "Compose all individual mapping helpers into one pure function. This is the single public API the render loop will call each frame. It delegates to each helper and returns a complete VisualParams object. Export this function and both interfaces."
-    },
-    {
-      "id": 10,
-      "action": "Write tests in tests/visual/mappings.test.ts",
-      "details": "Test categories: (1) Each mapping produces values in expected numeric ranges given known inputs. (2) Geo mapping produces different hues for different countries but same hue for same country+seed. (3) Time mapping produces slower cadence at night, faster in afternoon. (4) Reduced-motion mapping returns low amplitude when true. (5) Density mapping scales with DPR/cores. (6) Null/missing inputs produce safe fallback values (no throws). (7) No forbidden storage APIs are accessed (spy on localStorage/sessionStorage/cookie). (8) Raw identifiers do not appear in output values. (9) Bass/treble mappings return 0 for silent input and scale correctly. (10) Pointer disturbance is 0 when inactive. Follow existing test patterns from tests/seed/sessionSeed.test.ts — use vi.spyOn, vi.resetModules, describe/it structure with US-008 prefix."
-    },
-    {
-      "id": 11,
-      "action": "Verify build and tests pass",
-      "details": "Run npm run build and npx vitest run to confirm no type errors, no console errors, and all tests green. Fix any issues."
+  "interfaces": {
+    "VisualParams": {
+      "paletteHue": "number (0–360)",
+      "cadence": "number (0.5–2.0)",
+      "density": "number (0.3–1.0)",
+      "motionScale": "number (0.3–1.0)",
+      "fieldDisturbance": "number (0–1)",
+      "bassMacro": "number (0–1)",
+      "trebleShimmer": "number (0–1)"
     }
-  ],
-  "testing_strategy": {
-    "framework": "vitest",
-    "environment": "jsdom",
-    "approach": "All mapping functions are pure (no side effects, no DOM access beyond what inputs provide). Tests supply known BrowserSignals, GeoHint, and PointerState fixtures and assert output ranges and relative ordering. Storage API spies confirm privacy compliance.",
-    "test_count_estimate": "15-20 tests across ~6 describe blocks"
   },
-  "design_decisions": [
+  "mapping_summary": [
     {
-      "decision": "Mappings are pure functions taking pre-extracted values",
-      "rationale": "Keeps mappings testable without mocking AudioContext or DOM. The render loop is responsible for polling audio data and passing numeric averages."
+      "signal": "Coarse geo (country/region)",
+      "visual": "Palette hue",
+      "method": "Hash country+region → hue band (0–360). Many countries share bands. Null → seed-derived fallback."
     },
     {
-      "decision": "Bass/treble arrive as pre-averaged 0-255 numbers, not raw Uint8Array",
-      "rationale": "Avoids coupling mappings.ts to AnalyserNode buffer layout. The caller (render loop) can decide which frequency bins constitute 'bass' vs 'treble'."
+      "signal": "Timezone + time-of-day",
+      "visual": "Cadence / modulation speed",
+      "method": "Timezone offset + current hour → speed factor (0.5–2.0). Seed adds per-session variation."
     },
     {
-      "decision": "Session seed is mixed into geo→palette mapping",
-      "rationale": "Ensures the same country doesn't always produce the exact same hue — it biases a family but varies per session, increasing ephemerality."
+      "signal": "DPR + hardware concurrency",
+      "visual": "Density / structure range",
+      "method": "Clamp and normalise capability indicators → density factor (0.3–1.0). Null → mid-range."
     },
     {
-      "decision": "All outputs are plain numbers in normalized ranges",
-      "rationale": "The render loop can multiply/combine these freely. No string labels, no enums, no raw signal values in the output."
+      "signal": "prefers-reduced-motion",
+      "visual": "Motion amplitude scale",
+      "method": "Boolean → 0.3 (reduced) or 1.0 (full). Experience preserved, amplitude lowered."
     },
     {
-      "decision": "Individual helper functions are not exported — only mapSignalsToVisuals and the interfaces",
-      "rationale": "Keeps the public API surface minimal. Tests exercise helpers through the main function. If a helper needs direct testing later, it can be exported then."
+      "signal": "Pointer entropy (speed/position)",
+      "visual": "Field disturbance",
+      "method": "Pointer speed → smoothed 0–1 disturbance. Decays when inactive. Not a direct coordinate map."
+    },
+    {
+      "signal": "Bass (low-frequency audio)",
+      "visual": "Macro motion",
+      "method": "Average FFT bins 0–23 → normalised 0–1. Drives camera drift, field expansion."
+    },
+    {
+      "signal": "Treble (high-frequency audio)",
+      "visual": "Fine detail / shimmer",
+      "method": "Average FFT bins 93–372 → normalised 0–1. Drives point jitter, sparkle."
     }
   ],
   "acceptance_verification": {
-    "at_least_4_mappings": "7 mappings defined: geo→palette, time→cadence, DPR/cores→density, reduced-motion→amplitude, pointer→disturbance, bass→macro, treble→shimmer",
-    "indirect_not_literal": "All mappings transform inputs through hashing, scaling, or easing curves — no 1:1 pass-through",
-    "no_raw_identifiers": "Output is exclusively numeric. No strings, no country codes, no user agent fragments. Tests verify this.",
-    "documented_in_code": "Each mapping helper has a JSDoc comment explaining the mapping philosophy and why it's indirect"
-  }
+    "at_least_4_mappings": "7 mappings defined (geo→palette, time→cadence, DPR→density, motion-pref→scale, pointer→disturbance, bass→macro, treble→shimmer)",
+    "indirect_not_literal": "All mappings use hashing or normalisation; no 1:1 correspondence between input and output",
+    "no_raw_identifiers": "VisualParams contains only numeric values; no strings from geo, UA, IP, or fingerprint",
+    "documented_in_code": "Each mapping function has a JSDoc comment explaining the rule; VisualParams interface documents each field's range and purpose"
+  },
+  "risks": [
+    "FFT bin ranges for bass/treble depend on sample rate (assumed 44.1kHz); if sample rate differs, bands shift slightly — acceptable for artistic use",
+    "Pointer disturbance smoothing needs tuning in practice; initial values are a starting point"
+  ],
+  "estimated_new_lines": 180
 }
