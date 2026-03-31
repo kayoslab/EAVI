@@ -1,0 +1,149 @@
+{
+  "ticket": "US-005",
+  "title": "Expose coarse geo via server endpoint",
+  "summary": "Create a Vercel serverless endpoint at /api/geo that reads coarse geolocation from Vercel's geolocation() helper and returns { country, region }. Create a client-side module to fetch this endpoint once at startup with graceful fallback to null values.",
+  "steps": [
+    {
+      "id": 1,
+      "title": "Install @vercel/functions dependency",
+      "description": "Add @vercel/functions as a production dependency to access the geolocation() helper in the serverless function.",
+      "files": ["package.json"],
+      "actions": [
+        "Run: npm install @vercel/functions"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Create tsconfig for API functions",
+      "description": "The main tsconfig uses moduleResolution: bundler and noEmit: true, which won't work for Vercel serverless functions that need Node.js module resolution. Create a separate tsconfig.api.json that extends the base but overrides module settings for the api/ directory.",
+      "files": ["tsconfig.api.json"],
+      "actions": [
+        "Create tsconfig.api.json with target ES2023, module ESNext, moduleResolution node16, outDir .vercel/output, include [\"api\"]"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Create the /api/geo serverless endpoint",
+      "description": "Create api/geo.ts as a Vercel serverless function. Use geolocation() from @vercel/functions to read coarse geo headers (country, region) from the incoming request. Return JSON { country, region } with cache-control: no-store. Handle missing headers gracefully by returning null values.",
+      "files": ["api/geo.ts"],
+      "actions": [
+        "Import geolocation from @vercel/functions",
+        "Export default GET handler that reads geolocation(request)",
+        "Extract country and region (default to null if missing)",
+        "Return Response with JSON body { country, region }",
+        "Set headers: Content-Type application/json, Cache-Control no-store",
+        "Do NOT expose city, latitude, longitude, or any fine-grained data"
+      ],
+      "acceptanceCriteria": [
+        "Country header is read from Vercel environment",
+        "Region header is read from Vercel environment",
+        "Geo data is exposed via /api/geo endpoint",
+        "Endpoint returns only coarse values (country, region)",
+        "Endpoint uses cache-control: no-store"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Create the client-side geo fetch module",
+      "description": "Create src/input/geo.ts that exports a GeoHint interface and a fetchGeoHint() async function. It fetches /api/geo once, parses the JSON, and returns { country, region }. On any failure (network error, non-200, parse error), returns { country: null, region: null }.",
+      "files": ["src/input/geo.ts"],
+      "actions": [
+        "Define and export GeoHint interface: { country: string | null, region: string | null }",
+        "Export async function fetchGeoHint(): Promise<GeoHint>",
+        "Fetch /api/geo with no credentials",
+        "On success, parse JSON and return { country, region }",
+        "On any failure, return { country: null, region: null }",
+        "Do not access request headers directly from the client"
+      ],
+      "acceptanceCriteria": [
+        "Client does not access request headers directly",
+        "App works if geo data is unavailable"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Integrate geo fetch into application startup",
+      "description": "Update src/main.ts to call fetchGeoHint() at startup. The geo fetch should be fire-and-forget or awaited before scene init depending on whether geo data is needed for initial rendering. Since geo influences palette selection, fetch it early but don't block rendering.",
+      "files": ["src/main.ts"],
+      "actions": [
+        "Import fetchGeoHint from ./input/geo",
+        "Call fetchGeoHint() at startup",
+        "Store result for use by session seed / visual mappings (future stories)",
+        "Do not block canvas rendering on geo fetch completion"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Write tests for the server endpoint",
+      "description": "Create tests/api/geo.test.ts to test the serverless function. Mock the geolocation() helper to return various values. Verify response shape, headers, and fallback behavior.",
+      "files": ["tests/api/geo.test.ts"],
+      "tests": [
+        "Returns { country, region } when geolocation headers are present",
+        "Returns { country: null, region: null } when headers are missing",
+        "Response has Content-Type application/json",
+        "Response has Cache-Control no-store",
+        "Does not expose city, latitude, longitude, or other fine-grained data",
+        "Returns partial data when only country is available",
+        "Returns partial data when only region is available"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Write tests for the client geo module",
+      "description": "Create tests/input/geo.test.ts to test fetchGeoHint(). Mock fetch to simulate success, failure, and malformed responses.",
+      "files": ["tests/input/geo.test.ts"],
+      "tests": [
+        "Returns geo data on successful fetch",
+        "Returns { country: null, region: null } on network error",
+        "Returns { country: null, region: null } on non-200 response",
+        "Returns { country: null, region: null } on malformed JSON",
+        "Does not use localStorage, sessionStorage, or cookies",
+        "Fetches /api/geo endpoint (not raw headers)"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Verify build and privacy constraints",
+      "description": "Run the full build pipeline and existing test suite to ensure nothing is broken. Verify no forbidden storage APIs are introduced.",
+      "actions": [
+        "Run: npm run build",
+        "Run: npm test",
+        "Verify no console errors in dev server",
+        "Confirm no localStorage/sessionStorage/cookie usage in new code"
+      ]
+    }
+  ],
+  "files_to_create": [
+    "api/geo.ts",
+    "src/input/geo.ts",
+    "tsconfig.api.json",
+    "tests/api/geo.test.ts",
+    "tests/input/geo.test.ts"
+  ],
+  "files_to_modify": [
+    "package.json",
+    "src/main.ts"
+  ],
+  "dependencies_to_add": [
+    "@vercel/functions"
+  ],
+  "risks": [
+    {
+      "risk": "Vercel geolocation() returns empty/undefined in local dev",
+      "mitigation": "Client module already handles null fallback; server endpoint defaults to null for missing values. Local dev will simply return nulls."
+    },
+    {
+      "risk": "tsconfig conflict between client (bundler resolution) and API (node resolution)",
+      "mitigation": "Separate tsconfig.api.json for the api/ directory; Vercel uses its own build pipeline for functions so the main tsconfig only needs to cover src/"
+    }
+  ],
+  "definition_of_done": [
+    "npm run build passes",
+    "npm test passes (all new and existing tests)",
+    "No console errors on normal load",
+    "No forbidden storage APIs (cookies, localStorage, sessionStorage)",
+    "/api/geo returns { country, region } with cache-control: no-store",
+    "Client fetches /api/geo (not raw headers)",
+    "App renders correctly when geo endpoint is unavailable"
+  ]
+}
