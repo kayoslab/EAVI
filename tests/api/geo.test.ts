@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@vercel/functions', () => ({
   geolocation: vi.fn(),
@@ -6,14 +6,32 @@ vi.mock('@vercel/functions', () => ({
 
 import { geolocation } from '@vercel/functions';
 
+type Handler = (req: Request) => Response | Promise<Response>;
+
 describe('US-005: /api/geo endpoint', () => {
-  let handler: (req: Request) => Promise<Response> | Response;
+  let handler: Handler;
 
   beforeEach(async () => {
     vi.resetModules();
     vi.mocked(geolocation).mockReset();
+
     const mod = await import('../../api/geo');
-    handler = mod.default ?? (mod as Record<string, unknown>).GET;
+    const modRecord = mod as Record<string, unknown>;
+
+    if (typeof mod.default === 'function') {
+      handler = mod.default as Handler;
+    } else if (
+      mod.default &&
+      typeof (mod.default as { fetch?: unknown }).fetch === 'function'
+    ) {
+      handler = (mod.default as { fetch: Handler }).fetch;
+    } else if (typeof modRecord.GET === 'function') {
+      handler = modRecord.GET as Handler;
+    } else if (typeof modRecord.handleGeo === 'function') {
+      handler = modRecord.handleGeo as Handler;
+    } else {
+      throw new Error('No compatible handler export found in ../../api/geo');
+    }
   });
 
   it('returns country and region when geolocation headers are present', async () => {
@@ -24,47 +42,59 @@ describe('US-005: /api/geo endpoint', () => {
       latitude: '48.1351',
       longitude: '11.5820',
     });
+
     const req = new Request('https://example.com/api/geo');
     const res = await handler(req);
     const body = await res.json();
+
     expect(body).toEqual({ country: 'DE', region: 'BY' });
   });
 
   it('returns null values when geolocation headers are missing', async () => {
     vi.mocked(geolocation).mockReturnValue({});
+
     const req = new Request('https://example.com/api/geo');
     const res = await handler(req);
     const body = await res.json();
+
     expect(body).toEqual({ country: null, region: null });
   });
 
   it('returns partial data when only country is available', async () => {
     vi.mocked(geolocation).mockReturnValue({ country: 'US' });
+
     const req = new Request('https://example.com/api/geo');
     const res = await handler(req);
     const body = await res.json();
+
     expect(body).toEqual({ country: 'US', region: null });
   });
 
   it('returns partial data when only region is available', async () => {
     vi.mocked(geolocation).mockReturnValue({ region: 'CA' });
+
     const req = new Request('https://example.com/api/geo');
     const res = await handler(req);
     const body = await res.json();
+
     expect(body).toEqual({ country: null, region: 'CA' });
   });
 
   it('response has Content-Type application/json', async () => {
     vi.mocked(geolocation).mockReturnValue({ country: 'FR', region: 'IDF' });
+
     const req = new Request('https://example.com/api/geo');
     const res = await handler(req);
+
     expect(res.headers.get('content-type')).toBe('application/json');
   });
 
   it('response has Cache-Control no-store', async () => {
     vi.mocked(geolocation).mockReturnValue({ country: 'JP', region: 'TK' });
+
     const req = new Request('https://example.com/api/geo');
     const res = await handler(req);
+
     expect(res.headers.get('cache-control')).toBe('no-store');
   });
 
@@ -76,10 +106,12 @@ describe('US-005: /api/geo endpoint', () => {
       latitude: '40.7128',
       longitude: '-74.0060',
     });
+
     const req = new Request('https://example.com/api/geo');
     const res = await handler(req);
     const body = await res.json();
     const keys = Object.keys(body).sort();
+
     expect(keys).toEqual(['country', 'region']);
     expect(body).not.toHaveProperty('city');
     expect(body).not.toHaveProperty('latitude');
@@ -88,8 +120,11 @@ describe('US-005: /api/geo endpoint', () => {
 
   it('passes request to geolocation helper', async () => {
     vi.mocked(geolocation).mockReturnValue({ country: 'GB', region: 'ENG' });
+
     const req = new Request('https://example.com/api/geo');
     await handler(req);
+
+    expect(geolocation).toHaveBeenCalledTimes(1);
     expect(geolocation).toHaveBeenCalledWith(req);
   });
 });
