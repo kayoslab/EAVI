@@ -535,8 +535,8 @@
         "Mute toggle and info overlay both work"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-009",
         "US-020",
