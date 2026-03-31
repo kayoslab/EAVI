@@ -1,40 +1,26 @@
 {
   "ticket": "US-021",
-  "verdict": "approve",
-  "risk_level": "low",
-  "architectural_impact": "minimal",
-  "rationale": "Plan adds a self-contained UI module (src/ui/infoOverlay.ts) that aligns with the recommended module split in CLAUDE.md. It touches only two existing files (src/main.ts — 9 lines, src/style.css — 21 lines) with additive-only changes. No existing logic is modified or refactored. The overlay is pure DOM manipulation with no framework dependencies, no storage APIs, and no network calls — consistent with the project's privacy-conscious, no-persistence constraints.",
-  "alignment": {
-    "module_split": "Matches CLAUDE.md recommended path src/ui/infoOverlay.ts exactly",
-    "privacy": "No storage, no analytics, no external requests — compliant",
-    "product_shape": "Minimal UI (info button) as specified in Product Shape section",
-    "performance": "Lightweight DOM elements, no render-loop cost",
-    "definition_of_done": "Plan step 5 explicitly covers build, console errors, storage audit, and autoplay-context check"
-  },
-  "concerns": [
-    {
-      "area": "Pointer entropy isolation",
-      "severity": "low",
-      "detail": "Plan correctly identifies that overlay clicks must not leak into pointer entropy capture. stopPropagation on overlay is the right approach.",
-      "mitigation": "Already addressed in plan risks section"
-    },
-    {
-      "area": "z-index strategy",
-      "severity": "low",
-      "detail": "No z-index convention exists yet. This is the first layered UI element. A future audio toggle (US-011 sibling) will need compatible layering.",
-      "mitigation": "Acceptable to establish convention here; document chosen z-index range in styles"
-    }
+  "risk": "none",
+  "architectural_impact": "none",
+  "rationale": "Pure UI-only addition. createInfoButton() and createInfoOverlay() are self-contained DOM factory functions in src/ui/infoOverlay.ts with no external dependencies beyond the browser DOM API. They are appended synchronously in main.ts and do not touch the audio pipeline, Three.js scene, session seed, or any data flow. Module-private state is limited to a single overlay reference. No new dependencies, no new network calls, no storage APIs, no changes to existing modules.",
+  "modules_affected": [
+    "src/ui/infoOverlay.ts",
+    "src/style.css",
+    "src/main.ts"
   ],
-  "suggestions": [
-    "Consider exporting a single mountInfoUI(container) function rather than two separate create functions, to keep main.ts integration minimal and encapsulate wiring",
-    "Use CSS classes for show/hide toggling (e.g., .eavi-info-overlay--visible) rather than style.display, for better testability and transition support"
+  "modules_not_affected": [
+    "src/input/*",
+    "src/seed/*",
+    "src/audio/*",
+    "src/visual/*",
+    "api/*"
   ],
-  "files_impact_summary": {
-    "src/ui/infoOverlay.ts": "new — self-contained, no coupling to visual or audio modules",
-    "tests/ui/infoOverlay.test.ts": "new — isolated unit tests, no integration surface",
-    "src/style.css": "additive — new class rules only, no changes to existing selectors",
-    "src/main.ts": "additive — 2-3 new lines (import + mount), no changes to existing init flow"
-  },
-  "breaking_changes": false,
-  "dependency_changes": false
+  "new_dependencies": [],
+  "breaking_changes": [],
+  "security_concerns": [],
+  "performance_concerns": [],
+  "notes": "Implementation is already complete with 27 passing tests. The overlay uses inline display toggling and standard DOM events (click, keydown Escape). CSS uses fixed positioning with z-index layering that does not conflict with the Three.js canvas. No ADR required.",
+  "approved": true,
+  "concerns": [],
+  "decision": "approve"
 }
