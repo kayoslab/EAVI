@@ -1,1 +1,99 @@
-{"tests_added": [], "tests_modified": [], "test_results": "pass", "failures": [], "failure_source": null}
+{
+  "ticket": "US-003",
+  "title": "Read low-entropy browser signals",
+  "testFile": "tests/signals.test.ts",
+  "framework": "vitest",
+  "environment": "jsdom",
+  "status": "tests_exist",
+  "tests": [
+    {
+      "id": "US-003-01",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "returns language from navigator.language",
+      "acceptanceCriteria": "Read language",
+      "category": "happy_path",
+      "code": "it('returns language from navigator.language', () => {\n  vi.spyOn(navigator, 'language', 'get').mockReturnValue('fr-FR');\n  const signals = readSignals();\n  expect(signals.language).toBe('fr-FR');\n});"
+    },
+    {
+      "id": "US-003-02",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "falls back to en when navigator.language is empty",
+      "acceptanceCriteria": "Read language",
+      "category": "fallback",
+      "code": "it('falls back to en when navigator.language is empty', () => {\n  vi.spyOn(navigator, 'language', 'get').mockReturnValue('');\n  const signals = readSignals();\n  expect(signals.language).toBe('en');\n});"
+    },
+    {
+      "id": "US-003-03",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "returns timezone from Intl.DateTimeFormat",
+      "acceptanceCriteria": "Read timezone",
+      "category": "happy_path",
+      "code": "it('returns timezone from Intl.DateTimeFormat', () => {\n  const signals = readSignals();\n  expect(typeof signals.timezone).toBe('string');\n  expect(signals.timezone.length).toBeGreaterThan(0);\n});"
+    },
+    {
+      "id": "US-003-04",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "falls back to UTC when Intl is unavailable",
+      "acceptanceCriteria": "Read timezone",
+      "category": "fallback",
+      "code": "it('falls back to UTC when Intl is unavailable', () => {\n  const original = globalThis.Intl;\n  // @ts-expect-error — intentionally breaking Intl for fallback test\n  globalThis.Intl = undefined;\n  const signals = readSignals();\n  expect(signals.timezone).toBe('UTC');\n  globalThis.Intl = original;\n});"
+    },
+    {
+      "id": "US-003-05",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "returns screen dimensions as positive numbers",
+      "acceptanceCriteria": "Read screen dimensions",
+      "category": "happy_path",
+      "code": "it('returns screen dimensions as positive numbers', () => {\n  const signals = readSignals();\n  expect(signals.screenWidth).toBeGreaterThan(0);\n  expect(signals.screenHeight).toBeGreaterThan(0);\n  expect(Number.isFinite(signals.screenWidth)).toBe(true);\n  expect(Number.isFinite(signals.screenHeight)).toBe(true);\n});"
+    },
+    {
+      "id": "US-003-06",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "returns devicePixelRatio when available",
+      "acceptanceCriteria": "Read devicePixelRatio if available",
+      "category": "happy_path",
+      "code": "it('returns devicePixelRatio when available', () => {\n  Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });\n  const signals = readSignals();\n  expect(signals.devicePixelRatio).toBe(2);\n});"
+    },
+    {
+      "id": "US-003-07",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "returns null devicePixelRatio when undefined",
+      "acceptanceCriteria": "Read devicePixelRatio if available",
+      "category": "fallback",
+      "code": "it('returns null devicePixelRatio when undefined', () => {\n  Object.defineProperty(window, 'devicePixelRatio', { value: undefined, configurable: true });\n  const signals = readSignals();\n  expect(signals.devicePixelRatio).toBeNull();\n});"
+    },
+    {
+      "id": "US-003-08",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "does not access localStorage or sessionStorage",
+      "acceptanceCriteria": "All values stay in memory only",
+      "category": "privacy",
+      "code": "it('does not access localStorage or sessionStorage', () => {\n  const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');\n  const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');\n  readSignals();\n  expect(getItemSpy).not.toHaveBeenCalled();\n  expect(setItemSpy).not.toHaveBeenCalled();\n});"
+    },
+    {
+      "id": "US-003-09",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "does not set cookies",
+      "acceptanceCriteria": "All values stay in memory only",
+      "category": "privacy",
+      "code": "it('does not set cookies', () => {\n  const cookieSpy = vi.spyOn(document, 'cookie', 'set');\n  readSignals();\n  expect(cookieSpy).not.toHaveBeenCalled();\n});"
+    },
+    {
+      "id": "US-003-10",
+      "describe": "US-003: Read low-entropy browser signals",
+      "it": "returns object with exactly the expected keys",
+      "acceptanceCriteria": "All values stay in memory only",
+      "category": "shape",
+      "code": "it('returns object with exactly the expected keys', () => {\n  const signals = readSignals();\n  const keys = Object.keys(signals).sort();\n  expect(keys).toEqual([\n    'devicePixelRatio',\n    'hardwareConcurrency',\n    'language',\n    'prefersColorScheme',\n    'prefersReducedMotion',\n    'screenHeight',\n    'screenWidth',\n    'timezone',\n    'touchCapable',\n  ]);\n});"
+    }
+  ],
+  "coverageMatrix": {
+    "Read language": ["US-003-01", "US-003-02"],
+    "Read timezone": ["US-003-03", "US-003-04"],
+    "Read screen dimensions": ["US-003-05"],
+    "Read devicePixelRatio if available": ["US-003-06", "US-003-07"],
+    "All values stay in memory only": ["US-003-08", "US-003-09", "US-003-10"]
+  },
+  "writeRequired": false,
+  "notes": "All 10 tests already exist in tests/signals.test.ts under the 'US-003: Read low-entropy browser signals' describe block. No new test code needs to be written. The existing tests fully cover all five acceptance criteria including happy paths, fallbacks, privacy guards, and shape validation."
+}
