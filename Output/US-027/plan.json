@@ -1,0 +1,54 @@
+{
+  "id": "US-027",
+  "title": "Add runtime health check",
+  "description": "Create a dedicated health-check test suite that acts as a recurring definition-of-done gate, verifying production build, console cleanliness, audio-blocked rendering, and UI functionality in a single pass.",
+  "depends_on": [
+    "US-009",
+    "US-020",
+    "US-022"
+  ],
+  "files": {
+    "create": [
+      "tests/healthCheck.test.ts"
+    ],
+    "modify": []
+  },
+  "steps": [
+    {
+      "order": 1,
+      "action": "create",
+      "file": "tests/healthCheck.test.ts",
+      "what": "Create the consolidated runtime health-check test suite",
+      "why": "Provide a single, self-contained test file that validates all four acceptance criteria from the Definition of Done. Existing tests cover some of these individually across scattered files, but the health check consolidates them into one explicit gate that can be run as a recurring validation pass.",
+      "details": [
+        "Group 1 — Production build succeeds: run `npm run build` via execSync and assert exit code 0, assert dist/index.html exists, run `npx tsc --noEmit` and assert no type errors. (Similar to scaffold.build.test.ts but scoped to this gate.)",
+        "Group 2 — No console errors on normal load: spy on console.error and console.warn before importing src/main, assert neither is called during module initialization and bootstrap. Uses vi.spyOn to intercept console methods.",
+        "Group 3 — Scene renders when audio is blocked: mock fetch to return geo data, stub AudioContext.prototype.resume to reject (simulating autoplay block), import src/main, assert canvas element exists in #app with non-zero dimensions, assert no errors thrown. Verifies the core requirement that visuals work independently of audio.",
+        "Group 4 — Mute toggle and info overlay both work: after full app init (with audio blocked), assert .eavi-mute-btn is present in DOM once audio promise resolves (or absent gracefully if audio init fails), assert .eavi-info-btn and .eavi-info-overlay are present, verify info button click shows overlay, verify close button click hides overlay. For mute button: since it's only appended after audioPromise resolves, test the createMuteButton export directly with a mock player to confirm toggle behavior."
+      ]
+    },
+    {
+      "order": 2,
+      "action": "verify",
+      "what": "Run the full test suite including the new health check",
+      "commands": [
+        "npx vitest run tests/healthCheck.test.ts",
+        "npm run build",
+        "npm test"
+      ]
+    }
+  ],
+  "testStrategy": {
+    "framework": "vitest",
+    "environment": "jsdom",
+    "approach": "Single test file with four describe blocks mapping 1:1 to the acceptance criteria. Each block is independently runnable. The file uses the existing test setup (tests/setup.ts) for AudioContext and canvas mocks. Build verification uses child_process execSync. Console monitoring uses vi.spyOn. Audio-blocked scenario stubs AudioContext.resume to reject.",
+    "acceptanceCriteriaCoverage": {
+      "Production build succeeds": "execSync npm run build + tsc --noEmit assertions",
+      "No console errors on normal load": "console.error/warn spy during src/main import",
+      "Scene renders when audio is blocked": "Stub AudioContext.resume to reject, verify canvas renders",
+      "Mute toggle and info overlay both work": "DOM presence checks + click interaction assertions"
+    }
+  },
+  "notes": "This is intentionally a single file rather than scattered additions to existing test files, so it can serve as the 'definition-of-done gate' referenced in the ticket. The file can be run in isolation (`vitest run tests/healthCheck.test.ts`) as a quick pass/fail check before closing any ticket. Existing scaffold tests remain untouched — the health check is additive, not a refactor.",
+  "reviewer_corrections": "In Group 2, mock global fetch to return a valid /api/geo response so the geo promise doesn't reject and pollute console.error.; In Group 3, after dynamic-importing main.ts, flush microtasks to let the render loop start before checking canvas state.; Consider adding a top-level afterEach that restores document.body.innerHTML to '<div id=\"app\"></div>' since multiple groups import main.ts which appends UI elements to the body."
+}
