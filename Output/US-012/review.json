@@ -1,0 +1,44 @@
+{
+  "plan_id": "US-012",
+  "comments": [
+    {
+      "step": 2,
+      "severity": "low",
+      "comment": "Plan says 'optional' elapsed field on FrameState, but renderLoop will always compute it. Make it required to avoid unnecessary undefined checks in geometry systems."
+    },
+    {
+      "step": 1,
+      "severity": "info",
+      "comment": "createPRNG(seed) returns () => number (0-1 floats, Mulberry32). Plan's usage is correct. Seed namespace ':evo' avoids collision with other PRNG consumers."
+    },
+    {
+      "step": 3,
+      "severity": "info",
+      "comment": "renderLoop already tracks lastTime but not startTime. Adding startTime capture on first frame (when lastTime < 0) fits cleanly into existing logic."
+    },
+    {
+      "step": 1,
+      "severity": "low",
+      "comment": "At elapsedMs=0, sin(0 + phaseOffset) != 0 unless phaseOffset is 0. To guarantee near-zero drift at start, subtract sin(phaseOffset) from each term so the curve starts at 0 displacement regardless of phase."
+    },
+    {
+      "step": 4,
+      "severity": "info",
+      "comment": "Test for reduced-motion should verify motionAmplitude is untouched (passed through from base). Plan correctly identifies this."
+    },
+    {
+      "step": 5,
+      "severity": "low",
+      "comment": "Existing renderLoop tests mock geometrySystem.draw — update those mocks to expect the new elapsed field in FrameState to avoid test breakage."
+    }
+  ],
+  "missing": [],
+  "risks_acknowledged": true,
+  "estimated_files_changed": 4,
+  "estimated_test_count": 9,
+  "approved": true,
+  "concerns": [],
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
