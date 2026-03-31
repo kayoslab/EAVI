@@ -76,7 +76,7 @@
       ],
       "split_from": "US-002",
       "notes": "Treat all values as optional.",
-      "claimed_by": "worker-3"
+      "claimed_by": "worker-2"
     },
     {
       "id": "US-005",
@@ -182,7 +182,7 @@
       ],
       "split_from": "US-005",
       "notes": "Start with one lightweight system such as points or lines.",
-      "claimed_by": "worker-3"
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-010",
@@ -416,12 +416,13 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "fail",
+      "status": "in_progress",
       "depends_on": [
         "US-001"
       ],
       "split_from": "US-011",
-      "notes": "Keep UI minimal and unobtrusive."
+      "notes": "Keep UI minimal and unobtrusive.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-022",
