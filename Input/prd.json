@@ -295,14 +295,13 @@
         "Selection does not require persistent memory"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-014"
       ],
       "split_from": "US-006",
-      "notes": "Avoid immediate repeat when more than one track exists.",
-      "claimed_by": "worker-2"
+      "notes": "Avoid immediate repeat when more than one track exists."
     },
     {
       "id": "US-016",
