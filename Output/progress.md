@@ -22,3 +22,5 @@
 
 ## US-004: Read capability and preference signals
 
+## US-023: Show partially legible influence hints
+

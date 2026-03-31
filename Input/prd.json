@@ -452,8 +452,8 @@
         "Hints can be updated from a single source of truth"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-008",
         "US-021",
