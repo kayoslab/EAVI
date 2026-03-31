@@ -1,0 +1,165 @@
+{
+  "ticket": "US-012",
+  "title": "Add time-based evolution",
+  "testFiles": [
+    {
+      "path": "tests/visual/evolution.test.ts",
+      "purpose": "Unit tests for the evolution module: determinism, smoothness, range bounds, seed variance, no hard resets, at least two params changed.",
+      "tests": [
+        {
+          "id": "T-012-01",
+          "name": "evolveParams returns valid VisualParams with all required fields",
+          "description": "Call evolveParams with a base VisualParams, elapsedMs=10000, and a seed. Verify the returned object has all VisualParams keys (paletteHue, paletteSaturation, cadence, density, motionAmplitude, pointerDisturbance, bassEnergy, trebleEnergy) and each is a finite number.",
+          "type": "unit",
+          "assertion": "Every key present in base is present in the result and typeof value === 'number' && Number.isFinite(value)"
+        },
+        {
+          "id": "T-012-02",
+          "name": "at elapsedMs=0 output is very close to base params",
+          "description": "Call evolveParams with elapsedMs=0 and verify each evolved parameter differs from the base by less than a small epsilon (e.g. 1e-6 for normalized params, ~0.01 for hue). This ensures no discontinuity at session start.",
+          "type": "unit",
+          "assertion": "Math.abs(result[key] - base[key]) < epsilon for all evolved params"
+        },
+        {
+          "id": "T-012-03",
+          "name": "at elapsedMs=30000 at least two params differ noticeably from base",
+          "description": "Call evolveParams at 30 seconds elapsed. Check that at least two of paletteHue, cadence, paletteSaturation differ from their base values by more than a perceptible threshold (e.g. hue > 2 degrees, cadence > 0.02, saturation > 0.01).",
+          "type": "unit",
+          "assertion": "Count of params where |result - base| > threshold is >= 2"
+        },
+        {
+          "id": "T-012-04",
+          "name": "determinism: same seed + same elapsed + same base = same output",
+          "description": "Call evolveParams twice with identical arguments (same base, same elapsedMs=45000, same seed). Verify both results are deeply equal.",
+          "type": "unit",
+          "assertion": "expect(resultA).toEqual(resultB)"
+        },
+        {
+          "id": "T-012-05",
+          "name": "seed variance: different seeds produce different evolution at same elapsed time",
+          "description": "Call evolveParams with two different seeds but same base and elapsedMs=30000. Verify at least one evolved param (paletteHue, cadence, or paletteSaturation) differs between the two results.",
+          "type": "unit",
+          "assertion": "At least one param where resultA[key] !== resultB[key]"
+        },
+        {
+          "id": "T-012-06",
+          "name": "smoothness: consecutive millisecond samples have small deltas",
+          "description": "Sample evolveParams at 1ms intervals from elapsedMs=10000 to 10100. For each consecutive pair, verify the absolute difference per param is below a tight bound (e.g. hue < 0.1 per ms, cadence < 0.001 per ms). No jumps allowed.",
+          "type": "unit",
+          "assertion": "For all consecutive pairs: |sample[i+1][key] - sample[i][key]| < maxDeltaPerMs"
+        },
+        {
+          "id": "T-012-07",
+          "name": "no hard reset: scanning 0 to 120000ms the max frame-to-frame delta is bounded",
+          "description": "Sample evolveParams at 16ms intervals (simulating 60fps) from 0 to 120000ms. Track the maximum frame-to-frame delta for each evolved param. Verify no single-frame jump exceeds a reasonable bound (hue < 1.0/frame, cadence < 0.01/frame, saturation < 0.01/frame).",
+          "type": "unit",
+          "assertion": "maxDelta[key] < frameBound for each evolved parameter"
+        },
+        {
+          "id": "T-012-08",
+          "name": "paletteHue stays in 0-360 range after evolution",
+          "description": "Test evolveParams at various elapsed times (0, 15000, 30000, 60000, 90000, 120000ms) with a base hue near the boundary (e.g. 350). Verify result.paletteHue is always >= 0 and < 360.",
+          "type": "unit",
+          "assertion": "result.paletteHue >= 0 && result.paletteHue < 360 for all samples"
+        },
+        {
+          "id": "T-012-09",
+          "name": "cadence stays in valid clamped range after evolution",
+          "description": "Test evolveParams at various elapsed times with base cadence at extremes (0.4, 0.7, 1.0). Verify result.cadence is always within the valid range (approximately 0.3-1.0).",
+          "type": "unit",
+          "assertion": "result.cadence >= 0.3 && result.cadence <= 1.0 for all samples"
+        },
+        {
+          "id": "T-012-10",
+          "name": "paletteSaturation stays in valid clamped range after evolution",
+          "description": "Test evolveParams at various elapsed times. Verify result.paletteSaturation stays within bounds (approximately 0.15-0.9).",
+          "type": "unit",
+          "assertion": "result.paletteSaturation >= 0.15 && result.paletteSaturation <= 0.9"
+        },
+        {
+          "id": "T-012-11",
+          "name": "evolution does not alter motionAmplitude",
+          "description": "Call evolveParams with base.motionAmplitude = 0.2 (reduced-motion) and again with 1.0 (normal). Verify result.motionAmplitude equals the base value exactly in both cases. Evolution must respect accessibility preference.",
+          "type": "unit",
+          "assertion": "result.motionAmplitude === base.motionAmplitude for both 0.2 and 1.0"
+        },
+        {
+          "id": "T-012-12",
+          "name": "evolution does not alter non-evolved params (density, pointerDisturbance, bassEnergy, trebleEnergy)",
+          "description": "Call evolveParams at elapsedMs=60000. Verify density, pointerDisturbance, bassEnergy, and trebleEnergy are unchanged from base values.",
+          "type": "unit",
+          "assertion": "result[key] === base[key] for each non-evolved param"
+        },
+        {
+          "id": "T-012-13",
+          "name": "curve parameters are cached per seed (PRNG not recomputed every call)",
+          "description": "Call evolveParams 100 times with the same seed but different elapsed values. Spy on createPRNG. Verify createPRNG is called at most once for the same seed (or a small fixed number for initialization), not once per call.",
+          "type": "unit",
+          "assertion": "createPRNG call count <= expected initialization count (not 100)"
+        },
+        {
+          "id": "T-012-14",
+          "name": "different seeds produce different curve parameter caches",
+          "description": "Call evolveParams with seed 'alpha' and seed 'beta' at elapsedMs=60000. Verify the cache contains separate entries and results differ. Then call again with 'alpha' and verify it matches the first 'alpha' call.",
+          "type": "unit",
+          "assertion": "resultAlpha1 !== resultBeta && resultAlpha1 equals resultAlpha2"
+        },
+        {
+          "id": "T-012-15",
+          "name": "evolution produces organic non-repeating feel within 5 minutes",
+          "description": "Sample paletteHue at 1-second intervals for 300 seconds. Verify the trajectory is not periodic within this window by checking that no exact repetition of a 30-sample subsequence occurs.",
+          "type": "unit",
+          "assertion": "No identical 30-sample subsequences found in the 300 samples"
+        },
+        {
+          "id": "T-012-16",
+          "name": "no forbidden storage APIs accessed during evolution",
+          "description": "Spy on Storage.prototype.getItem, setItem, and document.cookie setter. Call evolveParams. Verify none of the spies were called.",
+          "type": "unit",
+          "assertion": "getItemSpy, setItemSpy, cookieSpy not called"
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/renderLoop.test.ts",
+      "purpose": "Integration tests verifying that the render loop tracks elapsed time, calls evolveParams, passes elapsed in FrameState, and skips evolution when no seed is available.",
+      "tests": [
+        {
+          "id": "T-012-17",
+          "name": "elapsed time is tracked from first frame and passed in FrameState",
+          "description": "Start the render loop with a mock geometry system. Use mocked requestAnimationFrame to fire frames at timestamps 100, 116, 200. Capture the FrameState passed to geometry.draw(). Verify the FrameState contains an 'elapsed' field equal to 0 for the first frame and (timestamp - firstTimestamp) for subsequent frames.",
+          "type": "integration",
+          "assertion": "frame1.elapsed === 0, frame2.elapsed === 16, frame3.elapsed === 100"
+        },
+        {
+          "id": "T-012-18",
+          "name": "evolveParams is called when seed is available",
+          "description": "Start the render loop with deps including a valid seed. Mock evolveParams and fire several frames via mocked RAF. Verify evolveParams is called on each frame with the base visual params, the computed elapsed time, and the seed string.",
+          "type": "integration",
+          "assertion": "evolveParams called with (baseParams, elapsed, seed) on each frame"
+        },
+        {
+          "id": "T-012-19",
+          "name": "evolution is skipped in the default-params fallback branch (no seed)",
+          "description": "Start the render loop with deps where seed is null/undefined. Mock evolveParams and fire frames. Verify evolveParams is never called.",
+          "type": "integration",
+          "assertion": "evolveParams not called when seed is null"
+        },
+        {
+          "id": "T-012-20",
+          "name": "evolved params are passed to geometry.draw instead of raw base params",
+          "description": "Start the render loop with a valid seed and mock geometry system. Mock evolveParams to return a known modified VisualParams (e.g. paletteHue = 999). Capture the FrameState passed to geometry.draw(). Verify frame.params.paletteHue matches the evolved value, not the base mapping value.",
+          "type": "integration",
+          "assertion": "drawSpy args[1].params.paletteHue === 999 (the mocked evolved value)"
+        },
+        {
+          "id": "T-012-21",
+          "name": "elapsed time increases monotonically across frames",
+          "description": "Fire 10 frames with increasing RAF timestamps. Capture elapsed from each FrameState. Verify elapsed is non-decreasing and the sequence is strictly increasing for strictly increasing timestamps.",
+          "type": "integration",
+          "assertion": "elapsed[i] < elapsed[i+1] for all consecutive frames"
+        }
+      ]
+    }
+  ]
+}
