@@ -1,0 +1,1 @@
+{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "All 30 US-017 tests pass (13 analyser + 17 player). TypeScript compiles cleanly. Production build succeeds. Pre-existing failures in canvas-shell, scaffold.dom, and infoOverlay tests are unrelated to US-017."}
