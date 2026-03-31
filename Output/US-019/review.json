@@ -1,0 +1,40 @@
+{
+  "ticket": "US-019",
+  "plan_hash": "US-019-treble-detail",
+  "notes": [
+    {
+      "step": 2,
+      "severity": "minor",
+      "issue": "particleField.ts line 50 destructures `{ params, width, height, delta }` but omits `time`. The sparkle phase (`frame.time * 0.005`) and jitter (`frame.time * 0.01`) both need `time` — add it to the destructuring or access via `frame.time`.",
+      "action": "Add `time` to the destructuring on line 50: `const { params, width, height, delta, time } = frame;`"
+    },
+    {
+      "step": 2,
+      "severity": "info",
+      "issue": "Existing test T-009-16 checks `s.startsWith('hsl')` for particle colors. The planned `hsl()` → `hsla()` change is safe since `'hsla(...)'` still matches that prefix, but be aware of this coupling."
+    },
+    {
+      "step": 1,
+      "severity": "info",
+      "issue": "EMA smoothing is applied to the raw 0-255 treble value before `trebleToShimmer` applies normalization (÷255) and power curve (^0.7). This is the correct order — smoothing raw frequency data before perceptual mapping preserves the nonlinear response curve."
+    }
+  ],
+  "risks_adequate": true,
+  "test_coverage_adequate": true,
+  "files_verified": {
+    "src/visual/renderLoop.ts": "exists, lines 84-92 match plan's target location for EMA insertion",
+    "src/visual/systems/particleField.ts": "exists, draw() at line 49 matches plan's target, treble already used at lines 53 and 77",
+    "src/visual/mappings.ts": "trebleToShimmer at line 178 confirmed, VisualParams.trebleEnergy at line 34 confirmed",
+    "tests/visual/renderLoop.test.ts": "exists with 10 tests, new tests T-019-01/02 can be appended",
+    "tests/visual/systems/particleField.test.ts": "exists with 10 tests, new tests T-019-03 through T-019-06 can be appended"
+  },
+  "dependency_check": {
+    "US-009": "renderLoop and particleField both present and functional",
+    "US-017": "computeTrebleAvg exists at renderLoop.ts:61, trebleToShimmer exists at mappings.ts:178, trebleEnergy flows through VisualParams"
+  },
+  "approved": true,
+  "concerns": [],
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
