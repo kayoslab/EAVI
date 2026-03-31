@@ -1,0 +1,251 @@
+{
+  "ticket": "US-016",
+  "title": "Attempt muted autoplay",
+  "testFiles": [
+    {
+      "path": "tests/audio/trackList.test.ts",
+      "purpose": "Track manifest and random selection logic",
+      "tests": [
+        {
+          "name": "TRACKS array is non-empty",
+          "description": "The manifest must contain at least one track for the player to function",
+          "assertions": ["TRACKS.length is greater than 0"]
+        },
+        {
+          "name": "all TRACKS entries start with /audio/",
+          "description": "Tracks are served from the public/audio directory so all URLs must use that prefix",
+          "assertions": ["every entry in TRACKS starts with '/audio/'"]
+        },
+        {
+          "name": "pickTrack returns a string from the TRACKS array",
+          "description": "Without a previous argument, pickTrack should return one of the known tracks",
+          "assertions": ["TRACKS includes the return value of pickTrack()"]
+        },
+        {
+          "name": "pickTrack avoids immediate repeat when multiple tracks exist",
+          "description": "When given a previous track URL and more than one track exists, the returned track must differ",
+          "assertions": ["pickTrack(previousUrl) !== previousUrl when TRACKS.length > 1"]
+        },
+        {
+          "name": "pickTrack returns the only track when one track exists",
+          "description": "Edge case: with a single-entry manifest, the function must still return that track even if it matches previous",
+          "assertions": ["pickTrack(onlyTrack) === onlyTrack when TRACKS.length === 1"]
+        },
+        {
+          "name": "does not access localStorage, sessionStorage, or cookies",
+          "description": "Privacy constraint: track selection must not use any persistent storage",
+          "assertions": [
+            "Storage.prototype.getItem not called",
+            "Storage.prototype.setItem not called",
+            "document.cookie setter not called"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/audio/analyser.test.ts",
+      "purpose": "Audio analysis graph setup and data accessors",
+      "setupNotes": "Requires AudioContext, AnalyserNode, and GainNode stubs since jsdom does not implement Web Audio API. Create minimal mock classes in beforeEach that track connections and expose necessary properties (fftSize, frequencyBinCount, connect, getByteFrequencyData, getByteTimeDomainData).",
+      "tests": [
+        {
+          "name": "createAnalyser returns analyser, gainNode, and connectSource",
+          "description": "The factory must return all three pieces needed by the player",
+          "assertions": [
+            "result.analyser is defined",
+            "result.gainNode is defined",
+            "typeof result.connectSource === 'function'"
+          ]
+        },
+        {
+          "name": "connectSource wires source through analyser to gain to destination",
+          "description": "The audio graph must route source → AnalyserNode → GainNode → destination so analysis continues while muted",
+          "assertions": [
+            "source.connect called with analyser",
+            "analyser.connect called with gainNode",
+            "gainNode.connect called with ctx.destination"
+          ]
+        },
+        {
+          "name": "analyser has expected fftSize",
+          "description": "The fftSize should be 1024 or 2048 for meaningful frequency resolution",
+          "assertions": ["analyser.fftSize is 1024 or 2048"]
+        },
+        {
+          "name": "getFrequencyData returns Uint8Array of correct length",
+          "description": "The returned array length should match analyser.frequencyBinCount",
+          "assertions": [
+            "result is instanceof Uint8Array",
+            "result.length === analyser.frequencyBinCount"
+          ]
+        },
+        {
+          "name": "getTimeDomainData returns Uint8Array of correct length",
+          "description": "The returned array length should match analyser.frequencyBinCount",
+          "assertions": [
+            "result is instanceof Uint8Array",
+            "result.length === analyser.frequencyBinCount"
+          ]
+        },
+        {
+          "name": "does not access localStorage, sessionStorage, or cookies",
+          "description": "Privacy constraint",
+          "assertions": [
+            "Storage.prototype.getItem not called",
+            "Storage.prototype.setItem not called",
+            "document.cookie setter not called"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/audio/player.test.ts",
+      "purpose": "Muted autoplay with graceful fallback, state management, and user-initiated unmute",
+      "setupNotes": "Requires comprehensive Web Audio API mocks: AudioContext (with state, resume, close, createMediaElementSource, createGain, destination), GainNode (gain.value, connect), AnalyserNode (connect, fftSize, frequencyBinCount), HTMLAudioElement (play, pause, src, addEventListener). Use vi.resetModules() in beforeEach for fresh imports. Mock play() as a resolved or rejected promise to simulate autoplay success/failure.",
+      "tests": [
+        {
+          "name": "initAudio resolves without throwing when play() succeeds",
+          "description": "Happy path: autoplay is allowed, play() resolves, player is returned",
+          "assertions": [
+            "initAudio() resolves (does not reject)",
+            "returned player is defined"
+          ]
+        },
+        {
+          "name": "initAudio resolves without throwing when play() rejects (autoplay blocked)",
+          "description": "Critical AC: autoplay failure must not crash the application",
+          "acceptanceCriteria": "Autoplay failure is handled without crashing",
+          "assertions": [
+            "initAudio() resolves (does not reject)",
+            "returned player is defined",
+            "no uncaught exception"
+          ]
+        },
+        {
+          "name": "initial state is muted",
+          "description": "Critical AC: playback must begin in muted mode",
+          "acceptanceCriteria": "Playback is attempted in muted mode",
+          "assertions": ["player.muted === true"]
+        },
+        {
+          "name": "gain is set to 0 before play() is called",
+          "description": "Muted autoplay means gain must be zeroed before the play attempt, not after",
+          "acceptanceCriteria": "Playback is attempted in muted mode",
+          "assertions": ["gainNode.gain.value === 0 at the time play() is invoked"]
+        },
+        {
+          "name": "state is 'playing' when autoplay succeeds",
+          "description": "When play() resolves, the player should report it is actively playing",
+          "assertions": ["player.state === 'playing'"]
+        },
+        {
+          "name": "state is 'suspended' when autoplay is blocked",
+          "description": "When play() rejects, the player should report suspended state for later resumption",
+          "assertions": ["player.state === 'suspended'"]
+        },
+        {
+          "name": "setMuted(false) sets gain to 1 and calls ctx.resume()",
+          "description": "Critical AC: user action must be able to enable audio",
+          "acceptanceCriteria": "Audio can later be enabled by user action",
+          "assertions": [
+            "gainNode.gain.value === 1 after setMuted(false)",
+            "ctx.resume() called"
+          ]
+        },
+        {
+          "name": "setMuted(true) sets gain to 0",
+          "description": "Re-muting should zero the gain without tearing down the audio graph",
+          "assertions": [
+            "gainNode.gain.value === 0 after setMuted(true)",
+            "player.muted === true"
+          ]
+        },
+        {
+          "name": "setMuted(false) updates muted property to false",
+          "description": "The muted flag must reflect the current mute state",
+          "assertions": ["player.muted === false after setMuted(false)"]
+        },
+        {
+          "name": "getAnalyserNode returns an AnalyserNode",
+          "description": "The render loop needs access to the analyser for frequency data",
+          "assertions": ["player.getAnalyserNode() is defined and is the AnalyserNode instance"]
+        },
+        {
+          "name": "destroy() closes AudioContext and pauses audio",
+          "description": "Cleanup must release browser audio resources",
+          "assertions": [
+            "audioElement.pause() called",
+            "ctx.close() called"
+          ]
+        },
+        {
+          "name": "does not use localStorage, sessionStorage, or cookies",
+          "description": "Privacy constraint: audio player must not persist any state",
+          "assertions": [
+            "Storage.prototype.getItem not called",
+            "Storage.prototype.setItem not called",
+            "document.cookie setter not called"
+          ]
+        },
+        {
+          "name": "audio graph allows analysis while muted",
+          "description": "Critical AC: analyser must sit before gain in the chain so data flows even at gain=0",
+          "acceptanceCriteria": "Visuals continue even if autoplay is blocked",
+          "assertions": [
+            "AnalyserNode is connected in the graph",
+            "getAnalyserNode() returns non-null even when muted"
+          ]
+        }
+      ]
+    }
+  ],
+  "mockStrategy": {
+    "AudioContext": {
+      "properties": ["state", "destination", "currentTime"],
+      "methods": ["resume", "close", "createMediaElementSource", "createGain", "createAnalyser"],
+      "notes": "state should be configurable ('running' | 'suspended') to test both autoplay outcomes. resume() returns a resolved promise."
+    },
+    "AnalyserNode": {
+      "properties": ["fftSize", "frequencyBinCount", "smoothingTimeConstant"],
+      "methods": ["connect", "disconnect", "getByteFrequencyData", "getByteTimeDomainData"],
+      "notes": "frequencyBinCount = fftSize / 2. getByteFrequencyData/getByteTimeDomainData fill the passed Uint8Array."
+    },
+    "GainNode": {
+      "properties": ["gain.value"],
+      "methods": ["connect", "disconnect"],
+      "notes": "gain should be an object with a value property that can be read and written."
+    },
+    "HTMLAudioElement": {
+      "properties": ["src", "crossOrigin", "loop"],
+      "methods": ["play", "pause", "addEventListener", "removeEventListener"],
+      "notes": "play() returns a promise. Mock it to resolve for autoplay-allowed tests and reject with a NotAllowedError for autoplay-blocked tests."
+    }
+  },
+  "acceptanceCriteriaMapping": {
+    "Playback is attempted in muted mode": [
+      "tests/audio/player.test.ts: initial state is muted",
+      "tests/audio/player.test.ts: gain is set to 0 before play() is called"
+    ],
+    "Autoplay failure is handled without crashing": [
+      "tests/audio/player.test.ts: initAudio resolves without throwing when play() rejects (autoplay blocked)",
+      "tests/audio/player.test.ts: state is 'suspended' when autoplay is blocked"
+    ],
+    "Visuals continue even if autoplay is blocked": [
+      "tests/audio/player.test.ts: audio graph allows analysis while muted",
+      "tests/audio/player.test.ts: getAnalyserNode returns an AnalyserNode"
+    ],
+    "Audio can later be enabled by user action": [
+      "tests/audio/player.test.ts: setMuted(false) sets gain to 1 and calls ctx.resume()",
+      "tests/audio/player.test.ts: setMuted(false) updates muted property to false"
+    ]
+  },
+  "conventions": {
+    "framework": "vitest",
+    "environment": "jsdom",
+    "globals": true,
+    "imports": "import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'",
+    "moduleIsolation": "vi.resetModules() in beforeEach with dynamic imports for modules that create singletons",
+    "privacyChecks": "Every test file includes a privacy test verifying no localStorage, sessionStorage, or cookie access",
+    "mockPattern": "vi.fn() for functions, vi.spyOn() for existing APIs, Object.defineProperty for read-only properties",
+    "restoreMocks": "Handled globally by vitest.config.ts restoreMocks: true"
+  }
+}
