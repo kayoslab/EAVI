@@ -96,6 +96,25 @@ canvas {
   opacity: 0.9;
 }
 
+.eavi-hints {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  font-size: inherit;
+}
+
+.eavi-hints li {
+  margin-bottom: 0.35rem;
+  opacity: 0.7;
+}
+
+.eavi-hint-category {
+  text-transform: lowercase;
+  opacity: 0.5;
+  margin-right: 0.4em;
+  font-weight: 600;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .eavi-info-btn,
   .eavi-info-overlay,
