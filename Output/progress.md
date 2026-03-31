@@ -20,3 +20,5 @@
 
 ## US-021: Add info button shell
 
+## US-004: Read capability and preference signals
+
