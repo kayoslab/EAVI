@@ -76,6 +76,7 @@ export function startLoop(
   const d = deps ?? {};
   let lastTime = -1;
   let geoInitialized = false;
+  let smoothTreble = 0;
 
   const frame = (time: number) => {
     const delta = lastTime < 0 ? 16 : time - lastTime;
@@ -83,13 +84,17 @@ export function startLoop(
 
     // Poll audio if available
     let bass = 0;
-    let treble = 0;
+    let rawTreble = 0;
     const pipeline = d.getAnalyserPipeline?.();
     if (pipeline) {
       pipeline.poll();
       bass = computeBassAvg(pipeline.frequency);
-      treble = computeTrebleAvg(pipeline.frequency);
+      rawTreble = computeTrebleAvg(pipeline.frequency);
     }
+
+    // EMA smoothing for treble to avoid flicker
+    smoothTreble = smoothTreble * 0.85 + rawTreble * 0.15;
+    const treble = smoothTreble;
 
     // Compute visual params
     let params: VisualParams;

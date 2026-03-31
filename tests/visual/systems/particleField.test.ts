@@ -228,6 +228,201 @@ describe('US-009: ParticleField geometry system', () => {
     expect(hslColors.length).toBeGreaterThan(0);
   });
 
+  describe('US-019: Treble detail effects', () => {
+    it('T-019-03: treble energy influences visual detail properties (fillStyle and size differ)', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d')!;
+
+      const capturedStylesZero: string[] = [];
+      const capturedRectsZero: number[][] = [];
+      const capturedStylesHigh: string[] = [];
+      const capturedRectsHigh: number[][] = [];
+
+      // --- Run with trebleEnergy = 0 ---
+      const field0 = createParticleField();
+      const params0 = { ...defaultParams, trebleEnergy: 0 };
+      field0.init(ctx, 'treble-detail-seed', params0);
+
+      let styleProxy: string = '';
+      Object.defineProperty(ctx, 'fillStyle', {
+        set(v: string) { styleProxy = v; capturedStylesZero.push(v); },
+        get() { return styleProxy; },
+        configurable: true,
+      });
+      const origFillRect = ctx.fillRect.bind(ctx);
+      ctx.fillRect = (...args: [number, number, number, number]) => {
+        capturedRectsZero.push([...args]);
+        origFillRect(...args);
+      };
+
+      field0.draw(ctx, { time: 1000, delta: 16, params: params0, width: 400, height: 400 });
+
+      // --- Run with trebleEnergy = 1 ---
+      const field1 = createParticleField();
+      const params1 = { ...defaultParams, trebleEnergy: 1 };
+      field1.init(ctx, 'treble-detail-seed', params1);
+
+      Object.defineProperty(ctx, 'fillStyle', {
+        set(v: string) { styleProxy = v; capturedStylesHigh.push(v); },
+        get() { return styleProxy; },
+        configurable: true,
+      });
+      ctx.fillRect = (...args: [number, number, number, number]) => {
+        capturedRectsHigh.push([...args]);
+        origFillRect(...args);
+      };
+
+      field1.draw(ctx, { time: 1000, delta: 16, params: params1, width: 400, height: 400 });
+
+      // Filter out the black background clear
+      const particleStylesZero = capturedStylesZero.filter(s => s.startsWith('hsl'));
+      const particleStylesHigh = capturedStylesHigh.filter(s => s.startsWith('hsl'));
+
+      expect(particleStylesZero.length).toBeGreaterThan(0);
+      expect(particleStylesHigh.length).toBeGreaterThan(0);
+
+      // At least one style or rect dimension should differ
+      const stylesDiffer = particleStylesZero[0] !== particleStylesHigh[0];
+      // Compare particle sizes (3rd element = width of fillRect for particles, not bg)
+      const particleRectsZero = capturedRectsZero.filter(r => !(r[0] === 0 && r[1] === 0 && r[2] === 400 && r[3] === 400));
+      const particleRectsHigh = capturedRectsHigh.filter(r => !(r[0] === 0 && r[1] === 0 && r[2] === 400 && r[3] === 400));
+      const sizesDiffer = particleRectsZero.length > 0 && particleRectsHigh.length > 0 &&
+        particleRectsZero[0][2] !== particleRectsHigh[0][2];
+
+      expect(stylesDiffer || sizesDiffer).toBe(true);
+    });
+
+    it('T-019-04: treble effect is distinct from bass — treble changes appearance, bass changes displacement', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d')!;
+
+      const baseFrame = { time: 0, delta: 16, width: 800, height: 600 };
+
+      // --- Treble only (bass=0, treble=1) ---
+      const trebleOnly = createParticleField();
+      const trebleParams = { ...defaultParams, bassEnergy: 0, trebleEnergy: 1 };
+      trebleOnly.init(ctx, 'distinct-seed', trebleParams);
+      const initialTreble = getParticlePositions(trebleOnly).map(p => ({ ...p }));
+      trebleOnly.draw(ctx, { ...baseFrame, params: trebleParams });
+      const afterTreble = getParticlePositions(trebleOnly);
+      const trebleDisplacement = computeTotalDisplacement(afterTreble, initialTreble);
+
+      // --- Bass only (bass=1, treble=0) ---
+      const bassOnly = createParticleField();
+      const bassParams = { ...defaultParams, bassEnergy: 1, trebleEnergy: 0 };
+      bassOnly.init(ctx, 'distinct-seed', bassParams);
+      const initialBass = getParticlePositions(bassOnly).map(p => ({ ...p }));
+      bassOnly.draw(ctx, { ...baseFrame, params: bassParams });
+      const afterBass = getParticlePositions(bassOnly);
+      const bassDisplacement = computeTotalDisplacement(afterBass, initialBass);
+
+      // Bass should cause significantly more displacement than treble
+      expect(bassDisplacement).toBeGreaterThan(trebleDisplacement);
+
+      // Treble-only displacement should be similar to zero-energy displacement
+      const zeroField = createParticleField();
+      const zeroParams = { ...defaultParams, bassEnergy: 0, trebleEnergy: 0 };
+      zeroField.init(ctx, 'distinct-seed', zeroParams);
+      const initialZero = getParticlePositions(zeroField).map(p => ({ ...p }));
+      zeroField.draw(ctx, { ...baseFrame, params: zeroParams });
+      const afterZero = getParticlePositions(zeroField);
+      const zeroDisplacement = computeTotalDisplacement(afterZero, initialZero);
+
+      expect(Math.abs(trebleDisplacement - zeroDisplacement)).toBeLessThan(0.01);
+    });
+
+    it('T-019-05: particle positions stay within bounds with maximum treble energy', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d')!;
+
+      const field = createParticleField();
+      const maxTrebleParams = { ...defaultParams, trebleEnergy: 1, bassEnergy: 1 };
+      field.init(ctx, 'bounds-treble-seed', maxTrebleParams);
+
+      // Run many frames with max treble
+      for (let t = 0; t < 100; t++) {
+        field.draw(ctx, {
+          time: t * 100,
+          delta: 100,
+          params: maxTrebleParams,
+          width: 800,
+          height: 600,
+        });
+      }
+
+      const positions = getParticlePositions(field);
+      positions.forEach((p) => {
+        expect(p.x).toBeGreaterThanOrEqual(0);
+        expect(p.x).toBeLessThanOrEqual(1);
+        expect(p.y).toBeGreaterThanOrEqual(0);
+        expect(p.y).toBeLessThanOrEqual(1);
+      });
+    });
+
+    it('T-019-06: treble does not cause unbounded position drift compared to zero treble', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d')!;
+      const numFrames = 50;
+
+      // --- With treble ---
+      const fieldTreble = createParticleField();
+      const trebleParams = { ...defaultParams, trebleEnergy: 1 };
+      fieldTreble.init(ctx, 'drift-seed', trebleParams);
+      for (let t = 0; t < numFrames; t++) {
+        fieldTreble.draw(ctx, {
+          time: t * 16,
+          delta: 16,
+          params: trebleParams,
+          width: 800,
+          height: 600,
+        });
+      }
+      const posTreble = getParticlePositions(fieldTreble);
+
+      // --- Without treble ---
+      const fieldZero = createParticleField();
+      const zeroParams = { ...defaultParams, trebleEnergy: 0 };
+      fieldZero.init(ctx, 'drift-seed', zeroParams);
+      for (let t = 0; t < numFrames; t++) {
+        fieldZero.draw(ctx, {
+          time: t * 16,
+          delta: 16,
+          params: zeroParams,
+          width: 800,
+          height: 600,
+        });
+      }
+      const posZero = getParticlePositions(fieldZero);
+
+      // Both should be within [0, 1] bounds
+      posTreble.forEach((p) => {
+        expect(p.x).toBeGreaterThanOrEqual(0);
+        expect(p.x).toBeLessThanOrEqual(1);
+        expect(p.y).toBeGreaterThanOrEqual(0);
+        expect(p.y).toBeLessThanOrEqual(1);
+      });
+
+      posZero.forEach((p) => {
+        expect(p.x).toBeGreaterThanOrEqual(0);
+        expect(p.x).toBeLessThanOrEqual(1);
+        expect(p.y).toBeGreaterThanOrEqual(0);
+        expect(p.y).toBeLessThanOrEqual(1);
+      });
+
+      // Treble should not cause positions to diverge wildly from zero-treble run
+      const displacement = computeTotalDisplacement(posTreble, posZero);
+      expect(displacement).toBeLessThan(0.1);
+    });
+  });
+
   describe('privacy', () => {
     it('T-009-17: no localStorage or cookie access during particle operations', () => {
       const lsSpy = vi.spyOn(Storage.prototype, 'getItem');

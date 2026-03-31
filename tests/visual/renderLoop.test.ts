@@ -211,6 +211,104 @@ describe('US-009: Render loop', () => {
     expect(params.trebleEnergy).toBe(0);
   });
 
+  describe('US-019: Treble smoothing in render loop', () => {
+    it('T-019-01: treble energy is smoothed across consecutive frames (spike decays gradually)', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+
+      // Frame 1: treble spike (high-frequency bins filled)
+      // Frame 2+: silence (bins zeroed)
+      let frameCount = 0;
+      const highTreble = new Uint8Array(128);
+      // Fill upper 25% with high values to create treble spike
+      for (let i = 96; i < 128; i++) highTreble[i] = 200;
+      const silence = new Uint8Array(128).fill(0);
+
+      const mockPipeline = {
+        frequency: highTreble,
+        timeDomain: new Uint8Array(128).fill(128),
+        poll: vi.fn(() => {
+          // After first frame, switch to silence
+          if (frameCount > 1) {
+            mockPipeline.frequency = silence;
+          }
+        }),
+      };
+
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'smooth-treble-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getAnalyserPipeline: () => mockPipeline,
+      };
+
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 4) cb(frameCount * 16);
+        return frameCount;
+      });
+
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+
+      // Collect trebleEnergy across frames
+      const trebleValues = drawSpy.mock.calls.map(
+        (c: unknown[]) => (c[1] as { params: VisualParams }).params.trebleEnergy,
+      );
+
+      // Frame 1 should have high treble
+      expect(trebleValues[0]).toBeGreaterThan(0);
+
+      // After silence frames, treble should still be > 0 due to smoothing
+      // (not an instant drop to zero)
+      const postSilenceTreble = trebleValues[2]; // 2nd frame after silence
+      expect(postSilenceTreble).toBeGreaterThan(0);
+
+      // But it should be decaying (later frames lower than spike frame)
+      expect(trebleValues[trebleValues.length - 1]).toBeLessThan(trebleValues[0]);
+    });
+
+    it('T-019-02: smoothed treble value stays within 0-1 range', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+
+      // Max possible treble: all upper-quarter bins at 255
+      const maxTreble = new Uint8Array(128);
+      for (let i = 96; i < 128; i++) maxTreble[i] = 255;
+
+      const mockPipeline = {
+        frequency: maxTreble,
+        timeDomain: new Uint8Array(128).fill(128),
+        poll: vi.fn(),
+      };
+
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'treble-range-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getAnalyserPipeline: () => mockPipeline,
+      };
+
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 5) cb(frameCount * 16);
+        return frameCount;
+      });
+
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+
+      drawSpy.mock.calls.forEach((c: unknown[]) => {
+        const treble = (c[1] as { params: VisualParams }).params.trebleEnergy;
+        expect(treble).toBeGreaterThanOrEqual(0);
+        expect(treble).toBeLessThanOrEqual(1);
+      });
+    });
+  });
+
   describe('privacy', () => {
     it('T-009-26: no localStorage or cookie access during render loop', () => {
       const lsSpy = vi.spyOn(Storage.prototype, 'getItem');

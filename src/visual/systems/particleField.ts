@@ -74,13 +74,27 @@ export function createParticleField(): ParticleField {
 
         const hue = (params.paletteHue + p.hueOffset + 360) % 360;
         const sat = Math.round(params.paletteSaturation * 100);
-        const light = Math.round(50 + params.trebleEnergy * 20);
-        const size = p.size * shimmer;
+        const light = Math.round(50 + params.trebleEnergy * 30);
 
-        ctx.fillStyle = `hsl(${Math.round(hue)}, ${sat}%, ${light}%)`;
+        // Per-particle sparkle shimmer: staggered size pulsing driven by treble
+        const sparklePhase =
+          (Math.sin(frame.time * 0.005 + p.hueOffset) + 1) * 0.5;
+        const size = p.size * shimmer * (1 + sparklePhase * params.trebleEnergy * 0.5);
+
+        // Alpha variation: particles become more vivid on treble hits
+        const alpha = 0.6 + params.trebleEnergy * 0.4;
+
+        ctx.fillStyle = `hsla(${Math.round(hue)}, ${sat}%, ${light}%, ${alpha})`;
+
+        // Micro-jitter on render position only (does not accumulate in stored position)
+        const jitterX =
+          Math.sin(frame.time * 0.01 + i) * params.trebleEnergy * 0.003 * width;
+        const jitterY =
+          Math.cos(frame.time * 0.01 + i) * params.trebleEnergy * 0.003 * height;
+
         ctx.fillRect(
-          p.x * width - size / 2,
-          p.y * height - size / 2,
+          p.x * width - size / 2 + jitterX,
+          p.y * height - size / 2 + jitterY,
           size,
           size,
         );
