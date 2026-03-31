@@ -1,5 +1,5 @@
 import { pickTrack } from './trackList';
-import { createAnalyser } from './analyser';
+import { createAnalyser, createPipeline, type AnalyserPipeline } from './analyser';
 
 export type AudioPlayerState = 'loading' | 'playing' | 'suspended' | 'error';
 
@@ -8,6 +8,7 @@ export interface AudioPlayer {
   readonly muted: boolean;
   setMuted(muted: boolean): void;
   getAnalyserNode(): AnalyserNode | null;
+  getPipeline(): AnalyserPipeline | null;
   destroy(): void;
 }
 
@@ -19,6 +20,7 @@ export interface AudioPlayer {
 export async function initAudio(): Promise<AudioPlayer> {
   const ctx = new AudioContext();
   const { analyser, gainNode, connectSource } = createAnalyser(ctx);
+  const pipeline = createPipeline(analyser);
 
   let currentTrack = pickTrack();
   let audioEl = createAudioElement(currentTrack);
@@ -69,6 +71,9 @@ export async function initAudio(): Promise<AudioPlayer> {
     },
     getAnalyserNode() {
       return analyser;
+    },
+    getPipeline() {
+      return pipeline;
     },
     destroy() {
       audioEl.pause();
