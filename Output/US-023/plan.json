@@ -1,15 +1,16 @@
 {
   "ticket": "US-023",
   "title": "Show partially legible influence hints",
-  "overview": "Add a hint registry that maps VisualParams keys to human-readable influence categories, then render those hints inside the existing info overlay. The registry serves as the single source of truth; the overlay reads from it so hints stay aligned with implemented mappings.",
+  "summary": "Create a hint registry as a single source of truth for influence categories, render them in the info overlay replacing the generic p3 paragraph, and add supporting tests and styles.",
   "steps": [
     {
-      "id": 1,
+      "step": 1,
       "title": "Create hint registry module",
       "file": "src/visual/hintRegistry.ts",
       "action": "create",
-      "description": "Export a typed array of hint entries, each linking one or more VisualParams keys to a category label and a short poetic description. Categories: 'location' (paletteHue, paletteSaturation), 'time' (cadence), 'device' (density), 'preference' (motionAmplitude), 'motion' (pointerDisturbance), 'sound' (bassEnergy, trebleEnergy). Export a HintEntry interface with { category: string; description: string; paramKeys: (keyof VisualParams)[] }. Export the array as INFLUENCE_HINTS. Add a compile-time completeness check that ensures every key of VisualParams appears in at least one entry.",
+      "description": "Define a HintEntry interface with { category, description, paramKeys } and export an INFLUENCE_HINTS array with 6 entries covering all 8 VisualParams keys. Add a compile-time completeness check ensuring every key in VisualParams is referenced by at least one hint.",
       "details": {
+        "interface": "HintEntry { category: string; description: string; paramKeys: (keyof VisualParams)[] }",
         "entries": [
           { "category": "location", "description": "Where you are tints the palette", "paramKeys": ["paletteHue", "paletteSaturation"] },
           { "category": "time", "description": "Time of day sets the rhythm", "paramKeys": ["cadence"] },
@@ -18,124 +19,125 @@
           { "category": "motion", "description": "Your movement disturbs the field", "paramKeys": ["pointerDisturbance"] },
           { "category": "sound", "description": "Sound drives the motion and shimmer", "paramKeys": ["bassEnergy", "trebleEnergy"] }
         ],
-        "completeness_check": "Use a type-level assertion: collect all paramKeys into a union and assert it extends keyof VisualParams and vice versa. This ensures adding a new VisualParams field without a hint entry causes a compile error."
-      },
-      "acceptance_criteria_addressed": ["Hints align with actual implemented mappings", "Hints can be updated from a single source of truth"]
-    },
-    {
-      "id": 2,
-      "title": "Write unit tests for hint registry",
-      "file": "tests/visual/hintRegistry.test.ts",
-      "action": "create",
-      "description": "Test the registry data integrity before wiring it into UI.",
-      "tests": [
-        { "id": "T-023-01", "description": "INFLUENCE_HINTS is a non-empty array" },
-        { "id": "T-023-02", "description": "Every entry has a non-empty category string" },
-        { "id": "T-023-03", "description": "Every entry has a non-empty description string" },
-        { "id": "T-023-04", "description": "Every entry has at least one paramKey" },
-        { "id": "T-023-05", "description": "Every key of VisualParams is covered by at least one entry's paramKeys" },
-        { "id": "T-023-06", "description": "No paramKey appears in more than one entry (no duplicates across entries)" },
-        { "id": "T-023-07", "description": "No description contains raw identifiers (IP, user-agent, exact location, country code, browser name)" },
-        { "id": "T-023-08", "description": "Each description is under 60 characters (keeps overlay concise)" },
-        { "id": "T-023-09", "description": "Categories include at least 'time', 'device', 'location', and 'motion'" }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "Render hint list inside info overlay",
-      "file": "src/ui/infoOverlay.ts",
-      "action": "edit",
-      "description": "Import INFLUENCE_HINTS from hintRegistry. After the existing three paragraphs, append a styled <ul> with class 'eavi-hints'. Each <li> shows the category as a label and the description as body text. The list is built by iterating INFLUENCE_HINTS, so adding/removing a registry entry automatically updates the overlay. No raw identifiers appear in the rendered DOM.",
-      "details": {
-        "dom_structure": "<ul class='eavi-hints'><li><span class='eavi-hint-category'>{category}</span> — {description}</li>...</ul>",
-        "privacy_constraint": "Descriptions are static strings from the registry; no runtime signal values are interpolated into the DOM."
-      },
-      "acceptance_criteria_addressed": ["Overlay names categories of influence such as time, device, location, and motion", "Overlay does not reveal raw identifier values"]
-    },
-    {
-      "id": 4,
-      "title": "Add CSS for hint list",
-      "file": "src/style.css",
-      "action": "edit",
-      "description": "Add styles for .eavi-hints (list-style none, padding 0, margin-top), .eavi-hints li (subtle bottom border, padding), and .eavi-hint-category (uppercase, letter-spacing, reduced opacity). Keep the overall overlay copy under the 500-char test limit by using concise descriptions. The hint list should feel like a quiet legend, not a data dashboard.",
-      "details": {
-        "style_notes": "Match existing overlay text color and font. Use opacity ~0.6 for category labels. No bold or bright accent colors — keep it understated."
+        "completenessCheck": "Static type assertion that the union of all paramKeys covers every key of VisualParams"
       }
     },
     {
-      "id": 5,
-      "title": "Write UI integration tests for hint rendering",
-      "file": "tests/ui/infoOverlay.test.ts",
-      "action": "edit",
-      "description": "Add a new describe block 'US-023: Influence hints' with tests verifying the hints render correctly inside the overlay.",
+      "step": 2,
+      "title": "Write hint registry unit tests",
+      "file": "tests/visual/hintRegistry.test.ts",
+      "action": "create",
+      "description": "9 unit tests validating the registry's data integrity, privacy constraints, and alignment with VisualParams.",
       "tests": [
-        { "id": "T-023-10", "description": "Overlay contains a .eavi-hints element" },
-        { "id": "T-023-11", "description": "Hint list contains one <li> per INFLUENCE_HINTS entry" },
-        { "id": "T-023-12", "description": "Each <li> contains the category text" },
-        { "id": "T-023-13", "description": "Each <li> contains the description text" },
-        { "id": "T-023-14", "description": "No <li> text contains raw identifiers (IP address pattern, user-agent fragments, country codes)" },
-        { "id": "T-023-15", "description": "Hint list renders at least entries for 'time', 'device', 'location', and 'motion'" },
-        { "id": "T-023-16", "description": "Total overlay panel text (excluding close button) remains under 500 characters" },
-        { "id": "T-023-17", "description": "Hint list renders correctly after toggling overlay open, closed, then open again" },
-        { "id": "T-023-18", "description": "CSS file contains .eavi-hints rule" }
+        { "id": "T-023-01", "name": "INFLUENCE_HINTS is a non-empty array" },
+        { "id": "T-023-02", "name": "Every entry has category, description, and paramKeys" },
+        { "id": "T-023-03", "name": "Every paramKey is a valid key of VisualParams" },
+        { "id": "T-023-04", "name": "All 8 VisualParams keys are covered across entries" },
+        { "id": "T-023-05", "name": "No duplicate paramKeys across entries" },
+        { "id": "T-023-06", "name": "No entry description contains raw identifier terms (IP, user-agent, lat, lng, fingerprint)" },
+        { "id": "T-023-07", "name": "Every description is under 80 characters" },
+        { "id": "T-023-08", "name": "Every category is under 20 characters" },
+        { "id": "T-023-09", "name": "Required categories are present: location, time, device, motion" }
       ]
     },
     {
-      "id": 6,
+      "step": 3,
+      "title": "Render hints in info overlay",
+      "file": "src/ui/infoOverlay.ts",
+      "action": "edit",
+      "description": "Replace p3 ('Your visitor context...') with a <ul class='eavi-hints'> populated from INFLUENCE_HINTS. Each <li> contains a <strong class='eavi-hint-category'> for the category label and the description text.",
+      "details": {
+        "remove": "The third paragraph (p3) that reads 'Your visitor context — time, device, and movement — subtly influences...'",
+        "add": "Import INFLUENCE_HINTS from hintRegistry, build a <ul> with one <li> per hint entry, append it where p3 was",
+        "rationale": "p3 is made redundant by the hint list; replacing it avoids the 500-char overlay budget concern"
+      }
+    },
+    {
+      "step": 4,
+      "title": "Add hint list CSS",
+      "file": "src/style.css",
+      "action": "edit",
+      "description": "Add styles for .eavi-hints, .eavi-hints li, and .eavi-hint-category that match the existing overlay aesthetic — subtle, low-contrast, list-style-none.",
+      "details": {
+        "rules": [
+          ".eavi-hints: list-style none, padding 0, margin 0.5rem 0 0, font-size matching existing panel text",
+          ".eavi-hints li: margin-bottom 0.35rem, opacity 0.7 for subtlety",
+          ".eavi-hint-category: text-transform lowercase, opacity 0.5, margin-right 0.4em, font-weight 600"
+        ],
+        "optional": "Add a staggered fade-in transition on .eavi-hints li for a discoverable feel (skip if prefers-reduced-motion)"
+      }
+    },
+    {
+      "step": 5,
+      "title": "Write overlay hint integration tests and update existing tests",
+      "file": "tests/ui/infoOverlay.test.ts",
+      "action": "edit",
+      "description": "Add 8 new integration tests for hint rendering. Update the existing US-022 regex test (line ~222) that expects p3's 'visitor context influences' text — change it to verify the hint list conveys influence concept instead.",
+      "tests": [
+        { "id": "T-023-10", "name": "Overlay contains a .eavi-hints element when shown" },
+        { "id": "T-023-11", "name": "Hint list has exactly INFLUENCE_HINTS.length <li> items" },
+        { "id": "T-023-12", "name": "Each <li> contains a .eavi-hint-category <strong>" },
+        { "id": "T-023-13", "name": "Rendered categories match INFLUENCE_HINTS categories" },
+        { "id": "T-023-14", "name": "Rendered descriptions match INFLUENCE_HINTS descriptions" },
+        { "id": "T-023-15", "name": "No <li> text contains raw identifiers" },
+        { "id": "T-023-17", "name": "Hints survive overlay toggle (close and reopen)" },
+        { "id": "T-023-18", "name": ".eavi-hints CSS rule is present in document" }
+      ],
+      "existingTestUpdates": [
+        {
+          "location": "~line 222",
+          "reason": "p3 is removed; the regex /visitor.*(context|presence).*(influence|shape|affect)/i will no longer match",
+          "fix": "Change the test to verify that the overlay contains hint items with influence-related content (e.g., check that at least one .eavi-hints li exists with descriptive text)"
+        },
+        {
+          "location": "~line 229",
+          "reason": "500-char budget test counts all childNodes; hints <ul> replaces p3 so character budget should scope to <p> elements only",
+          "fix": "Scope the 500-char check to <p> elements only, or verify overall panel content stays reasonable"
+        }
+      ],
+      "noteOnT023_16": "Omitted per review feedback — duplicate of existing US-022 500-char test"
+    },
+    {
+      "step": 6,
       "title": "Validate build and full test suite",
       "action": "verify",
-      "description": "Run npm run build and npx vitest run. Confirm zero console errors, no forbidden storage API usage, all existing tests still pass, and the new tests pass. Manually verify the overlay renders the hint list when opened in the dev server.",
+      "description": "Run npm run build and npm run test. Confirm zero console errors, all tests pass including updated US-022 tests, and no forbidden storage APIs are used.",
       "checks": [
-        "npm run build exits 0",
-        "npx vitest run exits 0 with all tests passing",
-        "No TypeScript errors",
-        "Overlay 500-char limit test still passes with hints added",
-        "Toggling overlay open/closed/open renders hints correctly each time"
+        "npm run build succeeds",
+        "npm run test — all tests pass",
+        "No console errors on dev server load",
+        "Info overlay shows hint list, not old p3",
+        "Mute toggle and info overlay still functional"
       ]
     }
   ],
-  "files_to_create": [
+  "filesCreated": [
     "src/visual/hintRegistry.ts",
     "tests/visual/hintRegistry.test.ts"
   ],
-  "files_to_edit": [
+  "filesEdited": [
     "src/ui/infoOverlay.ts",
     "src/style.css",
     "tests/ui/infoOverlay.test.ts"
   ],
   "risks": [
     {
-      "risk": "Adding hint text may push overlay copy past the 500-character limit enforced by existing test T-022",
-      "mitigation": "Keep each hint description under 45 chars. If still over limit, shorten existing p3 copy since the hint list now conveys the same message more specifically. Alternatively, exclude hint list text from the 500-char count by scoping the test to .eavi-info-panel > p elements only."
+      "risk": "Removing p3 breaks existing US-022 test at line ~222",
+      "mitigation": "Update the regex test to verify influence concept via hint list content instead"
     },
     {
-      "risk": "Compile-time completeness check may be unfamiliar pattern",
-      "mitigation": "Use a simple satisfies-based assertion or a helper type that produces never if any keys are missing. Document the pattern with a one-line comment."
+      "risk": "500-char overlay budget test may fail if hint list text is counted",
+      "mitigation": "Scope the budget check to <p> elements only, since hints are a structured list not prose"
+    },
+    {
+      "risk": "Compile-time completeness check may not catch new VisualParams fields added later",
+      "mitigation": "Use a TypeScript mapped-type assertion so adding a field to VisualParams causes a type error if no hint covers it"
     }
   ],
-  "reviewer_feedback_addressed": [
-    {
-      "suggestion": "Consider adding a 'preference' category for reduced-motion",
-      "response": "Added as a dedicated 'preference' category covering motionAmplitude, separate from device."
-    },
-    {
-      "suggestion": "Confirm VisualParams has exactly 8 fields before relying on paramKeys validation",
-      "response": "Verified: VisualParams has exactly 8 fields (paletteHue, paletteSaturation, cadence, density, motionAmplitude, pointerDisturbance, bassEnergy, trebleEnergy). The compile-time completeness check will catch any future additions."
-    },
-    {
-      "suggestion": "Step 6 should verify hint list renders correctly when overlay is toggled open/closed multiple times",
-      "response": "Added T-023-17 to test re-render after toggle cycle."
-    }
-  ],
-  "definition_of_done": [
-    "Build passes (npm run build)",
-    "No console errors on normal load",
-    "No forbidden storage APIs used",
-    "Scene works with and without successful autoplay",
-    "Mute toggle and info overlay still work",
-    "Overlay names categories: time, device, location, motion, preference, sound",
-    "No raw identifier values appear in overlay DOM",
-    "Hints are sourced from INFLUENCE_HINTS registry (single source of truth)",
-    "All paramKeys in registry correspond to actual VisualParams fields"
-  ]
+  "acceptanceCriteriaMapping": {
+    "Overlay names categories of influence such as time, device, location, and motion": "Steps 1 + 3: Registry defines categories, overlay renders them",
+    "Overlay does not reveal raw identifier values": "Steps 1 + 2 + 5: Registry excludes raw values, tests enforce no identifiers in descriptions",
+    "Hints align with actual implemented mappings": "Step 1: paramKeys reference VisualParams fields with compile-time completeness check",
+    "Hints can be updated from a single source of truth": "Step 1: INFLUENCE_HINTS array is the sole source; overlay and tests both import from it"
+  }
 }
