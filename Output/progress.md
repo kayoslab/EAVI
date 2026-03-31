@@ -24,3 +24,5 @@
 
 ## US-023: Show partially legible influence hints
 
+## US-009: Render seeded base scene
+
