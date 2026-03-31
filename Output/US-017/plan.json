@@ -1,0 +1,84 @@
+{
+  "ticket": "US-017",
+  "title": "Create analyser pipeline",
+  "overview": "Build a frame-oriented analyser pipeline that exposes pre-allocated frequency and time-domain buffers for per-frame consumption by the render loop. The core AnalyserNode wiring and accessors already exist in src/audio/analyser.ts and src/audio/player.ts from US-016. This story adds a reusable pipeline abstraction that avoids per-frame allocations, provides a single poll() call for the render loop, and verifies all acceptance criteria with dedicated tests.",
+  "existing_code": {
+    "src/audio/analyser.ts": "createAnalyser() wires source → AnalyserNode → GainNode → destination. getFrequencyData() and getTimeDomainData() return new Uint8Array each call (per-frame allocation).",
+    "src/audio/player.ts": "initAudio() creates the AudioContext and connects the MediaElementSource through the analyser bundle. Exposes getAnalyserNode(). Mute is handled via GainNode (analysis continues while muted).",
+    "src/visual/renderLoop.ts": "Minimal loop — only clears canvas. Does not yet consume audio data.",
+    "tests/audio/analyser.test.ts": "8 tests covering graph wiring, FFT size, data array sizes, and privacy."
+  },
+  "steps": [
+    {
+      "id": 1,
+      "phase": "test",
+      "title": "Write tests for AnalyserPipeline",
+      "file": "tests/audio/analyser.test.ts",
+      "description": "Add tests for a new AnalyserPipeline class/interface that wraps the existing analyser with pre-allocated buffers and a poll() method. Tests should cover: (1) pipeline construction from an AnalyserNode, (2) poll() populates frequency and time-domain buffers without new allocations, (3) buffers have correct length matching frequencyBinCount, (4) poll() is callable per frame (returns same buffer references), (5) muted state does not prevent poll() from returning data, (6) no forbidden storage API usage.",
+      "acceptance_criteria_covered": ["AC1", "AC2", "AC3", "AC4"],
+      "notes": "Extend the existing test file rather than creating a new one. Reuse the existing createMockAudioContext helper."
+    },
+    {
+      "id": 2,
+      "phase": "implement",
+      "title": "Implement AnalyserPipeline in analyser.ts",
+      "file": "src/audio/analyser.ts",
+      "description": "Add an AnalyserPipeline interface and createPipeline() factory to the existing analyser module. The pipeline pre-allocates two Uint8Array buffers (frequency and timeDomain) sized to frequencyBinCount. A poll() method fills both buffers in place using getByteFrequencyData and getByteTimeDomainData. Expose readonly buffer references so the render loop can read them after each poll(). Keep the existing createAnalyser, getFrequencyData, and getTimeDomainData exports unchanged for backward compatibility.",
+      "details": {
+        "interface": "AnalyserPipeline { readonly frequency: Uint8Array; readonly timeDomain: Uint8Array; poll(): void; }",
+        "factory": "createPipeline(analyser: AnalyserNode): AnalyserPipeline",
+        "key_decisions": [
+          "Pre-allocate buffers once to avoid GC pressure in the render loop",
+          "poll() is a void function — callers read .frequency and .timeDomain after calling it",
+          "No dependency on GainNode or mute state — analysis is always active by Web Audio API design"
+        ]
+      },
+      "acceptance_criteria_covered": ["AC1", "AC2", "AC3", "AC4"]
+    },
+    {
+      "id": 3,
+      "phase": "implement",
+      "title": "Expose pipeline from AudioPlayer",
+      "file": "src/audio/player.ts",
+      "description": "Update initAudio() to create an AnalyserPipeline from the analyser node and expose it on the AudioPlayer interface via a getPipeline() method. This gives the render loop a single entry point to poll audio data each frame without needing to manage buffers or know about the AnalyserNode directly.",
+      "details": {
+        "interface_addition": "getPipeline(): AnalyserPipeline | null",
+        "notes": "Returns null only if audio initialization failed entirely. The pipeline is always available when the player exists, regardless of mute/suspended state."
+      },
+      "acceptance_criteria_covered": ["AC1", "AC4"]
+    },
+    {
+      "id": 4,
+      "phase": "test",
+      "title": "Add player-level pipeline tests",
+      "file": "tests/audio/player.test.ts",
+      "description": "Add tests to the existing player test file verifying: (1) getPipeline() returns an AnalyserPipeline after initAudio(), (2) pipeline.poll() works when player state is 'suspended' (autoplay blocked), (3) pipeline.poll() works when player is muted, (4) pipeline buffers contain data after poll().",
+      "acceptance_criteria_covered": ["AC2", "AC3", "AC4"]
+    },
+    {
+      "id": 5,
+      "phase": "verify",
+      "title": "Run all tests and build",
+      "description": "Run npm run test and npm run build to confirm all tests pass, TypeScript compiles cleanly, and no console errors are introduced. Verify each acceptance criterion is covered by at least one passing test.",
+      "commands": ["npm run test", "npm run build"],
+      "acceptance_criteria_covered": ["AC1", "AC2", "AC3", "AC4"]
+    }
+  ],
+  "acceptance_criteria_map": {
+    "Audio source is connected to an AnalyserNode": "Already implemented in createAnalyser() and wired in initAudio(). Verified by existing connectSource test and new pipeline tests.",
+    "Frequency data is readable per frame": "pipeline.poll() fills pre-allocated frequency buffer. Verified by step 1 and step 4 tests.",
+    "Time-domain data is readable per frame": "pipeline.poll() fills pre-allocated timeDomain buffer. Verified by step 1 and step 4 tests.",
+    "Mute state does not disable analysis": "GainNode is downstream of AnalyserNode — muting sets gain to 0 but analysis data continues to flow. Verified by step 4 muted-poll test."
+  },
+  "files_to_modify": [
+    "src/audio/analyser.ts",
+    "src/audio/player.ts",
+    "tests/audio/analyser.test.ts",
+    "tests/audio/player.test.ts"
+  ],
+  "files_to_create": [],
+  "risks": [
+    "Existing tests use mock AnalyserNode — mocks must accurately simulate getByteFrequencyData/getByteTimeDomainData filling the provided array in place.",
+    "Pre-allocated buffers assume frequencyBinCount doesn't change after creation (safe — fftSize is set once in createAnalyser)."
+  ]
+}
