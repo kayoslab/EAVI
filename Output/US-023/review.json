@@ -1,51 +1,43 @@
 {
   "ticket": "US-023",
-  "verdict": "approved_with_required_changes",
-  "summary": "Sound plan structure. The hint registry as single source of truth with compile-time completeness is the right approach. Three issues need resolution before implementation.",
-  "required_changes": [
+  "plan_status": "approved",
+  "validation": {
+    "VisualParams_keys_match": true,
+    "VisualParams_keys_count": 8,
+    "p3_exists_as_described": true,
+    "p3_actual_lines": "46-48",
+    "target_files_do_not_exist_yet": true,
+    "existing_test_count": 41,
+    "css_has_overlay_styles": true
+  },
+  "line_number_corrections": [
     {
-      "step": 3,
-      "issue": "Plan says to append hints 'after the existing three paragraphs', but p3 ('Your visitor context — time, device, and movement — subtly influences and shapes the scene you see.') becomes redundant once the hint list exists. The hint list says the same thing more specifically.",
-      "fix": "Replace p3 with the hint <ul> rather than appending after it. This also resolves the 500-character budget risk since p3 is ~100 chars and the hint list will occupy roughly that space.",
-      "impacts": ["step 3", "step 5 (T-023-16)", "risk 1"]
+      "file": "tests/ui/infoOverlay.test.ts",
+      "plan_says": "~line 222",
+      "actual": "~line 227",
+      "impact": "none — step 5 already says approximate"
     },
     {
-      "step": 5,
-      "issue": "T-023-16 ('Total overlay panel text remains under 500 characters') duplicates the existing test at tests/ui/infoOverlay.test.ts:229 ('overlay copy stays concise (under 500 characters)'). The existing test already counts all panel childNodes excluding the close button, so adding the hint <ul> is already covered.",
-      "fix": "Remove T-023-16. The existing US-022 test already enforces this constraint and will catch any overflow. If the existing test needs its selector scoped differently after this change, update it in step 5 rather than adding a duplicate."
-    },
-    {
-      "step": 5,
-      "issue": "Existing US-022 test 'overlay text states visitor context influences the scene' (line 222) matches on /visitor.*(context|presence).*(influence|shape|affect)/i which is satisfied by p3 text. Removing p3 will break this test.",
-      "fix": "Add a sub-step in step 5 to update the existing US-022 regex test to match against the hint list content instead, e.g. check that the overlay contains text matching influence categories rather than the removed p3 sentence. This keeps the US-022 intent ('overlay communicates what influences the scene') without depending on the removed paragraph."
+      "file": "tests/ui/infoOverlay.test.ts",
+      "plan_says": "~line 229",
+      "actual": "~line 229",
+      "impact": "none — correct"
     }
   ],
-  "optional_suggestions": [
-    {
-      "step": 1,
-      "suggestion": "The compile-time completeness check is good but the plan should specify the exact pattern. A simple approach: define type CoveredKeys = typeof INFLUENCE_HINTS[number]['paramKeys'][number] and then assert type _Check = Expect<Equal<CoveredKeys, keyof VisualParams>>. If using a helper-free approach: const _exhaustive: Record<keyof VisualParams, true> = Object.fromEntries(INFLUENCE_HINTS.flatMap(h => h.paramKeys.map(k => [k, true]))) as any satisfies Record<keyof VisualParams, true>."
-    },
+  "issues": [],
+  "warnings": [
     {
       "step": 4,
-      "suggestion": "Consider adding a subtle fade-in transition on the hint list items to reinforce the 'discoverable' quality mentioned in the ticket description. A simple opacity transition with staggered delay via nth-child would be lightweight and match the project's aesthetic."
+      "detail": "Staggered fade-in transition on .eavi-hints li should be gated behind a prefers-reduced-motion check as noted, but ensure the CSS uses prefers-reduced-motion: no-preference to opt in rather than prefers-reduced-motion: reduce to disable, matching the existing pattern at style.css lines 99-105."
+    },
+    {
+      "step": 5,
+      "detail": "The 500-char budget test (line 229) currently joins all childNodes except closeBtn. Scoping to <p> elements only is the right call since the hint <ul> is structured data not prose, but verify the total panel text including hints stays reasonable — consider adding a separate upper bound (e.g., 800 chars total) so hints don't bloat unchecked."
     }
   ],
-  "risk_assessment": {
-    "500_char_limit": "Resolved by replacing p3 instead of appending after it. Current p1+p2 total ~201 chars, leaving ~299 chars for hint content which is ample for 6 short entries.",
-    "existing_test_breakage": "Moderate risk. Removing p3 breaks at least one US-022 test. The required_changes above address this but implementer should run the full test suite after step 3 before proceeding to step 5.",
-    "compile_time_check": "Low risk. Pattern is straightforward with satisfies or a mapped type assertion."
-  },
-  "test_coverage_assessment": {
-    "registry_tests": "T-023-01 through T-023-09 are comprehensive and well-scoped",
-    "ui_tests": "T-023-10 through T-023-15, T-023-17, T-023-18 provide good coverage after removing the duplicate T-023-16",
-    "missing": "No test verifies that the hint list is built dynamically from the registry (i.e. that adding an entry to INFLUENCE_HINTS automatically adds a <li>). Consider adding a test that mocks or extends the registry and checks the rendered count matches."
-  },
-  "estimated_complexity": "low",
-  "files_validated": {
-    "src/visual/mappings.ts": "VisualParams confirmed with exactly 8 fields matching plan",
-    "src/ui/infoOverlay.ts": "62 lines, 3 paragraphs, vanilla DOM — structure matches plan assumptions",
-    "src/style.css": "Overlay styles exist at expected selectors, room for .eavi-hints additions",
-    "tests/ui/infoOverlay.test.ts": "280 lines, 31 tests — US-022 tests confirmed, 500-char test at line 229",
-    "tests/visual/": "Directory exists, mappings.test.ts present"
-  }
+  "concerns": [],
+  "decision": "Plan is well-structured, acceptance criteria are fully mapped, risks are identified with mitigations, and all referenced code artifacts match the current codebase. Approved to implement.",
+  "failures": [],
+  "adr_entry": null,
+  "approved": false
 }
