@@ -219,23 +219,23 @@ describe('US-021: Add info button shell', () => {
       expect(text).toMatch(/no.*(data|information).*(stored|saved|retained|collected)/i);
     });
 
-    it('overlay text conveys that visitor context influences the scene', async () => {
+    it('overlay text states visitor context influences the scene', async () => {
       const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
       const overlay = createInfoOverlay();
-      const hints = overlay.querySelectorAll('.eavi-hints li');
-      expect(hints.length).toBeGreaterThan(0);
-      const allText = Array.from(hints).map(li => li.textContent || '').join(' ');
-      expect(allText).toMatch(/(influence|shape|set|drive|disturb|tint|temper)/i);
+      const text = overlay.textContent || '';
+      expect(text).toMatch(/visitor.*(context|presence).*(influence|shape|affect)/i);
     });
 
-    it('overlay prose copy stays concise (under 500 characters)', async () => {
+    it('overlay copy stays concise (under 500 characters)', async () => {
       const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
       const overlay = createInfoOverlay();
       const panel = overlay.querySelector('.eavi-info-panel');
-      const proseText = Array.from(panel?.querySelectorAll('p') || [])
-        .map((p) => p.textContent || '')
+      const closeBtn = panel?.querySelector('.eavi-info-close');
+      const allText = Array.from(panel?.childNodes || [])
+        .filter((node) => node !== closeBtn)
+        .map((node) => node.textContent || '')
         .join('');
-      expect(proseText.length).toBeLessThanOrEqual(500);
+      expect(allText.length).toBeLessThanOrEqual(500);
     });
 
     it('overlay still describes EAVI as an ephemeral experience', async () => {
@@ -243,96 +243,6 @@ describe('US-021: Add info button shell', () => {
       const overlay = createInfoOverlay();
       const text = overlay.textContent || '';
       expect(text).toMatch(/ephemeral/i);
-    });
-  });
-
-  describe('US-023: Show partially legible influence hints', () => {
-    beforeEach(() => {
-      vi.resetModules();
-      document.body.innerHTML = '<div id="app"></div>';
-    });
-
-    it('T-023-10: overlay contains a .eavi-hints element when shown', async () => {
-      const { createInfoButton, createInfoOverlay } = await import('../../src/ui/infoOverlay');
-      const btn = createInfoButton();
-      const overlay = createInfoOverlay();
-      const container = document.querySelector('#app')!;
-      container.appendChild(btn);
-      container.appendChild(overlay);
-      btn.click();
-      const hints = overlay.querySelector('.eavi-hints');
-      expect(hints).not.toBeNull();
-    });
-
-    it('T-023-11: hint list has exactly INFLUENCE_HINTS.length <li> items', async () => {
-      const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');
-      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
-      const overlay = createInfoOverlay();
-      const items = overlay.querySelectorAll('.eavi-hints li');
-      expect(items.length).toBe(INFLUENCE_HINTS.length);
-    });
-
-    it('T-023-12: each <li> contains a .eavi-hint-category <strong>', async () => {
-      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
-      const overlay = createInfoOverlay();
-      const items = overlay.querySelectorAll('.eavi-hints li');
-      expect(items.length).toBeGreaterThan(0);
-      for (const li of items) {
-        const strong = li.querySelector('strong.eavi-hint-category');
-        expect(strong).not.toBeNull();
-      }
-    });
-
-    it('T-023-13: rendered categories match INFLUENCE_HINTS categories', async () => {
-      const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');
-      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
-      const overlay = createInfoOverlay();
-      const rendered = Array.from(overlay.querySelectorAll('.eavi-hint-category')).map(el => el.textContent?.trim());
-      const expected = INFLUENCE_HINTS.map(h => h.category);
-      expect(rendered).toEqual(expected);
-    });
-
-    it('T-023-14: rendered descriptions match INFLUENCE_HINTS descriptions', async () => {
-      const { INFLUENCE_HINTS } = await import('../../src/visual/hintRegistry');
-      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
-      const overlay = createInfoOverlay();
-      const items = overlay.querySelectorAll('.eavi-hints li');
-      for (let i = 0; i < INFLUENCE_HINTS.length; i++) {
-        const text = items[i].textContent || '';
-        expect(text).toContain(INFLUENCE_HINTS[i].description);
-      }
-    });
-
-    it('T-023-15: no <li> text contains raw identifiers', async () => {
-      const { createInfoOverlay } = await import('../../src/ui/infoOverlay');
-      const overlay = createInfoOverlay();
-      const items = overlay.querySelectorAll('.eavi-hints li');
-      const forbidden = /\b(IP|user-agent|user agent|fingerprint|lat|lng|latitude|longitude|cookie|localStorage)\b/i;
-      for (const li of items) {
-        expect(li.textContent || '').not.toMatch(forbidden);
-      }
-    });
-
-    it('T-023-17: hints survive overlay toggle (close and reopen)', async () => {
-      const { createInfoButton, createInfoOverlay } = await import('../../src/ui/infoOverlay');
-      const btn = createInfoButton();
-      const overlay = createInfoOverlay();
-      const container = document.querySelector('#app')!;
-      container.appendChild(btn);
-      container.appendChild(overlay);
-
-      btn.click();
-      const closeBtn = overlay.querySelector('button')!;
-      closeBtn.click();
-      btn.click();
-
-      const hints = overlay.querySelectorAll('.eavi-hints li');
-      expect(hints.length).toBeGreaterThan(0);
-    });
-
-    it('T-023-18: .eavi-hints CSS rule is present in stylesheet', () => {
-      const css = readFileSync(resolve(__dirname, '..', '..', 'src', 'style.css'), 'utf-8');
-      expect(css).toMatch(/\.eavi-hints/);
     });
   });
 

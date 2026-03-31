@@ -9,6 +9,10 @@ export interface FrameState {
 }
 
 export interface GeometrySystem {
-  init(ctx: CanvasRenderingContext2D, seed: string, params: VisualParams): void;
+  init(
+    ctx: CanvasRenderingContext2D,
+    seed: string,
+    params: VisualParams,
+  ): void;
   draw(ctx: CanvasRenderingContext2D, frame: FrameState): void;
 }

@@ -146,6 +146,12 @@ describe('US-002: Full-screen canvas shell', () => {
       const { startLoop } = await import('../src/visual/renderLoop');
       const container = document.querySelector<HTMLDivElement>('#app')!;
       const { canvas, ctx } = initScene(container);
+      let callCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        callCount++;
+        if (callCount <= 2) cb(callCount * 16);
+        return callCount;
+      });
       startLoop(canvas, ctx);
       expect(window.requestAnimationFrame).toHaveBeenCalled();
     });

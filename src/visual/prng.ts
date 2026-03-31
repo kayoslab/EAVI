@@ -1,19 +1,19 @@
 /**
- * Seeded PRNG using mulberry32 algorithm.
- * Produces deterministic 0-1 float sequences from a string seed.
+ * Seeded PRNG using the mulberry32 algorithm.
+ * Produces deterministic 0-1 floats from a string seed.
  */
 
-function stringToSeed(str: string): number {
-  let hash = 0x811c9dc5;
+function hashSeed(str: string): number {
+  let h = 0x811c9dc5; // FNV offset basis
   for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = (hash * 0x01000193) >>> 0;
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193); // FNV prime
   }
-  return hash;
+  return h >>> 0;
 }
 
 export function createPRNG(seed: string): () => number {
-  let state = stringToSeed(seed);
+  let state = hashSeed(seed);
   return () => {
     state |= 0;
     state = (state + 0x6d2b79f5) | 0;
