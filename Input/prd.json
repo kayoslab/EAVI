@@ -150,8 +150,8 @@
         "Mapping rules are documented in code comments or a small config module"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-003",
         "US-004",

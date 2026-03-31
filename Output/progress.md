@@ -10,3 +10,5 @@
 
 ## US-020: Add mute and unmute control
 
+## US-008: Define partially legible mapping rules
+
