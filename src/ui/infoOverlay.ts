@@ -1,5 +1,3 @@
-import { INFLUENCE_HINTS } from '../visual/hintRegistry';
-
 let overlay: HTMLDivElement | null = null;
 
 function showOverlay(): void {
@@ -45,22 +43,14 @@ export function createInfoOverlay(): HTMLDivElement {
   p2.textContent =
     'No data is stored. There are no cookies, no tracking, and nothing is saved or collected.';
 
-  const hintList = document.createElement('ul');
-  hintList.className = 'eavi-hints';
-  for (const hint of INFLUENCE_HINTS) {
-    const li = document.createElement('li');
-    const strong = document.createElement('strong');
-    strong.className = 'eavi-hint-category';
-    strong.textContent = hint.category;
-    li.appendChild(strong);
-    li.appendChild(document.createTextNode(` ${hint.description}`));
-    hintList.appendChild(li);
-  }
+  const p3 = document.createElement('p');
+  p3.textContent =
+    'Your visitor context — time, device, and movement — subtly influences and shapes the scene you see.';
 
   panel.appendChild(closeBtn);
   panel.appendChild(p1);
   panel.appendChild(p2);
-  panel.appendChild(hintList);
+  panel.appendChild(p3);
   overlay.appendChild(panel);
 
   document.addEventListener('keydown', (e) => {

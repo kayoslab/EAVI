@@ -7,13 +7,26 @@ import { createMuteButton } from './ui/audioToggle';
 import { createInfoButton, createInfoOverlay } from './ui/infoOverlay';
 import { initScene } from './visual/scene';
 import { attachResizeHandler } from './visual/resize';
-import { startLoop } from './visual/renderLoop';
+import { startLoop, type LoopDeps } from './visual/renderLoop';
+import { initPointer } from './input/pointer';
+import { createParticleField } from './visual/systems/particleField';
 
 // Canvas shell — render immediately so the dark canvas is visible before async work
 const app = document.getElementById('app')!;
 const { canvas, ctx } = initScene(app);
 attachResizeHandler(canvas, ctx);
-startLoop(canvas, ctx);
+
+// Shared deps object — mutated as async work resolves
+const deps: LoopDeps = {
+  geometrySystem: createParticleField(),
+};
+
+// Pointer tracking
+const pointer = initPointer(canvas);
+deps.getPointerState = () => pointer.getState();
+
+// Start loop immediately with partial deps (renders black + defaults)
+startLoop(canvas, ctx, deps);
 
 const geoPromise = fetchGeoHint();
 
@@ -22,6 +35,11 @@ geoPromise.then((geo) => {
   const signals = readSignals();
   const seed = initSessionSeed(signals, geo);
   console.debug('[EAVI] session seed:', seed);
+
+  // Enrich loop deps — geometry will init on next frame
+  deps.seed = seed;
+  deps.signals = signals;
+  deps.geo = geo;
 });
 
 // Info button + overlay — append immediately, no async dependency
@@ -34,4 +52,5 @@ const audioPromise = initAudio();
 audioPromise.then((player) => {
   console.debug('[EAVI] audio state:', player.state);
   document.body.appendChild(createMuteButton(player));
+  deps.getAnalyserPipeline = () => player.getPipeline();
 });
