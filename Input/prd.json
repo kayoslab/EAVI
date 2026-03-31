@@ -130,14 +130,15 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-003",
         "US-004",
         "US-005"
       ],
       "split_from": "US-004",
-      "notes": "Use a simple deterministic hash."
+      "notes": "Use a simple deterministic hash.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-008",
@@ -315,13 +316,14 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-014",
         "US-015"
       ],
       "split_from": "US-006",
-      "notes": "Respect browser autoplay rules."
+      "notes": "Respect browser autoplay rules.",
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-017",
