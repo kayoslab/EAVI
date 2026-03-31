@@ -297,13 +297,12 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "in_progress",
+      "status": "available",
       "depends_on": [
         "US-014"
       ],
       "split_from": "US-006",
-      "notes": "Avoid immediate repeat when more than one track exists.",
-      "claimed_by": "worker-1"
+      "notes": "Avoid immediate repeat when more than one track exists."
     },
     {
       "id": "US-016",
@@ -358,8 +357,8 @@
       "passes": false,
       "status": "available",
       "depends_on": [
-        "US-017",
-        "US-009"
+        "US-009",
+        "US-017"
       ],
       "split_from": "US-008",
       "notes": "Examples: camera drift, field expansion, large wave amplitude."
@@ -378,8 +377,8 @@
       "passes": false,
       "status": "available",
       "depends_on": [
-        "US-017",
-        "US-009"
+        "US-009",
+        "US-017"
       ],
       "split_from": "US-008",
       "notes": "Examples: sparkle, point jitter, line brightness modulation."
@@ -539,6 +538,7 @@
       "passes": false,
       "status": "available",
       "depends_on": [
+        "US-009",
         "US-020",
         "US-022"
       ],
