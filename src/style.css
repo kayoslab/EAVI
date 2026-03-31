@@ -75,9 +75,31 @@ canvas {
   cursor: pointer;
 }
 
+.eavi-mute-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  z-index: 10;
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.25rem;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: opacity 0.2s;
+}
+
+.eavi-mute-btn:hover {
+  opacity: 0.9;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .eavi-info-btn,
-  .eavi-info-overlay {
+  .eavi-info-overlay,
+  .eavi-mute-btn {
     transition: none;
   }
 }

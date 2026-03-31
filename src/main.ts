@@ -2,6 +2,7 @@ import { fetchGeoHint } from './input/geo';
 import { readSignals } from './input/signals';
 import { initSessionSeed } from './seed/sessionSeed';
 import { initAudio } from './audio/player';
+import { createMuteButton } from './ui/audioToggle';
 
 const geoPromise = fetchGeoHint();
 
@@ -17,4 +18,5 @@ const audioPromise = initAudio();
 
 audioPromise.then((player) => {
   console.debug('[EAVI] audio state:', player.state);
+  document.body.appendChild(createMuteButton(player));
 });
