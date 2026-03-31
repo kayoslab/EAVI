@@ -29,8 +29,8 @@
         "Canvas is shown on a dark background"
       ],
       "priority": 1,
-      "passes": true,
-      "status": "pass",
+      "passes": false,
+      "status": "available",
       "depends_on": [
         "US-001"
       ],
@@ -414,8 +414,8 @@
         "Overlay works on desktop and mobile"
       ],
       "priority": 1,
-      "passes": true,
-      "status": "pass",
+      "passes": false,
+      "status": "available",
       "depends_on": [
         "US-001"
       ],
