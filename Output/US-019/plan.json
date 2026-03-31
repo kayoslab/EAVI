@@ -1,0 +1,136 @@
+{
+  "ticket": "US-019",
+  "title": "Map treble response to fine detail",
+  "depends_on": ["US-009", "US-017"],
+  "summary": "Add EMA smoothing to treble energy in the render loop, then enhance the particle field system with three distinct treble-driven detail effects (brightness modulation, size shimmer, and positional jitter) that are visibly different from the bass macro-motion mapping. The existing trebleToShimmer mapping and computeTrebleAvg extraction are already in place — this ticket wires smoothed treble into richer visual effects and adds tests to verify acceptance criteria.",
+  "steps": [
+    {
+      "id": 1,
+      "title": "Add EMA smoothing utility for treble energy in renderLoop.ts",
+      "description": "Introduce an exponential moving average (EMA) to smooth raw treble values frame-to-frame, preventing flicker. Add a `smoothTreble` variable scoped inside `startLoop` that blends the new treble value each frame: `smoothed = smoothed * alpha + raw * (1 - alpha)` with alpha ~0.85. Pass the smoothed value into `mapSignalsToVisuals` instead of the raw treble average.",
+      "files": ["src/visual/renderLoop.ts"],
+      "details": {
+        "location": "Inside `startLoop`, before `mapSignalsToVisuals` call (lines 85-92)",
+        "approach": "Add a `let smoothTreble = 0` closure variable. After `computeTrebleAvg`, update: `smoothTreble = smoothTreble * 0.85 + treble * 0.15`. Pass `smoothTreble` as the `treble` input to `mapSignalsToVisuals`. This uses the Web Audio API's own `smoothingTimeConstant=0.8` as a first stage, plus this EMA as a second stage for organic response.",
+        "rationale": "AC2 requires smoothed response to avoid flicker. Two-stage smoothing (Web Audio + application EMA) ensures treble detail feels organic rather than noisy."
+      },
+      "tests": [
+        {
+          "id": "T-019-01",
+          "description": "Treble energy is smoothed across consecutive frames — a spike followed by silence decays gradually rather than dropping to zero instantly",
+          "file": "tests/visual/renderLoop.test.ts"
+        },
+        {
+          "id": "T-019-02",
+          "description": "Smoothed treble value stays within 0-1 range after mapping",
+          "file": "tests/visual/renderLoop.test.ts"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Enhance particle field with distinct treble-driven detail effects",
+      "description": "Expand the existing treble application in particleField.ts beyond the current basic size/brightness modulation. Add three perceptible detail effects driven by trebleEnergy: (1) brightness/lightness pulsing (already exists, refine range), (2) size shimmer with per-particle phase variation for sparkle, (3) positional micro-jitter perpendicular to velocity for fine-grained texture. These effects must be visibly distinct from bass's macro motion (large displacement amplification).",
+      "files": ["src/visual/systems/particleField.ts"],
+      "details": {
+        "location": "Inside `draw()` method, lines 49-87",
+        "changes": [
+          {
+            "effect": "Per-particle sparkle shimmer",
+            "approach": "Use `(Math.sin(frame.time * 0.005 + p.hueOffset) + 1) * 0.5` as a per-particle phase offset, multiply by `trebleEnergy` to create staggered size pulsing. This creates a sparkle effect where particles shimmer at different phases.",
+            "line_range": "~line 53, modify shimmer calculation"
+          },
+          {
+            "effect": "Micro-jitter for fine texture",
+            "approach": "Add small perpendicular displacement: `jitterX = Math.sin(frame.time * 0.01 + i) * trebleEnergy * 0.003` applied to render position (not stored position) so it doesn't accumulate. This is fundamentally different from bass which amplifies velocity — treble adds high-frequency positional noise.",
+            "line_range": "~line 81, modify fillRect position"
+          },
+          {
+            "effect": "Brightness modulation refinement",
+            "approach": "Increase lightness range from `50 + trebleEnergy * 20` to `50 + trebleEnergy * 30` and add per-particle phase variation for a more alive feel.",
+            "line_range": "~line 77"
+          },
+          {
+            "effect": "Alpha/opacity variation",
+            "approach": "Switch from `hsl()` to `hsla()` with alpha = `0.6 + trebleEnergy * 0.4`, so particles become more opaque and vivid on treble hits. This adds another perceptible channel distinct from bass.",
+            "line_range": "~line 80"
+          }
+        ],
+        "key_distinction_from_bass": "Bass drives macro motion (velocity amplification via `bassBoost`). Treble drives micro detail (size sparkle, positional jitter, brightness/alpha variation). Bass moves particles farther; treble makes them shimmer in place."
+      },
+      "tests": [
+        {
+          "id": "T-019-03",
+          "description": "Treble energy influences at least one visual detail property — particles rendered with high trebleEnergy produce different fillStyle/size than with trebleEnergy=0",
+          "file": "tests/visual/systems/particleField.test.ts"
+        },
+        {
+          "id": "T-019-04",
+          "description": "Treble effect is visibly distinct from bass — with only treble active (bass=0), particles change appearance but not macro displacement; with only bass active (treble=0), particles displace but don't shimmer",
+          "file": "tests/visual/systems/particleField.test.ts"
+        },
+        {
+          "id": "T-019-05",
+          "description": "Scene remains readable — particle positions stay within canvas bounds even with maximum treble energy",
+          "file": "tests/visual/systems/particleField.test.ts"
+        },
+        {
+          "id": "T-019-06",
+          "description": "Treble jitter does not accumulate in stored particle positions — positions after N frames with treble are bounded similarly to frames without treble",
+          "file": "tests/visual/systems/particleField.test.ts"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Verify acceptance criteria and definition of done",
+      "description": "Run full test suite, verify build passes, manually confirm no console errors. Ensure all four acceptance criteria are met: (AC1) treble influences detail, (AC2) smoothing prevents flicker, (AC3) effect distinct from bass, (AC4) scene readable.",
+      "files": [],
+      "verification": [
+        "npm run build — passes with no errors",
+        "npm run test — all existing + new tests pass",
+        "No forbidden storage APIs (cookies, localStorage) used in new code",
+        "Scene renders correctly with and without audio autoplay"
+      ]
+    }
+  ],
+  "files_to_modify": [
+    {
+      "path": "src/visual/renderLoop.ts",
+      "changes": "Add EMA smoothing for treble energy (closure variable + blend each frame)"
+    },
+    {
+      "path": "src/visual/systems/particleField.ts",
+      "changes": "Enhance draw() with per-particle sparkle shimmer, micro-jitter on render position, brightness range increase, alpha/opacity variation"
+    },
+    {
+      "path": "tests/visual/renderLoop.test.ts",
+      "changes": "Add T-019-01, T-019-02 for treble smoothing verification"
+    },
+    {
+      "path": "tests/visual/systems/particleField.test.ts",
+      "changes": "Add T-019-03 through T-019-06 for treble detail effects"
+    }
+  ],
+  "files_to_create": [],
+  "risks": [
+    {
+      "risk": "Over-smoothing makes treble feel unresponsive",
+      "mitigation": "Alpha 0.85 is a starting point — can tune down to 0.7 if treble feels sluggish. Web Audio's own smoothingTimeConstant=0.8 already provides a first pass."
+    },
+    {
+      "risk": "Jitter makes scene feel noisy rather than detailed",
+      "mitigation": "Jitter is applied to render position only (not stored position) and scaled by trebleEnergy, so it's zero when there's no treble. Magnitude (0.003) is small relative to canvas size."
+    },
+    {
+      "risk": "hsla() performance vs hsl()",
+      "mitigation": "Canvas 2D handles hsla efficiently. No measurable overhead expected for particle counts ≤600."
+    }
+  ],
+  "acceptance_criteria_mapping": {
+    "AC1_treble_influences_detail": "Step 2 — shimmer, jitter, brightness, alpha all driven by trebleEnergy. Tested by T-019-03.",
+    "AC2_smoothed_no_flicker": "Step 1 — EMA smoothing in renderLoop.ts. Tested by T-019-01.",
+    "AC3_distinct_from_bass": "Step 2 — bass amplifies velocity (macro motion), treble modulates size/brightness/jitter (micro detail). Tested by T-019-04.",
+    "AC4_scene_readable": "Step 2 — jitter on render position only, bounded magnitude, positions stay in canvas. Tested by T-019-05, T-019-06."
+  }
+}
