@@ -1,70 +1,46 @@
 {
   "ticket": "US-023",
-  "verdict": "APPROVE",
-  "risk_level": "low",
-  "summary": "Well-scoped plan that adds a read-only hint registry and renders static strings in the existing overlay. No new runtime dependencies, no architectural changes, no privacy surface expansion.",
+  "risk": "low",
+  "effort": "small",
+  "flags": [],
+  "summary": "Well-scoped plan that adds a hint registry as a typed single source of truth and renders it in the existing overlay. No new dependencies, no architectural boundary crossings, no privacy concerns. The compile-time completeness check via mapped-type assertion is a sound approach for keeping hints aligned with VisualParams. The two existing test updates (line ~222 regex and line ~229 char budget) are correctly identified and their mitigations are appropriate.",
   "architectural_impact": {
     "new_modules": 1,
     "modified_modules": 2,
-    "new_test_files": 1,
-    "modified_test_files": 1,
-    "dependency_changes": 0,
-    "api_surface_changes": 0,
-    "privacy_surface_changes": 0
+    "new_dependencies": 0,
+    "boundary_crossings": 0,
+    "pattern_changes": "none"
   },
-  "strengths": [
-    "Single source of truth pattern via INFLUENCE_HINTS array keeps hints aligned with VisualParams without manual sync",
-    "Compile-time completeness check prevents drift when VisualParams gains new fields",
-    "Static strings only — no runtime signal values interpolated into DOM, preserving privacy model",
-    "Builds on existing overlay DOM structure with minimal modification to createInfoOverlay()",
-    "paramKeys mapping to VisualParams fields is verified correct against current interface (8/8 fields covered)"
-  ],
-  "risks": [
+  "risks_assessment": [
     {
-      "risk": "500-character overlay text limit (T-022) may be exceeded when hint list is appended",
-      "severity": "medium",
-      "mitigation_adequate": true,
-      "notes": "Plan proposes scoping the 500-char test to .eavi-info-panel > p elements or shortening p3. Both are reasonable; scoping the selector is cleaner since hints are a distinct UI section."
-    },
-    {
-      "risk": "Compile-time completeness check uses advanced TypeScript pattern",
+      "risk": "Removing p3 breaks US-022 overlay text test at line 222",
       "severity": "low",
       "mitigation_adequate": true,
-      "notes": "A satisfies-based assertion is idiomatic TypeScript 4.9+. One-line comment is sufficient documentation."
+      "note": "Plan correctly identifies the exact regex and proposes checking hint list content instead"
+    },
+    {
+      "risk": "500-char budget test at line 229 counts all childNodes excluding close button",
+      "severity": "low",
+      "mitigation_adequate": true,
+      "note": "Scoping to <p> elements or raising the budget for structured list content is reasonable"
+    },
+    {
+      "risk": "Future VisualParams fields not covered by hints",
+      "severity": "low",
+      "mitigation_adequate": true,
+      "note": "TypeScript mapped-type assertion will produce a compile error if a new key is added without a corresponding hint"
     }
   ],
+  "acceptance_criteria_coverage": {
+    "Overlay names categories of influence such as time, device, location, and motion": "covered",
+    "Overlay does not reveal raw identifier values": "covered",
+    "Hints align with actual implemented mappings": "covered",
+    "Hints can be updated from a single source of truth": "covered"
+  },
+  "notes": "The plan is minimal and well-aligned with the codebase. VisualParams has exactly 8 keys matching the 6 hint entries' paramKeys union. The overlay construction pattern (createElement + appendChild) is consistent with the existing infoOverlay.ts style. No concerns about privacy, performance, or maintenance burden.",
+  "approved": true,
   "concerns": [],
-  "suggestions": [
-    "When modifying the T-022 500-char test, scope it to '.eavi-info-panel > p' rather than shortening p3 — the existing copy is well-written and the hint list serves a different purpose",
-    "Consider adding a data-testid to the .eavi-hints element to make test selectors more resilient to CSS class renames"
-  ],
-  "files_validated": {
-    "src/visual/mappings.ts": {
-      "status": "confirmed",
-      "notes": "VisualParams has exactly 8 fields matching plan's paramKeys: paletteHue, paletteSaturation, cadence, density, motionAmplitude, pointerDisturbance, bassEnergy, trebleEnergy"
-    },
-    "src/ui/infoOverlay.ts": {
-      "status": "confirmed",
-      "notes": "Overlay uses simple DOM creation pattern. Appending a <ul> after p3 is straightforward. No state management complexity."
-    },
-    "src/style.css": {
-      "status": "confirmed",
-      "notes": "Existing overlay styles use consistent naming (.eavi- prefix). New .eavi-hints rules follow established convention."
-    },
-    "tests/ui/infoOverlay.test.ts": {
-      "status": "confirmed",
-      "notes": "26 existing tests. New describe block for US-023 is additive and non-conflicting."
-    }
-  },
-  "plan_step_validation": {
-    "step_1": { "feasible": true, "notes": "Clean new module, correct paramKeys mapping, completeness check is sound" },
-    "step_2": { "feasible": true, "notes": "9 tests cover data integrity, privacy, and completeness — good coverage" },
-    "step_3": { "feasible": true, "notes": "Appending <ul> to panel after p3 is trivial given current DOM structure at line 53" },
-    "step_4": { "feasible": true, "notes": "CSS additions follow existing naming and styling conventions" },
-    "step_5": { "feasible": true, "notes": "9 UI tests are thorough; T-023-17 toggle test catches re-render bugs" },
-    "step_6": { "feasible": true, "notes": "Standard verification step" }
-  },
-  "breaking_changes": false,
-  "privacy_compliant": true,
-  "definition_of_done_coverage": "complete"
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
 }
