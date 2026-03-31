@@ -92,12 +92,13 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "fail",
+      "status": "in_progress",
       "depends_on": [
         "US-001"
       ],
       "split_from": "US-003",
-      "notes": "Implement as Vercel serverless/edge function using geolocation()."
+      "notes": "Implement as Vercel serverless/edge function using geolocation().",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-006",
@@ -296,12 +297,13 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "fail",
+      "status": "in_progress",
       "depends_on": [
         "US-014"
       ],
       "split_from": "US-006",
-      "notes": "Avoid immediate repeat when more than one track exists."
+      "notes": "Avoid immediate repeat when more than one track exists.",
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-016",
