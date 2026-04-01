@@ -1,0 +1,43 @@
+{
+  "risk": "low",
+  "rationale": "The plan correctly leverages the existing GeometrySystem interface as the abstraction point. The composite pattern for ModeManager is sound — it implements GeometrySystem itself, so the render loop and LoopDeps remain untouched. VisualParams, audio pipeline, and seed system are fully decoupled from geometry rendering, meaning mode switching only affects which draw() is called. The registry pattern for mode factories is extensible without conditional branching. Canvas 2D rendering (not Three.js/WebGL) means no GPU resource lifecycle concerns on mode switch.",
+  "architectural_impact": {
+    "new_abstractions": 1,
+    "files_created": 4,
+    "files_modified": 1,
+    "files_deleted": 0,
+    "interfaces_changed": 0,
+    "public_api_changes": false
+  },
+  "concerns": [
+    {
+      "severity": "low",
+      "area": "ModeManager.init delegation",
+      "detail": "The render loop calls geometrySystem.init() once when deps become available. ModeManager must handle re-initializing the second system internally when switching, since the loop will not call init() again. The plan acknowledges this but implementation must ensure the new system receives the correct ctx, seed, and current params at switch time.",
+      "suggestion": "ModeManager should capture ctx and seed from its own init() call and pass them to each system factory on switch."
+    },
+    {
+      "severity": "low",
+      "area": "QualityProfile extension",
+      "detail": "The plan adds maxWaves and enableShimmer to quality config but QualityProfile currently only has particle-specific fields. This should extend QualityProfile cleanly rather than adding wave-specific fields to a generic profile.",
+      "suggestion": "Either make QualityProfile generic (maxEntities) or pass quality tier to createModeManager and let it derive per-mode configs internally. The latter is cleaner."
+    },
+    {
+      "severity": "info",
+      "area": "elapsed time source",
+      "detail": "FrameState.elapsed is already available in draw() — confirmed. ModeManager can use this directly for switch timing without any render loop changes. Step 4 is likely a no-op as the plan predicts."
+    }
+  ],
+  "adr_recommendation": "none",
+  "plan_accuracy": {
+    "correct_interface_usage": true,
+    "correct_file_locations": true,
+    "correct_dependency_chain": true,
+    "render_loop_change_needed": false,
+    "notes": "Plan correctly identifies that renderLoop.ts likely needs zero changes. The GeometrySystem interface, FrameState, VisualParams, and LoopDeps types are all accurately referenced. The PRNG system (mulberry32 via createPRNG) supports the seeded wave generation approach. Canvas 2D stroke-based wave rendering aligns with the existing particleField pattern."
+  },
+  "approved": true,
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
