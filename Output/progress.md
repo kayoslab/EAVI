@@ -32,3 +32,5 @@
 
 ## US-027: Add runtime health check
 
+## US-010: Map coarse location to palette
+

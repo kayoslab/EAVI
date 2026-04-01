@@ -193,8 +193,8 @@
         "Palette changes are deterministic within the session"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-005",
         "US-008",
