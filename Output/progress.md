@@ -38,3 +38,5 @@
 
 ## US-013: Add pointer influence to scene motion
 
+## US-024: Add reduced-motion fallback
+
