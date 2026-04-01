@@ -1,0 +1,71 @@
+{
+  "ticket_id": "US-025",
+  "architectural_impact": "low",
+  "scope_assessment": {
+    "rating": "well-scoped",
+    "rationale": "The plan introduces one new module (quality.ts) and makes minimal, additive changes to five existing files. All modifications use optional parameters with defaults, preserving backward compatibility. The new module is a pure function with no side effects, fitting cleanly into the existing synchronous initialization pattern."
+  },
+  "file_impact_analysis": {
+    "files_to_create": {
+      "src/visual/quality.ts": "New pure-function module. No coupling risk. Depends only on the BrowserSignals interface which is stable.",
+      "tests/visual/quality.test.ts": "Standard test file following existing test conventions."
+    },
+    "files_to_modify": {
+      "src/input/signals.ts": "Adding one optional field (deviceMemory) to BrowserSignals interface. Non-breaking change; all existing consumers ignore unknown fields.",
+      "src/visual/scene.ts": "Adding optional resolutionScale parameter to initScene(). Default 1.0 preserves current behavior. Canvas sizing logic is already in this file.",
+      "src/visual/resize.ts": "Adding optional resolutionScale parameter to attachResizeHandler(). Minimal change, default preserves current behavior.",
+      "src/visual/systems/particleField.ts": "Replacing hardcoded MAX_PARTICLES=600 with configurable cap and adding sparkle toggle. The reviewer correction about preserving the density/structureComplexity formula is critical and correctly noted.",
+      "src/main.ts": "Wiring quality profile into existing synchronous init block. computeQuality(readSignals()) runs before createParticleField() which is correct since both are synchronous. No change to async initialization order."
+    },
+    "files_correctly_excluded": {
+      "src/visual/renderLoop.ts": "Reviewer correctly identified this file needs no changes. The render loop delegates drawing to the geometry system; quality scaling flows through particleField.ts.",
+      "tests/visual/renderLoop.test.ts": "Correctly excluded per above."
+    }
+  },
+  "dependency_verification": {
+    "US-004": "signals.ts exists with BrowserSignals interface — verified",
+    "US-006": "scene.ts exists with initScene() — verified",
+    "US-009": "particleField.ts exists with MAX_PARTICLES=600 and sparkle/jitter logic — verified",
+    "US-013": "resize.ts exists with attachResizeHandler() — verified"
+  },
+  "architectural_alignment": {
+    "privacy_model": "No impact. Quality detection uses only in-memory signals already collected by readSignals(). No new data collection or persistence.",
+    "initialization_pattern": "Aligns with existing sync-first pattern. computeQuality() is pure and synchronous, fitting before createParticleField() in the init sequence.",
+    "graceful_degradation": "Consistent with project philosophy. Missing deviceMemory (Safari/Firefox) falls back to null; scoring handles nulls conservatively. Default tier is 'medium' which is safe.",
+    "mapping_philosophy": "Quality scaling adjusts quantity (particle count) and resolution, not the visual character (palette, motion, evolution). This preserves the partially-legible mapping identity."
+  },
+  "reviewer_corrections_assessment": {
+    "renderLoop_exclusion": "Valid. renderLoop.ts has no direct particle or resolution logic.",
+    "density_formula_preservation": "Critical and valid. The formula `Math.floor(params.density * MAX_PARTICLES) * (0.6 + structureComplexity * 0.4)` must use config.maxParticles as the cap, not bypass density/complexity scaling.",
+    "init_ordering": "Valid. The synchronous ordering (readSignals → computeQuality → createParticleField → startLoop) must be explicit since all are synchronous and main.ts currently creates the particle field before async work begins."
+  },
+  "risks": [
+    {
+      "risk": "deviceMemory availability is Chrome/Edge only",
+      "severity": "low",
+      "mitigation": "Plan handles null gracefully. Conservative default tier (medium) prevents over-penalizing Safari/Firefox users."
+    },
+    {
+      "risk": "Scoring heuristic may misclassify some devices",
+      "severity": "low",
+      "mitigation": "Medium tier is the safe default. The weighted scoring approach with multiple signals reduces single-signal misclassification. Can be tuned post-deployment."
+    },
+    {
+      "risk": "High-DPR small screens (iPhone SE) could be scored too high",
+      "severity": "low",
+      "mitigation": "Plan includes screen pixel count (0.15 weight) and touch-capable penalty (0.15 weight) plus explicit low-core-count penalty for touch devices."
+    }
+  ],
+  "adr_recommendation": {
+    "needed": false,
+    "rationale": "This is a tactical feature addition, not an architectural decision. The quality tier system is a straightforward capability-detection pattern with no novel trade-offs. No existing ADRs would be affected."
+  },
+  "suggestions": [],
+  "estimated_complexity_agreement": true,
+  "test_strategy_assessment": "Adequate. Unit tests cover device archetypes for tier classification. Integration coverage via particleField tests validates maxParticles cap. Existing 29-file test suite covers regression surface for signals, scene, mappings, and audio.",
+  "approved": true,
+  "concerns": [],
+  "decision": "APPROVE",
+  "adr_entry": null,
+  "failures": []
+}
