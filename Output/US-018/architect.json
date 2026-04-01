@@ -1,47 +1,53 @@
 {
-  "ticket": "US-018",
-  "architectural_impact": "none",
-  "rationale": "All changes are confined to leaf-level runtime code (renderLoop.ts) and its test file. No new modules, no new interfaces, no new dependencies, no API surface changes. The EMA smoothing for bass directly mirrors the existing treble EMA pattern (renderLoop.ts:101-102), and the synthetic fallback is a small additive block. Test fixture fixes correct genuine interface mismatches (missing curveSoftness, structureComplexity, elapsed) — these are bug fixes, not architectural changes.",
-  "verified_claims": {
-    "smoothTreble_line_81": true,
-    "smoothDisturbance_line_82": true,
-    "computeBassAvg_line_96": true,
-    "mapSignalsToVisuals_line_118": "approximate — call spans lines 113-121, bass arg is within that range",
-    "bassToMacro_line_178": true,
-    "particleField_bassBoost_line_56": true,
-    "particleField_clamping_lines_87_94": true,
-    "evolution_passthrough_line_115": true,
-    "analyser_poll_and_buffers": true,
-    "test_missing_curveSoftness_structureComplexity": true,
-    "test_missing_elapsed_field": true
-  },
-  "risks": [
+  "risk_level": "low",
+  "summary": "Minimal architectural impact. The plan modifies a single file (renderLoop.ts) using patterns already established in the codebase. Bass smoothing mirrors the existing treble EMA smoothing (line 101) and pointer disturbance smoothing (line 130). The synthetic fallback is a localized concern within the render loop. No new modules, interfaces, dependencies, or cross-cutting concerns are introduced.",
+  "architectural_concerns": [],
+  "structural_observations": [
     {
-      "area": "synthetic bass fallback",
-      "severity": "low",
-      "detail": "Sine-based fallback at ~30/255 raw amplitude is well below perceptible jitter threshold and within bassToMacro's power curve compression range. Risk of feeling artificial is mitigated by the low amplitude."
+      "observation": "EMA smoothing pattern is already established",
+      "detail": "renderLoop.ts already applies EMA smoothing to treble (0.85/0.15 at line 101) and pointer disturbance (0.92/0.08 at line 130). Adding bass smoothing (0.88/0.12) follows the identical pattern with an appropriately heavier factor for macro motion. No new abstraction is needed."
     },
     {
-      "area": "EMA alpha selection",
-      "severity": "low",
-      "detail": "Alpha 0.18 is slightly more aggressive than treble's 0.15 but reasonable for bass which has slower natural periodicity. The plan includes a fallback to 0.12 if edge cases arise."
+      "observation": "Synthetic fallback is correctly scoped to the render loop",
+      "detail": "The fallback injects a synthetic bass value before passing it to mapSignalsToVisuals(), keeping mappings.ts and particleField.ts unaware of the fallback logic. This preserves the separation of concerns: the render loop handles data availability, the mapping function handles normalization, the geometry system handles rendering."
+    },
+    {
+      "observation": "No interface changes required",
+      "detail": "VisualParams, MappingInputs, LoopDeps, AnalyserPipeline, and GeometrySystem interfaces are all unchanged. The smoothing and fallback are internal to startLoop() closure state."
+    },
+    {
+      "observation": "evolveParams pass-through is preserved",
+      "detail": "evolution.ts passes bassEnergy through unchanged (line 117). The smoothed bass value set by mapSignalsToVisuals() survives evolution, which is correct since bass is a real-time signal, not a time-evolved parameter."
     }
   ],
-  "consistency_with_existing_patterns": {
-    "ema_smoothing": "Follows exact same pattern as smoothTreble (line 101-102). Consistent.",
-    "fallback_for_muted": "bassEnergy is already set to 0 when no pipeline exists (line 125). Adding a synthetic fallback when pipeline exists but reports zeros is a logical extension.",
-    "test_fixture_structure": "Fixes align defaultParams with the full VisualParams interface and FrameState interface. Standard correctness fix."
+  "risks": [
+    {
+      "risk": "Synthetic fallback threshold tuning",
+      "severity": "low",
+      "detail": "The threshold of 5 (out of 255) for triggering synthetic bass is reasonable but untested against real audio tracks with very quiet bass passages. The plan's blend approach mitigates discontinuity, and the threshold can be adjusted later without architectural changes.",
+      "mitigation": "The value is a local constant in renderLoop.ts, trivially adjustable. No abstraction warranted."
+    },
+    {
+      "risk": "Smoothing state couples to animation frame rate",
+      "severity": "low",
+      "detail": "EMA smoothing with a fixed factor (0.88) is frame-rate dependent. At 60fps the effective time constant is ~130ms; at 30fps it doubles. This matches the existing treble and pointer smoothing which have the same characteristic. Consistent behavior across the codebase is more important than frame-rate independence at this stage.",
+      "mitigation": "If frame-rate independence becomes necessary later, all three EMA smoothers can be converted to time-based smoothing in a single refactor pass."
+    }
+  ],
+  "test_coverage_assessment": "All six tests are well-structured and cover the acceptance criteria. T-018-02 validates smoothing via the render loop's geometry system spy. T-018-03 validates fallback via the same mechanism. T-018-01, T-018-04, T-018-05, T-018-06 test the particle field directly and should already pass. The test architecture correctly separates unit-level particle tests from integration-level render loop tests.",
+  "files_impact": {
+    "modified": [
+      "src/visual/renderLoop.ts"
+    ],
+    "created": [],
+    "unchanged_but_relevant": [
+      "src/visual/mappings.ts",
+      "src/visual/systems/particleField.ts",
+      "src/visual/evolution.ts",
+      "tests/visual/bassMotion.test.ts"
+    ]
   },
-  "scope_assessment": {
-    "files_modified": 2,
-    "lines_changed_estimate": "~27 lines across both files",
-    "new_modules": 0,
-    "new_dependencies": 0,
-    "interface_changes": 0,
-    "breaking_changes": 0
-  },
-  "adr_needed": false,
-  "adr_reason": "No architectural decisions involved — this is a small, pattern-consistent feature addition with no cross-cutting concerns.",
+  "recommendation": "Proceed with implementation. The plan is well-scoped, follows existing patterns, and the test suite is already written. The only implementation work is adding ~8 lines to renderLoop.ts.",
   "approved": true,
   "concerns": [],
   "decision": "APPROVE",
