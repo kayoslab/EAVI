@@ -36,3 +36,5 @@
 
 ## US-011: Map device profile to structure
 
+## US-013: Add pointer influence to scene motion
+

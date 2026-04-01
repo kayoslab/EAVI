@@ -256,8 +256,8 @@
         "Idle mode still looks intentional"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-006",
         "US-009"
