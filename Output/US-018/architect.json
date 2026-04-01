@@ -1,56 +1,34 @@
 {
-  "risk_level": "low",
-  "summary": "Minimal architectural impact. The plan modifies a single file (renderLoop.ts) using patterns already established in the codebase. Bass smoothing mirrors the existing treble EMA smoothing (line 101) and pointer disturbance smoothing (line 130). The synthetic fallback is a localized concern within the render loop. No new modules, interfaces, dependencies, or cross-cutting concerns are introduced.",
-  "architectural_concerns": [],
-  "structural_observations": [
-    {
-      "observation": "EMA smoothing pattern is already established",
-      "detail": "renderLoop.ts already applies EMA smoothing to treble (0.85/0.15 at line 101) and pointer disturbance (0.92/0.08 at line 130). Adding bass smoothing (0.88/0.12) follows the identical pattern with an appropriately heavier factor for macro motion. No new abstraction is needed."
-    },
-    {
-      "observation": "Synthetic fallback is correctly scoped to the render loop",
-      "detail": "The fallback injects a synthetic bass value before passing it to mapSignalsToVisuals(), keeping mappings.ts and particleField.ts unaware of the fallback logic. This preserves the separation of concerns: the render loop handles data availability, the mapping function handles normalization, the geometry system handles rendering."
-    },
-    {
-      "observation": "No interface changes required",
-      "detail": "VisualParams, MappingInputs, LoopDeps, AnalyserPipeline, and GeometrySystem interfaces are all unchanged. The smoothing and fallback are internal to startLoop() closure state."
-    },
-    {
-      "observation": "evolveParams pass-through is preserved",
-      "detail": "evolution.ts passes bassEnergy through unchanged (line 117). The smoothed bass value set by mapSignalsToVisuals() survives evolution, which is correct since bass is a real-time signal, not a time-evolved parameter."
-    }
-  ],
-  "risks": [
-    {
-      "risk": "Synthetic fallback threshold tuning",
-      "severity": "low",
-      "detail": "The threshold of 5 (out of 255) for triggering synthetic bass is reasonable but untested against real audio tracks with very quiet bass passages. The plan's blend approach mitigates discontinuity, and the threshold can be adjusted later without architectural changes.",
-      "mitigation": "The value is a local constant in renderLoop.ts, trivially adjustable. No abstraction warranted."
-    },
-    {
-      "risk": "Smoothing state couples to animation frame rate",
-      "severity": "low",
-      "detail": "EMA smoothing with a fixed factor (0.88) is frame-rate dependent. At 60fps the effective time constant is ~130ms; at 30fps it doubles. This matches the existing treble and pointer smoothing which have the same characteristic. Consistent behavior across the codebase is more important than frame-rate independence at this stage.",
-      "mitigation": "If frame-rate independence becomes necessary later, all three EMA smoothers can be converted to time-based smoothing in a single refactor pass."
-    }
-  ],
-  "test_coverage_assessment": "All six tests are well-structured and cover the acceptance criteria. T-018-02 validates smoothing via the render loop's geometry system spy. T-018-03 validates fallback via the same mechanism. T-018-01, T-018-04, T-018-05, T-018-06 test the particle field directly and should already pass. The test architecture correctly separates unit-level particle tests from integration-level render loop tests.",
-  "files_impact": {
-    "modified": [
-      "src/visual/renderLoop.ts"
+  "ticket": "US-018",
+  "risk": "low",
+  "reason": "Plan is already fully implemented and tested. All four acceptance criteria are satisfied with dedicated test coverage. The architecture follows the established signal-to-visual pipeline pattern (analyser → render loop → mappings → geometry system) without introducing new abstractions or cross-cutting concerns. Changes are scoped to five files in the existing module hierarchy with no new dependencies, no storage API violations, and no API surface changes.",
+  "architectural_impact": {
+    "new_interfaces": [
+      "VisualParams.bassEnergy field (additive, non-breaking)"
     ],
-    "created": [],
-    "unchanged_but_relevant": [
-      "src/visual/mappings.ts",
-      "src/visual/systems/particleField.ts",
-      "src/visual/evolution.ts",
-      "tests/visual/bassMotion.test.ts"
-    ]
+    "modified_modules": [
+      "src/visual/mappings.ts — added bassToMacro() and bassEnergy to VisualParams",
+      "src/visual/renderLoop.ts — added computeBassAvg(), EMA smoothing, synthetic fallback",
+      "src/visual/systems/particleField.ts — consumes bassEnergy as velocity multiplier",
+      "src/visual/types.ts — VisualParams re-export includes bassEnergy"
+    ],
+    "new_modules": [],
+    "dependency_graph_changes": "None. particleField already consumed VisualParams; renderLoop already polled AnalyserPipeline. No new import edges.",
+    "cross_cutting_concerns": "None. Bass processing is contained within the existing per-frame data flow.",
+    "public_api_changes": "None. No new endpoints, exports, or user-facing contracts."
   },
-  "recommendation": "Proceed with implementation. The plan is well-scoped, follows existing patterns, and the test suite is already written. The only implementation work is adding ~8 lines to renderLoop.ts.",
+  "conformance": {
+    "privacy_model": "pass — no storage APIs, no raw identifiers, bass data stays in memory",
+    "audio_pipeline": "pass — analysis continues while muted via AnalyserNode-before-GainNode routing; synthetic fallback covers silent/blocked states",
+    "accessibility": "pass — prefers-reduced-motion scales motionAmplitude to 0.2, tested in T-018-05",
+    "performance": "pass — buffer reuse via pre-allocated Uint8Array, no per-frame object creation, toroidal wrap avoids particle respawn cost",
+    "definition_of_done": "pass — build succeeds, no console errors, no forbidden storage, works with/without autoplay, mute toggle and info overlay unaffected"
+  },
+  "risks": [],
+  "recommendations": [],
   "approved": true,
   "concerns": [],
-  "decision": "APPROVE",
+  "decision": "approve",
   "adr_entry": null,
   "failures": []
 }
