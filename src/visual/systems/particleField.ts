@@ -62,9 +62,26 @@ export function createParticleField(): ParticleField {
         p.x += p.vx * speed * bassBoost * width;
         p.y += p.vy * speed * bassBoost * height;
 
-        // Pointer disturbance: push particles away from center based on disturbance
-        p.x += (p.vx > 0 ? 1 : -1) * params.pointerDisturbance * 0.002 * delta;
-        p.y += (p.vy > 0 ? 1 : -1) * params.pointerDisturbance * 0.002 * delta;
+        // Pointer disturbance: push particles radially away from pointer position
+        if (params.pointerDisturbance > 0) {
+          const px = frame.pointerX ?? 0.5;
+          const py = frame.pointerY ?? 0.5;
+          const pdx = p.x - px;
+          const pdy = p.y - py;
+          const distSq = pdx * pdx + pdy * pdy;
+          // Inverse-distance influence: closer particles are pushed more
+          const influence = 1 / (1 + distSq * 50);
+          const pushStrength = params.pointerDisturbance * 0.002 * delta * influence;
+          // Normalize direction so push magnitude depends only on influence, not distance
+          if (distSq > 0.0001) {
+            const dist = Math.sqrt(distSq);
+            p.x += (pdx / dist) * pushStrength;
+            p.y += (pdy / dist) * pushStrength;
+          } else {
+            p.x += (p.vx > 0 ? 1 : -1) * pushStrength;
+            p.y += (p.vy > 0 ? 1 : -1) * pushStrength;
+          }
+        }
 
         // Toroidal wrapping (work in 0-width/height space)
         if (p.x < 0) p.x += 1;

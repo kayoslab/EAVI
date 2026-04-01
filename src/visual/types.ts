@@ -7,6 +7,8 @@ export interface FrameState {
   params: VisualParams;
   width: number;
   height: number;
+  pointerX?: number;
+  pointerY?: number;
 }
 
 export interface GeometrySystem {

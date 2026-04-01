@@ -437,6 +437,209 @@ describe('US-009: Render loop', () => {
     });
   });
 
+  describe('US-013: Pointer disturbance smoothing in render loop', () => {
+    it('T-013-01: pointerDisturbance decays gradually after pointer becomes idle', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      let frameCount = 0;
+      const getPointerState = () => {
+        if (frameCount <= 1) {
+          return { x: 0.5, y: 0.5, dx: 10, dy: 10, speed: 0.1, active: true };
+        }
+        return { x: 0.5, y: 0.5, dx: 0, dy: 0, speed: 0, active: false };
+      };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'decay-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getPointerState,
+      };
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 4) cb(frameCount * 16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      const values = drawSpy.mock.calls.map(
+        (c: unknown[]) => (c[1] as { params: VisualParams }).params.pointerDisturbance,
+      );
+      expect(values[0]).toBeGreaterThan(0);
+      // Frame 2 (idle) should still have non-zero disturbance due to decay
+      expect(values[1]).toBeGreaterThan(0);
+      // But decaying
+      expect(values[1]).toBeLessThan(values[0]);
+    });
+
+    it('T-013-02: pointerDisturbance approaches zero after sustained idle period', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      let frameCount = 0;
+      const getPointerState = () => {
+        if (frameCount <= 1) {
+          return { x: 0.5, y: 0.5, dx: 10, dy: 10, speed: 0.1, active: true };
+        }
+        return { x: 0.5, y: 0.5, dx: 0, dy: 0, speed: 0, active: false };
+      };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'converge-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getPointerState,
+      };
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 65) cb(frameCount * 16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      const lastValue = (drawSpy.mock.calls[drawSpy.mock.calls.length - 1][1] as { params: VisualParams }).params.pointerDisturbance;
+      expect(lastValue).toBeLessThan(0.01);
+      expect(lastValue).toBeGreaterThanOrEqual(0);
+    });
+
+    it('T-013-03: pointerDisturbance ramps up smoothly on pointer movement start', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      let frameCount = 0;
+      const getPointerState = () => {
+        if (frameCount <= 2) {
+          return { x: 0.5, y: 0.5, dx: 0, dy: 0, speed: 0, active: false };
+        }
+        return { x: 0.5, y: 0.5, dx: 10, dy: 10, speed: 0.1, active: true };
+      };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'ramp-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getPointerState,
+      };
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 6) cb(frameCount * 16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      const values = drawSpy.mock.calls.map(
+        (c: unknown[]) => (c[1] as { params: VisualParams }).params.pointerDisturbance,
+      );
+      // First active frame (index 2) should be > 0
+      expect(values[2]).toBeGreaterThan(0);
+      // Second active frame should be higher (ramping)
+      expect(values[3]).toBeGreaterThan(values[2]);
+      // All within bounds
+      values.forEach((v) => {
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(1);
+      });
+    });
+
+    it('T-013-07: pointer position is threaded through FrameState to geometry system', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'pos-thread-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getPointerState: () => ({ x: 0.3, y: 0.7, dx: 0, dy: 0, speed: 0, active: true }),
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 1) cb(16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      expect(drawSpy).toHaveBeenCalled();
+      const frameState = drawSpy.mock.calls[0][1] as FrameState;
+      expect(frameState.pointerX).toBe(0.3);
+      expect(frameState.pointerY).toBe(0.7);
+    });
+
+    it('T-013-08: smoothed pointerDisturbance stays within 0-1 range across all conditions', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      let frameCount = 0;
+      const getPointerState = () => {
+        // Alternate extreme speed and idle
+        if (frameCount % 2 === 0) {
+          return { x: 0.5, y: 0.5, dx: 100, dy: 100, speed: 100, active: true };
+        }
+        return { x: 0.5, y: 0.5, dx: 0, dy: 0, speed: 0, active: false };
+      };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'range-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getPointerState,
+      };
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 10) cb(frameCount * 16);
+        return frameCount;
+      });
+      const { canvas, ctx } = createTestCanvas();
+      startLoop(canvas, ctx, deps);
+      drawSpy.mock.calls.forEach((c: unknown[]) => {
+        const dist = (c[1] as { params: VisualParams }).params.pointerDisturbance;
+        expect(dist).toBeGreaterThanOrEqual(0);
+        expect(dist).toBeLessThanOrEqual(1);
+      });
+    });
+
+    it('T-013-10: touch and mouse both produce non-zero pointerDisturbance in render loop', () => {
+      // Mouse-like
+      const drawSpy1 = vi.fn();
+      const mockGeo1 = { init: vi.fn(), draw: drawSpy1 };
+      let fc1 = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        fc1++;
+        if (fc1 <= 1) cb(16);
+        return fc1;
+      });
+      const { canvas: c1, ctx: x1 } = createTestCanvas();
+      startLoop(c1, x1, {
+        geometrySystem: mockGeo1,
+        seed: 'touch-mouse-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getPointerState: () => ({ x: 0.5, y: 0.5, dx: 5, dy: 5, speed: 0.05, active: true }),
+      });
+      const mouseVal = (drawSpy1.mock.calls[0][1] as { params: VisualParams }).params.pointerDisturbance;
+
+      // Touch-like (same values — pointer.ts normalizes both)
+      const drawSpy2 = vi.fn();
+      const mockGeo2 = { init: vi.fn(), draw: drawSpy2 };
+      let fc2 = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        fc2++;
+        if (fc2 <= 1) cb(16);
+        return fc2;
+      });
+      const { canvas: c2, ctx: x2 } = createTestCanvas();
+      startLoop(c2, x2, {
+        geometrySystem: mockGeo2,
+        seed: 'touch-mouse-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getPointerState: () => ({ x: 0.5, y: 0.5, dx: 5, dy: 5, speed: 0.05, active: true }),
+      });
+      const touchVal = (drawSpy2.mock.calls[0][1] as { params: VisualParams }).params.pointerDisturbance;
+
+      expect(mouseVal).toBeGreaterThan(0);
+      expect(touchVal).toBeGreaterThan(0);
+      expect(mouseVal).toBe(touchVal);
+    });
+  });
+
   describe('privacy', () => {
     it('T-009-26: no localStorage or cookie access during render loop', () => {
       const lsSpy = vi.spyOn(Storage.prototype, 'getItem');
