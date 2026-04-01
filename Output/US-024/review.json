@@ -1,0 +1,79 @@
+{
+  "ticket": "US-024",
+  "planStatus": "approved",
+  "claimsVerified": {
+    "signals.ts detection (line 30)": true,
+    "mappings.ts motionAmplitude 0.2/1.0 (lines 154-157)": true,
+    "particleField.ts velocity scaling (line 55)": true,
+    "particleField.ts pointer disturbance unscaled (lines 66-67)": true,
+    "particleField.ts sparkle shimmer unscaled (lines 84-86)": true,
+    "particleField.ts treble jitter unscaled (lines 94-97)": true,
+    "style.css reduced-motion transitions (lines 99-105)": true,
+    "tests/signals.test.ts reduced-motion tests (lines 135-172)": true,
+    "tests/visual/mappings.test.ts reduced-motion tests (lines 135-155)": true,
+    "tests/visual/reducedMotion.test.ts does not exist": true,
+    "No watchReducedMotion export exists yet": true,
+    "No live listener in renderLoop.ts": true
+  },
+  "adjustments": [
+    {
+      "step": 2,
+      "issue": "startLoop() returns void and has no cleanup mechanism — requestAnimationFrame runs indefinitely with no stored handle. The plan says 'store the unsubscribe function and call it in any existing cleanup/stop logic', but no cleanup/stop logic exists.",
+      "recommendation": "Since deps.signals is a mutable object reference read each frame (renderLoop.ts:109), the simplest approach is to attach the watchReducedMotion listener at the call site (main.ts or wherever deps is constructed) and mutate deps.signals.prefersReducedMotion directly. The render loop will pick up the new value on the next frame without any changes to renderLoop.ts. Alternatively, if renderLoop.ts must own the listener, startLoop should be refactored to return a cleanup function — but that is scope creep for this ticket.",
+      "severity": "medium"
+    },
+    {
+      "step": 5,
+      "issue": "The shimmer variable (line 57: `1 + params.trebleEnergy * 0.5`) also applies unscaled treble-driven size increase to all particles, separate from the sparkle phase. This is a uniform boost rather than oscillation, so it is less of a motion concern, but still increases visual intensity for reduced-motion users.",
+      "recommendation": "Consider dampening shimmer as well: `1 + params.trebleEnergy * 0.5 * params.motionAmplitude`. Low severity — the current plan is acceptable without this.",
+      "severity": "low"
+    }
+  ],
+  "stepsValidation": {
+    "step1": {
+      "status": "valid",
+      "notes": "Straightforward addition to signals.ts"
+    },
+    "step2": {
+      "status": "needs-adjustment",
+      "notes": "See adjustment above — prefer wiring at call site over modifying renderLoop.ts"
+    },
+    "step3": {
+      "status": "valid",
+      "notes": "Lines 66-67 confirmed unscaled"
+    },
+    "step4": {
+      "status": "valid",
+      "notes": "Lines 94-97 confirmed unscaled"
+    },
+    "step5": {
+      "status": "valid",
+      "notes": "Line 86 confirmed unscaled; see optional shimmer note"
+    },
+    "step6": {
+      "status": "valid",
+      "notes": "Test file does not exist; test plan is comprehensive"
+    },
+    "step7": {
+      "status": "valid",
+      "notes": "Existing test coverage at lines 135-172 is solid; adding watcher tests is appropriate"
+    },
+    "step8": {
+      "status": "valid",
+      "notes": "Standard verification step"
+    }
+  },
+  "risksAssessment": {
+    "over-dampening": "Acceptable — 0.2 multiplier preserves visible motion. Palette, density, structureComplexity, curveSoftness are all unaffected.",
+    "bassMotion.test.ts breakage": "Low risk — bassMotion tests do not exercise pointer disturbance or jitter paths. Full suite run in step 8 is sufficient.",
+    "additional-risk": "If the watcher is wired inside renderLoop.ts without a cleanup path, the media query listener will leak if startLoop is ever called more than once. Wiring at the call site avoids this."
+  },
+  "dependenciesSatisfied": true,
+  "estimatedComplexityAgreement": "low — agreed, all changes are mechanical multiplier insertions plus one matchMedia listener",
+  "readyToImplement": true,
+  "approved": true,
+  "concerns": [],
+  "decision": "All claims about current state verified against source. Gaps are real and steps are correctly scoped. Two minor adjustments recommended.",
+  "adr_entry": null,
+  "failures": []
+}

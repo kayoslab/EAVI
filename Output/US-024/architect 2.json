@@ -1,0 +1,38 @@
+{
+  "ticket": "US-024",
+  "reason": "All plan claims verified against codebase. Changes are surgically scoped to three multiplication sites in particleField.ts plus a reactive listener. No new modules, no API changes, no dependency additions. Architectural footprint is minimal.",
+  "architecturalImpact": {
+    "score": "low",
+    "newModules": 0,
+    "modifiedModules": 4,
+    "newDependencies": 0,
+    "apiChanges": false,
+    "publicInterfaceChanges": [
+      "New export `watchReducedMotion` from src/input/signals.ts — additive only, no breaking change"
+    ],
+    "dataFlowChanges": "Existing motionAmplitude parameter is already threaded through the render pipeline. Steps 3-5 simply multiply it into three expressions that currently omit it. No new data paths.",
+    "riskAssessment": "Low. All changes are multiplicative scaling on an existing parameter (motionAmplitude) that already flows through the system. The live listener (steps 1-2) adds a matchMedia change handler — standard browser API with no side effects beyond updating an in-memory boolean."
+  },
+  "planVerification": {
+    "claimsVerified": true,
+    "currentStateAccuracy": {
+      "detection": "Verified: signals.ts:30 uses matchMedia('(prefers-reduced-motion: reduce)')",
+      "mapping": "Verified: mappings.ts:154-157 maps to 0.2/1.0 exactly as stated",
+      "velocityScaling": "Verified: particleField.ts:55 multiplies by motionAmplitude",
+      "pointerGap": "Verified: particleField.ts:66-67 omits motionAmplitude",
+      "jitterGap": "Verified: particleField.ts:94-97 omits motionAmplitude",
+      "shimmerGap": "Verified: particleField.ts:84-86 omits motionAmplitude",
+      "cssHandling": "Verified: style.css:99-105 disables transitions",
+      "existingTests": "Verified: signals.test.ts:135-172 and mappings.test.ts:135-155"
+    },
+    "gapsConfirmed": true
+  },
+  "concerns": [],
+  "recommendations": [],
+  "dependenciesSatisfied": true,
+  "estimatedComplexityAgreement": true,
+  "approved": true,
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}

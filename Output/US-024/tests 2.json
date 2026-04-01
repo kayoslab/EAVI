@@ -1,0 +1,1 @@
+{"tests_added": ["tests/visual/reducedMotion.test.ts"], "tests_modified": ["tests/signals.test.ts", "tests/visual/bassMotion.test.ts"], "test_results": "pass", "failures": [], "failure_source": null}
