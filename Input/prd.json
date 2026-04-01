@@ -214,8 +214,8 @@
         "Scene still works if some signals are missing"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-003",
         "US-004",

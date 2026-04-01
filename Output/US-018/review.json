@@ -1,0 +1,79 @@
+{
+  "ticket": "US-018",
+  "planVersion": "1.0",
+  "summary": "Plan is structurally sound and line references are accurate. Two required changes: Step 3 must fix the toroidal wrap bug (not just audit it), and Step 2 needs a clearer muted-detection mechanism.",
+  "stepsReview": [
+    {
+      "stepId": 1,
+      "title": "Add frame-to-frame bass smoothing in renderLoop",
+      "verdict": "approve",
+      "notes": "Line references confirmed: bass is a bare local reset each frame (line 85), no EMA exists. Lerp factor 0.15 is reasonable. Smoothing raw 0-255 values before passing to mapSignalsToVisuals is correct since bassToMacro normalizes downstream. Applying same treatment to treble is a good consistency call."
+    },
+    {
+      "stepId": 2,
+      "title": "Add synthetic bass fallback when muted",
+      "verdict": "approve_with_changes",
+      "notes": "Concept is correct — gain=0 produces exact-zero bins so the detection heuristic works. However, the plan should clarify: check the pipeline's frequency array sum, not just 'all bins are 0', since a sum check is cheaper and more robust. Also, the synthetic values (40 + 30 * sin) are in the 0-255 raw range and will flow through bassToMacro normalization — this is correct but should be explicitly noted to prevent future confusion.",
+      "requiredChanges": [
+        "Use a sum-of-bins threshold (e.g., sum < 1) rather than checking every bin individually for zero",
+        "Add an inline comment noting synthetic values are in raw 0-255 scale, pre-normalization"
+      ]
+    },
+    {
+      "stepId": 3,
+      "title": "Verify and harden particleField bass-driven motion",
+      "verdict": "requires_changes",
+      "notes": "The plan states 'wrapping + clamping already in place' and 'no code changes expected'. This is incorrect. The toroidal wrap at lines 66-73 uses single-step if-statements (if x < 0, x += 1), not modulo. When bassBoost=3.0 and delta is large (e.g., tab-resume spike), a particle can move more than 1.0 unit in a single frame. The single if-add won't fully re-wrap, and the hard clamp on lines 72-73 will pin particles to edges instead of wrapping. This violates AC4 (no clipping or visual instability).",
+      "requiredChanges": [
+        "Replace single-step if-wrap with modulo-based wrapping: p.x = ((p.x % 1) + 1) % 1 (handles any magnitude)",
+        "Or add a while-loop wrap for the if-based approach",
+        "Add a delta clamp (e.g., cap delta at 100ms) in renderLoop to prevent tab-resume spikes from causing extreme displacement — this also benefits Step 1 smoothing stability"
+      ]
+    },
+    {
+      "stepId": 4,
+      "title": "Write tests for US-018 acceptance criteria",
+      "verdict": "approve_with_changes",
+      "notes": "Test IDs and coverage are well-designed. T-018-04 should specifically test the large-delta + max-bass scenario that exposes the wrapping bug. T-018-03 needs to test the synthetic fallback path, not just that bassEnergy > 0.",
+      "requiredChanges": [
+        "T-018-04: Include a sub-case with delta=500ms + bassEnergy=1.0 to stress the toroidal wrap fix",
+        "T-018-03: Verify the synthetic bass oscillates (test at two different timestamps and confirm different values)"
+      ]
+    },
+    {
+      "stepId": 5,
+      "title": "Build and verify",
+      "verdict": "approve",
+      "notes": "Standard verification step, no issues."
+    }
+  ],
+  "missingConsiderations": [
+    {
+      "issue": "Delta clamping",
+      "severity": "medium",
+      "recommendation": "Add a delta clamp (cap at ~100ms) at the top of the frame function in renderLoop.ts. This prevents tab-resume spikes from causing extreme particle displacement, smoothing instability, and synthetic bass phase jumps. Should be added to Step 1 or Step 3."
+    }
+  ],
+  "verifiedAssumptions": [
+    "computeBassAvg at lines 53-59 — confirmed, bottom 25% of FFT bins",
+    "bassToMacro at lines 165-170 — confirmed, power curve 0.7 with 255 normalization",
+    "bassBoost = 1 + bassEnergy * 2 at line 52 — confirmed",
+    "VisualParams.bassEnergy at line 32 of mappings.ts — confirmed",
+    "No existing frame-to-frame smoothing anywhere in the pipeline — confirmed",
+    "No muted-state fallback — confirmed, hard-zero only",
+    "Existing tests T-008-14, T-008-16, T-009-24 — confirmed present"
+  ],
+  "invalidAssumptions": [
+    {
+      "claim": "Toroidal wrapping handles any bassBoost magnitude",
+      "reality": "Single-step if-wrap fails when displacement exceeds 1.0 per frame; hard clamp masks the failure by pinning to edges"
+    }
+  ],
+  "estimatedComplexity": "low-medium",
+  "complexityAgreement": true,
+  "approved": true,
+  "concerns": [],
+  "decision": "approve_with_required_changes",
+  "adr_entry": null,
+  "failures": []
+}
