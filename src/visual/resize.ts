@@ -1,7 +1,7 @@
-export function attachResizeHandler(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): () => void {
+export function attachResizeHandler(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, resolutionScale = 1.0): () => void {
   const onResize = () => {
-    canvas.width = window.innerWidth
-    canvas.height = window.innerHeight
+    canvas.width = Math.floor(window.innerWidth * resolutionScale)
+    canvas.height = Math.floor(window.innerHeight * resolutionScale)
     ctx.fillStyle = '#000000'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
   }

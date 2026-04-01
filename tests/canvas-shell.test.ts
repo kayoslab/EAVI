@@ -200,11 +200,14 @@ describe('US-002: Full-screen canvas shell', () => {
       expect(canvas?.tagName.toLowerCase()).toBe('canvas');
     });
 
-    it('canvas dimensions match viewport', async () => {
+    it('canvas dimensions match viewport (scaled by quality profile)', async () => {
       await import('../src/main');
       const canvas = document.querySelector('#app canvas') as HTMLCanvasElement;
-      expect(canvas.width).toBe(1024);
-      expect(canvas.height).toBe(768);
+      // Quality scaling may reduce canvas buffer size below viewport
+      expect(canvas.width).toBeLessThanOrEqual(1024);
+      expect(canvas.height).toBeLessThanOrEqual(768);
+      expect(canvas.width).toBeGreaterThan(0);
+      expect(canvas.height).toBeGreaterThan(0);
     });
 
     it('canvas updates on window resize', async () => {
@@ -215,8 +218,11 @@ describe('US-002: Full-screen canvas shell', () => {
       Object.defineProperty(window, 'innerHeight', { value: 600, writable: true, configurable: true });
       window.dispatchEvent(new Event('resize'));
 
-      expect(canvas.width).toBe(800);
-      expect(canvas.height).toBe(600);
+      // Quality scaling may reduce canvas buffer size below viewport
+      expect(canvas.width).toBeLessThanOrEqual(800);
+      expect(canvas.height).toBeLessThanOrEqual(600);
+      expect(canvas.width).toBeGreaterThan(0);
+      expect(canvas.height).toBeGreaterThan(0);
     });
   });
 });

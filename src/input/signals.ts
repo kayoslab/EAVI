@@ -8,6 +8,7 @@ export interface BrowserSignals {
   prefersColorScheme: 'light' | 'dark' | null;
   prefersReducedMotion: boolean | null;
   touchCapable: boolean | null;
+  deviceMemory: number | null;
 }
 
 export function readSignals(): BrowserSignals {
@@ -50,5 +51,6 @@ export function readSignals(): BrowserSignals {
     prefersColorScheme,
     prefersReducedMotion,
     touchCapable,
+    deviceMemory: (navigator as any).deviceMemory ?? null,
   };
 }

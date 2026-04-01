@@ -35,6 +35,7 @@ const defaultSignals: BrowserSignals = {
   prefersColorScheme: null,
   prefersReducedMotion: null,
   touchCapable: null,
+  deviceMemory: null,
 };
 
 const defaultGeo: GeoHint = { country: null, region: null };
