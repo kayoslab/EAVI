@@ -46,3 +46,5 @@
 
 ## US-018: Map bass response to macro motion
 
+## US-026: Create second visual mode
+
