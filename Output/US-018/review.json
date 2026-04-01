@@ -1,43 +1,40 @@
 {
   "ticket": "US-018",
-  "summary": "Plan is accurate, minimal, and well-targeted. Only one file (renderLoop.ts) needs modification. Existing code analysis matches reality.",
-  "strengths": [
-    "Correctly identifies that bass is passed raw while treble already has EMA smoothing — the gap is real and precisely located",
-    "Single-file change scope is ideal: mappings.ts and particleField.ts are already complete",
-    "Test-first approach: existing 6-test suite is the contract, implementation just closes the gap",
-    "Synthetic bass fallback uses DC offset (30) ensuring immediate non-zero values — critical for T-018-03 where elapsed starts at 0",
-    "Risk section is honest and actionable"
-  ],
-  "concerns": [
+  "planStatus": "approved",
+  "criteriaReview": [
     {
-      "severity": "low",
-      "description": "Plan describes steps 2 and 3 as separate phases but the code changes are interleaved in the same block (compute raw bass → fallback check → smoothing → pass to mapping). The implementation order should be made explicit: (1) raw bass from pipeline, (2) synthetic fallback if < 5, (3) EMA smooth, (4) pass smoothed value.",
-      "suggestion": "Clarify in step descriptions that synthetic fallback replaces the raw value *before* EMA smoothing is applied, so the smoother operates on the fallback signal seamlessly."
+      "criterion": "Bass band influences at least one large-scale motion property",
+      "status": "pass",
+      "evidence": "bassToMacro() in mappings.ts (line 178) with pow(n, 0.7) curve confirmed. particleField.ts (line 56) applies bassBoost = 1 + bassEnergy * 2."
     },
     {
-      "severity": "low",
-      "description": "The else branch (lines 123-127) hardcodes bassEnergy=0 when no signals/seed are available. Plan mentions adding synthetic bass there too, but no test covers this branch (T-018-03 provides seed and signals). Low risk since this is a defensive improvement.",
-      "suggestion": "Acceptable as-is. The else branch improvement is good practice but not test-driven. Keep it but note it's untested."
+      "criterion": "Response is smoothed to avoid jitter",
+      "status": "pass",
+      "evidence": "EMA smoothing in renderLoop.ts (line 107): smoothBass = smoothBass * 0.88 + rawBass * 0.12. Test T-018-02 validates jitter reduction."
     },
     {
-      "severity": "info",
-      "description": "Test defaultParams (bassMotion.test.ts line 36-45) is missing curveSoftness and structureComplexity fields from the VisualParams interface. This is a pre-existing issue unrelated to this plan, and JS runtime handles missing properties gracefully.",
-      "suggestion": "No action needed for this ticket. Could be cleaned up separately."
+      "criterion": "Effect remains visible when audio is unmuted or muted",
+      "status": "pass",
+      "evidence": "Synthetic fallback in renderLoop.ts (lines 102-104): when rawBass < 5, generates 30 + 25 * sin(elapsed * 0.001). Test T-018-03 covers this."
+    },
+    {
+      "criterion": "No clipping or visual instability occurs",
+      "status": "pass",
+      "evidence": "Toroidal wrapping in particleField.ts (lines 86-94). bassToMacro clamps to 0-1. Test T-018-04 verifies bounds at max bass."
     }
   ],
-  "verification_notes": {
-    "renderLoop.ts_line_96": "bass = computeBassAvg(pipeline.frequency) — confirmed raw, no smoothing",
-    "renderLoop.ts_line_101": "smoothTreble already uses 0.85/0.15 EMA — bass smoothing follows same pattern",
-    "renderLoop.ts_line_118": "bass passed directly to mapSignalsToVisuals — confirmed this is where smoothBass should replace it",
-    "mappings.ts_line_178": "bassToMacro(0-255) with pow(0.7) — confirmed complete",
-    "particleField.ts_line_56": "bassBoost = 1 + bassEnergy * 2 — confirmed complete, 1x-3x velocity multiplier",
-    "particleField.ts_lines_87-94": "toroidal wrapping + clamping — confirmed, bounds safety in place",
-    "test_T-018-03_timing": "Frames at elapsed 0,1000,2000,3000,4000. syntheticBass(0)=30, so bassToMacro(30)≈0.19 > 0. Test will pass."
+  "buildVerification": {
+    "build": "pass",
+    "tests": "348 passed, 0 failed",
+    "testFiles": "27 passed",
+    "consoleErrors": "none"
   },
-  "estimated_complexity": "trivial — ~10 lines added to one file",
-  "recommendation": "Proceed to step 1 (run tests to confirm expected failures), then implement steps 2-3 together since they modify the same code block.",
-  "approved": true,
-  "decision": "APPROVE",
+  "risks": [],
+  "blockers": [],
+  "recommendation": "Ship. All acceptance criteria satisfied, tests pass, no discrepancies between plan and implementation.",
+  "concerns": [],
+  "decision": "All claims verified against codebase. Implementation is complete and correct.",
   "adr_entry": null,
+  "approved": false,
   "failures": []
 }
