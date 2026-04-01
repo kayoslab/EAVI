@@ -11,6 +11,8 @@ const baseParams: VisualParams = {
   pointerDisturbance: 0.3,
   bassEnergy: 0.4,
   trebleEnergy: 0.2,
+  curveSoftness: 0.5,
+  structureComplexity: 0.5,
 };
 
 describe('US-012: Time-based evolution', () => {
@@ -24,6 +26,7 @@ describe('US-012: Time-based evolution', () => {
     const keys: (keyof VisualParams)[] = [
       'paletteHue', 'paletteSaturation', 'cadence', 'density',
       'motionAmplitude', 'pointerDisturbance', 'bassEnergy', 'trebleEnergy',
+      'curveSoftness', 'structureComplexity',
     ];
     for (const key of keys) {
       expect(result).toHaveProperty(key);
@@ -162,6 +165,32 @@ describe('US-012: Time-based evolution', () => {
     expect(result.pointerDisturbance).toBe(baseParams.pointerDisturbance);
     expect(result.bassEnergy).toBe(baseParams.bassEnergy);
     expect(result.trebleEnergy).toBe(baseParams.trebleEnergy);
+    expect(result.curveSoftness).toBe(baseParams.curveSoftness);
+    expect(result.structureComplexity).toBe(baseParams.structureComplexity);
+  });
+
+  it('T-011-09: evolveParams passes through curveSoftness unchanged', () => {
+    const times = [0, 15000, 30000, 60000, 120000];
+    const softValues = [0.0, 0.3, 0.5, 0.8, 1.0];
+    for (const soft of softValues) {
+      const base = { ...baseParams, curveSoftness: soft, structureComplexity: 0.5 };
+      for (const t of times) {
+        const result = evolveParams(base, t, 'softness-pass-seed');
+        expect(result.curveSoftness).toBe(soft);
+      }
+    }
+  });
+
+  it('T-011-10: evolveParams passes through structureComplexity unchanged', () => {
+    const times = [0, 15000, 30000, 60000, 120000];
+    const complexityValues = [0.2, 0.4, 0.6, 0.8, 1.0];
+    for (const c of complexityValues) {
+      const base = { ...baseParams, curveSoftness: 0.5, structureComplexity: c };
+      for (const t of times) {
+        const result = evolveParams(base, t, 'complexity-pass-seed');
+        expect(result.structureComplexity).toBe(c);
+      }
+    }
   });
 
   it('T-012-13: curve parameters are cached per seed (PRNG not recomputed every call)', () => {

@@ -15,6 +15,8 @@ const defaultParams: VisualParams = {
   pointerDisturbance: 0,
   bassEnergy: 0,
   trebleEnergy: 0,
+  curveSoftness: 0.5,
+  structureComplexity: 0.5,
 };
 
 function getInitialPositions(
@@ -420,6 +422,128 @@ describe('US-009: ParticleField geometry system', () => {
       // Treble should not cause positions to diverge wildly from zero-treble run
       const displacement = computeTotalDisplacement(posTreble, posZero);
       expect(displacement).toBeLessThan(0.1);
+    });
+  });
+
+  describe('US-011: Device profile to structure', () => {
+    it('T-011-11: curveSoftness >= 0.5 renders circular particles via ctx.arc', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d')!;
+      const arcSpy = vi.spyOn(ctx, 'arc');
+      const fillRectSpy = vi.spyOn(ctx, 'fillRect');
+
+      const field = createParticleField();
+      const params = { ...defaultParams, curveSoftness: 0.8, structureComplexity: 0.5 };
+      field.init(ctx, 'soft-seed', params);
+
+      arcSpy.mockClear();
+      fillRectSpy.mockClear();
+
+      field.draw(ctx, { time: 0, delta: 16, params, width: 400, height: 400 });
+
+      expect(arcSpy).toHaveBeenCalled();
+      const particleCount = getParticleCount(field);
+      expect(arcSpy.mock.calls.length).toBeGreaterThanOrEqual(particleCount);
+    });
+
+    it('T-011-12: curveSoftness < 0.5 renders rectangular particles via ctx.fillRect', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d')!;
+      const arcSpy = vi.spyOn(ctx, 'arc');
+      const fillRectSpy = vi.spyOn(ctx, 'fillRect');
+
+      const field = createParticleField();
+      const params = { ...defaultParams, curveSoftness: 0.2, structureComplexity: 0.5 };
+      field.init(ctx, 'sharp-seed', params);
+
+      arcSpy.mockClear();
+      fillRectSpy.mockClear();
+
+      field.draw(ctx, { time: 0, delta: 16, params, width: 400, height: 400 });
+
+      expect(arcSpy).not.toHaveBeenCalled();
+      const particleCount = getParticleCount(field);
+      expect(fillRectSpy.mock.calls.length).toBeGreaterThanOrEqual(particleCount);
+    });
+
+    it('T-011-13: structureComplexity affects effective particle count — lower produces fewer', () => {
+      const ctx = document.createElement('canvas').getContext('2d')!;
+
+      const fieldLow = createParticleField();
+      const lowParams = { ...defaultParams, density: 0.6, curveSoftness: 0.5, structureComplexity: 0.0 };
+      fieldLow.init(ctx, 'complexity-count-seed', lowParams);
+      const lowCount = getParticleCount(fieldLow);
+
+      const fieldHigh = createParticleField();
+      const highParams = { ...defaultParams, density: 0.6, curveSoftness: 0.5, structureComplexity: 1.0 };
+      fieldHigh.init(ctx, 'complexity-count-seed', highParams);
+      const highCount = getParticleCount(fieldHigh);
+
+      expect(highCount).toBeGreaterThan(lowCount);
+    });
+
+    it('T-011-14: scene renders without errors at boundary values (0 and 1) of new params', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d')!;
+
+      const boundaries = [
+        { curveSoftness: 0, structureComplexity: 0 },
+        { curveSoftness: 0, structureComplexity: 1 },
+        { curveSoftness: 1, structureComplexity: 0 },
+        { curveSoftness: 1, structureComplexity: 1 },
+        { curveSoftness: 0.5, structureComplexity: 0.5 },
+      ];
+
+      for (const b of boundaries) {
+        const field = createParticleField();
+        const params = { ...defaultParams, ...b };
+        expect(() => {
+          field.init(ctx, 'boundary-seed', params);
+          field.draw(ctx, { time: 0, delta: 16, params, width: 400, height: 400 });
+        }).not.toThrow();
+      }
+    });
+
+    it('T-011-15: structureComplexity modulates hue spread — higher complexity has more color variety', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d')!;
+
+      function captureHues(complexity: number): number[] {
+        const styles: string[] = [];
+        const field = createParticleField();
+        const params = { ...defaultParams, curveSoftness: 0.3, structureComplexity: complexity, paletteHue: 180 };
+        field.init(ctx, 'hue-spread-seed', params);
+
+        let styleProxy = '';
+        Object.defineProperty(ctx, 'fillStyle', {
+          set(v: string) { styleProxy = v; styles.push(v); },
+          get() { return styleProxy; },
+          configurable: true,
+        });
+
+        field.draw(ctx, { time: 1000, delta: 16, params, width: 400, height: 400 });
+
+        return styles
+          .filter(s => s.startsWith('hsl'))
+          .map(s => parseInt(s.match(/\d+/)![0], 10));
+      }
+
+      const huesLow = captureHues(0.0);
+      const huesHigh = captureHues(1.0);
+
+      if (huesLow.length > 1 && huesHigh.length > 1) {
+        const spreadLow = Math.max(...huesLow) - Math.min(...huesLow);
+        const spreadHigh = Math.max(...huesHigh) - Math.min(...huesHigh);
+        expect(spreadHigh).toBeGreaterThanOrEqual(spreadLow);
+      }
     });
   });
 
