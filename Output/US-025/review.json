@@ -1,0 +1,76 @@
+{
+  "id": "US-025",
+  "summary": "Plan is well-structured and accurately maps to the existing codebase. MAX_PARTICLES=600 hardcoded in particleField.ts confirmed, sparkle/jitter implementation matches plan description, all target files exist. Two files are listed in files_to_modify but no step actually modifies them — remove to avoid confusion.",
+  "changes_required": [
+    {
+      "step": null,
+      "field": "files_to_modify",
+      "issue": "src/visual/renderLoop.ts is listed but no step describes any change to it. The render loop delegates drawing to the geometry system, so quality scaling flows through particleField.ts — renderLoop.ts needs no modification.",
+      "fix": "Remove src/visual/renderLoop.ts from files_to_modify"
+    },
+    {
+      "step": null,
+      "field": "files_to_modify",
+      "issue": "tests/visual/renderLoop.test.ts is listed but no step describes changes to it, consistent with renderLoop.ts not needing modification.",
+      "fix": "Remove tests/visual/renderLoop.test.ts from files_to_modify"
+    },
+    {
+      "step": 6,
+      "field": "details",
+      "issue": "Particle count is not simply MAX_PARTICLES — it is `Math.floor(params.density * MAX_PARTICLES) * (0.6 + structureComplexity * 0.4)`. The config.maxParticles should replace the MAX_PARTICLES constant in this formula, not bypass the density/complexity scaling. The step description is slightly ambiguous on this point.",
+      "fix": "Clarify that config.maxParticles replaces the MAX_PARTICLES constant (line 5) while the density and structureComplexity scaling formula remains intact. Effective count = Math.floor(params.density * config.maxParticles) * (0.6 + structureComplexity * 0.4)."
+    },
+    {
+      "step": 7,
+      "field": "details",
+      "issue": "main.ts creates the ParticleField before async deps resolve, passing it as geometrySystem to the loop. The plan must ensure the quality profile is computed synchronously (from readSignals()) before ParticleField creation, which is the intent but should be explicit about ordering relative to startLoop().",
+      "fix": "Add detail: computeQuality must run before createParticleField and before startLoop, since all three are synchronous and ordering matters. The existing pattern (sync init → start loop → async deps) is preserved."
+    }
+  ],
+  "approved_steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    8,
+    9,
+    10
+  ],
+  "risks_acknowledged": true,
+  "additional_risks": [
+    "The scoring formula weights sum to 1.0 only when all signals are present. When deviceMemory is null (Safari/Firefox), the weight must be redistributed across remaining signals or the null field treated as a neutral midpoint — otherwise scores will skew low and Safari users will always get 'low' tier."
+  ],
+  "estimated_complexity_agree": true,
+  "test_strategy_adequate": true,
+  "approved": true,
+  "concerns": [
+    {
+      "step": null,
+      "field": "files_to_modify",
+      "issue": "src/visual/renderLoop.ts is listed but no step describes any change to it. The render loop delegates drawing to the geometry system, so quality scaling flows through particleField.ts — renderLoop.ts needs no modification.",
+      "fix": "Remove src/visual/renderLoop.ts from files_to_modify"
+    },
+    {
+      "step": null,
+      "field": "files_to_modify",
+      "issue": "tests/visual/renderLoop.test.ts is listed but no step describes changes to it, consistent with renderLoop.ts not needing modification.",
+      "fix": "Remove tests/visual/renderLoop.test.ts from files_to_modify"
+    },
+    {
+      "step": 6,
+      "field": "details",
+      "issue": "Particle count is not simply MAX_PARTICLES — it is `Math.floor(params.density * MAX_PARTICLES) * (0.6 + structureComplexity * 0.4)`. The config.maxParticles should replace the MAX_PARTICLES constant in this formula, not bypass the density/complexity scaling. The step description is slightly ambiguous on this point.",
+      "fix": "Clarify that config.maxParticles replaces the MAX_PARTICLES constant (line 5) while the density and structureComplexity scaling formula remains intact. Effective count = Math.floor(params.density * config.maxParticles) * (0.6 + structureComplexity * 0.4)."
+    },
+    {
+      "step": 7,
+      "field": "details",
+      "issue": "main.ts creates the ParticleField before async deps resolve, passing it as geometrySystem to the loop. The plan must ensure the quality profile is computed synchronously (from readSignals()) before ParticleField creation, which is the intent but should be explicit about ordering relative to startLoop().",
+      "fix": "Add detail: computeQuality must run before createParticleField and before startLoop, since all three are synchronous and ordering matters. The existing pattern (sync init → start loop → async deps) is preserved."
+    }
+  ],
+  "decision": "approve_with_changes",
+  "adr_entry": null,
+  "failures": []
+}
