@@ -42,6 +42,8 @@ const defaultParams: VisualParams = {
   pointerDisturbance: 0,
   bassEnergy: 0,
   trebleEnergy: 0,
+  curveSoftness: 0.3,
+  structureComplexity: 0.5,
 };
 
 function createTestCanvas(): {
@@ -99,6 +101,7 @@ describe('US-018: Map bass response to macro motion', () => {
       fieldNoBass.draw(ctx, {
         time: t * 100,
         delta: 16,
+        elapsed: t * 100,
         params: noBassParams,
         width: 800,
         height: 600,
@@ -106,6 +109,7 @@ describe('US-018: Map bass response to macro motion', () => {
       fieldWithBass.draw(ctx, {
         time: t * 100,
         delta: 16,
+        elapsed: t * 100,
         params: bassParams,
         width: 800,
         height: 600,
@@ -226,6 +230,7 @@ describe('US-018: Map bass response to macro motion', () => {
       field.draw(ctx, {
         time: t * 100,
         delta: 50,
+        elapsed: t * 100,
         params: maxBassParams,
         width: 800,
         height: 600,
@@ -255,6 +260,7 @@ describe('US-018: Map bass response to macro motion', () => {
       fieldFull.draw(ctx, {
         time: t * 100,
         delta: 16,
+        elapsed: t * 100,
         params: fullParams,
         width: 800,
         height: 600,
@@ -270,6 +276,7 @@ describe('US-018: Map bass response to macro motion', () => {
       fieldReduced.draw(ctx, {
         time: t * 100,
         delta: 16,
+        elapsed: t * 100,
         params: reducedParams,
         width: 800,
         height: 600,
@@ -299,6 +306,7 @@ describe('US-018: Map bass response to macro motion', () => {
         field.draw(ctx, {
           time: t * 100,
           delta: 16,
+          elapsed: t * 100,
           params: bassParams,
           width: 800,
           height: 600,
