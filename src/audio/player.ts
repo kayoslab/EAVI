@@ -1,5 +1,5 @@
+import { createAnalyser, createPipeline } from './analyser';
 import { pickTrack } from './trackList';
-import { createAnalyser, createPipeline, type AnalyserPipeline } from './analyser';
 
 export type AudioPlayerState = 'loading' | 'playing' | 'suspended' | 'error';
 
@@ -7,95 +7,128 @@ export interface AudioPlayer {
   readonly state: AudioPlayerState;
   readonly muted: boolean;
   setMuted(muted: boolean): void;
-  getAnalyserNode(): AnalyserNode | null;
-  getPipeline(): AnalyserPipeline | null;
+  getAnalyserNode(): AnalyserNode;
+  getPipeline(): ReturnType<typeof createPipeline>;
   destroy(): void;
 }
 
-/**
- * Initialise the audio system: create an AudioContext, load a random track,
- * and attempt muted autoplay. Resolves with an AudioPlayer regardless of
- * whether autoplay succeeds or is blocked.
- */
+function createAudioElement(src: string): HTMLAudioElement {
+  const el = new Audio(src);
+  el.crossOrigin = 'anonymous';
+  el.loop = false;
+  el.preload = 'metadata';
+  el.muted = true;
+  return el;
+}
+
 export async function initAudio(): Promise<AudioPlayer> {
   const ctx = new AudioContext();
   const { analyser, gainNode, connectSource } = createAnalyser(ctx);
   const pipeline = createPipeline(analyser);
 
   let currentTrack = pickTrack();
+  console.log('[EAVI] selected track', currentTrack);
+
   let audioEl = createAudioElement(currentTrack);
+  audioEl.addEventListener('error', () => {
+    console.error('[EAVI] audio element error', audioEl.error, audioEl.currentSrc);
+  });
+
   const source = ctx.createMediaElementSource(audioEl);
   connectSource(source);
 
-  // Muted: set gain to 0 before attempting play
   gainNode.gain.value = 0;
 
   let playerState: AudioPlayerState = 'loading';
   let isMuted = true;
 
-  try {
-    await audioEl.play();
-    playerState = 'playing';
-  } catch {
-    // Autoplay blocked — not an error, just suspended
-    playerState = 'suspended';
-    console.debug('[EAVI] autoplay blocked, waiting for user gesture');
-  }
+  const playCurrentTrack = async (): Promise<void> => {
+    try {
+      await audioEl.play();
+      playerState = 'playing';
+    } catch (err) {
+      if (audioEl.error) {
+        playerState = 'error';
+        console.error('[EAVI] media error', audioEl.error, audioEl.currentSrc, err);
+      } else {
+        playerState = 'suspended';
+        console.warn('[EAVI] initial play blocked or deferred', err);
+      }
+    }
+  };
 
-  const player: AudioPlayer = {
-    get state() {
+  audioEl.addEventListener('ended', async () => {
+    try {
+      const previousTrack = currentTrack;
+      currentTrack = pickTrack(previousTrack);
+      console.log('[EAVI] next track', currentTrack);
+
+      audioEl.src = currentTrack;
+      audioEl.load();
+
+      if (!isMuted) {
+        await audioEl.play();
+        playerState = 'playing';
+      } else {
+        playerState = 'suspended';
+      }
+    } catch (err) {
+      playerState = 'error';
+      console.error('[EAVI] failed to advance to next track', err);
+    }
+  });
+
+  await playCurrentTrack();
+
+  return {
+    get state(): AudioPlayerState {
       return playerState;
     },
-    get muted() {
+
+    get muted(): boolean {
       return isMuted;
     },
-    setMuted(muted: boolean) {
+
+    setMuted(muted: boolean): void {
       isMuted = muted;
-      if (muted) {
-        gainNode.gain.value = 0;
-      } else {
-        gainNode.gain.value = 1;
-        // Resume context if suspended (requires user gesture)
-        if (ctx.state === 'suspended') {
-          void ctx.resume();
-        }
-        // If playback hasn't started yet, try again
-        if (playerState === 'suspended') {
-          audioEl.play().then(() => {
+      audioEl.muted = muted;
+      gainNode.gain.value = muted ? 0 : 1;
+
+      if (!muted) {
+        void ctx.resume();
+
+        void audioEl.play()
+          .then(() => {
             playerState = 'playing';
-          }).catch(() => {
-            // Still blocked — user will need to try again
+          })
+          .catch((err) => {
+            if (audioEl.error) {
+              playerState = 'error';
+              console.error('[EAVI] play failed after unmute', audioEl.error, audioEl.currentSrc, err);
+            } else {
+              playerState = 'suspended';
+              console.warn('[EAVI] play still blocked after unmute', err);
+            }
           });
+      } else {
+        if (playerState === 'playing') {
+          playerState = 'suspended';
         }
       }
     },
-    getAnalyserNode() {
+
+    getAnalyserNode(): AnalyserNode {
       return analyser;
     },
-    getPipeline() {
+
+    getPipeline(): ReturnType<typeof createPipeline> {
       return pipeline;
     },
-    destroy() {
+
+    destroy(): void {
       audioEl.pause();
+      audioEl.src = '';
       void ctx.close();
     },
   };
-
-  // When the current track ends, load the next one
-  audioEl.addEventListener('ended', () => {
-    const next = pickTrack(currentTrack);
-    currentTrack = next;
-    audioEl.src = next;
-    audioEl.play().catch(() => {
-      // Playback may still be blocked
-    });
-  });
-
-  return player;
-}
-
-function createAudioElement(src: string): HTMLAudioElement {
-  const el = new Audio(src);
-  el.crossOrigin = 'anonymous';
-  return el;
 }
