@@ -493,14 +493,16 @@
       ],
       "priority": 3,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
+        "US-003",
         "US-004",
         "US-009",
         "US-013"
       ],
       "split_from": "US-014",
-      "notes": "Scale particle counts, shader complexity, or post-processing."
+      "notes": "Scale particle counts, shader complexity, or post-processing.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-026",
@@ -514,7 +516,7 @@
       ],
       "priority": 3,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-009",
         "US-012",
@@ -522,7 +524,8 @@
         "US-019"
       ],
       "split_from": "US-013",
-      "notes": "Keep mode boundaries clean so more can be added later."
+      "notes": "Keep mode boundaries clean so more can be added later.",
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-027",
