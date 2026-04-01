@@ -547,6 +547,158 @@ describe('US-009: ParticleField geometry system', () => {
     });
   });
 
+  describe('US-013: Pointer influence on particles', () => {
+    it('T-013-04: particles near pointer position displace more than distant ones', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d')!;
+      const numFrames = 20;
+      const pointerX = 0.2;
+      const pointerY = 0.2;
+
+      // Control run: no pointer disturbance
+      const controlField = createParticleField();
+      const controlParams = { ...defaultParams, pointerDisturbance: 0, motionAmplitude: 0 };
+      controlField.init(ctx, 'spatial-seed', controlParams);
+      const initialPositions = getParticlePositions(controlField).map(p => ({ ...p }));
+      for (let t = 0; t < numFrames; t++) {
+        controlField.draw(ctx, {
+          time: t * 16, delta: 16, elapsed: t * 16, params: controlParams,
+          width: 800, height: 600, pointerX, pointerY,
+        });
+      }
+      const controlPositions = getParticlePositions(controlField);
+
+      // Test run: with pointer disturbance
+      const testField = createParticleField();
+      const testParams = { ...defaultParams, pointerDisturbance: 1, motionAmplitude: 0 };
+      testField.init(ctx, 'spatial-seed', testParams);
+      const testInitial = getParticlePositions(testField).map(p => ({ ...p }));
+      for (let t = 0; t < numFrames; t++) {
+        testField.draw(ctx, {
+          time: t * 16, delta: 16, elapsed: t * 16, params: testParams,
+          width: 800, height: 600, pointerX, pointerY,
+        });
+      }
+      const testPositions = getParticlePositions(testField);
+
+      // Compute per-particle extra displacement from pointer
+      let nearExtraDisp = 0;
+      let nearCount = 0;
+      let farExtraDisp = 0;
+      let farCount = 0;
+
+      for (let i = 0; i < testInitial.length; i++) {
+        const ix = testInitial[i].x;
+        const iy = testInitial[i].y;
+        const distToPointer = Math.sqrt((ix - pointerX) ** 2 + (iy - pointerY) ** 2);
+
+        const controlDisp = Math.sqrt(
+          (controlPositions[i].x - initialPositions[i].x) ** 2 +
+          (controlPositions[i].y - initialPositions[i].y) ** 2,
+        );
+        const testDisp = Math.sqrt(
+          (testPositions[i].x - testInitial[i].x) ** 2 +
+          (testPositions[i].y - testInitial[i].y) ** 2,
+        );
+        const extraDisp = testDisp - controlDisp;
+
+        if (distToPointer < 0.2) {
+          nearExtraDisp += extraDisp;
+          nearCount++;
+        } else if (distToPointer > 0.5) {
+          farExtraDisp += extraDisp;
+          farCount++;
+        }
+      }
+
+      if (nearCount > 0 && farCount > 0) {
+        expect(nearExtraDisp / nearCount).toBeGreaterThan(farExtraDisp / farCount);
+      }
+    });
+
+    it('T-013-05: zero pointerDisturbance produces no extra particle displacement', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d')!;
+
+      // Run with pointerX/Y set but disturbance=0
+      const fieldA = createParticleField();
+      fieldA.init(ctx, 'zero-dist-seed', defaultParams);
+      fieldA.draw(ctx, {
+        time: 0, delta: 16, elapsed: 0, params: { ...defaultParams, pointerDisturbance: 0 },
+        width: 800, height: 600, pointerX: 0.3, pointerY: 0.7,
+      });
+      const posA = getParticlePositions(fieldA);
+
+      // Run without pointer position
+      const fieldB = createParticleField();
+      fieldB.init(ctx, 'zero-dist-seed', defaultParams);
+      fieldB.draw(ctx, {
+        time: 0, delta: 16, elapsed: 0, params: { ...defaultParams, pointerDisturbance: 0 },
+        width: 800, height: 600,
+      });
+      const posB = getParticlePositions(fieldB);
+
+      expect(posA).toEqual(posB);
+    });
+
+    it('T-013-06: idle scene without pointer input still animates (intentional motion)', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d')!;
+
+      const field = createParticleField();
+      const zeroParams = {
+        ...defaultParams,
+        pointerDisturbance: 0,
+        bassEnergy: 0,
+        trebleEnergy: 0,
+      };
+      field.init(ctx, 'idle-animate-seed', zeroParams);
+      const initial = getParticlePositions(field).map(p => ({ ...p }));
+
+      for (let t = 0; t < 10; t++) {
+        field.draw(ctx, {
+          time: t * 100, delta: 100, elapsed: t * 100, params: zeroParams,
+          width: 800, height: 600,
+        });
+      }
+      const after = getParticlePositions(field);
+      const disp = computeTotalDisplacement(after, initial);
+      expect(disp).toBeGreaterThan(0);
+    });
+
+    it('T-013-09: particle positions stay within bounds with maximum pointer disturbance', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d')!;
+
+      const field = createParticleField();
+      const maxParams = { ...defaultParams, pointerDisturbance: 1, bassEnergy: 1 };
+      field.init(ctx, 'bounds-ptr-seed', maxParams);
+
+      for (let t = 0; t < 100; t++) {
+        field.draw(ctx, {
+          time: t * 100, delta: 100, elapsed: t * 100, params: maxParams,
+          width: 800, height: 600, pointerX: 0.5, pointerY: 0.5,
+        });
+      }
+
+      const positions = getParticlePositions(field);
+      positions.forEach((p) => {
+        expect(p.x).toBeGreaterThanOrEqual(0);
+        expect(p.x).toBeLessThanOrEqual(1);
+        expect(p.y).toBeGreaterThanOrEqual(0);
+        expect(p.y).toBeLessThanOrEqual(1);
+      });
+    });
+  });
+
   describe('privacy', () => {
     it('T-009-17: no localStorage or cookie access during particle operations', () => {
       const lsSpy = vi.spyOn(Storage.prototype, 'getItem');

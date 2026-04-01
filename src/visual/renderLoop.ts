@@ -79,6 +79,7 @@ export function startLoop(
   let startTime = -1;
   let geoInitialized = false;
   let smoothTreble = 0;
+  let smoothDisturbance = 0;
 
   const frame = (time: number) => {
     if (startTime < 0) startTime = time;
@@ -102,8 +103,12 @@ export function startLoop(
 
     // Compute visual params
     let params: VisualParams;
+    let pointerX = 0.5;
+    let pointerY = 0.5;
     if (d.signals && d.seed) {
       const pointer = d.getPointerState?.() ?? defaultPointer;
+      pointerX = pointer.x;
+      pointerY = pointer.y;
       const now = new Date();
       params = mapSignalsToVisuals({
         signals: d.signals,
@@ -120,6 +125,10 @@ export function startLoop(
       params.bassEnergy = 0;
       params.trebleEnergy = 0;
     }
+
+    // EMA smoothing for pointer disturbance to avoid instant drop on idle
+    smoothDisturbance = smoothDisturbance * 0.92 + params.pointerDisturbance * 0.08;
+    params.pointerDisturbance = smoothDisturbance;
 
     // Initialize geometry system on first frame with real deps
     if (d.geometrySystem && d.seed && !geoInitialized) {
@@ -140,6 +149,8 @@ export function startLoop(
         params,
         width: canvas.width,
         height: canvas.height,
+        pointerX,
+        pointerY,
       });
     }
 
