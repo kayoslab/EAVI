@@ -2,7 +2,12 @@ import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 
-const MAX_PARTICLES = 600;
+const DEFAULT_MAX_PARTICLES = 600;
+
+export interface ParticleFieldConfig {
+  maxParticles?: number;
+  enableSparkle?: boolean;
+}
 
 interface Particle {
   x: number;
@@ -17,7 +22,9 @@ export interface ParticleField extends GeometrySystem {
   readonly particles: Particle[];
 }
 
-export function createParticleField(): ParticleField {
+export function createParticleField(config?: ParticleFieldConfig): ParticleField {
+  const maxParticles = config?.maxParticles ?? DEFAULT_MAX_PARTICLES;
+  const enableSparkle = config?.enableSparkle ?? true;
   let particles: Particle[] = [];
 
   return {
@@ -31,7 +38,7 @@ export function createParticleField(): ParticleField {
       params: VisualParams,
     ): void {
       const rng = createPRNG(seed);
-      const baseCount = Math.floor(params.density * MAX_PARTICLES);
+      const baseCount = Math.floor(params.density * maxParticles);
       const effectiveCount = Math.floor(baseCount * (0.6 + params.structureComplexity * 0.4));
       particles = [];
 
@@ -97,21 +104,29 @@ export function createParticleField(): ParticleField {
         const sat = Math.round(params.paletteSaturation * 100);
         const light = Math.round(50 + params.trebleEnergy * 30);
 
-        // Per-particle sparkle shimmer: staggered size pulsing driven by treble
-        const sparklePhase =
-          (Math.sin(frame.time * 0.005 + p.hueOffset) + 1) * 0.5;
-        const size = p.size * shimmer * (1 + sparklePhase * params.trebleEnergy * 0.5);
+        let size: number;
+        let jitterX = 0;
+        let jitterY = 0;
+
+        if (enableSparkle) {
+          // Per-particle sparkle shimmer: staggered size pulsing driven by treble
+          const sparklePhase =
+            (Math.sin(frame.time * 0.005 + p.hueOffset) + 1) * 0.5;
+          size = p.size * shimmer * (1 + sparklePhase * params.trebleEnergy * 0.5);
+
+          // Micro-jitter on render position only (does not accumulate in stored position)
+          jitterX =
+            Math.sin(frame.time * 0.01 + i) * params.trebleEnergy * 0.003 * width;
+          jitterY =
+            Math.cos(frame.time * 0.01 + i) * params.trebleEnergy * 0.003 * height;
+        } else {
+          size = p.size * shimmer;
+        }
 
         // Alpha variation: particles become more vivid on treble hits
         const alpha = 0.6 + params.trebleEnergy * 0.4;
 
         ctx.fillStyle = `hsla(${Math.round(hue)}, ${sat}%, ${light}%, ${alpha})`;
-
-        // Micro-jitter on render position only (does not accumulate in stored position)
-        const jitterX =
-          Math.sin(frame.time * 0.01 + i) * params.trebleEnergy * 0.003 * width;
-        const jitterY =
-          Math.cos(frame.time * 0.01 + i) * params.trebleEnergy * 0.003 * height;
 
         if (params.curveSoftness >= 0.5) {
           const radius = size / 2;

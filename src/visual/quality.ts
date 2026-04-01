@@ -1,0 +1,58 @@
+import type { BrowserSignals } from '../input/signals';
+
+export type QualityTier = 'low' | 'medium' | 'high';
+
+export interface QualityProfile {
+  tier: QualityTier;
+  maxParticles: number;
+  resolutionScale: number;
+  enableSparkle: boolean;
+}
+
+export function computeQuality(signals: BrowserSignals): QualityProfile {
+  // Normalize each signal to 0–1 range with conservative defaults for null
+  const dpr = signals.devicePixelRatio ?? 1.5;
+  const cores = signals.hardwareConcurrency ?? 4;
+  const memory = signals.deviceMemory ?? 4;
+  const screenPixels = (signals.screenWidth ?? 1024) * (signals.screenHeight ?? 768);
+  const touch = signals.touchCapable ?? false;
+
+  // DPR score: 1 is low, 2+ is high (but high DPR on small screens isn't a capability signal)
+  const dprScore = Math.min(dpr / 2, 1);
+
+  // Core count score: 2 cores = 0, 4 cores = 0.5, 6+ cores = 1
+  const coreScore = Math.min(Math.max((cores - 2) / 4, 0), 1);
+
+  // Memory score: 1GB = 0, 4GB = 0.5, 7+ GB = 1
+  const memoryScore = Math.min(Math.max((memory - 1) / 6, 0), 1);
+
+  // Screen pixel count score: small phone (~180k px) = 0, large desktop (~3.7M px) = 1
+  const pixelScore = Math.min(Math.max((screenPixels - 180000) / 3500000, 0), 1);
+
+  // Weighted combination
+  let score =
+    dprScore * 0.2 +
+    coreScore * 0.3 +
+    memoryScore * 0.2 +
+    pixelScore * 0.15;
+
+  // Touch penalty: touch-capable devices with low core count are likely low-end phones
+  if (touch && cores <= 4) {
+    score -= 0.08;
+  } else if (touch) {
+    score -= 0.03;
+  } else {
+    score += 0.08;
+  }
+
+  // Clamp score
+  score = Math.max(0, Math.min(1, score));
+
+  if (score < 0.35) {
+    return { tier: 'low', maxParticles: 150, resolutionScale: 0.5, enableSparkle: false };
+  }
+  if (score > 0.65) {
+    return { tier: 'high', maxParticles: 600, resolutionScale: 1.0, enableSparkle: true };
+  }
+  return { tier: 'medium', maxParticles: 350, resolutionScale: 0.75, enableSparkle: true };
+}

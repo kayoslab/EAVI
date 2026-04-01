@@ -67,6 +67,7 @@ describe('US-003: Read low-entropy browser signals', () => {
     const signals = readSignals();
     const keys = Object.keys(signals).sort();
     expect(keys).toEqual([
+      'deviceMemory',
       'devicePixelRatio',
       'hardwareConcurrency',
       'language',
@@ -190,5 +191,25 @@ describe('US-004: Read capability and preference signals', () => {
     Object.defineProperty(navigator, 'maxTouchPoints', { value: 0, configurable: true });
     const signals = readSignals();
     expect(signals.touchCapable).toBe(false);
+  });
+});
+
+describe('US-025: deviceMemory signal', () => {
+  it('T-025-09: returns deviceMemory when navigator.deviceMemory is available', () => {
+    Object.defineProperty(navigator, 'deviceMemory', { value: 8, configurable: true });
+    const signals = readSignals();
+    expect(signals.deviceMemory).toBe(8);
+  });
+
+  it('T-025-10: returns null deviceMemory when navigator.deviceMemory is unavailable', () => {
+    Object.defineProperty(navigator, 'deviceMemory', { value: undefined, configurable: true });
+    const signals = readSignals();
+    expect(signals.deviceMemory).toBeNull();
+  });
+
+  it('T-025-11: BrowserSignals keys include deviceMemory', () => {
+    const signals = readSignals();
+    const keys = Object.keys(signals).sort();
+    expect(keys).toContain('deviceMemory');
   });
 });

@@ -10,15 +10,23 @@ import { attachResizeHandler } from './visual/resize';
 import { startLoop, type LoopDeps } from './visual/renderLoop';
 import { initPointer } from './input/pointer';
 import { createParticleField } from './visual/systems/particleField';
+import { computeQuality } from './visual/quality';
+
+// Compute quality profile synchronously before scene init
+const quality = computeQuality(readSignals());
+console.debug('[EAVI] quality tier:', quality.tier);
 
 // Canvas shell — render immediately so the dark canvas is visible before async work
 const app = document.getElementById('app')!;
-const { canvas, ctx } = initScene(app);
-attachResizeHandler(canvas, ctx);
+const { canvas, ctx } = initScene(app, quality.resolutionScale);
+attachResizeHandler(canvas, ctx, quality.resolutionScale);
 
 // Shared deps object — mutated as async work resolves
 const deps: LoopDeps = {
-  geometrySystem: createParticleField(),
+  geometrySystem: createParticleField({
+    maxParticles: quality.maxParticles,
+    enableSparkle: quality.enableSparkle,
+  }),
 };
 
 // Pointer tracking

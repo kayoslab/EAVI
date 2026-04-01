@@ -699,6 +699,98 @@ describe('US-009: ParticleField geometry system', () => {
     });
   });
 
+  describe('US-025: Quality config', () => {
+    it('T-025-12: createParticleField with maxParticles config caps particle count', () => {
+      const ctx = document.createElement('canvas').getContext('2d')!;
+      const field = createParticleField({ maxParticles: 150 });
+      field.init(ctx, 'cap-seed', { ...defaultParams, density: 1.0, structureComplexity: 1.0 });
+      expect(getParticleCount(field)).toBeLessThanOrEqual(150);
+    });
+
+    it('T-025-13: createParticleField without config defaults to 600 max particles', () => {
+      const ctx = document.createElement('canvas').getContext('2d')!;
+      const field = createParticleField();
+      field.init(ctx, 'default-seed', { ...defaultParams, density: 1.0, structureComplexity: 1.0 });
+      expect(getParticleCount(field)).toBeLessThanOrEqual(600);
+      expect(getParticleCount(field)).toBeGreaterThan(150);
+    });
+
+    it('T-025-14: enableSparkle=false still renders particles without jitter', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 400;
+      const ctx = canvas.getContext('2d')!;
+
+      // Sparkle disabled
+      const fieldOff = createParticleField({ maxParticles: 300, enableSparkle: false });
+      const params = { ...defaultParams, trebleEnergy: 1.0, curveSoftness: 0.3 };
+      fieldOff.init(ctx, 'sparkle-seed', params);
+
+      const rectsOff: number[][] = [];
+      const origFillRect = ctx.fillRect.bind(ctx);
+      ctx.fillRect = (...args: [number, number, number, number]) => {
+        rectsOff.push([...args]);
+        origFillRect(...args);
+      };
+      fieldOff.draw(ctx, { time: 1000, delta: 16, params, width: 400, height: 400 });
+      expect(rectsOff.length).toBeGreaterThan(0);
+
+      // Sparkle enabled
+      const fieldOn = createParticleField({ maxParticles: 300, enableSparkle: true });
+      fieldOn.init(ctx, 'sparkle-seed', params);
+
+      const rectsOn: number[][] = [];
+      ctx.fillRect = (...args: [number, number, number, number]) => {
+        rectsOn.push([...args]);
+        origFillRect(...args);
+      };
+      fieldOn.draw(ctx, { time: 1000, delta: 16, params, width: 400, height: 400 });
+
+      // Both render particles but sparkle-off should have less size variance
+      const sizesOff = rectsOff.map(r => r[2]);
+      const sizesOn = rectsOn.map(r => r[2]);
+
+      const variance = (arr: number[]) => {
+        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+        return arr.reduce((s, v) => s + (v - mean) ** 2, 0) / arr.length;
+      };
+
+      if (sizesOff.length > 1 && sizesOn.length > 1) {
+        expect(variance(sizesOff)).toBeLessThanOrEqual(variance(sizesOn));
+      }
+    });
+
+    it('T-025-15: maxParticles config preserves density and structureComplexity scaling', () => {
+      const ctx = document.createElement('canvas').getContext('2d')!;
+
+      const fieldA = createParticleField({ maxParticles: 300 });
+      fieldA.init(ctx, 'scale-seed', { ...defaultParams, density: 0.5, structureComplexity: 0.5 });
+      const countA = getParticleCount(fieldA);
+
+      const fieldB = createParticleField({ maxParticles: 300 });
+      fieldB.init(ctx, 'scale-seed', { ...defaultParams, density: 1.0, structureComplexity: 1.0 });
+      const countB = getParticleCount(fieldB);
+
+      expect(countB).toBeGreaterThan(countA);
+      expect(countB).toBeLessThanOrEqual(300);
+    });
+
+    it('T-025-16: low quality config produces significantly fewer particles than default', () => {
+      const ctx = document.createElement('canvas').getContext('2d')!;
+      const params = { ...defaultParams, density: 0.6, structureComplexity: 0.5 };
+
+      const fieldLow = createParticleField({ maxParticles: 150 });
+      fieldLow.init(ctx, 'compare-seed', params);
+      const lowCount = getParticleCount(fieldLow);
+
+      const fieldDefault = createParticleField();
+      fieldDefault.init(ctx, 'compare-seed', params);
+      const defaultCount = getParticleCount(fieldDefault);
+
+      expect(defaultCount).toBeGreaterThanOrEqual(lowCount * 2);
+    });
+  });
+
   describe('privacy', () => {
     it('T-009-17: no localStorage or cookie access during particle operations', () => {
       const lsSpy = vi.spyOn(Storage.prototype, 'getItem');
