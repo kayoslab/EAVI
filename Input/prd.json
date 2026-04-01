@@ -354,13 +354,14 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-009",
         "US-017"
       ],
       "split_from": "US-008",
-      "notes": "Examples: camera drift, field expansion, large wave amplitude."
+      "notes": "Examples: camera drift, field expansion, large wave amplitude.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-019",
