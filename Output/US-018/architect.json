@@ -1,35 +1,50 @@
 {
-  "risk": "low",
-  "rationale": "The plan makes minimal, well-scoped changes to two existing files and adds one test file. The bass-to-visual pipeline already exists end-to-end (computeBassAvg → bassToMacro → particleField bassBoost). Step 1 adds closure-scoped EMA smoothing in renderLoop.ts — a local change with no interface or type modifications. Step 2 adds a muted-state synthetic fallback in the same file, also closure-scoped. Step 3 is an audit of particleField.ts (likely no changes). No new modules, no new interfaces, no dependency additions, and no changes to the public API surface (VisualParams, MappingInputs, LoopDeps, GeometrySystem).",
-  "structuralChanges": {
-    "newFiles": 1,
-    "modifiedFiles": 2,
-    "deletedFiles": 0,
-    "newDependencies": 0,
-    "interfaceChanges": 0,
-    "publicAPIChanges": 0
+  "ticket": "US-018",
+  "architectural_impact": "none",
+  "rationale": "All changes are confined to leaf-level runtime code (renderLoop.ts) and its test file. No new modules, no new interfaces, no new dependencies, no API surface changes. The EMA smoothing for bass directly mirrors the existing treble EMA pattern (renderLoop.ts:101-102), and the synthetic fallback is a small additive block. Test fixture fixes correct genuine interface mismatches (missing curveSoftness, structureComplexity, elapsed) — these are bug fixes, not architectural changes.",
+  "verified_claims": {
+    "smoothTreble_line_81": true,
+    "smoothDisturbance_line_82": true,
+    "computeBassAvg_line_96": true,
+    "mapSignalsToVisuals_line_118": "approximate — call spans lines 113-121, bass arg is within that range",
+    "bassToMacro_line_178": true,
+    "particleField_bassBoost_line_56": true,
+    "particleField_clamping_lines_87_94": true,
+    "evolution_passthrough_line_115": true,
+    "analyser_poll_and_buffers": true,
+    "test_missing_curveSoftness_structureComplexity": true,
+    "test_missing_elapsed_field": true
   },
-  "concerns": [
+  "risks": [
     {
+      "area": "synthetic bass fallback",
       "severity": "low",
-      "description": "Toroidal wrapping in particleField.ts (lines 66-73) uses single-step wrap (if x>1, x-=1) which can fail if bassBoost * speed * delta produces displacement > 1.0 in a single frame. With bassEnergy=1.0, bassBoost=3, and a long frame spike, this is possible. A while-loop or modulo wrap would be safer.",
-      "suggestion": "Use modulo wrapping (p.x = ((p.x % 1) + 1) % 1) instead of single if-checks, or add this as a finding in Step 3 audit."
+      "detail": "Sine-based fallback at ~30/255 raw amplitude is well below perceptible jitter threshold and within bassToMacro's power curve compression range. Risk of feeling artificial is mitigated by the low amplitude."
     },
     {
-      "severity": "info",
-      "description": "The plan applies EMA smoothing in renderLoop.ts after computeBassAvg but before mapSignalsToVisuals. This means the smoothed value (0-255 range) goes through bassToMacro's power curve normalization. This is correct — smoothing raw values before the nonlinear transform preserves the mapping's intended response shape.",
-      "suggestion": "No action needed, just confirming the ordering is sound."
-    },
-    {
-      "severity": "info",
-      "description": "The synthetic bass fallback (Step 2) detects muted state by checking if all frequency bins are zero. This heuristic could also trigger during genuine silence in the audio track. The plan's mitigation (low amplitude sine) makes this acceptable — the visual effect during true silence and during muted state would be the same gentle drift.",
-      "suggestion": "Acceptable as-is. Could optionally check gainNode value directly, but the current approach is simpler and the visual outcome is identical."
+      "area": "EMA alpha selection",
+      "severity": "low",
+      "detail": "Alpha 0.18 is slightly more aggressive than treble's 0.15 but reasonable for bass which has slower natural periodicity. The plan includes a fallback to 0.12 if edge cases arise."
     }
   ],
-  "testCoverage": "adequate — 6 tests cover all 4 acceptance criteria plus reduced-motion compliance and privacy. Existing tests (T-008-14, T-008-16, T-009-24) provide regression coverage for the unchanged mapping and pipeline code.",
-  "architecturalImpact": "none — all changes are implementation-level within existing module boundaries. No new interfaces, no new cross-module dependencies, no changes to the render loop's public contract (startLoop signature, LoopDeps interface, VisualParams shape). The smoothing and fallback logic are encapsulated as closure-scoped state inside startLoop.",
+  "consistency_with_existing_patterns": {
+    "ema_smoothing": "Follows exact same pattern as smoothTreble (line 101-102). Consistent.",
+    "fallback_for_muted": "bassEnergy is already set to 0 when no pipeline exists (line 125). Adding a synthetic fallback when pipeline exists but reports zeros is a logical extension.",
+    "test_fixture_structure": "Fixes align defaultParams with the full VisualParams interface and FrameState interface. Standard correctness fix."
+  },
+  "scope_assessment": {
+    "files_modified": 2,
+    "lines_changed_estimate": "~27 lines across both files",
+    "new_modules": 0,
+    "new_dependencies": 0,
+    "interface_changes": 0,
+    "breaking_changes": 0
+  },
+  "adr_needed": false,
+  "adr_reason": "No architectural decisions involved — this is a small, pattern-consistent feature addition with no cross-cutting concerns.",
   "approved": true,
-  "decision": "approve",
+  "concerns": [],
+  "decision": "APPROVE",
   "adr_entry": null,
   "failures": []
 }
