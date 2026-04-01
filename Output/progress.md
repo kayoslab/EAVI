@@ -44,3 +44,5 @@
 
 ## US-025: Add mobile quality scaling
 
+## US-018: Map bass response to macro motion
+
