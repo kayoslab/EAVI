@@ -492,8 +492,8 @@
         "Visual output stays recognizably similar"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "fail",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-004",
         "US-009",
