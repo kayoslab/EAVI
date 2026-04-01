@@ -40,3 +40,5 @@
 
 ## US-024: Add reduced-motion fallback
 
+## US-018: Map bass response to macro motion
+
