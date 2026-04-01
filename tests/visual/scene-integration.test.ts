@@ -19,6 +19,8 @@ const defaultParams: VisualParams = {
   pointerDisturbance: 0,
   bassEnergy: 0,
   trebleEnergy: 0,
+  curveSoftness: 0.3,
+  structureComplexity: 0.5,
 };
 
 const defaultSignals: BrowserSignals = {

@@ -114,6 +114,8 @@ export function evolveParams(
     pointerDisturbance: base.pointerDisturbance,
     bassEnergy: base.bassEnergy,
     trebleEnergy: base.trebleEnergy,
+    curveSoftness: base.curveSoftness,
+    structureComplexity: base.structureComplexity,
   };
 }
 

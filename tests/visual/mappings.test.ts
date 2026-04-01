@@ -249,6 +249,139 @@ describe('US-008: Define partially legible mapping rules', () => {
     expect(serialized).not.toContain('CA');
   });
 
+  it('T-011-01: mapSignalsToVisuals returns curveSoftness and structureComplexity fields', () => {
+    const result = mapSignalsToVisuals(defaultInputs);
+    expect(result).toHaveProperty('curveSoftness');
+    expect(result).toHaveProperty('structureComplexity');
+    expect(typeof result.curveSoftness).toBe('number');
+    expect(typeof result.structureComplexity).toBe('number');
+    expect(Number.isFinite(result.curveSoftness)).toBe(true);
+    expect(Number.isFinite(result.structureComplexity)).toBe(true);
+  });
+
+  it('T-011-02: curveSoftness is 0.8 for touch devices, 0.3 for non-touch, 0.5 for null', () => {
+    const touch = mapSignalsToVisuals({
+      ...defaultInputs,
+      signals: { ...defaultInputs.signals, touchCapable: true },
+    });
+    const noTouch = mapSignalsToVisuals({
+      ...defaultInputs,
+      signals: { ...defaultInputs.signals, touchCapable: false },
+    });
+    const nullTouch = mapSignalsToVisuals({
+      ...defaultInputs,
+      signals: { ...defaultInputs.signals, touchCapable: null },
+    });
+    expect(touch.curveSoftness).toBe(0.8);
+    expect(noTouch.curveSoftness).toBe(0.3);
+    expect(nullTouch.curveSoftness).toBe(0.5);
+  });
+
+  it('T-011-03: structureComplexity is in 0.2-1.0 range for various device profiles', () => {
+    const profiles = [
+      { devicePixelRatio: 1, hardwareConcurrency: 2, screenWidth: 1024, screenHeight: 768 },
+      { devicePixelRatio: 2, hardwareConcurrency: 8, screenWidth: 1920, screenHeight: 1080 },
+      { devicePixelRatio: 3, hardwareConcurrency: 16, screenWidth: 2560, screenHeight: 1440 },
+      { devicePixelRatio: null, hardwareConcurrency: null, screenWidth: 1920, screenHeight: 1080 },
+      { devicePixelRatio: 1, hardwareConcurrency: 2, screenWidth: 3440, screenHeight: 1440 },
+    ];
+    for (const p of profiles) {
+      const result = mapSignalsToVisuals({
+        ...defaultInputs,
+        signals: { ...defaultInputs.signals, ...p },
+      });
+      expect(result.structureComplexity).toBeGreaterThanOrEqual(0.2);
+      expect(result.structureComplexity).toBeLessThanOrEqual(1.0);
+    }
+  });
+
+  it('T-011-04: structureComplexity handles screenWidth=0 and screenHeight=0 without NaN or Infinity', () => {
+    const result = mapSignalsToVisuals({
+      ...defaultInputs,
+      signals: { ...defaultInputs.signals, screenWidth: 0, screenHeight: 0 },
+    });
+    expect(Number.isFinite(result.structureComplexity)).toBe(true);
+    expect(Number.isNaN(result.structureComplexity)).toBe(false);
+    expect(result.structureComplexity).toBeGreaterThanOrEqual(0.2);
+    expect(result.structureComplexity).toBeLessThanOrEqual(1.0);
+  });
+
+  it('T-011-05: curveSoftness and structureComplexity contain no raw browser strings', () => {
+    const result = mapSignalsToVisuals(defaultInputs);
+    expect(typeof result.curveSoftness).toBe('number');
+    expect(typeof result.structureComplexity).toBe('number');
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('true');
+    expect(serialized).not.toContain('false');
+    expect(serialized).not.toContain('1920');
+    expect(serialized).not.toContain('1080');
+  });
+
+  it('T-011-06: curveSoftness and structureComplexity are stable — same inputs yield identical values', () => {
+    const result1 = mapSignalsToVisuals(defaultInputs);
+    const result2 = mapSignalsToVisuals(defaultInputs);
+    expect(result1.curveSoftness).toBe(result2.curveSoftness);
+    expect(result1.structureComplexity).toBe(result2.structureComplexity);
+  });
+
+  it('T-011-07: higher DPR/cores and wider aspect ratio produce higher structureComplexity', () => {
+    const lowEnd = mapSignalsToVisuals({
+      ...defaultInputs,
+      signals: { ...defaultInputs.signals, devicePixelRatio: 1, hardwareConcurrency: 2, screenWidth: 1024, screenHeight: 1024 },
+    });
+    const highEnd = mapSignalsToVisuals({
+      ...defaultInputs,
+      signals: { ...defaultInputs.signals, devicePixelRatio: 3, hardwareConcurrency: 16, screenWidth: 3440, screenHeight: 1440 },
+    });
+    expect(highEnd.structureComplexity).toBeGreaterThan(lowEnd.structureComplexity);
+  });
+
+  it('T-011-08: curveSoftness and structureComplexity have safe defaults when signals are null/missing', () => {
+    const nullInputs: MappingInputs = {
+      signals: {
+        language: 'en-US',
+        timezone: 'UTC',
+        screenWidth: 0,
+        screenHeight: 0,
+        devicePixelRatio: null,
+        hardwareConcurrency: null,
+        prefersColorScheme: null,
+        prefersReducedMotion: null,
+        touchCapable: null,
+      },
+      geo: { country: null, region: null },
+      pointer: { x: 0, y: 0, dx: 0, dy: 0, speed: 0, active: false },
+      sessionSeed: 'fallback-seed',
+      bass: 0,
+      treble: 0,
+      timeOfDay: 12,
+    };
+    const result = mapSignalsToVisuals(nullInputs);
+    expect(result.curveSoftness).toBe(0.5);
+    expect(Number.isFinite(result.structureComplexity)).toBe(true);
+    expect(result.structureComplexity).toBeGreaterThanOrEqual(0.2);
+    expect(result.structureComplexity).toBeLessThanOrEqual(1.0);
+  });
+
+  it('T-011-16: at least two structural parameters are driven by device signals', () => {
+    const baseline = mapSignalsToVisuals(defaultInputs);
+
+    const touchChanged = mapSignalsToVisuals({
+      ...defaultInputs,
+      signals: { ...defaultInputs.signals, touchCapable: true },
+    });
+    const curveSoftnessChanged = touchChanged.curveSoftness !== baseline.curveSoftness;
+
+    const profileChanged = mapSignalsToVisuals({
+      ...defaultInputs,
+      signals: { ...defaultInputs.signals, devicePixelRatio: 1, hardwareConcurrency: 2, screenWidth: 800, screenHeight: 600 },
+    });
+    const structureComplexityChanged = profileChanged.structureComplexity !== baseline.structureComplexity;
+
+    expect(curveSoftnessChanged).toBe(true);
+    expect(structureComplexityChanged).toBe(true);
+  });
+
   it('T-008-20: mapSignalsToVisuals is pure — same inputs yield same outputs', () => {
     const result1 = mapSignalsToVisuals(defaultInputs);
     const result2 = mapSignalsToVisuals(defaultInputs);

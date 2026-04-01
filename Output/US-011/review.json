@@ -1,0 +1,88 @@
+{
+  "plan_id": "US-011",
+  "strengths": [
+    "Two clearly distinct structural parameters (curveSoftness, structureComplexity) satisfy the acceptance criteria",
+    "All mappings produce normalized numbers — no raw browser strings can leak",
+    "Session stability is correctly ensured via pass-through in evolveParams (no drift)",
+    "Graceful null/zero fallbacks for every signal input",
+    "Test steps cover null handling, stability, boundary values, and rendering behavior"
+  ],
+  "issues": [
+    {
+      "severity": "must_fix",
+      "step": null,
+      "file": "src/visual/types.ts",
+      "description": "types.ts is listed in files_to_modify but no step actually modifies it. VisualParams lives in mappings.ts. Remove types.ts from files_to_modify to avoid confusion."
+    },
+    {
+      "severity": "must_fix",
+      "step": 2,
+      "file": "src/visual/mappings.ts",
+      "description": "profileToComplexity reuses DPR and hardwareConcurrency which already drive the existing `density` parameter via capabilityToDensity (lines 119-133). When step 6 then multiplies density by structureComplexity to compute effective particle count, the DPR/cores signal is double-counted — high-capability devices get compounding boosts, low-capability devices get compounding penalties. Fix: either (a) remove DPR/cores from profileToComplexity and use only screen aspect ratio + one other independent signal (e.g. prefersColorScheme or language-script complexity), or (b) keep the inputs but make step 6 use structureComplexity independently of density (e.g. scale size variance and hue spread only, not particle count)."
+    },
+    {
+      "severity": "should_fix",
+      "step": 5,
+      "file": "src/visual/systems/particleField.ts",
+      "description": "Line references '95-100 for ctx.fillRect' are inaccurate. The actual draw function spans lines 49-102, and rendering logic (fillStyle, positioning, fillRect) is around lines 75-93. Update line references to match the actual code so the implementer doesn't waste time searching."
+    },
+    {
+      "severity": "should_fix",
+      "step": 5,
+      "file": "src/visual/systems/particleField.ts",
+      "description": "A hard threshold at 0.5 for shape switching (arc vs fillRect) creates a binary visual jump rather than a structural gradient. Consider a softer approach: use roundRect with a corner radius proportional to curveSoftness (0 = sharp rect, size/2 = full circle). This also avoids the branching concern mentioned in the step notes, since the same code path handles all values."
+    },
+    {
+      "severity": "nice_to_have",
+      "step": 6,
+      "file": "src/visual/systems/particleField.ts",
+      "description": "Scaling particle count in init() means structureComplexity is baked at initialization time. If the geometry system is ever re-initialized mid-session (e.g. on resize), the count stays correct, but this coupling between init-time params and draw-time params should be documented with a brief comment."
+    }
+  ],
+  "missing_steps": [],
+  "suggested_step_order_change": null,
+  "estimated_test_count": 8,
+  "risk_notes": "The main risk is the DPR/cores double-counting in density × structureComplexity. If left unfixed, low-end devices will render ~36% of base particles (0.6 density × 0.6 complexity factor) while high-end devices render 100%, creating a wider capability gap than intended. The rest of the plan is solid and well-structured.",
+  "approved": true,
+  "concerns": [
+    "{\"severity\":\"must_fix\",\"step\":null,\"file\":\"src/visual/types.ts\",\"description\":\"types.ts is listed in files_to_modify but no step actually modifies it. VisualParams lives in mappings.ts. Remove types.ts from files_to_modify to avoid confusion.\"}",
+    "{\"severity\":\"must_fix\",\"step\":2,\"file\":\"src/visual/mappings.ts\",\"description\":\"profileToComplexity reuses DPR and hardwareConcurrency which already drive the existing `density` parameter via capabilityToDensity (lines 119-133). When step 6 then multiplies density by structureComplexity to compute effective particle count, the DPR/cores signal is double-counted — high-capability devices get compounding boosts, low-capability devices get compounding penalties. Fix: either (a) remove DPR/cores from profileToComplexity and use only screen aspect ratio + one other independent signal (e.g. prefersColorScheme or language-script complexity), or (b) keep the inputs but make step 6 use structureComplexity independently of density (e.g. scale size variance and hue spread only, not particle count).\"}",
+    "{\"severity\":\"should_fix\",\"step\":5,\"file\":\"src/visual/systems/particleField.ts\",\"description\":\"Line references '95-100 for ctx.fillRect' are inaccurate. The actual draw function spans lines 49-102, and rendering logic (fillStyle, positioning, fillRect) is around lines 75-93. Update line references to match the actual code so the implementer doesn't waste time searching.\"}",
+    "{\"severity\":\"should_fix\",\"step\":5,\"file\":\"src/visual/systems/particleField.ts\",\"description\":\"A hard threshold at 0.5 for shape switching (arc vs fillRect) creates a binary visual jump rather than a structural gradient. Consider a softer approach: use roundRect with a corner radius proportional to curveSoftness (0 = sharp rect, size/2 = full circle). This also avoids the branching concern mentioned in the step notes, since the same code path handles all values.\"}",
+    "{\"severity\":\"nice_to_have\",\"step\":6,\"file\":\"src/visual/systems/particleField.ts\",\"description\":\"Scaling particle count in init() means structureComplexity is baked at initialization time. If the geometry system is ever re-initialized mid-session (e.g. on resize), the count stays correct, but this coupling between init-time params and draw-time params should be documented with a brief comment.\"}"
+  ],
+  "decision": "approve_with_changes",
+  "failures": [
+    {
+      "severity": "must_fix",
+      "step": null,
+      "file": "src/visual/types.ts",
+      "description": "types.ts is listed in files_to_modify but no step actually modifies it. VisualParams lives in mappings.ts. Remove types.ts from files_to_modify to avoid confusion."
+    },
+    {
+      "severity": "must_fix",
+      "step": 2,
+      "file": "src/visual/mappings.ts",
+      "description": "profileToComplexity reuses DPR and hardwareConcurrency which already drive the existing `density` parameter via capabilityToDensity (lines 119-133). When step 6 then multiplies density by structureComplexity to compute effective particle count, the DPR/cores signal is double-counted — high-capability devices get compounding boosts, low-capability devices get compounding penalties. Fix: either (a) remove DPR/cores from profileToComplexity and use only screen aspect ratio + one other independent signal (e.g. prefersColorScheme or language-script complexity), or (b) keep the inputs but make step 6 use structureComplexity independently of density (e.g. scale size variance and hue spread only, not particle count)."
+    },
+    {
+      "severity": "should_fix",
+      "step": 5,
+      "file": "src/visual/systems/particleField.ts",
+      "description": "Line references '95-100 for ctx.fillRect' are inaccurate. The actual draw function spans lines 49-102, and rendering logic (fillStyle, positioning, fillRect) is around lines 75-93. Update line references to match the actual code so the implementer doesn't waste time searching."
+    },
+    {
+      "severity": "should_fix",
+      "step": 5,
+      "file": "src/visual/systems/particleField.ts",
+      "description": "A hard threshold at 0.5 for shape switching (arc vs fillRect) creates a binary visual jump rather than a structural gradient. Consider a softer approach: use roundRect with a corner radius proportional to curveSoftness (0 = sharp rect, size/2 = full circle). This also avoids the branching concern mentioned in the step notes, since the same code path handles all values."
+    },
+    {
+      "severity": "nice_to_have",
+      "step": 6,
+      "file": "src/visual/systems/particleField.ts",
+      "description": "Scaling particle count in init() means structureComplexity is baked at initialization time. If the geometry system is ever re-initialized mid-session (e.g. on resize), the count stays correct, but this coupling between init-time params and draw-time params should be documented with a brief comment."
+    }
+  ],
+  "adr_entry": null
+}
