@@ -13,6 +13,7 @@
 import type { BrowserSignals } from '../input/signals';
 import type { GeoHint } from '../input/geo';
 import type { PointerState } from '../input/pointer';
+import { classifyGeo, getPaletteFamily } from './palette';
 
 /** Visual parameters consumed by the render loop each frame. */
 export interface VisualParams {
@@ -70,21 +71,29 @@ function simpleHash(str: string): number {
 /**
  * Geo -> Palette family.
  *
- * Hashes country + region + session seed to produce a hue (0-360)
- * and saturation (0.3-0.8). The same country biases toward a hue
- * family but the exact value shifts per session via the seed.
- * No country name is ever present in the output.
+ * Classifies the country into a coarse geo class, looks up the
+ * corresponding palette family, then uses the session seed to pick
+ * a specific hue within the family's range and a saturation near
+ * the family's base. No country name is ever present in the output.
  */
 function geoToPalette(
   country: string | null,
   region: string | null,
   seed: string,
 ): { hue: number; saturation: number } {
-  const geoStr = `${country ?? 'unknown'}:${region ?? 'unknown'}`;
-  const h = simpleHash(geoStr + seed);
-  const hue = h % 360;
-  // Saturation: use a different bit range to decorrelate from hue
-  const saturation = 0.3 + (((h >>> 8) % 500) / 500) * 0.5; // 0.3-0.8
+  const cls = classifyGeo(country, region);
+  const family = getPaletteFamily(cls);
+
+  const h = simpleHash(cls + seed);
+
+  // Hue: pick a value within hueCenter ± hueRange/2
+  const hueOffset = (h % 1000) / 1000; // 0-1
+  const hue = ((family.hueCenter - family.hueRange / 2 + hueOffset * family.hueRange) % 360 + 360) % 360;
+
+  // Saturation: family base ± 0.1, clamped to 0.3-0.8
+  const satOffset = (((h >>> 8) % 1000) / 1000) * 0.2 - 0.1; // -0.1 to +0.1
+  const saturation = Math.max(0.3, Math.min(0.8, family.saturationBase + satOffset));
+
   return { hue, saturation };
 }
 

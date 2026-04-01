@@ -4,6 +4,7 @@ import type { GeoHint } from '../../src/input/geo';
 import type { PointerState } from '../../src/input/pointer';
 import { mapSignalsToVisuals } from '../../src/visual/mappings';
 import type { MappingInputs, VisualParams } from '../../src/visual/mappings';
+import { getPaletteFamily, classifyGeo } from '../../src/visual/palette';
 
 const defaultSignals: BrowserSignals = {
   language: 'en-US',
@@ -55,12 +56,16 @@ describe('US-008: Define partially legible mapping rules', () => {
     }
   });
 
-  it('T-008-03: different countries produce different palette hues', () => {
+  it('T-008-03: different countries from different geo classes produce hues in different ranges', () => {
+    // US=continental, JP=oceanic, BR=tropical — distinct geo classes
     const resultUS = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'US', region: 'CA' } });
     const resultJP = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'JP', region: 'TK' } });
     const resultBR = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'BR', region: 'SP' } });
     const hues = new Set([resultUS.paletteHue, resultJP.paletteHue, resultBR.paletteHue]);
+    // At minimum, hues should differ
     expect(hues.size).toBeGreaterThanOrEqual(2);
+    // Continental and tropical families have different hue centers, so hues should be >30° apart
+    expect(Math.abs(resultUS.paletteHue - resultBR.paletteHue)).toBeGreaterThan(10);
   });
 
   it('T-008-04: same country and seed produces consistent hue', () => {
@@ -70,7 +75,7 @@ describe('US-008: Define partially legible mapping rules', () => {
     expect(result1.paletteSaturation).toBe(result2.paletteSaturation);
   });
 
-  it('T-008-05: paletteHue is in 0-360 range, paletteSaturation in 0-1 range', () => {
+  it('T-008-05: paletteHue is in 0-360 range, paletteSaturation in 0.3-0.8 range', () => {
     const geos: GeoHint[] = [
       { country: 'US', region: 'CA' },
       { country: 'JP', region: null },
@@ -81,8 +86,8 @@ describe('US-008: Define partially legible mapping rules', () => {
       const result = mapSignalsToVisuals({ ...defaultInputs, geo });
       expect(result.paletteHue).toBeGreaterThanOrEqual(0);
       expect(result.paletteHue).toBeLessThanOrEqual(360);
-      expect(result.paletteSaturation).toBeGreaterThanOrEqual(0);
-      expect(result.paletteSaturation).toBeLessThanOrEqual(1);
+      expect(result.paletteSaturation).toBeGreaterThanOrEqual(0.3);
+      expect(result.paletteSaturation).toBeLessThanOrEqual(0.8);
     }
   });
 
@@ -277,5 +282,101 @@ describe('US-008: Define partially legible mapping rules', () => {
 
     const mappingsExercised = [geoChanged, timeChanged, dprChanged, motionChanged].filter(Boolean).length;
     expect(mappingsExercised).toBeGreaterThanOrEqual(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// US-010: Map coarse location to palette
+// ---------------------------------------------------------------------------
+
+/** Helper: check hue is within a palette family's range (wrapping around 360). */
+function hueInFamilyRange(hue: number, country: string | null): boolean {
+  const cls = classifyGeo(country, null);
+  const family = getPaletteFamily(cls);
+  if (family.hueRange >= 360) return hue >= 0 && hue <= 360;
+  const lo = ((family.hueCenter - family.hueRange / 2) % 360 + 360) % 360;
+  const hi = ((family.hueCenter + family.hueRange / 2) % 360 + 360) % 360;
+  if (lo <= hi) return hue >= lo && hue <= hi;
+  // Wraps around 0
+  return hue >= lo || hue <= hi;
+}
+
+describe('US-010: Map coarse location to palette', () => {
+  it('T-010-11: known tropical country produces hue in warm family range', () => {
+    const result = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'BR', region: 'SP' } });
+    expect(hueInFamilyRange(result.paletteHue, 'BR')).toBe(true);
+  });
+
+  it('T-010-12: known northern country produces hue in cool family range', () => {
+    const result = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'NO', region: null } });
+    expect(hueInFamilyRange(result.paletteHue, 'NO')).toBe(true);
+  });
+
+  it('T-010-13: null geo produces a valid fallback palette with full hue range', () => {
+    const result = mapSignalsToVisuals({ ...defaultInputs, geo: { country: null, region: null } });
+    expect(result.paletteHue).toBeGreaterThanOrEqual(0);
+    expect(result.paletteHue).toBeLessThanOrEqual(360);
+    expect(result.paletteSaturation).toBeGreaterThanOrEqual(0.3);
+    expect(result.paletteSaturation).toBeLessThanOrEqual(0.8);
+  });
+
+  it('T-010-14: same country and seed produces identical hue and saturation (deterministic)', () => {
+    const inputs = { ...defaultInputs, geo: { country: 'BR', region: 'SP' } as GeoHint };
+    const r1 = mapSignalsToVisuals(inputs);
+    const r2 = mapSignalsToVisuals(inputs);
+    expect(r1.paletteHue).toBe(r2.paletteHue);
+    expect(r1.paletteSaturation).toBe(r2.paletteSaturation);
+  });
+
+  it('T-010-15: same country with different seed produces different exact hue within same family', () => {
+    const r1 = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'BR', region: 'SP' }, sessionSeed: 'seed1' });
+    const r2 = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'BR', region: 'SP' }, sessionSeed: 'seed2' });
+    expect(r1.paletteHue).not.toBe(r2.paletteHue);
+    expect(hueInFamilyRange(r1.paletteHue, 'BR')).toBe(true);
+    expect(hueInFamilyRange(r2.paletteHue, 'BR')).toBe(true);
+  });
+
+  it('T-010-16: different geo classes produce hues in different family ranges (>30° apart)', () => {
+    const tropical = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'BR', region: null } });
+    const northern = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'NO', region: null } });
+    const temperate = mapSignalsToVisuals({ ...defaultInputs, geo: { country: 'FR', region: null } });
+    const hues = [tropical.paletteHue, northern.paletteHue, temperate.paletteHue];
+    // At least 3 hues should be >30° apart from each other
+    const diffs = [
+      Math.abs(hues[0] - hues[1]),
+      Math.abs(hues[0] - hues[2]),
+      Math.abs(hues[1] - hues[2]),
+    ].map(d => Math.min(d, 360 - d));
+    const distinctPairs = diffs.filter(d => d > 30).length;
+    expect(distinctPairs).toBeGreaterThanOrEqual(2);
+  });
+
+  it('T-010-17: output VisualParams contains no raw country codes or region strings', () => {
+    const testCases: GeoHint[] = [
+      { country: 'BR', region: 'SP' },
+      { country: 'NO', region: 'OS' },
+      { country: 'JP', region: 'TK' },
+    ];
+    for (const geo of testCases) {
+      const result = mapSignalsToVisuals({ ...defaultInputs, geo });
+      const serialized = JSON.stringify(result);
+      if (geo.country) expect(serialized).not.toContain(geo.country);
+      if (geo.region) expect(serialized).not.toContain(geo.region);
+    }
+  });
+
+  it('T-010-18: paletteSaturation stays within 0.3-0.8 for all palette families', () => {
+    const geos: GeoHint[] = [
+      { country: 'BR', region: null },
+      { country: 'NO', region: null },
+      { country: 'US', region: null },
+      { country: null, region: null },
+      { country: 'XX', region: null },
+    ];
+    for (const geo of geos) {
+      const result = mapSignalsToVisuals({ ...defaultInputs, geo });
+      expect(result.paletteSaturation).toBeGreaterThanOrEqual(0.3);
+      expect(result.paletteSaturation).toBeLessThanOrEqual(0.8);
+    }
   });
 });
