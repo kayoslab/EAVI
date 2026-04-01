@@ -1,0 +1,55 @@
+{
+  "plan_id": "US-026",
+  "comments": [
+    {
+      "step": 1,
+      "severity": "info",
+      "comment": "WaveField design is sound. The existing prng.ts (mulberry32) can seed wave phase offsets. Drawing via ctx.beginPath/lineTo strokes is consistent with particleField's ctx.beginPath/arc approach. Ensure waveField imports createPRNG from src/visual/prng.ts."
+    },
+    {
+      "step": 2,
+      "severity": "warn",
+      "comment": "ModeManager.init() is called once by the render loop (on first frame with real seed). Subsequent mode switches happen inside draw() when elapsed crosses a boundary. The manager must cache the seed and latest VisualParams from init() so it can call init() on the next GeometrySystem at switch time. The plan mentions this but should be explicit: store this.seed and this.lastParams in init(), reuse in draw() when switching."
+    },
+    {
+      "step": 3,
+      "severity": "warn",
+      "comment": "quality.ts (QualityProfile) currently only has maxParticles, resolutionScale, enableSparkle. Adding maxWaves and enableShimmer requires editing quality.ts, which is not listed in files_touched. Either edit quality.ts to add these fields per tier, or derive them inline in main.ts from existing tier values. Recommend editing quality.ts for consistency."
+    },
+    {
+      "step": 3,
+      "severity": "info",
+      "comment": "The LoopDeps.geometrySystem typing is already GeometrySystem | null, so passing ModeManager (which implements GeometrySystem) requires zero type changes. Clean."
+    },
+    {
+      "step": 4,
+      "severity": "info",
+      "comment": "Confirmed: FrameState already has elapsed field. The render loop already passes it. No changes needed to renderLoop.ts — the plan's 'likely no changes' assessment is correct."
+    },
+    {
+      "step": 5,
+      "severity": "info",
+      "comment": "Existing particleField.test.ts uses a canvas mock pattern with vi.fn() for CanvasRenderingContext2D methods. WaveField tests should follow the same mock setup. The test file path matches the existing convention under tests/visual/systems/."
+    },
+    {
+      "step": 6,
+      "severity": "info",
+      "comment": "ModeManager tests should verify that draw() delegates to the active system's draw() and that init() is called on the new system at switch boundaries. Testing elapsed-based switching with controlled FrameState.elapsed values is straightforward."
+    }
+  ],
+  "missing_files": [
+    {
+      "file": "src/visual/quality.ts",
+      "action": "edit",
+      "reason": "Needs maxWaves and enableShimmer added to QualityProfile interface and to each tier's config values (low: 8/false, medium: 14/true, high: 20/true)"
+    }
+  ],
+  "risks_assessment": "Risks identified are reasonable. Hard cut on mode switch is acceptable for v1 given the per-frame canvas clear. Wave rendering at 8-20 strokes per frame is lighter than particle rendering, so performance risk is low.",
+  "estimated_new_lines_assessment": "350 is reasonable. WaveField ~120, ModeManager ~80, quality.ts edits ~10, main.ts edits ~15, tests ~150.",
+  "estimated_test_count_assessment": "25 tests is achievable and sufficient for the scope.",
+  "approved": true,
+  "concerns": [],
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
