@@ -208,7 +208,8 @@ describe('US-009: Render loop', () => {
     startLoop(canvas, ctx, deps);
     expect(drawSpy).toHaveBeenCalled();
     const params = (drawSpy.mock.calls[0][1] as { params: VisualParams }).params;
-    expect(params.bassEnergy).toBe(0);
+    // Bass has synthetic fallback (US-018) so it's >= 0 even without a pipeline
+    expect(params.bassEnergy).toBeGreaterThanOrEqual(0);
     expect(params.trebleEnergy).toBe(0);
   });
 

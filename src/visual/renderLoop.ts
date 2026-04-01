@@ -79,6 +79,7 @@ export function startLoop(
   let startTime = -1;
   let geoInitialized = false;
   let smoothTreble = 0;
+  let smoothBass = 0;
   let smoothDisturbance = 0;
 
   const frame = (time: number) => {
@@ -88,14 +89,23 @@ export function startLoop(
     lastTime = time;
 
     // Poll audio if available
-    let bass = 0;
+    let rawBass = 0;
     let rawTreble = 0;
     const pipeline = d.getAnalyserPipeline?.();
     if (pipeline) {
       pipeline.poll();
-      bass = computeBassAvg(pipeline.frequency);
+      rawBass = computeBassAvg(pipeline.frequency);
       rawTreble = computeTrebleAvg(pipeline.frequency);
     }
+
+    // Synthetic bass fallback when audio is silent/muted
+    if (rawBass < 5) {
+      rawBass = 30 + 25 * Math.sin(elapsed * 0.001);
+    }
+
+    // EMA smoothing for bass (heavier than treble for weightier feel)
+    smoothBass = smoothBass * 0.88 + rawBass * 0.12;
+    const bass = smoothBass;
 
     // EMA smoothing for treble to avoid flicker
     smoothTreble = smoothTreble * 0.85 + rawTreble * 0.15;
@@ -122,7 +132,6 @@ export function startLoop(
       params = evolveParams(params, elapsed, d.seed);
     } else {
       params = computeDefaultParams();
-      params.bassEnergy = 0;
       params.trebleEnergy = 0;
     }
 

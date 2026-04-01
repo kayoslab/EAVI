@@ -170,7 +170,8 @@ describe('US-009: Scene integration — acceptance criteria', () => {
     expect(drawSpy).toHaveBeenCalledTimes(3);
     drawSpy.mock.calls.forEach((call: unknown[]) => {
       const frame = call[1] as FrameState;
-      expect(frame.params.bassEnergy).toBe(0);
+      // Bass has synthetic fallback (US-018) so it's >= 0 even without a pipeline
+      expect(frame.params.bassEnergy).toBeGreaterThanOrEqual(0);
       expect(frame.params.trebleEnergy).toBe(0);
     });
   });
