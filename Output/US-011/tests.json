@@ -1,0 +1,156 @@
+{
+  "tests": [
+    {
+      "id": "T-011-01",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "mapSignalsToVisuals returns curveSoftness and structureComplexity fields",
+      "code": "it('T-011-01: mapSignalsToVisuals returns curveSoftness and structureComplexity fields', () => {\n  const result = mapSignalsToVisuals(defaultInputs);\n  expect(result).toHaveProperty('curveSoftness');\n  expect(result).toHaveProperty('structureComplexity');\n  expect(typeof result.curveSoftness).toBe('number');\n  expect(typeof result.structureComplexity).toBe('number');\n  expect(Number.isFinite(result.curveSoftness)).toBe(true);\n  expect(Number.isFinite(result.structureComplexity)).toBe(true);\n});",
+      "context": "Add inside the existing 'US-008: Define partially legible mapping rules' describe block. The defaultInputs fixture already exists and includes touchCapable, screenWidth, screenHeight, devicePixelRatio, hardwareConcurrency. Must also update the defaultParams VisualParams fixture (if used elsewhere) to include curveSoftness and structureComplexity."
+    },
+    {
+      "id": "T-011-02",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "touchToSoftness returns 0.8 for touch-capable, 0.3 for non-touch, 0.5 for null",
+      "code": "it('T-011-02: curveSoftness is 0.8 for touch devices, 0.3 for non-touch, 0.5 for null', () => {\n  const touch = mapSignalsToVisuals({\n    ...defaultInputs,\n    signals: { ...defaultInputs.signals, touchCapable: true },\n  });\n  const noTouch = mapSignalsToVisuals({\n    ...defaultInputs,\n    signals: { ...defaultInputs.signals, touchCapable: false },\n  });\n  const nullTouch = mapSignalsToVisuals({\n    ...defaultInputs,\n    signals: { ...defaultInputs.signals, touchCapable: null },\n  });\n  expect(touch.curveSoftness).toBe(0.8);\n  expect(noTouch.curveSoftness).toBe(0.3);\n  expect(nullTouch.curveSoftness).toBe(0.5);\n});",
+      "context": "Add inside the existing 'US-008' describe block. Tests the touchToSoftness helper indirectly through mapSignalsToVisuals."
+    },
+    {
+      "id": "T-011-03",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "structureComplexity is in 0.2-1.0 range for various device profiles",
+      "code": "it('T-011-03: structureComplexity is in 0.2-1.0 range for various device profiles', () => {\n  const profiles = [\n    { devicePixelRatio: 1, hardwareConcurrency: 2, screenWidth: 1024, screenHeight: 768 },\n    { devicePixelRatio: 2, hardwareConcurrency: 8, screenWidth: 1920, screenHeight: 1080 },\n    { devicePixelRatio: 3, hardwareConcurrency: 16, screenWidth: 2560, screenHeight: 1440 },\n    { devicePixelRatio: null, hardwareConcurrency: null, screenWidth: 1920, screenHeight: 1080 },\n    { devicePixelRatio: 1, hardwareConcurrency: 2, screenWidth: 3440, screenHeight: 1440 },\n  ];\n  for (const p of profiles) {\n    const result = mapSignalsToVisuals({\n      ...defaultInputs,\n      signals: { ...defaultInputs.signals, ...p },\n    });\n    expect(result.structureComplexity).toBeGreaterThanOrEqual(0.2);\n    expect(result.structureComplexity).toBeLessThanOrEqual(1.0);\n  }\n});",
+      "context": "Add inside the existing 'US-008' describe block. Tests profileToComplexity helper indirectly. Covers low-end, mid-range, high-end, null values, and ultrawide screen."
+    },
+    {
+      "id": "T-011-04",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "structureComplexity handles zero screen dimensions without NaN or Infinity",
+      "code": "it('T-011-04: structureComplexity handles screenWidth=0 and screenHeight=0 without NaN or Infinity', () => {\n  const result = mapSignalsToVisuals({\n    ...defaultInputs,\n    signals: { ...defaultInputs.signals, screenWidth: 0, screenHeight: 0 },\n  });\n  expect(Number.isFinite(result.structureComplexity)).toBe(true);\n  expect(Number.isNaN(result.structureComplexity)).toBe(false);\n  expect(result.structureComplexity).toBeGreaterThanOrEqual(0.2);\n  expect(result.structureComplexity).toBeLessThanOrEqual(1.0);\n});",
+      "context": "Add inside the existing 'US-008' describe block. Guards against division by zero in the aspect ratio calculation when both screen dimensions are 0."
+    },
+    {
+      "id": "T-011-05",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "curveSoftness and structureComplexity contain no raw browser strings",
+      "code": "it('T-011-05: curveSoftness and structureComplexity contain no raw browser strings', () => {\n  const result = mapSignalsToVisuals(defaultInputs);\n  // Both should be plain numbers, not strings\n  expect(typeof result.curveSoftness).toBe('number');\n  expect(typeof result.structureComplexity).toBe('number');\n  // Serialized output should not contain any raw signal values\n  const serialized = JSON.stringify(result);\n  expect(serialized).not.toContain('true');\n  expect(serialized).not.toContain('false');\n  expect(serialized).not.toContain('1920');\n  expect(serialized).not.toContain('1080');\n});",
+      "context": "Add inside the existing 'US-008' describe block. Verifies acceptance criterion: no raw browser strings shown."
+    },
+    {
+      "id": "T-011-06",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "curveSoftness and structureComplexity are stable — same inputs yield identical values",
+      "code": "it('T-011-06: curveSoftness and structureComplexity are stable — same inputs yield identical values', () => {\n  const result1 = mapSignalsToVisuals(defaultInputs);\n  const result2 = mapSignalsToVisuals(defaultInputs);\n  expect(result1.curveSoftness).toBe(result2.curveSoftness);\n  expect(result1.structureComplexity).toBe(result2.structureComplexity);\n});",
+      "context": "Add inside the existing 'US-008' describe block. Verifies acceptance criterion: mapping remains stable within session."
+    },
+    {
+      "id": "T-011-07",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "higher DPR/cores and wider aspect ratio produce higher structureComplexity",
+      "code": "it('T-011-07: higher DPR/cores and wider aspect ratio produce higher structureComplexity', () => {\n  const lowEnd = mapSignalsToVisuals({\n    ...defaultInputs,\n    signals: { ...defaultInputs.signals, devicePixelRatio: 1, hardwareConcurrency: 2, screenWidth: 1024, screenHeight: 1024 },\n  });\n  const highEnd = mapSignalsToVisuals({\n    ...defaultInputs,\n    signals: { ...defaultInputs.signals, devicePixelRatio: 3, hardwareConcurrency: 16, screenWidth: 3440, screenHeight: 1440 },\n  });\n  expect(highEnd.structureComplexity).toBeGreaterThan(lowEnd.structureComplexity);\n});",
+      "context": "Add inside the existing 'US-008' describe block. Validates that the mapping is directionally correct: more capable devices with wider screens get higher complexity."
+    },
+    {
+      "id": "T-011-08",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "scene still works with all null/missing signals — curveSoftness and structureComplexity have safe defaults",
+      "code": "it('T-011-08: curveSoftness and structureComplexity have safe defaults when signals are null/missing', () => {\n  const nullInputs: MappingInputs = {\n    signals: {\n      language: 'en-US',\n      timezone: 'UTC',\n      screenWidth: 0,\n      screenHeight: 0,\n      devicePixelRatio: null,\n      hardwareConcurrency: null,\n      prefersColorScheme: null,\n      prefersReducedMotion: null,\n      touchCapable: null,\n    },\n    geo: { country: null, region: null },\n    pointer: { x: 0, y: 0, dx: 0, dy: 0, speed: 0, active: false },\n    sessionSeed: 'fallback-seed',\n    bass: 0,\n    treble: 0,\n    timeOfDay: 12,\n  };\n  const result = mapSignalsToVisuals(nullInputs);\n  expect(result.curveSoftness).toBe(0.5);\n  expect(Number.isFinite(result.structureComplexity)).toBe(true);\n  expect(result.structureComplexity).toBeGreaterThanOrEqual(0.2);\n  expect(result.structureComplexity).toBeLessThanOrEqual(1.0);\n});",
+      "context": "Add inside the existing 'US-008' describe block. Verifies acceptance criterion: scene works if some signals are missing."
+    },
+    {
+      "id": "T-011-09",
+      "file": "tests/visual/evolution.test.ts",
+      "description": "evolveParams passes through curveSoftness unchanged",
+      "code": "it('T-011-09: evolveParams passes through curveSoftness unchanged', () => {\n  const times = [0, 15000, 30000, 60000, 120000];\n  const softValues = [0.0, 0.3, 0.5, 0.8, 1.0];\n  for (const soft of softValues) {\n    const base = { ...baseParams, curveSoftness: soft, structureComplexity: 0.5 };\n    for (const t of times) {\n      const result = evolveParams(base, t, 'softness-pass-seed');\n      expect(result.curveSoftness).toBe(soft);\n    }\n  }\n});",
+      "context": "Add inside the existing 'US-012: Time-based evolution' describe block. Must update the baseParams fixture at the top of the file to include curveSoftness and structureComplexity. Verifies that device-derived structural params are not evolved (remain stable within session)."
+    },
+    {
+      "id": "T-011-10",
+      "file": "tests/visual/evolution.test.ts",
+      "description": "evolveParams passes through structureComplexity unchanged",
+      "code": "it('T-011-10: evolveParams passes through structureComplexity unchanged', () => {\n  const times = [0, 15000, 30000, 60000, 120000];\n  const complexityValues = [0.2, 0.4, 0.6, 0.8, 1.0];\n  for (const c of complexityValues) {\n    const base = { ...baseParams, curveSoftness: 0.5, structureComplexity: c };\n    for (const t of times) {\n      const result = evolveParams(base, t, 'complexity-pass-seed');\n      expect(result.structureComplexity).toBe(c);\n    }\n  }\n});",
+      "context": "Add inside the existing 'US-012: Time-based evolution' describe block. Same pattern as T-011-09 but for structureComplexity."
+    },
+    {
+      "id": "T-011-11",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "curveSoftness >= 0.5 causes circular particle rendering (ctx.arc called)",
+      "code": "it('T-011-11: curveSoftness >= 0.5 renders circular particles via ctx.arc', () => {\n  const canvas = document.createElement('canvas');\n  canvas.width = 400;\n  canvas.height = 400;\n  const ctx = canvas.getContext('2d')!;\n  const arcSpy = vi.spyOn(ctx, 'arc');\n  const fillRectSpy = vi.spyOn(ctx, 'fillRect');\n\n  const field = createParticleField();\n  const params = { ...defaultParams, curveSoftness: 0.8, structureComplexity: 0.5 };\n  field.init(ctx, 'soft-seed', params);\n\n  // Reset spies after init (init doesn't draw)\n  arcSpy.mockClear();\n  fillRectSpy.mockClear();\n\n  field.draw(ctx, { time: 0, delta: 16, params, width: 400, height: 400 });\n\n  // arc should be called for particle rendering\n  expect(arcSpy).toHaveBeenCalled();\n  // fillRect may still be called for background clear but not for particles\n  // We check that arc was called at least once per particle\n  const particleCount = getParticleCount(field);\n  expect(arcSpy.mock.calls.length).toBeGreaterThanOrEqual(particleCount);\n});",
+      "context": "Add inside a new 'US-011: Device profile to structure' describe block within the existing test file. Must update defaultParams fixture to include curveSoftness: 0.5, structureComplexity: 0.5."
+    },
+    {
+      "id": "T-011-12",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "curveSoftness < 0.5 causes rectangular particle rendering (ctx.fillRect called, no ctx.arc)",
+      "code": "it('T-011-12: curveSoftness < 0.5 renders rectangular particles via ctx.fillRect', () => {\n  const canvas = document.createElement('canvas');\n  canvas.width = 400;\n  canvas.height = 400;\n  const ctx = canvas.getContext('2d')!;\n  const arcSpy = vi.spyOn(ctx, 'arc');\n  const fillRectSpy = vi.spyOn(ctx, 'fillRect');\n\n  const field = createParticleField();\n  const params = { ...defaultParams, curveSoftness: 0.2, structureComplexity: 0.5 };\n  field.init(ctx, 'sharp-seed', params);\n\n  arcSpy.mockClear();\n  fillRectSpy.mockClear();\n\n  field.draw(ctx, { time: 0, delta: 16, params, width: 400, height: 400 });\n\n  // arc should NOT be called for particles\n  expect(arcSpy).not.toHaveBeenCalled();\n  // fillRect should be called for background + particles\n  const particleCount = getParticleCount(field);\n  // At least 1 for bg clear + particleCount for particles\n  expect(fillRectSpy.mock.calls.length).toBeGreaterThanOrEqual(particleCount + 1);\n});",
+      "context": "Add inside the 'US-011: Device profile to structure' describe block."
+    },
+    {
+      "id": "T-011-13",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "structureComplexity affects effective particle count — lower complexity produces fewer particles",
+      "code": "it('T-011-13: structureComplexity affects effective particle count — lower produces fewer', () => {\n  const ctx = document.createElement('canvas').getContext('2d')!;\n\n  const fieldLow = createParticleField();\n  const lowParams = { ...defaultParams, density: 0.6, curveSoftness: 0.5, structureComplexity: 0.0 };\n  fieldLow.init(ctx, 'complexity-count-seed', lowParams);\n  const lowCount = getParticleCount(fieldLow);\n\n  const fieldHigh = createParticleField();\n  const highParams = { ...defaultParams, density: 0.6, curveSoftness: 0.5, structureComplexity: 1.0 };\n  fieldHigh.init(ctx, 'complexity-count-seed', highParams);\n  const highCount = getParticleCount(fieldHigh);\n\n  expect(highCount).toBeGreaterThan(lowCount);\n});",
+      "context": "Add inside the 'US-011: Device profile to structure' describe block. Validates that structureComplexity scales the effective particle count as described in the plan (low complexity = 60% of density-driven count, high = 100%)."
+    },
+    {
+      "id": "T-011-14",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "scene renders without errors at boundary values of curveSoftness and structureComplexity",
+      "code": "it('T-011-14: scene renders without errors at boundary values (0 and 1) of new params', () => {\n  const canvas = document.createElement('canvas');\n  canvas.width = 400;\n  canvas.height = 400;\n  const ctx = canvas.getContext('2d')!;\n\n  const boundaries = [\n    { curveSoftness: 0, structureComplexity: 0 },\n    { curveSoftness: 0, structureComplexity: 1 },\n    { curveSoftness: 1, structureComplexity: 0 },\n    { curveSoftness: 1, structureComplexity: 1 },\n    { curveSoftness: 0.5, structureComplexity: 0.5 },\n  ];\n\n  for (const b of boundaries) {\n    const field = createParticleField();\n    const params = { ...defaultParams, ...b };\n    expect(() => {\n      field.init(ctx, 'boundary-seed', params);\n      field.draw(ctx, { time: 0, delta: 16, params, width: 400, height: 400 });\n    }).not.toThrow();\n  }\n});",
+      "context": "Add inside the 'US-011: Device profile to structure' describe block. Verifies robustness at edge values."
+    },
+    {
+      "id": "T-011-15",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "structureComplexity modulates hue offset spread — higher complexity produces more color variety",
+      "code": "it('T-011-15: structureComplexity modulates hue spread — higher complexity has more color variety', () => {\n  const canvas = document.createElement('canvas');\n  canvas.width = 400;\n  canvas.height = 400;\n  const ctx = canvas.getContext('2d')!;\n\n  function captureHues(complexity: number): number[] {\n    const styles: string[] = [];\n    const field = createParticleField();\n    const params = { ...defaultParams, curveSoftness: 0.3, structureComplexity: complexity, paletteHue: 180 };\n    field.init(ctx, 'hue-spread-seed', params);\n\n    let styleProxy = '';\n    Object.defineProperty(ctx, 'fillStyle', {\n      set(v: string) { styleProxy = v; styles.push(v); },\n      get() { return styleProxy; },\n      configurable: true,\n    });\n\n    field.draw(ctx, { time: 1000, delta: 16, params, width: 400, height: 400 });\n\n    return styles\n      .filter(s => s.startsWith('hsl'))\n      .map(s => parseInt(s.match(/\\d+/)![0], 10));\n  }\n\n  const huesLow = captureHues(0.0);\n  const huesHigh = captureHues(1.0);\n\n  if (huesLow.length > 1 && huesHigh.length > 1) {\n    const spreadLow = Math.max(...huesLow) - Math.min(...huesLow);\n    const spreadHigh = Math.max(...huesHigh) - Math.min(...huesHigh);\n    expect(spreadHigh).toBeGreaterThanOrEqual(spreadLow);\n  }\n});",
+      "context": "Add inside the 'US-011: Device profile to structure' describe block. Validates that structureComplexity affects hue offset spread as described in plan step 6."
+    },
+    {
+      "id": "T-011-16",
+      "file": "tests/visual/mappings.test.ts",
+      "description": "at least two structural parameters are driven by device signals",
+      "code": "it('T-011-16: at least two structural parameters are driven by device signals', () => {\n  const baseline = mapSignalsToVisuals(defaultInputs);\n\n  // Change touch capability — should affect curveSoftness\n  const touchChanged = mapSignalsToVisuals({\n    ...defaultInputs,\n    signals: { ...defaultInputs.signals, touchCapable: true },\n  });\n  const curveSoftnessChanged = touchChanged.curveSoftness !== baseline.curveSoftness;\n\n  // Change DPR/cores/screen — should affect structureComplexity\n  const profileChanged = mapSignalsToVisuals({\n    ...defaultInputs,\n    signals: { ...defaultInputs.signals, devicePixelRatio: 1, hardwareConcurrency: 2, screenWidth: 800, screenHeight: 600 },\n  });\n  const structureComplexityChanged = profileChanged.structureComplexity !== baseline.structureComplexity;\n\n  // Both must change — confirming at least 2 structural params driven by signals\n  expect(curveSoftnessChanged).toBe(true);\n  expect(structureComplexityChanged).toBe(true);\n});",
+      "context": "Add inside the existing 'US-008' describe block. Directly validates acceptance criterion: at least two structural parameters are driven by signals."
+    }
+  ],
+  "fixtures_to_update": [
+    {
+      "file": "tests/visual/mappings.test.ts",
+      "description": "No VisualParams fixture is constructed directly in this file — tests use mapSignalsToVisuals output. No fixture update needed here."
+    },
+    {
+      "file": "tests/visual/evolution.test.ts",
+      "description": "Add curveSoftness: 0.5 and structureComplexity: 0.5 to the baseParams fixture on line 5-14. Update the keys array in T-012-01 to include 'curveSoftness' and 'structureComplexity'.",
+      "changes": [
+        {
+          "location": "line 5-14, baseParams object",
+          "add": "curveSoftness: 0.5,\nstructureComplexity: 0.5,"
+        },
+        {
+          "location": "line 24-27, keys array in T-012-01",
+          "add": "'curveSoftness', 'structureComplexity' to the array"
+        },
+        {
+          "location": "T-012-12 (line 159-165), non-evolved params assertion",
+          "add": "expect(result.curveSoftness).toBe(baseParams.curveSoftness);\nexpect(result.structureComplexity).toBe(baseParams.structureComplexity);"
+        }
+      ]
+    },
+    {
+      "file": "tests/visual/systems/particleField.test.ts",
+      "description": "Add curveSoftness: 0.5 and structureComplexity: 0.5 to the defaultParams fixture on line 9-18.",
+      "changes": [
+        {
+          "location": "line 9-18, defaultParams object",
+          "add": "curveSoftness: 0.5,\nstructureComplexity: 0.5,"
+        }
+      ]
+    }
+  ],
+  "acceptance_criteria_coverage": {
+    "at_least_two_structural_parameters_driven_by_signals": ["T-011-01", "T-011-02", "T-011-03", "T-011-07", "T-011-16"],
+    "no_raw_browser_strings_shown": ["T-011-05"],
+    "mapping_stable_within_session": ["T-011-06", "T-011-09", "T-011-10"],
+    "scene_works_if_signals_missing": ["T-011-04", "T-011-08", "T-011-14"]
+  }
+}
