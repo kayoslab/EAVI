@@ -492,8 +492,8 @@
         "Visual output stays recognizably similar"
       ],
       "priority": 3,
-      "passes": true,
-      "status": "pass",
+      "passes": false,
+      "status": "available",
       "depends_on": [
         "US-004",
         "US-009",
@@ -513,8 +513,8 @@
         "Mode switch does not break playback"
       ],
       "priority": 3,
-      "passes": true,
-      "status": "pass",
+      "passes": false,
+      "status": "available",
       "depends_on": [
         "US-009",
         "US-012",
