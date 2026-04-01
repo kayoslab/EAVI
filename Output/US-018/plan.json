@@ -1,127 +1,91 @@
 {
   "ticket": "US-018",
   "title": "Map bass response to macro motion",
-  "summary": "Add frame-level smoothing to bass energy, implement a synthetic bass fallback when muted, and add dedicated tests proving all four acceptance criteria are met. The bass-to-visual pipeline already exists (analyser → computeBassAvg → bassToMacro → particleField bassBoost); this ticket hardens it with smoothing, muted-state fallback, and stability guarantees.",
-  "currentState": {
-    "done": [
-      "Bass extraction from frequency bins (renderLoop.ts:53-59 computeBassAvg)",
-      "Bass normalization with power curve (mappings.ts:165-170 bassToMacro)",
-      "bassEnergy field in VisualParams interface",
-      "ParticleField consumes bassEnergy as velocity multiplier (particleField.ts:52 bassBoost = 1 + bassEnergy * 2)",
-      "AnalyserNode smoothingTimeConstant=0.8 provides hardware-level smoothing",
-      "Existing tests for bass mapping (T-008-14, T-008-16) and render loop integration (T-009-24)"
-    ],
-    "gaps": [
-      "No frame-to-frame smoothing — bassEnergy can still jump between frames despite analyser smoothing",
-      "When muted (gain=0), frequency data is all zeros → bassEnergy=0 → no macro motion visible",
-      "No explicit test that bass influences large-scale motion magnitude",
-      "No explicit test for smoothing behavior (jitter prevention)",
-      "No explicit test for muted-state visual continuity",
-      "No explicit test for visual stability / no clipping under extreme bass values"
-    ]
+  "overview": "Add EMA smoothing for bass energy in the render loop, add a synthetic bass fallback when audio data is silent/unavailable, and ensure the existing bass→particle-displacement pipeline works end-to-end. The core bass mapping (bassToMacro in mappings.ts) and particle field bass boost (particleField.ts) already exist from US-008. The analyser pipeline (US-017) and render loop (US-009) are in place. This story closes the gap: bass is currently passed raw (unsmoothed) to mappings, there is no fallback when frequency data is all zeros, and the test suite for bass-driven motion needs to pass.",
+  "existing_code": {
+    "src/visual/renderLoop.ts": "Render loop polls analyser pipeline, computes bass/treble averages from frequency bins. Treble has EMA smoothing (0.85/0.15) but bass is passed raw. No synthetic fallback when frequency data is zero.",
+    "src/visual/mappings.ts": "bassToMacro(0-255) normalizes to 0-1 with pow(n, 0.7) easing. mapSignalsToVisuals() sets bassEnergy from this. Already complete.",
+    "src/visual/systems/particleField.ts": "Particle draw() uses bassBoost = 1 + bassEnergy * 2 as velocity multiplier (1x–3x). Toroidal wrapping + clamping keeps particles in 0-1 bounds. Already complete.",
+    "tests/visual/bassMotion.test.ts": "Six tests already written: displacement (T-018-01), smoothing (T-018-02), muted fallback (T-018-03), bounds (T-018-04), reduced-motion (T-018-05), privacy (T-018-06). These are the target — implementation must make them pass."
   },
   "steps": [
     {
       "id": 1,
-      "title": "Add frame-to-frame bass smoothing in renderLoop",
-      "description": "Introduce an exponential moving average (EMA) for bass values in the render loop. This prevents frame-to-frame jitter that the analyser's built-in smoothing doesn't fully eliminate. Use a lerp factor (~0.15) so bass rises and falls organically rather than jumping.",
-      "files": ["src/visual/renderLoop.ts"],
-      "changes": [
-        "Add a persistent smoothedBass variable (closure-scoped in startLoop)",
-        "After computeBassAvg, apply: smoothedBass += (rawBass - smoothedBass) * 0.15",
-        "Pass smoothedBass instead of raw bass to mapSignalsToVisuals",
-        "Apply same smoothing to treble for consistency"
-      ],
-      "acceptanceCriteria": ["Response is smoothed to avoid jitter"]
+      "phase": "test",
+      "title": "Verify existing test suite and identify failures",
+      "description": "Run the existing tests/visual/bassMotion.test.ts to confirm which tests fail. Based on code analysis, T-018-02 (smoothing) and T-018-03 (muted fallback) should fail because the render loop lacks bass smoothing and synthetic bass fallback. T-018-01, T-018-04, T-018-05, T-018-06 should already pass since the particle field already applies bassEnergy.",
+      "commands": ["npx vitest run tests/visual/bassMotion.test.ts"],
+      "acceptance_criteria_covered": []
     },
     {
       "id": 2,
-      "title": "Add synthetic bass fallback when muted",
-      "description": "When audio is muted, the analyser returns all zeros. To satisfy 'effect remains visible when muted', generate a slow synthetic bass oscillation (sine wave over time) so macro motion continues at a gentle baseline. This preserves the audiovisual feel even without real audio data.",
-      "files": ["src/visual/renderLoop.ts"],
-      "changes": [
-        "Detect muted state: if pipeline exists but all frequency bins are 0, treat as muted",
-        "When muted, compute synthetic bass: ~40 + 30 * Math.sin(time * 0.001) (gentle oscillation in 10-70 range out of 255)",
-        "Blend synthetic bass with real bass: use real when non-zero, synthetic when silent",
-        "This ensures macro motion is always present but subtle when muted, stronger when bass is live"
-      ],
-      "acceptanceCriteria": ["Effect remains visible when audio is unmuted or muted"]
+      "phase": "implement",
+      "title": "Add EMA smoothing for bass in the render loop",
+      "file": "src/visual/renderLoop.ts",
+      "description": "Add a smoothBass state variable (initialized to 0) alongside the existing smoothTreble. After computing raw bass from computeBassAvg(), apply EMA smoothing: smoothBass = smoothBass * 0.88 + rawBass * 0.12. Use the smoothed value when passing bass to mapSignalsToVisuals(). The 0.88/0.12 factor is slightly heavier than treble smoothing (0.85/0.15) because bass drives macro motion which should feel weightier and more inertial.",
+      "details": {
+        "changes": [
+          "Add `let smoothBass = 0;` next to existing `let smoothTreble = 0;`",
+          "After `bass = computeBassAvg(pipeline.frequency);`, add `smoothBass = smoothBass * 0.88 + bass * 0.12;`",
+          "Replace `bass` with `smoothBass` in the mapSignalsToVisuals() call"
+        ],
+        "key_decisions": [
+          "0.88/0.12 EMA factor chosen: heavier than treble (0.85/0.15) for weightier feel, but not so heavy that response feels laggy",
+          "Smoothing is applied before the mapping function so the power curve in bassToMacro() operates on already-smooth input"
+        ]
+      },
+      "acceptance_criteria_covered": ["Bass band influences at least one large-scale motion property", "Response is smoothed to avoid jitter"]
     },
     {
       "id": 3,
-      "title": "Verify and harden particleField bass-driven motion",
-      "description": "The existing bassBoost multiplier (1 + bassEnergy * 2) already drives macro motion. Verify it respects motionAmplitude for reduced-motion. Ensure the multiplication chain (speed * bassBoost) cannot produce positions that escape toroidal wrapping bounds, preventing visual clipping.",
-      "files": ["src/visual/systems/particleField.ts"],
-      "changes": [
-        "Audit that bassBoost is multiplied with the speed term which already includes motionAmplitude — confirmed at line 51-58",
-        "Verify toroidal wrapping (lines 66-73) handles any bassBoost magnitude — wrapping + clamping already in place",
-        "No code changes expected unless audit reveals a gap"
-      ],
-      "acceptanceCriteria": ["Bass band influences at least one large-scale motion property", "No clipping or visual instability occurs"]
+      "phase": "implement",
+      "title": "Add synthetic bass fallback for silent/muted audio",
+      "file": "src/visual/renderLoop.ts",
+      "description": "When the analyser pipeline reports all-zero or near-zero frequency data (or when no pipeline is available), inject a subtle synthetic bass pulse so the scene still has gentle macro motion. Use a slow sine oscillation based on elapsed time: syntheticBass = 30 + 25 * sin(elapsed * 0.001). This produces a gentle 0-55 range value (out of 255) that creates perceptible but subtle motion. Apply this only when raw bass is below a threshold (e.g., < 5), blending to avoid discontinuity when real audio kicks in.",
+      "details": {
+        "changes": [
+          "After computing raw bass, check if it is below threshold",
+          "If below threshold: compute syntheticBass from elapsed time, use it as raw bass input",
+          "In the else branch (no signals/seed): also compute and apply synthetic bass instead of hardcoding 0"
+        ],
+        "key_decisions": [
+          "Threshold of 5 (out of 255) distinguishes real audio from silence/noise floor",
+          "Synthetic amplitude is subtle (max ~55/255 → bassToMacro ≈ 0.33) so it doesn't overpower real audio",
+          "Sine period of ~6.3 seconds (0.001 Hz) creates slow, breathable macro motion"
+        ]
+      },
+      "acceptance_criteria_covered": ["Effect remains visible when audio is unmuted or muted"]
     },
     {
       "id": 4,
-      "title": "Write tests for US-018 acceptance criteria",
-      "description": "Add a dedicated test file covering all four acceptance criteria with specific test IDs.",
-      "files": ["tests/visual/bassMotion.test.ts"],
-      "tests": [
-        {
-          "id": "T-018-01",
-          "title": "Bass energy > 0 produces greater particle displacement than bass energy = 0",
-          "criteria": "Bass band influences at least one large-scale motion property"
-        },
-        {
-          "id": "T-018-02",
-          "title": "Smoothed bass changes less frame-to-frame than raw bass with jittery input",
-          "criteria": "Response is smoothed to avoid jitter"
-        },
-        {
-          "id": "T-018-03",
-          "title": "When pipeline reports all-zero frequency data (muted), bassEnergy is still > 0",
-          "criteria": "Effect remains visible when audio is unmuted or muted"
-        },
-        {
-          "id": "T-018-04",
-          "title": "With maximum bass (255), all particle positions remain within 0-1 bounds after many frames",
-          "criteria": "No clipping or visual instability occurs"
-        },
-        {
-          "id": "T-018-05",
-          "title": "Bass-driven motion respects prefers-reduced-motion (motionAmplitude=0.2 reduces displacement)",
-          "criteria": "Bass band influences at least one large-scale motion property + reduced-motion compliance"
-        },
-        {
-          "id": "T-018-06",
-          "title": "No forbidden storage APIs accessed during bass-driven rendering",
-          "criteria": "Privacy compliance"
-        }
-      ]
+      "phase": "verify",
+      "title": "Run bass motion tests",
+      "description": "Run the full bassMotion test suite to verify all six tests pass with the smoothing and fallback changes.",
+      "commands": ["npx vitest run tests/visual/bassMotion.test.ts"],
+      "acceptance_criteria_covered": ["Bass band influences at least one large-scale motion property", "Response is smoothed to avoid jitter", "Effect remains visible when audio is unmuted or muted", "No clipping or visual instability occurs"]
     },
     {
       "id": 5,
-      "title": "Build and verify",
-      "description": "Run full test suite and production build to confirm Definition of Done.",
-      "commands": ["npm run build", "npx vitest run"],
-      "acceptanceCriteria": ["Build passes", "No console errors", "No forbidden storage APIs", "All new tests pass"]
+      "phase": "verify",
+      "title": "Run full test suite and build",
+      "description": "Run all tests and production build to ensure no regressions. Verify existing render loop tests (treble smoothing, pointer smoothing) still pass, and that the build compiles cleanly.",
+      "commands": ["npx vitest run", "npm run build"],
+      "acceptance_criteria_covered": ["Bass band influences at least one large-scale motion property", "Response is smoothed to avoid jitter", "Effect remains visible when audio is unmuted or muted", "No clipping or visual instability occurs"]
     }
   ],
-  "filesToModify": [
-    "src/visual/renderLoop.ts",
-    "src/visual/systems/particleField.ts"
+  "acceptance_criteria_map": {
+    "Bass band influences at least one large-scale motion property": "Already implemented: bassEnergy drives particle velocity via bassBoost = 1 + bassEnergy * 2 in particleField.ts. Verified by T-018-01 (displacement comparison).",
+    "Response is smoothed to avoid jitter": "Step 2 adds EMA smoothing (0.88/0.12) to bass in the render loop. Verified by T-018-02 (jittery input produces smooth output).",
+    "Effect remains visible when audio is unmuted or muted": "Step 3 adds synthetic bass fallback when frequency data is silent. Verified by T-018-03 (all-zero pipeline still produces bassEnergy > 0).",
+    "No clipping or visual instability occurs": "Particle field uses toroidal wrapping + clamping to 0-1 bounds. Bass mapping clamps to 0-1 via Math.min. Verified by T-018-04 (max bass, 200 frames, all positions in bounds)."
+  },
+  "files_to_modify": [
+    "src/visual/renderLoop.ts"
   ],
-  "filesToCreate": [
-    "tests/visual/bassMotion.test.ts"
-  ],
+  "files_to_create": [],
   "risks": [
-    {
-      "risk": "Synthetic bass when muted may feel artificial",
-      "mitigation": "Keep amplitude low (10-70 out of 255) and use slow sine period (~6s) so it reads as gentle drift rather than pulsing"
-    },
-    {
-      "risk": "EMA smoothing may make bass response feel laggy",
-      "mitigation": "Lerp factor of 0.15 balances responsiveness with smoothness; can tune if needed"
-    }
-  ],
-  "dependsOn": ["US-009", "US-017"],
-  "estimatedComplexity": "low-medium"
+    "Synthetic bass fallback threshold (< 5) may need tuning — some audio tracks with very quiet bass passages could trigger the fallback unintentionally. The blend approach mitigates this.",
+    "EMA smoothing factor (0.88) adds ~130ms effective lag to bass response. If this feels sluggish for percussive tracks, the factor can be reduced toward 0.85 to match treble.",
+    "T-018-03 test expects bassEnergy > 0 with all-zero frequency data over only 5 frames — the synthetic bass sine wave must produce > 0 values quickly, which it does since the sine starts at sin(0) = 0 but the DC offset (30) ensures the value is always > 0."
+  ]
 }

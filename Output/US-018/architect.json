@@ -1,35 +1,56 @@
 {
-  "risk": "low",
-  "rationale": "The plan makes minimal, well-scoped changes to two existing files and adds one test file. The bass-to-visual pipeline already exists end-to-end (computeBassAvg → bassToMacro → particleField bassBoost). Step 1 adds closure-scoped EMA smoothing in renderLoop.ts — a local change with no interface or type modifications. Step 2 adds a muted-state synthetic fallback in the same file, also closure-scoped. Step 3 is an audit of particleField.ts (likely no changes). No new modules, no new interfaces, no dependency additions, and no changes to the public API surface (VisualParams, MappingInputs, LoopDeps, GeometrySystem).",
-  "structuralChanges": {
-    "newFiles": 1,
-    "modifiedFiles": 2,
-    "deletedFiles": 0,
-    "newDependencies": 0,
-    "interfaceChanges": 0,
-    "publicAPIChanges": 0
-  },
-  "concerns": [
+  "risk_level": "low",
+  "summary": "Minimal architectural impact. The plan modifies a single file (renderLoop.ts) using patterns already established in the codebase. Bass smoothing mirrors the existing treble EMA smoothing (line 101) and pointer disturbance smoothing (line 130). The synthetic fallback is a localized concern within the render loop. No new modules, interfaces, dependencies, or cross-cutting concerns are introduced.",
+  "architectural_concerns": [],
+  "structural_observations": [
     {
-      "severity": "low",
-      "description": "Toroidal wrapping in particleField.ts (lines 66-73) uses single-step wrap (if x>1, x-=1) which can fail if bassBoost * speed * delta produces displacement > 1.0 in a single frame. With bassEnergy=1.0, bassBoost=3, and a long frame spike, this is possible. A while-loop or modulo wrap would be safer.",
-      "suggestion": "Use modulo wrapping (p.x = ((p.x % 1) + 1) % 1) instead of single if-checks, or add this as a finding in Step 3 audit."
+      "observation": "EMA smoothing pattern is already established",
+      "detail": "renderLoop.ts already applies EMA smoothing to treble (0.85/0.15 at line 101) and pointer disturbance (0.92/0.08 at line 130). Adding bass smoothing (0.88/0.12) follows the identical pattern with an appropriately heavier factor for macro motion. No new abstraction is needed."
     },
     {
-      "severity": "info",
-      "description": "The plan applies EMA smoothing in renderLoop.ts after computeBassAvg but before mapSignalsToVisuals. This means the smoothed value (0-255 range) goes through bassToMacro's power curve normalization. This is correct — smoothing raw values before the nonlinear transform preserves the mapping's intended response shape.",
-      "suggestion": "No action needed, just confirming the ordering is sound."
+      "observation": "Synthetic fallback is correctly scoped to the render loop",
+      "detail": "The fallback injects a synthetic bass value before passing it to mapSignalsToVisuals(), keeping mappings.ts and particleField.ts unaware of the fallback logic. This preserves the separation of concerns: the render loop handles data availability, the mapping function handles normalization, the geometry system handles rendering."
     },
     {
-      "severity": "info",
-      "description": "The synthetic bass fallback (Step 2) detects muted state by checking if all frequency bins are zero. This heuristic could also trigger during genuine silence in the audio track. The plan's mitigation (low amplitude sine) makes this acceptable — the visual effect during true silence and during muted state would be the same gentle drift.",
-      "suggestion": "Acceptable as-is. Could optionally check gainNode value directly, but the current approach is simpler and the visual outcome is identical."
+      "observation": "No interface changes required",
+      "detail": "VisualParams, MappingInputs, LoopDeps, AnalyserPipeline, and GeometrySystem interfaces are all unchanged. The smoothing and fallback are internal to startLoop() closure state."
+    },
+    {
+      "observation": "evolveParams pass-through is preserved",
+      "detail": "evolution.ts passes bassEnergy through unchanged (line 117). The smoothed bass value set by mapSignalsToVisuals() survives evolution, which is correct since bass is a real-time signal, not a time-evolved parameter."
     }
   ],
-  "testCoverage": "adequate — 6 tests cover all 4 acceptance criteria plus reduced-motion compliance and privacy. Existing tests (T-008-14, T-008-16, T-009-24) provide regression coverage for the unchanged mapping and pipeline code.",
-  "architecturalImpact": "none — all changes are implementation-level within existing module boundaries. No new interfaces, no new cross-module dependencies, no changes to the render loop's public contract (startLoop signature, LoopDeps interface, VisualParams shape). The smoothing and fallback logic are encapsulated as closure-scoped state inside startLoop.",
+  "risks": [
+    {
+      "risk": "Synthetic fallback threshold tuning",
+      "severity": "low",
+      "detail": "The threshold of 5 (out of 255) for triggering synthetic bass is reasonable but untested against real audio tracks with very quiet bass passages. The plan's blend approach mitigates discontinuity, and the threshold can be adjusted later without architectural changes.",
+      "mitigation": "The value is a local constant in renderLoop.ts, trivially adjustable. No abstraction warranted."
+    },
+    {
+      "risk": "Smoothing state couples to animation frame rate",
+      "severity": "low",
+      "detail": "EMA smoothing with a fixed factor (0.88) is frame-rate dependent. At 60fps the effective time constant is ~130ms; at 30fps it doubles. This matches the existing treble and pointer smoothing which have the same characteristic. Consistent behavior across the codebase is more important than frame-rate independence at this stage.",
+      "mitigation": "If frame-rate independence becomes necessary later, all three EMA smoothers can be converted to time-based smoothing in a single refactor pass."
+    }
+  ],
+  "test_coverage_assessment": "All six tests are well-structured and cover the acceptance criteria. T-018-02 validates smoothing via the render loop's geometry system spy. T-018-03 validates fallback via the same mechanism. T-018-01, T-018-04, T-018-05, T-018-06 test the particle field directly and should already pass. The test architecture correctly separates unit-level particle tests from integration-level render loop tests.",
+  "files_impact": {
+    "modified": [
+      "src/visual/renderLoop.ts"
+    ],
+    "created": [],
+    "unchanged_but_relevant": [
+      "src/visual/mappings.ts",
+      "src/visual/systems/particleField.ts",
+      "src/visual/evolution.ts",
+      "tests/visual/bassMotion.test.ts"
+    ]
+  },
+  "recommendation": "Proceed with implementation. The plan is well-scoped, follows existing patterns, and the test suite is already written. The only implementation work is adding ~8 lines to renderLoop.ts.",
   "approved": true,
-  "decision": "approve",
+  "concerns": [],
+  "decision": "APPROVE",
   "adr_entry": null,
   "failures": []
 }
