@@ -34,3 +34,5 @@
 
 ## US-010: Map coarse location to palette
 
+## US-011: Map device profile to structure
+

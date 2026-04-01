@@ -1,0 +1,35 @@
+{
+  "risk": "low",
+  "rationale": "The plan makes minimal, well-scoped changes to two existing files and adds one test file. The bass-to-visual pipeline already exists end-to-end (computeBassAvg → bassToMacro → particleField bassBoost). Step 1 adds closure-scoped EMA smoothing in renderLoop.ts — a local change with no interface or type modifications. Step 2 adds a muted-state synthetic fallback in the same file, also closure-scoped. Step 3 is an audit of particleField.ts (likely no changes). No new modules, no new interfaces, no dependency additions, and no changes to the public API surface (VisualParams, MappingInputs, LoopDeps, GeometrySystem).",
+  "structuralChanges": {
+    "newFiles": 1,
+    "modifiedFiles": 2,
+    "deletedFiles": 0,
+    "newDependencies": 0,
+    "interfaceChanges": 0,
+    "publicAPIChanges": 0
+  },
+  "concerns": [
+    {
+      "severity": "low",
+      "description": "Toroidal wrapping in particleField.ts (lines 66-73) uses single-step wrap (if x>1, x-=1) which can fail if bassBoost * speed * delta produces displacement > 1.0 in a single frame. With bassEnergy=1.0, bassBoost=3, and a long frame spike, this is possible. A while-loop or modulo wrap would be safer.",
+      "suggestion": "Use modulo wrapping (p.x = ((p.x % 1) + 1) % 1) instead of single if-checks, or add this as a finding in Step 3 audit."
+    },
+    {
+      "severity": "info",
+      "description": "The plan applies EMA smoothing in renderLoop.ts after computeBassAvg but before mapSignalsToVisuals. This means the smoothed value (0-255 range) goes through bassToMacro's power curve normalization. This is correct — smoothing raw values before the nonlinear transform preserves the mapping's intended response shape.",
+      "suggestion": "No action needed, just confirming the ordering is sound."
+    },
+    {
+      "severity": "info",
+      "description": "The synthetic bass fallback (Step 2) detects muted state by checking if all frequency bins are zero. This heuristic could also trigger during genuine silence in the audio track. The plan's mitigation (low amplitude sine) makes this acceptable — the visual effect during true silence and during muted state would be the same gentle drift.",
+      "suggestion": "Acceptable as-is. Could optionally check gainNode value directly, but the current approach is simpler and the visual outcome is identical."
+    }
+  ],
+  "testCoverage": "adequate — 6 tests cover all 4 acceptance criteria plus reduced-motion compliance and privacy. Existing tests (T-008-14, T-008-16, T-009-24) provide regression coverage for the unchanged mapping and pipeline code.",
+  "architecturalImpact": "none — all changes are implementation-level within existing module boundaries. No new interfaces, no new cross-module dependencies, no changes to the render loop's public contract (startLoop signature, LoopDeps interface, VisualParams shape). The smoothing and fallback logic are encapsulated as closure-scoped state inside startLoop.",
+  "approved": true,
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
