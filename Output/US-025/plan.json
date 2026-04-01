@@ -1,0 +1,173 @@
+{
+  "id": "US-025",
+  "title": "Add mobile quality scaling",
+  "overview": "Introduce a quality-tier system that detects device capability at startup and scales scene complexity (particle count, canvas resolution, per-frame work) so lower-end mobile devices get a lighter scene without crashing, while the visual identity stays recognizably similar.",
+  "depends_on": [
+    "US-004",
+    "US-006",
+    "US-009",
+    "US-013"
+  ],
+  "files_to_create": [
+    "src/visual/quality.ts",
+    "tests/visual/quality.test.ts"
+  ],
+  "files_to_modify": [
+    "src/input/signals.ts",
+    "src/visual/scene.ts",
+    "src/visual/resize.ts",
+    "src/visual/systems/particleField.ts",
+    "src/visual/renderLoop.ts",
+    "src/main.ts",
+    "tests/signals.test.ts",
+    "tests/visual/systems/particleField.test.ts",
+    "tests/visual/renderLoop.test.ts"
+  ],
+  "steps": [
+    {
+      "id": 1,
+      "title": "Extend BrowserSignals with deviceMemory",
+      "file": "src/input/signals.ts",
+      "action": "modify",
+      "description": "Add `deviceMemory: number | null` to the `BrowserSignals` interface and read `navigator.deviceMemory` (available on Chrome/Edge/Android browsers). This gives a direct memory-capacity signal for quality scaling. Falls back to null on unsupported browsers.",
+      "details": [
+        "Add `deviceMemory: number | null` field to BrowserSignals interface",
+        "In readSignals(), read `(navigator as any).deviceMemory ?? null`",
+        "Update tests/signals.test.ts to verify deviceMemory is collected"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Create quality tier module",
+      "file": "src/visual/quality.ts",
+      "action": "create",
+      "description": "New module that computes a quality tier ('low' | 'medium' | 'high') from BrowserSignals and exposes a QualityProfile with concrete caps for particle count, canvas resolution scale, and whether to skip expensive per-particle effects (sparkle/jitter).",
+      "details": [
+        "Export `type QualityTier = 'low' | 'medium' | 'high'`",
+        "Export `interface QualityProfile { tier: QualityTier; maxParticles: number; resolutionScale: number; enableSparkle: boolean; }`",
+        "Export `function computeQuality(signals: BrowserSignals): QualityProfile`",
+        "Tier logic: score = weighted combination of DPR (0.2), hardwareConcurrency (0.3), deviceMemory (0.2), screen pixel count (0.15), touchCapable penalty (0.15). Low if score < 0.35, high if score > 0.65, medium otherwise.",
+        "Low tier: maxParticles=150, resolutionScale=0.5, enableSparkle=false",
+        "Medium tier: maxParticles=350, resolutionScale=0.75, enableSparkle=true",
+        "High tier: maxParticles=600, resolutionScale=1.0, enableSparkle=true",
+        "Touch-capable devices with low core count (<=4) get a score penalty to catch low-end phones"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Create quality tier tests",
+      "file": "tests/visual/quality.test.ts",
+      "action": "create",
+      "description": "Test suite for computeQuality covering device archetypes.",
+      "details": [
+        "Test: high-end desktop (DPR=2, 16 cores, 8GB memory) → 'high' tier",
+        "Test: mid-range phone (DPR=2, 4 cores, 4GB memory, touch=true) → 'medium' tier",
+        "Test: low-end phone (DPR=1, 2 cores, 1GB memory, touch=true, small screen) → 'low' tier",
+        "Test: null/unknown values fall back to conservative defaults → 'medium' tier",
+        "Test: resolutionScale and maxParticles match the expected profile for each tier",
+        "Test: enableSparkle is false only for low tier"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Apply resolution scaling to canvas",
+      "file": "src/visual/scene.ts",
+      "action": "modify",
+      "description": "Accept a resolutionScale parameter and apply it to the canvas backing dimensions. CSS size stays at 100vw/100vh but the canvas buffer is scaled down, reducing fill rate on mobile.",
+      "details": [
+        "Change initScene signature to accept optional `resolutionScale: number` (default 1.0)",
+        "Set canvas.width = Math.floor(window.innerWidth * resolutionScale), same for height",
+        "Keep canvas CSS at 100% width/height via style.css (already full-screen)",
+        "Export the active resolutionScale so resize handler can use it"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Update resize handler for resolution scaling",
+      "file": "src/visual/resize.ts",
+      "action": "modify",
+      "description": "Pass resolutionScale into the resize handler so resized canvas also uses the scaled resolution.",
+      "details": [
+        "Add resolutionScale parameter (default 1.0) to attachResizeHandler",
+        "Apply scale to canvas.width/height in the resize callback"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Make particle field respect quality profile",
+      "file": "src/visual/systems/particleField.ts",
+      "action": "modify",
+      "description": "Replace the hardcoded MAX_PARTICLES=600 with a configurable cap from the quality profile, and skip sparkle/jitter when the profile disables it.",
+      "details": [
+        "Change createParticleField to accept optional `{ maxParticles?: number; enableSparkle?: boolean }` config",
+        "Use config.maxParticles instead of hardcoded 600 (default 600 for backwards compat)",
+        "When enableSparkle is false, skip the per-particle sparklePhase and jitter calculations in draw(), using constant size and zero jitter instead",
+        "This reduces per-frame Math.sin/cos calls from 2*N to 0 on low-end devices",
+        "Update existing tests to pass with new optional parameter"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Wire quality profile into main.ts",
+      "file": "src/main.ts",
+      "action": "modify",
+      "description": "Compute quality profile at startup from signals, pass it to scene init, resize handler, and particle field creation.",
+      "details": [
+        "Import computeQuality from visual/quality",
+        "Call computeQuality(readSignals()) early, before scene init",
+        "Pass quality.resolutionScale to initScene and attachResizeHandler",
+        "Pass { maxParticles: quality.maxParticles, enableSparkle: quality.enableSparkle } to createParticleField",
+        "Log quality tier to console.debug for diagnostics"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Update existing tests for modified signatures",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "modify",
+      "description": "Update particle field tests to cover the new optional config parameter.",
+      "details": [
+        "Add test: createParticleField({ maxParticles: 150 }) caps particle count at 150 even with density=1.0",
+        "Add test: enableSparkle=false still renders particles (just without jitter)",
+        "Existing tests should continue to pass since config is optional"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Validate build and run full test suite",
+      "action": "verify",
+      "description": "Run npm run build and npx vitest run to confirm no regressions.",
+      "details": [
+        "npm run build must pass with no errors",
+        "All existing tests must pass",
+        "All new quality.test.ts tests must pass",
+        "No console errors on dev server load"
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Manual verification of acceptance criteria",
+      "action": "verify",
+      "description": "Verify each acceptance criterion is met.",
+      "details": [
+        "AC: Lower-capability devices use reduced scene complexity → computeQuality returns 'low' tier with maxParticles=150, resolutionScale=0.5, sparkle disabled",
+        "AC: Touch input remains supported → pointer.ts unchanged, touch events still tracked",
+        "AC: Mobile browsers do not crash on load → reduced particle count + lower canvas resolution = lower memory and GPU pressure",
+        "AC: Visual output stays recognizably similar → same particle field geometry, same palette/cadence/evolution, just fewer particles and lower resolution"
+      ]
+    }
+  ],
+  "acceptance_criteria_mapping": {
+    "Lower-capability devices use reduced scene complexity": "Steps 2-3: Quality tier system assigns low/medium/high tiers. Low tier: 150 particles (vs 600), 0.5x resolution, no sparkle effects.",
+    "Touch input remains supported": "No changes to src/input/pointer.ts. Touch events continue to feed pointer entropy. Quality scaling only affects render output, not input handling.",
+    "Mobile browsers do not crash on load": "Steps 4-6: Canvas resolution halved on low-end (75% fewer pixels to fill), particle count reduced to 25% of max, expensive per-particle trig skipped. Combined these reduce memory and CPU pressure significantly.",
+    "Visual output stays recognizably similar": "Same particle field system, same palette derivation, same evolution curves, same audio reactivity. Only quantity and resolution change — the visual character (colors, motion, shapes) is preserved."
+  },
+  "risks": [
+    "navigator.deviceMemory is not available in Safari/Firefox — the scoring function must handle null gracefully and not over-penalize when missing",
+    "Very small screens (e.g. iPhone SE) could still be high-DPR — the scoring must weight screen pixel count and touch capability appropriately so small-screen high-DPR devices still get reduced complexity"
+  ],
+  "estimated_complexity": "moderate",
+  "test_strategy": "Unit tests for quality tier computation with device archetypes (low/mid/high). Integration tests for particle field respecting maxParticles cap. Existing test suite validates no regressions in mapping, evolution, audio, and UI.",
+  "reviewer_corrections": "{\"step\":null,\"field\":\"files_to_modify\",\"issue\":\"src/visual/renderLoop.ts is listed but no step describes any change to it. The render loop delegates drawing to the geometry system, so quality scaling flows through particleField.ts — renderLoop.ts needs no modification.\",\"fix\":\"Remove src/visual/renderLoop.ts from files_to_modify\"}; {\"step\":null,\"field\":\"files_to_modify\",\"issue\":\"tests/visual/renderLoop.test.ts is listed but no step describes changes to it, consistent with renderLoop.ts not needing modification.\",\"fix\":\"Remove tests/visual/renderLoop.test.ts from files_to_modify\"}; {\"step\":6,\"field\":\"details\",\"issue\":\"Particle count is not simply MAX_PARTICLES — it is `Math.floor(params.density * MAX_PARTICLES) * (0.6 + structureComplexity * 0.4)`. The config.maxParticles should replace the MAX_PARTICLES constant in this formula, not bypass the density/complexity scaling. The step description is slightly ambiguous on this point.\",\"fix\":\"Clarify that config.maxParticles replaces the MAX_PARTICLES constant (line 5) while the density and structureComplexity scaling formula remains intact. Effective count = Math.floor(params.density * config.maxParticles) * (0.6 + structureComplexity * 0.4).\"}; {\"step\":7,\"field\":\"details\",\"issue\":\"main.ts creates the ParticleField before async deps resolve, passing it as geometrySystem to the loop. The plan must ensure the quality profile is computed synchronously (from readSignals()) before ParticleField creation, which is the intent but should be explicit about ordering relative to startLoop().\",\"fix\":\"Add detail: computeQuality must run before createParticleField and before startLoop, since all three are synchronous and ordering matters. The existing pattern (sync init → start loop → async deps) is preserved.\"}"
+}
