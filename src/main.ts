@@ -10,6 +10,8 @@ import { attachResizeHandler } from './visual/resize';
 import { startLoop, type LoopDeps } from './visual/renderLoop';
 import { initPointer } from './input/pointer';
 import { createParticleField } from './visual/systems/particleField';
+import { createWaveField } from './visual/systems/waveField';
+import { createModeManager } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 
 // Compute quality profile synchronously before scene init
@@ -22,11 +24,25 @@ const { canvas, ctx } = initScene(app, quality.resolutionScale);
 attachResizeHandler(canvas, ctx, quality.resolutionScale);
 
 // Shared deps object — mutated as async work resolves
+const maxWaves = quality.tier === 'low' ? 8 : quality.tier === 'medium' ? 14 : 20;
+
 const deps: LoopDeps = {
-  geometrySystem: createParticleField({
-    maxParticles: quality.maxParticles,
-    enableSparkle: quality.enableSparkle,
-  }),
+  geometrySystem: createModeManager([
+    {
+      name: 'particles',
+      factory: () => createParticleField({
+        maxParticles: quality.maxParticles,
+        enableSparkle: quality.enableSparkle,
+      }),
+    },
+    {
+      name: 'waves',
+      factory: () => createWaveField({
+        maxWaves,
+        enableShimmer: quality.enableSparkle,
+      }),
+    },
+  ]),
 };
 
 // Pointer tracking
