@@ -354,7 +354,7 @@
       ],
       "priority": 1,
       "passes": true,
-      "status": "fail",
+      "status": "pass",
       "depends_on": [
         "US-009",
         "US-017"
