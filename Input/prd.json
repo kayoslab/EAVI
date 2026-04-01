@@ -513,8 +513,8 @@
         "Mode switch does not break playback"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-009",
         "US-012",
