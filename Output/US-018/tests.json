@@ -1,1 +1,132 @@
-{"tests_added": ["T-018-01", "T-018-02", "T-018-03", "T-018-04", "T-018-05", "T-018-06"], "tests_modified": [], "test_results": "pass", "failures": [], "failure_source": null}
+{
+  "tests": [
+    {
+      "id": "T-018-01",
+      "description": "Bass energy > 0 produces greater particle displacement than bass energy = 0",
+      "acceptanceCriteria": "Bass band influences at least one large-scale motion property",
+      "type": "unit",
+      "status": "needs_fix",
+      "fix": "Add curveSoftness: 0.3 and structureComplexity: 0.5 to defaultParams (line 36-45). Add elapsed field to all FrameState objects in draw() calls: elapsed: t * 100 (lines 99-112).",
+      "file": "tests/visual/bassMotion.test.ts",
+      "code": "it('T-018-01: bass energy > 0 produces greater particle displacement than bass energy = 0', () => {\n    const { ctx } = createTestCanvas();\n    const seed = 'bass-displacement-seed';\n\n    const fieldNoBass = createParticleField();\n    const fieldWithBass = createParticleField();\n    const initParams = { ...defaultParams, density: 0.5 };\n    fieldNoBass.init(ctx, seed, initParams);\n    fieldWithBass.init(ctx, seed, initParams);\n\n    let cumulativeNoBass = 0;\n    let cumulativeWithBass = 0;\n\n    const noBassParams = { ...defaultParams, bassEnergy: 0 };\n    const bassParams = { ...defaultParams, bassEnergy: 0.8 };\n\n    let prevNoBass = getParticlePositions(fieldNoBass);\n    let prevWithBass = getParticlePositions(fieldWithBass);\n\n    for (let t = 0; t < 5; t++) {\n      fieldNoBass.draw(ctx, {\n        time: t * 100,\n        delta: 16,\n        elapsed: t * 100,\n        params: noBassParams,\n        width: 800,\n        height: 600,\n      });\n      fieldWithBass.draw(ctx, {\n        time: t * 100,\n        delta: 16,\n        elapsed: t * 100,\n        params: bassParams,\n        width: 800,\n        height: 600,\n      });\n\n      const curNoBass = getParticlePositions(fieldNoBass);\n      const curWithBass = getParticlePositions(fieldWithBass);\n      cumulativeNoBass += computeTotalDisplacement(prevNoBass, curNoBass);\n      cumulativeWithBass += computeTotalDisplacement(prevWithBass, curWithBass);\n      prevNoBass = curNoBass;\n      prevWithBass = curWithBass;\n    }\n\n    expect(cumulativeWithBass).toBeGreaterThan(cumulativeNoBass);\n  });"
+    },
+    {
+      "id": "T-018-02",
+      "description": "Smoothed bass changes less frame-to-frame than raw bass with jittery input",
+      "acceptanceCriteria": "Response is smoothed to avoid jitter",
+      "type": "integration",
+      "status": "pass",
+      "fix": null,
+      "file": "tests/visual/bassMotion.test.ts",
+      "code": "it('T-018-02: smoothed bass changes less frame-to-frame than raw bass with jittery input', () => {\n    const drawSpy = vi.fn();\n    const mockGeo = { init: vi.fn(), draw: drawSpy };\n\n    let frameIndex = 0;\n    const jitteryValues = [200, 50, 200, 50, 200, 50, 200, 50];\n    const mockPipeline = {\n      frequency: new Uint8Array(128),\n      timeDomain: new Uint8Array(128).fill(128),\n      poll: vi.fn(() => {\n        const val = jitteryValues[frameIndex % jitteryValues.length] ?? 128;\n        mockPipeline.frequency.fill(val);\n        frameIndex++;\n      }),\n    };\n\n    const deps: LoopDeps = {\n      geometrySystem: mockGeo,\n      seed: 'smooth-test',\n      signals: defaultSignals,\n      geo: defaultGeo,\n      getAnalyserPipeline: () => mockPipeline,\n    };\n\n    let callCount = 0;\n    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n      callCount++;\n      if (callCount <= 8) cb(callCount * 16);\n      return callCount;\n    });\n\n    const { canvas, ctx } = createTestCanvas();\n    startLoop(canvas, ctx, deps);\n\n    const bassValues = drawSpy.mock.calls.map(\n      (c: unknown[]) => (c[1] as { params: VisualParams }).params.bassEnergy,\n    );\n\n    let maxConsecutiveDiff = 0;\n    for (let i = 1; i < bassValues.length; i++) {\n      const diff = Math.abs(bassValues[i] - bassValues[i - 1]);\n      maxConsecutiveDiff = Math.max(maxConsecutiveDiff, diff);\n    }\n\n    expect(maxConsecutiveDiff).toBeLessThan(0.4);\n  });"
+    },
+    {
+      "id": "T-018-03",
+      "description": "When pipeline reports all-zero frequency data (muted), bassEnergy is still > 0",
+      "acceptanceCriteria": "Effect remains visible when audio is unmuted or muted",
+      "type": "integration",
+      "status": "pass",
+      "fix": null,
+      "file": "tests/visual/bassMotion.test.ts",
+      "code": "it('T-018-03: when pipeline reports all-zero frequency data (muted), bassEnergy is still > 0', () => {\n    const drawSpy = vi.fn();\n    const mockGeo = { init: vi.fn(), draw: drawSpy };\n\n    const mockPipeline = {\n      frequency: new Uint8Array(128).fill(0),\n      timeDomain: new Uint8Array(128).fill(128),\n      poll: vi.fn(),\n    };\n\n    const deps: LoopDeps = {\n      geometrySystem: mockGeo,\n      seed: 'muted-test',\n      signals: defaultSignals,\n      geo: defaultGeo,\n      getAnalyserPipeline: () => mockPipeline,\n    };\n\n    let callCount = 0;\n    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n      callCount++;\n      if (callCount <= 5) cb(callCount * 1000);\n      return callCount;\n    });\n\n    const { canvas, ctx } = createTestCanvas();\n    startLoop(canvas, ctx, deps);\n\n    const bassValues = drawSpy.mock.calls.map(\n      (c: unknown[]) => (c[1] as { params: VisualParams }).params.bassEnergy,\n    );\n\n    expect(bassValues.length).toBeGreaterThan(0);\n    const anyNonZero = bassValues.some((v: number) => v > 0);\n    expect(anyNonZero).toBe(true);\n  });"
+    },
+    {
+      "id": "T-018-04",
+      "description": "With maximum bass (1.0), all particle positions remain within 0-1 bounds after many frames",
+      "acceptanceCriteria": "No clipping or visual instability occurs",
+      "type": "unit",
+      "status": "needs_fix",
+      "fix": "Add curveSoftness: 0.3 and structureComplexity: 0.5 to defaultParams. Add elapsed: t * 100 to FrameState in draw() call (lines 226-232).",
+      "file": "tests/visual/bassMotion.test.ts",
+      "code": "it('T-018-04: with maximum bass (255), all particle positions remain within 0-1 bounds after many frames', () => {\n    const { ctx } = createTestCanvas();\n    const field = createParticleField();\n    const maxBassParams = { ...defaultParams, bassEnergy: 1.0, density: 0.8 };\n    field.init(ctx, 'max-bass-bounds', maxBassParams);\n\n    for (let t = 0; t < 200; t++) {\n      field.draw(ctx, {\n        time: t * 100,\n        delta: 50,\n        elapsed: t * 100,\n        params: maxBassParams,\n        width: 800,\n        height: 600,\n      });\n    }\n\n    const positions = getParticlePositions(field);\n    expect(positions.length).toBeGreaterThan(0);\n    positions.forEach((p) => {\n      expect(p.x).toBeGreaterThanOrEqual(0);\n      expect(p.x).toBeLessThanOrEqual(1);\n      expect(p.y).toBeGreaterThanOrEqual(0);\n      expect(p.y).toBeLessThanOrEqual(1);\n    });\n  });"
+    },
+    {
+      "id": "T-018-05",
+      "description": "Bass-driven motion respects prefers-reduced-motion (motionAmplitude=0.2 reduces displacement)",
+      "acceptanceCriteria": "No clipping or visual instability occurs",
+      "type": "unit",
+      "status": "needs_fix",
+      "fix": "Add curveSoftness: 0.3 and structureComplexity: 0.5 to defaultParams. Add elapsed: t * 100 to all FrameState objects in draw() calls (lines 255-276).",
+      "file": "tests/visual/bassMotion.test.ts",
+      "code": "it('T-018-05: bass-driven motion respects prefers-reduced-motion (motionAmplitude=0.2 reduces displacement)', () => {\n    const { ctx } = createTestCanvas();\n    const seed = 'reduced-motion-bass';\n\n    const fieldFull = createParticleField();\n    const fullParams = { ...defaultParams, bassEnergy: 0.8, motionAmplitude: 1.0 };\n    fieldFull.init(ctx, seed, fullParams);\n    const initialFull = getParticlePositions(fieldFull);\n    for (let t = 0; t < 10; t++) {\n      fieldFull.draw(ctx, {\n        time: t * 100,\n        delta: 16,\n        elapsed: t * 100,\n        params: fullParams,\n        width: 800,\n        height: 600,\n      });\n    }\n\n    const fieldReduced = createParticleField();\n    const reducedParams = { ...defaultParams, bassEnergy: 0.8, motionAmplitude: 0.2 };\n    fieldReduced.init(ctx, seed, reducedParams);\n    const initialReduced = getParticlePositions(fieldReduced);\n    for (let t = 0; t < 10; t++) {\n      fieldReduced.draw(ctx, {\n        time: t * 100,\n        delta: 16,\n        elapsed: t * 100,\n        params: reducedParams,\n        width: 800,\n        height: 600,\n      });\n    }\n\n    const dispFull = computeTotalDisplacement(initialFull, getParticlePositions(fieldFull));\n    const dispReduced = computeTotalDisplacement(initialReduced, getParticlePositions(fieldReduced));\n\n    expect(dispFull).toBeGreaterThan(dispReduced);\n  });"
+    },
+    {
+      "id": "T-018-06",
+      "description": "No forbidden storage APIs accessed during bass-driven rendering",
+      "acceptanceCriteria": "No clipping or visual instability occurs",
+      "type": "unit",
+      "status": "needs_fix",
+      "fix": "Add curveSoftness: 0.3 and structureComplexity: 0.5 to defaultParams. Add elapsed: t * 100 to FrameState in draw() call (lines 299-305).",
+      "file": "tests/visual/bassMotion.test.ts",
+      "code": "it('T-018-06: no forbidden storage APIs accessed during bass-driven rendering', () => {\n      const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');\n      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');\n      const cookieGetSpy = vi.spyOn(document, 'cookie', 'get');\n      const cookieSetSpy = vi.spyOn(document, 'cookie', 'set');\n\n      const { ctx } = createTestCanvas();\n      const field = createParticleField();\n      const bassParams = { ...defaultParams, bassEnergy: 0.9 };\n      field.init(ctx, 'privacy-bass-seed', bassParams);\n\n      for (let t = 0; t < 20; t++) {\n        field.draw(ctx, {\n          time: t * 100,\n          delta: 16,\n          elapsed: t * 100,\n          params: bassParams,\n          width: 800,\n          height: 600,\n        });\n      }\n\n      mapSignalsToVisuals({\n        signals: defaultSignals,\n        geo: defaultGeo,\n        pointer: defaultPointer,\n        sessionSeed: 'privacy-seed',\n        bass: 200,\n        treble: 100,\n        timeOfDay: 14,\n      });\n\n      expect(getItemSpy).not.toHaveBeenCalled();\n      expect(setItemSpy).not.toHaveBeenCalled();\n      expect(cookieGetSpy).not.toHaveBeenCalled();\n      expect(cookieSetSpy).not.toHaveBeenCalled();\n    });"
+    }
+  ],
+  "shared": {
+    "defaultParams_fix": {
+      "description": "defaultParams on lines 36-45 is missing curveSoftness and structureComplexity fields required by the VisualParams interface",
+      "current": {
+        "paletteHue": 180,
+        "paletteSaturation": 0.5,
+        "cadence": 0.7,
+        "density": 0.6,
+        "motionAmplitude": 1.0,
+        "pointerDisturbance": 0,
+        "bassEnergy": 0,
+        "trebleEnergy": 0
+      },
+      "fixed": {
+        "paletteHue": 180,
+        "paletteSaturation": 0.5,
+        "cadence": 0.7,
+        "density": 0.6,
+        "motionAmplitude": 1.0,
+        "pointerDisturbance": 0,
+        "bassEnergy": 0,
+        "trebleEnergy": 0,
+        "curveSoftness": 0.3,
+        "structureComplexity": 0.5
+      }
+    },
+    "frameState_fix": {
+      "description": "All direct draw() calls are missing the required 'elapsed' field from FrameState interface (src/visual/types.ts:6). Tests T-018-01, T-018-04, T-018-05, T-018-06 need elapsed added to every FrameState object.",
+      "pattern": "elapsed: t * 100"
+    }
+  },
+  "source_changes_required": [
+    {
+      "file": "src/visual/renderLoop.ts",
+      "change": "Add smoothBass EMA state variable after line 82",
+      "detail": "let smoothBass = 0; — alongside existing smoothTreble and smoothDisturbance"
+    },
+    {
+      "file": "src/visual/renderLoop.ts",
+      "change": "Add synthetic bass fallback after line 96 (computeBassAvg)",
+      "detail": "When pipeline exists but bass === 0, generate synthetic: bass = (Math.sin(elapsed * 0.002) + 1) * 0.5 * 30 — produces range ~0-30 raw, ~0.08-0.15 bassEnergy after bassToMacro"
+    },
+    {
+      "file": "src/visual/renderLoop.ts",
+      "change": "Add EMA smoothing for bass after synthetic fallback",
+      "detail": "smoothBass = smoothBass * 0.82 + bass * 0.18 — alpha 0.18 keeps max consecutive bassEnergy diff below 0.4 threshold in T-018-02"
+    },
+    {
+      "file": "src/visual/renderLoop.ts",
+      "change": "Pass smoothed bass to mapSignalsToVisuals on line 118",
+      "detail": "Change bass, to bass: smoothBass, so smoothed value flows through bassToMacro"
+    }
+  ],
+  "summary": {
+    "total_tests": 6,
+    "passing_as_is": 0,
+    "needs_test_fix": 4,
+    "needs_source_change": 2,
+    "test_file": "tests/visual/bassMotion.test.ts",
+    "coverage": {
+      "bass_influences_motion": "T-018-01",
+      "smoothing_reduces_jitter": "T-018-02",
+      "muted_fallback": "T-018-03",
+      "no_clipping": "T-018-04",
+      "reduced_motion_respected": "T-018-05",
+      "privacy_no_storage": "T-018-06"
+    }
+  }
+}
