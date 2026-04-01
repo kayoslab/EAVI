@@ -1,0 +1,239 @@
+{
+  "ticket": "US-013",
+  "title": "Add pointer influence to scene motion",
+  "tests": [
+    {
+      "id": "T-013-01",
+      "title": "pointerDisturbance decays gradually after pointer becomes idle",
+      "description": "When pointer is active on frame 1 then becomes idle on subsequent frames, pointerDisturbance should remain non-zero on the next frame (not drop instantly to 0) due to EMA smoothing in the render loop.",
+      "file": "tests/visual/renderLoop.test.ts",
+      "section": "US-013: Pointer disturbance smoothing in render loop",
+      "type": "unit",
+      "approach": "Use the same RAF-mocking pattern as T-019-01 (treble smoothing). Provide a getPointerState that returns active+moving on frame 1, then idle (speed=0, active=false) on frames 2+. Capture params.pointerDisturbance from the geometry draw spy across frames. Assert frame 2's pointerDisturbance is still > 0 (decay, not instant drop).",
+      "assertions": [
+        "Frame 1 pointerDisturbance > 0 (active pointer with speed)",
+        "Frame 2 pointerDisturbance > 0 (smoothed decay, not instant zero)",
+        "Frame 2 pointerDisturbance < Frame 1 pointerDisturbance (decaying)"
+      ],
+      "acceptance_criteria": ["Effect decays when pointer becomes idle"],
+      "dependencies": ["Step 1: EMA smoothing for pointer disturbance"],
+      "setup": {
+        "pattern": "T-019-01 treble smoothing pattern",
+        "mocks": [
+          "requestAnimationFrame — run 4 frames",
+          "getPointerState — return moving pointer on frame 1, idle on frames 2+",
+          "geometrySystem.draw spy to capture FrameState"
+        ]
+      }
+    },
+    {
+      "id": "T-013-02",
+      "title": "pointerDisturbance approaches zero after sustained idle period",
+      "description": "After pointer becomes idle, running many frames should bring pointerDisturbance very close to zero, confirming the decay converges.",
+      "file": "tests/visual/renderLoop.test.ts",
+      "section": "US-013: Pointer disturbance smoothing in render loop",
+      "type": "unit",
+      "approach": "Same setup as T-013-01 but run 60+ frames after pointer goes idle. Assert the final frame's pointerDisturbance is < 0.01 (near zero).",
+      "assertions": [
+        "After 60 idle frames, pointerDisturbance < 0.01",
+        "Value is >= 0 (never negative)"
+      ],
+      "acceptance_criteria": ["Effect decays when pointer becomes idle", "Idle mode still looks intentional"],
+      "dependencies": ["Step 1: EMA smoothing for pointer disturbance"],
+      "setup": {
+        "pattern": "T-019-01 extended",
+        "mocks": [
+          "requestAnimationFrame — run ~65 frames (1 active + 64 idle)",
+          "getPointerState — active frame 1, idle thereafter",
+          "geometrySystem.draw spy"
+        ]
+      }
+    },
+    {
+      "id": "T-013-03",
+      "title": "pointerDisturbance ramps up smoothly on pointer movement start",
+      "description": "When pointer starts moving after being idle, pointerDisturbance should increase gradually (not jump to max), confirming smooth ramp-up via EMA.",
+      "file": "tests/visual/renderLoop.test.ts",
+      "section": "US-013: Pointer disturbance smoothing in render loop",
+      "type": "unit",
+      "approach": "Start with idle pointer for 2 frames, then switch to active high-speed pointer. The first active frame's pointerDisturbance should be less than subsequent active frames (gradual ramp). Assert monotonic increase across the first few active frames.",
+      "assertions": [
+        "First active frame pointerDisturbance > 0",
+        "First active frame pointerDisturbance < second active frame pointerDisturbance (ramping up)",
+        "All values in range [0, 1]"
+      ],
+      "acceptance_criteria": ["Pointer changes at least one motion parameter"],
+      "dependencies": ["Step 1: EMA smoothing for pointer disturbance"],
+      "setup": {
+        "pattern": "T-019-01 inverted",
+        "mocks": [
+          "requestAnimationFrame — run ~6 frames",
+          "getPointerState — idle frames 1-2, then active with speed=0.1 on frames 3+",
+          "geometrySystem.draw spy"
+        ]
+      }
+    },
+    {
+      "id": "T-013-04",
+      "title": "particles near pointer position displace more than distant ones",
+      "description": "When pointerDisturbance > 0 and pointer position is provided, particles close to the pointer should be displaced more than particles far from it, creating a spatial 'wake' effect.",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "section": "US-013: Pointer influence on particles",
+      "type": "unit",
+      "approach": "Initialize two identical particle fields with same seed. Run one frame with pointerDisturbance=0.8 and pointerX/pointerY set to a known position. After drawing, compare displacement of particles that were initially near the pointer vs far from it. Near particles should have moved more.",
+      "assertions": [
+        "Average displacement of particles within 0.2 of pointer > average displacement of particles beyond 0.5 from pointer",
+        "All particles remain within [0, 1] bounds"
+      ],
+      "acceptance_criteria": ["Pointer changes at least one motion parameter"],
+      "dependencies": ["Step 2: Spatial pointer influence", "Step 3: Thread pointer position"],
+      "setup": {
+        "mocks": [],
+        "helpers": ["getParticlePositions", "computeTotalDisplacement (existing)"],
+        "notes": "Use FrameState with pointerX/pointerY fields. Compare against a control run with pointerDisturbance=0."
+      }
+    },
+    {
+      "id": "T-013-05",
+      "title": "zero pointerDisturbance produces no extra particle displacement",
+      "description": "When pointerDisturbance is 0, particles should move identically to a run without any pointer influence — confirming pointer code is properly gated.",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "section": "US-013: Pointer influence on particles",
+      "type": "unit",
+      "approach": "Run two identical particle fields with same seed and same params (pointerDisturbance=0), one with pointerX/Y set and one without. Positions after draw should be identical.",
+      "assertions": [
+        "Positions match exactly when pointerDisturbance=0 regardless of pointer position values"
+      ],
+      "acceptance_criteria": ["Idle mode still looks intentional"],
+      "dependencies": ["Step 2: Spatial pointer influence"],
+      "setup": {
+        "helpers": ["getParticlePositions"],
+        "notes": "This is a regression/guard test ensuring pointer position alone doesn't cause unwanted displacement."
+      }
+    },
+    {
+      "id": "T-013-06",
+      "title": "idle scene without pointer input still animates (intentional motion)",
+      "description": "With pointerDisturbance=0, bassEnergy=0, trebleEnergy=0, particles should still move due to base cadence/motionAmplitude — confirming idle mode looks intentional.",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "section": "US-013: Pointer influence on particles",
+      "type": "unit",
+      "approach": "Initialize particle field, record positions, run several frames with all energy params at 0, confirm positions have changed due to base velocity.",
+      "assertions": [
+        "Particle positions after 10 frames differ from initial positions",
+        "Total displacement > 0"
+      ],
+      "acceptance_criteria": ["Idle mode still looks intentional"],
+      "dependencies": [],
+      "setup": {
+        "helpers": ["getParticlePositions", "computeTotalDisplacement"],
+        "notes": "Similar to T-009-12 but explicitly with all reactive params zeroed."
+      }
+    },
+    {
+      "id": "T-013-07",
+      "title": "pointer position is threaded through FrameState to geometry system",
+      "description": "When getPointerState returns a position, the FrameState passed to geometry.draw should include pointerX and pointerY fields matching the normalized pointer position.",
+      "file": "tests/visual/renderLoop.test.ts",
+      "section": "US-013: Pointer disturbance smoothing in render loop",
+      "type": "unit",
+      "approach": "Provide getPointerState returning {x: 0.3, y: 0.7, ...}. Capture FrameState from geometry draw spy. Assert frameState.pointerX === 0.3 and frameState.pointerY === 0.7.",
+      "assertions": [
+        "frameState.pointerX matches pointer.x",
+        "frameState.pointerY matches pointer.y"
+      ],
+      "acceptance_criteria": ["Pointer changes at least one motion parameter"],
+      "dependencies": ["Step 3: Thread pointer position through FrameState"],
+      "setup": {
+        "pattern": "T-009-23",
+        "mocks": [
+          "requestAnimationFrame — 1 frame",
+          "getPointerState — return fixed position",
+          "geometrySystem.draw spy"
+        ]
+      }
+    },
+    {
+      "id": "T-013-08",
+      "title": "smoothed pointerDisturbance stays within 0-1 range across all conditions",
+      "description": "Regardless of input pointer speed, the smoothed pointerDisturbance value passed to geometry should always be in [0, 1].",
+      "file": "tests/visual/renderLoop.test.ts",
+      "section": "US-013: Pointer disturbance smoothing in render loop",
+      "type": "unit",
+      "approach": "Run frames with extreme pointer speeds (speed=100), alternating active/idle. Assert all pointerDisturbance values are >= 0 and <= 1. Pattern after T-019-02.",
+      "assertions": [
+        "All pointerDisturbance values >= 0",
+        "All pointerDisturbance values <= 1"
+      ],
+      "acceptance_criteria": ["Pointer changes at least one motion parameter"],
+      "dependencies": ["Step 1: EMA smoothing"],
+      "setup": {
+        "pattern": "T-019-02",
+        "mocks": [
+          "requestAnimationFrame — 10 frames",
+          "getPointerState — extreme speed values",
+          "geometrySystem.draw spy"
+        ]
+      }
+    },
+    {
+      "id": "T-013-09",
+      "title": "particle positions stay within bounds with maximum pointer disturbance",
+      "description": "Running many frames with pointerDisturbance=1 should not cause particles to escape [0, 1] bounds.",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "section": "US-013: Pointer influence on particles",
+      "type": "unit",
+      "approach": "Run 100 frames with pointerDisturbance=1 and pointerX/Y set. Assert all particle positions remain in [0, 1]. Pattern after T-019-05.",
+      "assertions": [
+        "All particle x positions in [0, 1]",
+        "All particle y positions in [0, 1]"
+      ],
+      "acceptance_criteria": ["Pointer changes at least one motion parameter"],
+      "dependencies": ["Step 2: Spatial pointer influence"],
+      "setup": {
+        "pattern": "T-019-05 / T-009-15",
+        "helpers": ["getParticlePositions"]
+      }
+    },
+    {
+      "id": "T-013-10",
+      "title": "touch and mouse both produce non-zero pointerDisturbance in render loop",
+      "description": "Both touch-originated and mouse-originated pointer states should produce equivalent pointerDisturbance values, confirming both input types influence the scene.",
+      "file": "tests/visual/renderLoop.test.ts",
+      "section": "US-013: Pointer disturbance smoothing in render loop",
+      "type": "unit",
+      "approach": "Run two separate loop instances: one with a pointer state simulating mouse (active=true, speed=0.05) and one simulating touch (same values — pointer.ts normalizes both). Assert both produce the same non-zero pointerDisturbance. This is a contract test since pointer.ts already unifies touch/mouse, but it validates the integration.",
+      "assertions": [
+        "Mouse-like pointer state produces pointerDisturbance > 0",
+        "Touch-like pointer state with same speed produces same pointerDisturbance",
+        "Both values are equal"
+      ],
+      "acceptance_criteria": ["Touch and mouse both influence the scene"],
+      "dependencies": ["Step 1: EMA smoothing"],
+      "setup": {
+        "pattern": "T-009-23 run twice",
+        "notes": "Since pointer.ts abstracts touch/mouse into the same PointerState, identical speed values produce identical disturbance. This test validates the contract at the render loop level."
+      }
+    }
+  ],
+  "test_files": [
+    {
+      "file": "tests/visual/renderLoop.test.ts",
+      "new_section": "US-013: Pointer disturbance smoothing in render loop",
+      "test_ids": ["T-013-01", "T-013-02", "T-013-03", "T-013-07", "T-013-08", "T-013-10"],
+      "placement": "After the US-012 describe block, before the privacy describe block"
+    },
+    {
+      "file": "tests/visual/systems/particleField.test.ts",
+      "new_section": "US-013: Pointer influence on particles",
+      "test_ids": ["T-013-04", "T-013-05", "T-013-06", "T-013-09"],
+      "placement": "After the US-011 describe block, before the privacy describe block"
+    }
+  ],
+  "coverage_mapping": {
+    "Pointer changes at least one motion parameter": ["T-013-01", "T-013-03", "T-013-04", "T-013-07", "T-013-08", "T-013-09"],
+    "Effect decays when pointer becomes idle": ["T-013-01", "T-013-02"],
+    "Touch and mouse both influence the scene": ["T-013-10"],
+    "Idle mode still looks intentional": ["T-013-02", "T-013-05", "T-013-06"]
+  }
+}
