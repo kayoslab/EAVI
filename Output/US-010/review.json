@@ -1,0 +1,47 @@
+{
+  "id": "US-010",
+  "comments": [
+    {
+      "step": 1,
+      "severity": "minor",
+      "comment": "Ensure classifyGeo and the palette family lookup table are both exported so mappings.ts can import them. The plan implies this but doesn't state it explicitly."
+    },
+    {
+      "step": 2,
+      "severity": "info",
+      "comment": "simpleHash stays in mappings.ts where geoToPalette lives — no need to move or re-export it. The plan correctly keeps the function signature unchanged so evolution.ts and particleField.ts are unaffected."
+    },
+    {
+      "step": 3,
+      "severity": "warning",
+      "comment": "T-008-03 currently asserts that US, JP, BR produce at least 2 distinct hues. After the change, if any two land in the same geo class they could produce hues closer together than before. The plan should ensure US, JP, BR are in three different geo classes (they naturally would be: US=northern/continental, JP=northern/oceanic, BR=tropical), but the test assertion may need strengthening to check hue ranges rather than just inequality."
+    },
+    {
+      "step": 3,
+      "severity": "warning",
+      "comment": "T-008-19 checks JSON.stringify(result) does not contain 'US' or 'CA'. Since output is all numbers this is safe, but if a hue/saturation value like 0.4CA... could appear in scientific notation — it won't, since JSON.stringify uses decimal notation for these ranges. No action needed, but the plan's risk section correctly flags this."
+    },
+    {
+      "step": 4,
+      "severity": "info",
+      "comment": "Good to have a dedicated test file for palette.ts. Consider also testing that the total number of geo classes equals the number of palette families (exhaustiveness check), which the plan already includes."
+    },
+    {
+      "step": 1,
+      "severity": "minor",
+      "comment": "The 'unknown' class palette family should be defined with hueRange covering 0-360 (or a large range) since it's the fallback when geo is unavailable. The plan describes this but be explicit that the fallback family's hueRange should be set to 180 (full circle) so the seed has full expressive range."
+    }
+  ],
+  "blockers": [],
+  "suggestions": [
+    "In step 1, include at least Japan/South Korea in a distinct class (e.g. 'eastern') separate from European 'northern' countries, to preserve the existing test expectation that JP and US produce perceptibly different palettes.",
+    "Consider making the palette family lookup a simple Record<string, PaletteFamily> keyed by geo class, rather than an array search, for O(1) lookup and clearer exhaustiveness."
+  ],
+  "estimated_complexity": "low-medium",
+  "alignment_with_ticket": "full",
+  "approved": true,
+  "concerns": [],
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
