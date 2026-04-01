@@ -1,0 +1,134 @@
+{
+  "id": "US-026",
+  "title": "Create second visual mode",
+  "summary": "Add a second geometry system and a mode manager that switches between particle field and a new wave-line mode, driven by seed + elapsed time, without breaking playback or the existing visual pipeline.",
+  "depends_on": ["US-009", "US-012", "US-018", "US-019"],
+  "steps": [
+    {
+      "step": 1,
+      "title": "Create WaveField geometry system",
+      "file": "src/visual/systems/waveField.ts",
+      "action": "create",
+      "description": "Implement a second GeometrySystem that draws horizontally-stacked sine waves. Waves use the same VisualParams (paletteHue, bassEnergy, trebleEnergy, cadence, motionAmplitude, pointerDisturbance, etc.) but express them differently: bass modulates wave amplitude, treble modulates line thickness and shimmer, cadence controls wave speed, pointer disturbance warps wave shape locally. Accept a WaveFieldConfig with maxWaves and enableShimmer (mirroring ParticleFieldConfig pattern). Waves are seeded from the session seed for deterministic initial phase offsets. Each wave has: y-center (evenly distributed vertically), amplitude, frequency, phase, hueOffset. Draw using ctx.beginPath/lineTo strokes in HSL.",
+      "details": {
+        "interface": "Implements GeometrySystem (init + draw)",
+        "config": "{ maxWaves?: number; enableShimmer?: boolean }",
+        "wave_properties": "y, amplitude, frequency, phase, hueOffset — all PRNG-seeded",
+        "visual_character": "Flowing horizontal lines that breathe with audio, distinct from particle scatter",
+        "bass_mapping": "Amplitude scaling (waves grow taller on bass hits)",
+        "treble_mapping": "Line width variation + alpha shimmer",
+        "pointer_mapping": "Local warp — waves near pointer bend toward/away",
+        "reduced_motion": "Respects motionAmplitude same as particles"
+      }
+    },
+    {
+      "step": 2,
+      "title": "Create mode manager",
+      "file": "src/visual/modeManager.ts",
+      "action": "create",
+      "description": "Create a ModeManager that owns multiple GeometrySystem instances and exposes the GeometrySystem interface itself (composite pattern). It selects the active mode based on seed hash (deterministic initial mode) and elapsed time (mode switches at intervals). Mode switch interval is derived from seed (e.g., 90-180 seconds) so each session has its own rhythm. On switch: the new system is init'd with current params and seed. The manager implements GeometrySystem so it can be passed directly into LoopDeps.geometrySystem without changing the render loop.",
+      "details": {
+        "interface": "Implements GeometrySystem",
+        "mode_selection": "Initial mode = seed hash % modeCount. Switch interval = seeded 90-180s.",
+        "registry": "Array of { name: string; factory: () => GeometrySystem } — extensible for future modes",
+        "switch_behavior": "On elapsed crossing a switch boundary, init the next system and swap. No crossfade in v1.",
+        "no_playback_break": "Audio pipeline and VisualParams flow are untouched — only the draw target changes",
+        "exported": "createModeManager(config) returning ModeManager (which is a GeometrySystem)"
+      }
+    },
+    {
+      "step": 3,
+      "title": "Wire mode manager into main.ts",
+      "file": "src/main.ts",
+      "action": "edit",
+      "description": "Replace the direct createParticleField() call with createModeManager() that registers both ParticleField and WaveField. Pass quality config (maxParticles, maxWaves derived from quality tier, enableSparkle/enableShimmer). The mode manager is assigned to deps.geometrySystem. No other changes to main.ts — the render loop sees the same GeometrySystem interface.",
+      "details": {
+        "quality_mapping": "Low: 150 particles / 8 waves. Medium: 350 / 14. High: 600 / 20.",
+        "wave_shimmer": "Enabled same as particle sparkle (tied to quality tier)",
+        "backward_compatible": "LoopDeps and startLoop signatures unchanged"
+      }
+    },
+    {
+      "step": 4,
+      "title": "Update render loop for mode awareness",
+      "file": "src/visual/renderLoop.ts",
+      "action": "edit",
+      "description": "Minimal change: pass elapsed time into the geometry system's draw call via FrameState (already present). The mode manager uses frame.elapsed to decide when to switch. Ensure geoInitialized flag works correctly with mode manager (the manager handles per-mode init internally after its own init is called). No structural changes to the loop.",
+      "details": {
+        "change_scope": "Likely zero changes if ModeManager.init delegates to active system and ModeManager.draw checks elapsed internally. Verify and adjust only if needed."
+      }
+    },
+    {
+      "step": 5,
+      "title": "Add tests for WaveField",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "create",
+      "description": "Test WaveField geometry system: initialization creates correct wave count based on density, waves respond to bass/treble params, pointer disturbance warps output, reduced motion is respected, draw does not throw with edge-case params (zero bass, zero treble, no pointer).",
+      "details": {
+        "test_count": "~12-15 tests",
+        "framework": "Vitest with canvas mock (same pattern as particleField.test.ts)"
+      }
+    },
+    {
+      "step": 6,
+      "title": "Add tests for ModeManager",
+      "file": "tests/visual/modeManager.test.ts",
+      "action": "create",
+      "description": "Test mode manager: correct initial mode from seed, mode switches at elapsed boundary, both modes receive same seed and params, switch does not throw, registry accepts multiple modes, draw delegates to active system. Test that different seeds produce different initial modes and switch intervals.",
+      "details": {
+        "test_count": "~10-12 tests",
+        "key_assertions": [
+          "Initial mode is deterministic from seed",
+          "Mode switches at seeded interval",
+          "Both modes get identical VisualParams",
+          "No errors on switch boundary",
+          "Manager implements GeometrySystem correctly"
+        ]
+      }
+    },
+    {
+      "step": 7,
+      "title": "Verify build and integration",
+      "action": "verify",
+      "description": "Run npm run build to confirm no type errors. Run full test suite. Manual check: load dev server, confirm scene renders, wait for mode switch (or adjust interval temporarily), confirm no console errors, confirm mute toggle and info overlay still work, confirm audio playback is uninterrupted across mode switch.",
+      "details": {
+        "definition_of_done": [
+          "Build passes",
+          "All tests pass (existing + new)",
+          "No console errors on load",
+          "No forbidden storage APIs",
+          "Scene works with and without autoplay",
+          "Mute toggle and info overlay functional",
+          "Mode switch does not break playback"
+        ]
+      }
+    }
+  ],
+  "architecture_notes": {
+    "extensibility": "ModeManager uses a registry pattern — adding mode 3+ later is just registering another factory function. No switch/case or if/else chains.",
+    "separation": "Each mode is a standalone GeometrySystem in its own file under src/visual/systems/. Modes share nothing except the GeometrySystem interface and VisualParams type.",
+    "no_render_loop_changes": "The composite pattern means the render loop sees one GeometrySystem and doesn't know about modes. This keeps the loop clean and mode logic encapsulated.",
+    "seed_reuse": "Both modes receive the same session seed — visual identity is preserved across switches.",
+    "audio_continuity": "Mode switching only affects which draw() is called. The audio pipeline, analyser polling, and VisualParams computation are upstream and untouched."
+  },
+  "risks": [
+    {
+      "risk": "Visual discontinuity on mode switch (jarring jump)",
+      "mitigation": "v1 accepts a hard cut. Future story can add crossfade. The black canvas clear each frame makes hard cuts less jarring than it would be with persistent state."
+    },
+    {
+      "risk": "Wave rendering performance on low-tier devices",
+      "mitigation": "maxWaves is quality-tier-gated (8 on low). Waves use simple ctx.stroke, no fill, lighter than particles."
+    }
+  ],
+  "files_touched": [
+    "src/visual/systems/waveField.ts (new)",
+    "src/visual/modeManager.ts (new)",
+    "src/main.ts (edit — swap ParticleField for ModeManager)",
+    "src/visual/renderLoop.ts (verify — likely no changes needed)",
+    "tests/visual/systems/waveField.test.ts (new)",
+    "tests/visual/modeManager.test.ts (new)"
+  ],
+  "estimated_new_lines": 350,
+  "estimated_test_count": 25
+}
