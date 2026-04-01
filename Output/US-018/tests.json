@@ -1,1 +1,255 @@
-{"tests_added": [], "tests_modified": [], "test_results": "pass", "failures": [], "failure_source": null}
+{
+  "ticket": "US-018",
+  "title": "Map bass response to macro motion",
+  "testFile": "tests/visual/bassMotion.test.ts",
+  "framework": "vitest",
+  "environment": "jsdom",
+  "existingTestFile": true,
+  "existingTestsPass": true,
+  "imports": [
+    { "from": "vitest", "items": ["describe", "it", "expect", "vi", "beforeEach"] },
+    { "from": "../../src/visual/systems/particleField", "items": ["createParticleField", "getParticlePositions"] },
+    { "from": "../../src/visual/mappings", "items": ["mapSignalsToVisuals"], "types": ["VisualParams"] },
+    { "from": "../../src/input/signals", "types": ["BrowserSignals"] },
+    { "from": "../../src/input/geo", "types": ["GeoHint"] },
+    { "from": "../../src/input/pointer", "types": ["PointerState"] },
+    { "from": "../../src/visual/renderLoop", "items": ["startLoop"], "types": ["LoopDeps"] }
+  ],
+  "helpers": [
+    {
+      "name": "createTestCanvas",
+      "returns": "{ canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }",
+      "description": "Creates an 800x600 canvas with 2D context for test use"
+    },
+    {
+      "name": "computeTotalDisplacement",
+      "params": ["posA: Array<{x: number; y: number}>", "posB: Array<{x: number; y: number}>"],
+      "returns": "number",
+      "description": "Sums Euclidean distance between corresponding particle positions"
+    }
+  ],
+  "sharedFixtures": {
+    "defaultSignals": {
+      "type": "BrowserSignals",
+      "value": {
+        "language": "en",
+        "timezone": "UTC",
+        "screenWidth": 1024,
+        "screenHeight": 768,
+        "devicePixelRatio": 2,
+        "hardwareConcurrency": 8,
+        "prefersColorScheme": "dark",
+        "prefersReducedMotion": false,
+        "touchCapable": false
+      }
+    },
+    "defaultGeo": {
+      "type": "GeoHint",
+      "value": { "country": "US", "region": "CA" }
+    },
+    "defaultPointer": {
+      "type": "PointerState",
+      "value": { "x": 0.5, "y": 0.5, "dx": 0, "dy": 0, "speed": 0, "active": false }
+    },
+    "defaultParams": {
+      "type": "VisualParams",
+      "value": {
+        "paletteHue": 180,
+        "paletteSaturation": 0.5,
+        "cadence": 0.7,
+        "density": 0.6,
+        "motionAmplitude": 1.0,
+        "pointerDisturbance": 0,
+        "bassEnergy": 0,
+        "trebleEnergy": 0,
+        "curveSoftness": 0.3,
+        "structureComplexity": 0.5
+      }
+    }
+  },
+  "tests": [
+    {
+      "id": "T-018-01",
+      "description": "bass energy > 0 produces greater particle displacement than bass energy = 0",
+      "acceptanceCriteria": "Bass band influences at least one large-scale motion property",
+      "category": "functional",
+      "approach": "Create two particle fields from the same seed. Run 5 frames on each: one with bassEnergy=0, one with bassEnergy=0.8. Accumulate per-frame displacement to avoid toroidal wrapping artifacts. Assert cumulative displacement with bass is greater.",
+      "assertions": [
+        {
+          "type": "comparison",
+          "left": "cumulativeWithBass",
+          "operator": "greaterThan",
+          "right": "cumulativeNoBass"
+        }
+      ],
+      "keyValues": {
+        "seed": "bass-displacement-seed",
+        "bassEnergyHigh": 0.8,
+        "bassEnergyLow": 0,
+        "frames": 5,
+        "delta": 16,
+        "frameInterval": 100
+      },
+      "mockingStrategy": "Direct particle field testing — no render loop mocking needed. Uses createParticleField() and getParticlePositions() directly.",
+      "status": "exists"
+    },
+    {
+      "id": "T-018-02",
+      "description": "smoothed bass changes less frame-to-frame than raw bass with jittery input",
+      "acceptanceCriteria": "Response is smoothed to avoid jitter",
+      "category": "functional",
+      "approach": "Mock requestAnimationFrame for 8 frames. Feed alternating jittery frequency data (200, 50, 200, 50...) via mock pipeline. Collect bassEnergy from draw spy calls. Assert max consecutive frame difference is less than 0.4 (raw would produce ~0.52 difference).",
+      "assertions": [
+        {
+          "type": "comparison",
+          "left": "maxConsecutiveDiff",
+          "operator": "lessThan",
+          "right": 0.4,
+          "rationale": "Raw bassToMacro(200) ≈ 0.83, bassToMacro(50) ≈ 0.31 → diff ≈ 0.52. EMA smoothing (α=0.12) should dampen this well below 0.4"
+        }
+      ],
+      "keyValues": {
+        "jitteryValues": [200, 50, 200, 50, 200, 50, 200, 50],
+        "frames": 8,
+        "emaAlpha": 0.12,
+        "frameInterval": 16,
+        "maxAllowedDiff": 0.4
+      },
+      "mockingStrategy": "Mock requestAnimationFrame with frame counter. Mock AnalyserPipeline with poll() that fills frequency array from jitteryValues cycle. Spy on geometry system draw() to capture bassEnergy params.",
+      "status": "exists"
+    },
+    {
+      "id": "T-018-03",
+      "description": "when pipeline reports all-zero frequency data (muted), bassEnergy is still > 0",
+      "acceptanceCriteria": "Effect remains visible when audio is unmuted or muted",
+      "category": "functional",
+      "approach": "Mock pipeline with all-zero frequency data (simulating muted audio). Run 5 frames at 1000ms intervals via mocked requestAnimationFrame. Collect bassEnergy from draw spy. Assert at least one frame has bassEnergy > 0 due to synthetic fallback (30 + 25 * sin(elapsed * 0.001)).",
+      "assertions": [
+        {
+          "type": "truthiness",
+          "expression": "bassValues.length > 0"
+        },
+        {
+          "type": "truthiness",
+          "expression": "bassValues.some(v => v > 0)",
+          "rationale": "Synthetic fallback generates rawBass = 30 + 25 * sin(elapsed * 0.001) when rawBass < 5, ensuring non-zero bassEnergy"
+        }
+      ],
+      "keyValues": {
+        "frequencyFill": 0,
+        "frames": 5,
+        "frameInterval": 1000,
+        "syntheticFormula": "30 + 25 * Math.sin(elapsed * 0.001)",
+        "syntheticThreshold": 5
+      },
+      "mockingStrategy": "Mock pipeline with frequency Uint8Array filled with 0. Mock requestAnimationFrame with 1-second intervals to let synthetic sine oscillate meaningfully.",
+      "status": "exists"
+    },
+    {
+      "id": "T-018-04",
+      "description": "with maximum bass (255), all particle positions remain within 0-1 bounds after many frames",
+      "acceptanceCriteria": "No clipping or visual instability occurs",
+      "category": "boundary",
+      "approach": "Create particle field with bassEnergy=1.0 and density=0.8. Run 200 frames with delta=50 (stress-test high velocity). Assert every particle position is within [0, 1] bounds.",
+      "assertions": [
+        {
+          "type": "range",
+          "field": "positions[*].x",
+          "min": 0,
+          "max": 1
+        },
+        {
+          "type": "range",
+          "field": "positions[*].y",
+          "min": 0,
+          "max": 1
+        },
+        {
+          "type": "truthiness",
+          "expression": "positions.length > 0"
+        }
+      ],
+      "keyValues": {
+        "bassEnergy": 1.0,
+        "density": 0.8,
+        "frames": 200,
+        "delta": 50,
+        "frameInterval": 100,
+        "seed": "max-bass-bounds"
+      },
+      "mockingStrategy": "Direct particle field testing. High delta (50) and many frames (200) stress-test the toroidal wrapping + clamping logic at maximum bass boost (3×).",
+      "status": "exists"
+    },
+    {
+      "id": "T-018-05",
+      "description": "bass-driven motion respects prefers-reduced-motion (motionAmplitude=0.2 reduces displacement)",
+      "acceptanceCriteria": "Bass band influences at least one large-scale motion property",
+      "category": "accessibility",
+      "approach": "Create two particle fields from same seed with bassEnergy=0.8. One has motionAmplitude=1.0, the other motionAmplitude=0.2. Run 10 frames each. Compare total displacement from initial positions. Assert full-motion displacement exceeds reduced-motion displacement.",
+      "assertions": [
+        {
+          "type": "comparison",
+          "left": "dispFull",
+          "operator": "greaterThan",
+          "right": "dispReduced"
+        }
+      ],
+      "keyValues": {
+        "seed": "reduced-motion-bass",
+        "bassEnergy": 0.8,
+        "motionAmplitudeFull": 1.0,
+        "motionAmplitudeReduced": 0.2,
+        "frames": 10,
+        "delta": 16,
+        "frameInterval": 100
+      },
+      "mockingStrategy": "Direct particle field comparison. Same seed ensures identical initial particle positions.",
+      "status": "exists"
+    },
+    {
+      "id": "T-018-06",
+      "description": "no forbidden storage APIs accessed during bass-driven rendering",
+      "acceptanceCriteria": "No clipping or visual instability occurs",
+      "category": "privacy",
+      "approach": "Spy on localStorage.getItem, localStorage.setItem, document.cookie getter and setter. Run 20 frames of particle field rendering with bassEnergy=0.9. Also call mapSignalsToVisuals with bass=200. Assert none of the storage spies were called.",
+      "assertions": [
+        { "type": "notCalled", "spy": "Storage.prototype.getItem" },
+        { "type": "notCalled", "spy": "Storage.prototype.setItem" },
+        { "type": "notCalled", "spy": "document.cookie getter" },
+        { "type": "notCalled", "spy": "document.cookie setter" }
+      ],
+      "keyValues": {
+        "bassEnergy": 0.9,
+        "frames": 20,
+        "delta": 16,
+        "frameInterval": 100,
+        "mappingBass": 200,
+        "mappingTreble": 100
+      },
+      "mockingStrategy": "vi.spyOn on Storage.prototype and document.cookie. Tests both particle field rendering and mapping function in one pass.",
+      "status": "exists"
+    }
+  ],
+  "coverageSummary": {
+    "acceptanceCriteriaCoverage": {
+      "Bass band influences at least one large-scale motion property": ["T-018-01", "T-018-05"],
+      "Response is smoothed to avoid jitter": ["T-018-02"],
+      "Effect remains visible when audio is unmuted or muted": ["T-018-03"],
+      "No clipping or visual instability occurs": ["T-018-04", "T-018-06"]
+    },
+    "pipelineStagesCovered": {
+      "computeBassAvg (frequency bin averaging)": "T-018-02, T-018-03",
+      "EMA smoothing (α=0.12)": "T-018-02",
+      "Synthetic fallback (rawBass < 5)": "T-018-03",
+      "bassToMacro (power curve normalization)": "T-018-01, T-018-02",
+      "particleField bassBoost (1 + bassEnergy * 2)": "T-018-01, T-018-04, T-018-05",
+      "toroidal wrapping + clamping": "T-018-04"
+    },
+    "relatedExistingTests": [
+      "tests/visual/mappings.test.ts — T-008-14 through T-008-16: bass/treble scaling in mapSignalsToVisuals",
+      "tests/visual/renderLoop.test.ts — T-009-24, T-009-25: audio integration in render loop",
+      "tests/audio/analyser.test.ts — pipeline creation and muted-state analysis"
+    ]
+  },
+  "runCommand": "npx vitest run tests/visual/bassMotion.test.ts"
+}
