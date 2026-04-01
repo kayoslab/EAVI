@@ -32,6 +32,10 @@ export interface VisualParams {
   bassEnergy: number;
   /** Shimmer/detail driver 0-1 from high-frequency audio energy */
   trebleEnergy: number;
+  /** Shape roundness 0-1 driven by touch capability (0 = angular, 1 = round) */
+  curveSoftness: number;
+  /** Structural intricacy 0.2-1.0 driven by DPR, cores, and screen aspect ratio */
+  structureComplexity: number;
 }
 
 /** Bundled inputs for the mapping function — keeps it pure and testable. */
@@ -181,6 +185,47 @@ function trebleToShimmer(trebleAvg: number): number {
   return Math.pow(normalized, 0.7);
 }
 
+/**
+ * Touch capability -> Curve softness.
+ *
+ * Touch-capable devices get rounder, finger-friendly shapes;
+ * pointer devices get crisper, angular shapes.
+ */
+function touchToSoftness(touchCapable: boolean | null): number {
+  if (touchCapable === true) return 0.8;
+  if (touchCapable === false) return 0.3;
+  return 0.5;
+}
+
+/**
+ * Device profile -> Structure complexity.
+ *
+ * Combines DPR (weight 0.3), core count (weight 0.4), and screen
+ * aspect-ratio modulation (weight 0.3) into a 0.2-1.0 range score.
+ * Wider/ultrawide screens get slightly higher complexity.
+ */
+function profileToComplexity(
+  dpr: number | null,
+  cores: number | null,
+  screenWidth: number,
+  screenHeight: number,
+): number {
+  const d = dpr ?? 1;
+  const c = cores ?? 4;
+  const dprScore = Math.min(d / 3, 1);
+  const coreScore = Math.min(c / 16, 1);
+
+  // Aspect ratio: min/max gives 0-1 where 1 = square, lower = wider
+  const maxDim = Math.max(screenWidth, screenHeight);
+  const ratio = maxDim === 0 ? 1.0 : Math.min(screenWidth, screenHeight) / maxDim;
+  // Wider screens (lower ratio) -> higher complexity modifier
+  const aspectScore = 1 - ratio; // 0 for square, ~0.4 for 21:9
+
+  const combined = dprScore * 0.3 + coreScore * 0.4 + aspectScore * 0.3;
+  // Map to 0.2-1.0 range
+  return Math.max(0.2, Math.min(1.0, 0.2 + combined * 0.8));
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -210,5 +255,12 @@ export function mapSignalsToVisuals(inputs: MappingInputs): VisualParams {
     pointerDisturbance: pointerToDisturbance(pointer),
     bassEnergy: bassToMacro(bass),
     trebleEnergy: trebleToShimmer(treble),
+    curveSoftness: touchToSoftness(signals.touchCapable),
+    structureComplexity: profileToComplexity(
+      signals.devicePixelRatio,
+      signals.hardwareConcurrency,
+      signals.screenWidth,
+      signals.screenHeight,
+    ),
   };
 }

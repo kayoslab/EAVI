@@ -31,16 +31,20 @@ export function createParticleField(): ParticleField {
       params: VisualParams,
     ): void {
       const rng = createPRNG(seed);
-      const count = Math.floor(params.density * MAX_PARTICLES);
+      const baseCount = Math.floor(params.density * MAX_PARTICLES);
+      const effectiveCount = Math.floor(baseCount * (0.6 + params.structureComplexity * 0.4));
       particles = [];
 
-      for (let i = 0; i < count; i++) {
+      // Higher structureComplexity = wider size distribution (more visual hierarchy)
+      const sizeRange = 1 + params.structureComplexity * 2;
+
+      for (let i = 0; i < effectiveCount; i++) {
         particles.push({
           x: rng(),
           y: rng(),
           vx: (rng() - 0.5) * 0.001,
           vy: (rng() - 0.5) * 0.001,
-          size: 1 + rng() * 2,
+          size: 1 + rng() * sizeRange,
           hueOffset: (rng() - 0.5) * 30,
         });
       }
@@ -72,7 +76,7 @@ export function createParticleField(): ParticleField {
         p.x = Math.max(0, Math.min(1, p.x));
         p.y = Math.max(0, Math.min(1, p.y));
 
-        const hue = (params.paletteHue + p.hueOffset + 360) % 360;
+        const hue = (params.paletteHue + p.hueOffset * (0.5 + params.structureComplexity * 0.5) + 360) % 360;
         const sat = Math.round(params.paletteSaturation * 100);
         const light = Math.round(50 + params.trebleEnergy * 30);
 
@@ -92,12 +96,25 @@ export function createParticleField(): ParticleField {
         const jitterY =
           Math.cos(frame.time * 0.01 + i) * params.trebleEnergy * 0.003 * height;
 
-        ctx.fillRect(
-          p.x * width - size / 2 + jitterX,
-          p.y * height - size / 2 + jitterY,
-          size,
-          size,
-        );
+        if (params.curveSoftness >= 0.5) {
+          const radius = size / 2;
+          ctx.beginPath();
+          ctx.arc(
+            p.x * width + jitterX,
+            p.y * height + jitterY,
+            radius,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+        } else {
+          ctx.fillRect(
+            p.x * width - size / 2 + jitterX,
+            p.y * height - size / 2 + jitterY,
+            size,
+            size,
+          );
+        }
       }
     },
   };
