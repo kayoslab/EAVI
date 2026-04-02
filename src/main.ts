@@ -5,6 +5,7 @@ import { initSessionSeed } from './seed/sessionSeed';
 import { initAudio } from './audio/player';
 import { createMuteButton } from './ui/audioToggle';
 import { createInfoButton, createInfoOverlay } from './ui/infoOverlay';
+import { createDebugOverlay } from './ui/debugOverlay';
 import { initScene } from './visual/scene';
 import { attachResizeHandler } from './visual/resize';
 import { startLoop, type LoopDeps } from './visual/renderLoop';
@@ -36,6 +37,14 @@ const deps: LoopDeps = {
   placeholderAmbient: ambient,
   placeholderDirectional: directional,
 };
+
+// Debug overlay — enabled only via ?debug query param
+const debugEnabled = new URLSearchParams(window.location.search).has('debug');
+if (debugEnabled) {
+  const debugOverlay = createDebugOverlay();
+  document.body.appendChild(debugOverlay.element);
+  deps.onDebugFrame = debugOverlay.update;
+}
 
 // Pointer tracking
 const pointer = initPointer(renderer.domElement);
@@ -95,6 +104,15 @@ geoPromise.then((geo) => {
   deps.geo = geo;
   deps.quality = quality;
   deps.geometrySystem = modeManager;
+
+  // Wire debug getters now that mode manager and quality are available
+  const modes = [
+    { name: 'particles', maxPoints: quality.maxParticles },
+    { name: 'ribbon', maxPoints: quality.maxRibbonPoints },
+    { name: 'pointcloud', maxPoints: quality.maxPoints },
+  ];
+  deps.getModeName = () => modes[modeManager.activeIndex]?.name ?? 'unknown';
+  deps.getPointCount = () => modes[modeManager.activeIndex]?.maxPoints ?? 0;
 });
 
 // Info button + overlay — append immediately, no async dependency
