@@ -25,22 +25,31 @@ function createTestScene(): THREE.Scene {
   return new THREE.Scene();
 }
 
-function makeFrame(overrides?: Partial<FrameState>): FrameState {
+function makeFrame(overrides?: Partial<FrameState & { params: Partial<VisualParams> }>): FrameState {
   return {
     time: 1000,
     delta: 16,
     elapsed: 0,
     width: 800,
     height: 600,
-    params: { ...defaultParams },
-    ...overrides,
-  };
+    params: { ...defaultParams, ...(overrides?.params ?? {}) },
+    ...Object.fromEntries(Object.entries(overrides ?? {}).filter(([k]) => k !== 'params')),
+  } as FrameState;
 }
 
 function createMockGeometrySystem(): GeometrySystem & { init: ReturnType<typeof vi.fn>; draw: ReturnType<typeof vi.fn> } {
   return {
     init: vi.fn(),
     draw: vi.fn(),
+  };
+}
+
+function createMockGeometrySystemWithOpacity(): GeometrySystem & { init: ReturnType<typeof vi.fn>; draw: ReturnType<typeof vi.fn>; cleanup: ReturnType<typeof vi.fn>; setOpacity: ReturnType<typeof vi.fn> } {
+  return {
+    init: vi.fn(),
+    draw: vi.fn(),
+    cleanup: vi.fn(),
+    setOpacity: vi.fn(),
   };
 }
 
@@ -102,8 +111,8 @@ describe('US-026: ModeManager', () => {
   });
 
   it('T-026-17: mode switches at elapsed time boundary', () => {
-    const mockA = createMockGeometrySystem();
-    const mockB = createMockGeometrySystem();
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
 
     const scene = createTestScene();
     const manager = createModeManager([
@@ -111,20 +120,22 @@ describe('US-026: ModeManager', () => {
       { name: 'b', factory: () => mockB },
     ]);
     manager.init(scene, 'switch-seed', defaultParams);
+    const initialIndex = manager.activeIndex;
 
     // Draw at elapsed=0
     manager.draw(scene, makeFrame({ elapsed: 0 }));
 
-    // Draw at elapsed=200000 (well past any 90-180s interval)
+    // Trigger switch at elapsed=200000
     manager.draw(scene, makeFrame({ elapsed: 200_000 }));
 
-    // Both mocks should have been used
-    expect(mockA.draw.mock.calls.length + mockB.draw.mock.calls.length).toBe(2);
-    // At least one call to each
-    const aCalls = mockA.draw.mock.calls.length;
-    const bCalls = mockB.draw.mock.calls.length;
-    expect(aCalls).toBeGreaterThanOrEqual(1);
-    expect(bCalls).toBeGreaterThanOrEqual(1);
+    // During transition both should be drawn
+    expect(mockA.draw.mock.calls.length + mockB.draw.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+    // Complete transition
+    manager.draw(scene, makeFrame({ elapsed: 205_000 }));
+
+    // Active index should have changed
+    expect(manager.activeIndex).not.toBe(initialIndex);
   });
 
   it('T-026-18: both modes receive the same seed on init', () => {
@@ -201,13 +212,13 @@ describe('US-026: ModeManager', () => {
     }
 
     const totalDrawCalls = mockA.draw.mock.calls.length + mockB.draw.mock.calls.length;
-    expect(totalDrawCalls).toBe(totalFrames);
+    expect(totalDrawCalls).toBeGreaterThanOrEqual(totalFrames);
   });
 
   it('T-026-22: registry accepts multiple modes and cycles through them', () => {
-    const mockA = createMockGeometrySystem();
-    const mockB = createMockGeometrySystem();
-    const mockC = createMockGeometrySystem();
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+    const mockC = createMockGeometrySystemWithOpacity();
 
     const scene = createTestScene();
     const manager = createModeManager([
@@ -217,10 +228,12 @@ describe('US-026: ModeManager', () => {
     ]);
     manager.init(scene, 'cycle-seed', defaultParams);
 
-    // Draw at various elapsed times to cross multiple switch boundaries
+    // Draw and complete transitions
     manager.draw(scene, makeFrame({ elapsed: 0 }));
     manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+    manager.draw(scene, makeFrame({ elapsed: 205_000 }));
     manager.draw(scene, makeFrame({ elapsed: 400_000 }));
+    manager.draw(scene, makeFrame({ elapsed: 405_000 }));
 
     // All 3 modes should have been drawn at least once
     expect(mockA.draw.mock.calls.length).toBeGreaterThanOrEqual(1);
@@ -278,10 +291,8 @@ describe('US-026: ModeManager', () => {
   });
 
   it('T-030-23: cleanup() is called on outgoing system during mode switch', () => {
-    const mockA = createMockGeometrySystem();
-    (mockA as any).cleanup = vi.fn();
-    const mockB = createMockGeometrySystem();
-    (mockB as any).cleanup = vi.fn();
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
 
     const scene = createTestScene();
     const manager = createModeManager([
@@ -292,10 +303,17 @@ describe('US-026: ModeManager', () => {
     const initialIndex = manager.activeIndex;
     const initialMock = initialIndex === 0 ? mockA : mockB;
 
-    // Trigger mode switch
+    // Trigger mode switch (starts transition)
     manager.draw(scene, makeFrame({ elapsed: 200_000 }));
 
-    expect((initialMock as any).cleanup).toHaveBeenCalled();
+    // Cleanup should NOT be called yet (still transitioning)
+    expect(initialMock.cleanup).not.toHaveBeenCalled();
+
+    // Complete transition (advance past max 4s transition duration)
+    manager.draw(scene, makeFrame({ elapsed: 205_000 }));
+
+    // NOW cleanup should have been called
+    expect(initialMock.cleanup).toHaveBeenCalled();
   });
 
   it('T-030-24: mode switch with cleanup does not throw even when cleanup is undefined', () => {
@@ -337,5 +355,242 @@ describe('US-026: ModeManager', () => {
     if (cookieDescriptor) {
       Object.defineProperty(document, 'cookie', cookieDescriptor);
     }
+  });
+});
+
+describe('US-035: Smooth visual transitions between 3D modes', () => {
+  it('T-035-01: mode switch crossfades — both outgoing and incoming draw() are called during transition', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.init(scene, 'crossfade-seed', defaultParams);
+    const initialIndex = manager.activeIndex;
+    const [initial, incoming] = initialIndex === 0 ? [mockA, mockB] : [mockB, mockA];
+
+    // Draw before switch
+    manager.draw(scene, makeFrame({ elapsed: 0 }));
+    expect(initial.draw).toHaveBeenCalledTimes(1);
+    expect(incoming.draw).not.toHaveBeenCalled();
+
+    // Trigger switch — use 200s which exceeds 90-180s interval
+    initial.draw.mockClear();
+    incoming.draw.mockClear();
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+
+    // During transition, BOTH systems should be drawn
+    expect(initial.draw).toHaveBeenCalled();
+    expect(incoming.draw).toHaveBeenCalled();
+  });
+
+  it('T-035-02: transition duration is seeded and falls within 2-4 second range', () => {
+    const scene = createTestScene();
+    const durations: number[] = [];
+
+    for (let s = 0; s < 20; s++) {
+      const mockA = createMockGeometrySystemWithOpacity();
+      const mockB = createMockGeometrySystemWithOpacity();
+
+      const manager = createModeManager([
+        { name: 'a', factory: () => mockA },
+        { name: 'b', factory: () => mockB },
+      ]);
+      manager.init(scene, `duration-seed-${s}`, defaultParams);
+
+      // Trigger transition at 200s
+      manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+      expect(manager.transitioning).toBe(true);
+
+      // Probe to find when transition ends (check 100ms increments from 200s+2000ms to 200s+4500ms)
+      let endTime = -1;
+      for (let t = 202_000; t <= 204_500; t += 100) {
+        manager.draw(scene, makeFrame({ elapsed: t }));
+        if (!manager.transitioning) {
+          endTime = t;
+          break;
+        }
+      }
+      expect(endTime).toBeGreaterThanOrEqual(202_000);
+      expect(endTime).toBeLessThanOrEqual(204_100);
+      durations.push(endTime - 200_000);
+    }
+
+    // Durations should vary across seeds
+    const unique = new Set(durations);
+    expect(unique.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('T-035-03: after transition completes, only incoming system draws and outgoing cleanup was called', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.init(scene, 'post-transition-seed', defaultParams);
+    const initialIndex = manager.activeIndex;
+    const [outgoing, incoming] = initialIndex === 0 ? [mockA, mockB] : [mockB, mockA];
+
+    // Trigger switch
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+
+    // Advance well past max transition duration (200s + 5s)
+    outgoing.draw.mockClear();
+    incoming.draw.mockClear();
+    manager.draw(scene, makeFrame({ elapsed: 205_000 }));
+
+    // Only incoming should be drawn now
+    expect(incoming.draw).toHaveBeenCalled();
+    expect(outgoing.draw).not.toHaveBeenCalled();
+
+    // Outgoing cleanup should have been called
+    expect(outgoing.cleanup).toHaveBeenCalled();
+  });
+
+  it('T-035-04: no frame hitches — draw() never throws during entire transition lifecycle', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.init(scene, 'hitch-test-seed', defaultParams);
+
+    // Draw frames spanning before, during, and after transition
+    for (let t = 0; t <= 210_000; t += 500) {
+      expect(() => manager.draw(scene, makeFrame({ elapsed: t }))).not.toThrow();
+    }
+  });
+
+  it('T-035-05: audio params (bassEnergy, trebleEnergy) flow to both systems during transition', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.init(scene, 'audio-flow-seed', defaultParams);
+
+    // Trigger transition with audio data
+    const audioFrame = makeFrame({
+      elapsed: 200_000,
+      params: { ...defaultParams, bassEnergy: 0.8, trebleEnergy: 0.6 },
+    });
+    manager.draw(scene, audioFrame);
+
+    // Both systems should receive the frame with audio params
+    const aFrame = mockA.draw.mock.calls.length > 0 ? mockA.draw.mock.calls[mockA.draw.mock.calls.length - 1][1] : null;
+    const bFrame = mockB.draw.mock.calls.length > 0 ? mockB.draw.mock.calls[mockB.draw.mock.calls.length - 1][1] : null;
+
+    // During transition both should have been called
+    expect(aFrame).not.toBeNull();
+    expect(bFrame).not.toBeNull();
+    expect(aFrame.params.bassEnergy).toBe(0.8);
+    expect(aFrame.params.trebleEnergy).toBe(0.6);
+    expect(bFrame.params.bassEnergy).toBe(0.8);
+    expect(bFrame.params.trebleEnergy).toBe(0.6);
+  });
+
+  it('T-035-06: transition state is observable via manager.transitioning', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.init(scene, 'observable-seed', defaultParams);
+
+    // Before any switch
+    expect(manager.transitioning).toBe(false);
+
+    // Draw normally
+    manager.draw(scene, makeFrame({ elapsed: 0 }));
+    expect(manager.transitioning).toBe(false);
+
+    // Trigger switch
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+    expect(manager.transitioning).toBe(true);
+
+    // Well after transition completes
+    manager.draw(scene, makeFrame({ elapsed: 205_000 }));
+    expect(manager.transitioning).toBe(false);
+  });
+
+  it('T-035-07: setOpacity is called with correct crossfade values (outgoing decreases, incoming increases)', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.init(scene, 'opacity-values-seed', defaultParams);
+    const initialIndex = manager.activeIndex;
+    const [outgoing, incoming] = initialIndex === 0 ? [mockA, mockB] : [mockB, mockA];
+
+    // Trigger transition
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+
+    // Record mid-transition opacity
+    outgoing.setOpacity.mockClear();
+    incoming.setOpacity.mockClear();
+    manager.draw(scene, makeFrame({ elapsed: 201_500 }));
+
+    // Both should have setOpacity called
+    expect(outgoing.setOpacity).toHaveBeenCalled();
+    expect(incoming.setOpacity).toHaveBeenCalled();
+
+    const outVal = outgoing.setOpacity.mock.calls[outgoing.setOpacity.mock.calls.length - 1][0];
+    const inVal = incoming.setOpacity.mock.calls[incoming.setOpacity.mock.calls.length - 1][0];
+
+    // Outgoing should be decreasing (less than 1)
+    expect(outVal).toBeLessThan(1.0);
+    expect(outVal).toBeGreaterThanOrEqual(0.0);
+
+    // Incoming should be increasing (greater than 0)
+    expect(inVal).toBeGreaterThan(0.0);
+    expect(inVal).toBeLessThanOrEqual(1.0);
+
+    // They should be roughly complementary
+    expect(outVal + inVal).toBeCloseTo(1.0, 1);
+  });
+
+  it('T-035-08: integration — real ParticleField and PointCloud do not throw during transition', async () => {
+    const { createParticleField } = await import('../../src/visual/systems/particleField');
+    const { createPointCloud } = await import('../../src/visual/systems/pointCloud');
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'particles', factory: () => createParticleField() },
+      { name: 'points', factory: () => createPointCloud() },
+    ]);
+
+    expect(() => manager.init(scene, 'integration-transition-seed', defaultParams)).not.toThrow();
+
+    // Normal draw
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 0 }))).not.toThrow();
+
+    // Trigger transition
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();
+
+    // Mid-transition
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 201_500 }))).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 203_000 }))).not.toThrow();
+
+    // Post-transition
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 205_000 }))).not.toThrow();
   });
 });
