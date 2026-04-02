@@ -1,0 +1,124 @@
+{
+  "id": "US-037",
+  "title": "Add viewport safe-area and dynamic viewport handling",
+  "depends_on": ["US-028"],
+  "analysis": {
+    "summary": "US-028 already established the foundation: viewport-fit=cover, 100dvh/100dvw with fallbacks, visualViewport API integration, and safe-area-inset on bottom/left/right of buttons. US-037 closes remaining gaps: safe-area-inset-top coverage, info overlay safe-area padding, overscroll prevention, touch-action hardening, and landscape notch handling.",
+    "existing_infrastructure": [
+      "viewport-fit=cover in index.html meta tag",
+      "100dvh/100dvw with 100vh/100vw fallback on html,body",
+      "overflow: hidden on html,body",
+      "env(safe-area-inset-bottom) on .eavi-mute-btn and .eavi-info-btn",
+      "env(safe-area-inset-left) on .eavi-mute-btn",
+      "env(safe-area-inset-right) on .eavi-info-btn",
+      "visualViewport API resize listener in resize.ts",
+      "orientationchange event listener in resize.ts",
+      "#app uses position:fixed with inset 0,0"
+    ],
+    "gaps_to_address": [
+      "No safe-area-inset-top coverage — notch/dynamic island could overlap top of overlay content",
+      "Info overlay (.eavi-info-overlay) has no safe-area padding for its content area",
+      "No overscroll-behavior: none — mobile can trigger pull-to-refresh or rubber-band bounce",
+      "No touch-action constraint on canvas/body to prevent unintended browser gestures",
+      "Landscape orientation with notch: buttons and overlay content could be clipped on left/right sides",
+      "Info panel close button (.eavi-info-close) could be hidden behind notch in landscape"
+    ]
+  },
+  "files_to_modify": [
+    {
+      "path": "src/style.css",
+      "changes": [
+        "Add overscroll-behavior: none to html,body to prevent pull-to-refresh and rubber-banding",
+        "Add touch-action: none to #app and canvas to prevent browser gesture interference",
+        "Add safe-area padding to .eavi-info-overlay so overlay content respects all four insets",
+        "Add safe-area-aware padding to .eavi-info-panel for landscape notch scenarios",
+        "Ensure .eavi-info-close respects safe-area-inset-top"
+      ]
+    },
+    {
+      "path": "index.html",
+      "changes": [
+        "No changes needed — viewport-fit=cover already present"
+      ]
+    },
+    {
+      "path": "src/visual/resize.ts",
+      "changes": [
+        "No changes needed — visualViewport integration and orientation handling already complete"
+      ]
+    }
+  ],
+  "files_to_create": [
+    {
+      "path": "tests/visual/viewport-safe-area.test.ts",
+      "purpose": "Test CSS rules for US-037 acceptance criteria: safe-area insets on overlay, overscroll-behavior, touch-action, no scrollbars"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": 1,
+      "action": "Write tests in tests/visual/viewport-safe-area.test.ts",
+      "details": [
+        "T-037-01: html,body includes overscroll-behavior: none",
+        "T-037-02: #app or canvas includes touch-action: none",
+        "T-037-03: .eavi-info-overlay uses safe-area-inset padding (all four sides)",
+        "T-037-04: .eavi-info-panel accounts for safe-area in padding",
+        "T-037-05: index.html viewport meta includes viewport-fit=cover (re-verify from US-028)",
+        "T-037-06: html,body overflow is hidden (re-verify no scrollbars)",
+        "T-037-07: html,body uses 100dvh with 100vh fallback (re-verify dynamic viewport)"
+      ]
+    },
+    {
+      "step": 2,
+      "action": "Update src/style.css — html,body block",
+      "details": [
+        "Add overscroll-behavior: none after overflow: hidden to prevent pull-to-refresh and rubber-band bounce on mobile"
+      ],
+      "code_sketch": "html,\nbody {\n  margin: 0;\n  padding: 0;\n  overflow: hidden;\n  overscroll-behavior: none;\n  width: 100vw;\n  width: 100dvw;\n  height: 100vh;\n  height: 100dvh;\n  background: #000;\n}"
+    },
+    {
+      "step": 3,
+      "action": "Update src/style.css — #app block",
+      "details": [
+        "Add touch-action: none to prevent unintended pan/zoom gestures that could cause blank bars or scrollbars"
+      ],
+      "code_sketch": "#app {\n  position: fixed;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  touch-action: none;\n}"
+    },
+    {
+      "step": 4,
+      "action": "Update src/style.css — .eavi-info-overlay block",
+      "details": [
+        "Add padding using env(safe-area-inset-*) so overlay content does not render behind notch, dynamic island, or home indicator"
+      ],
+      "code_sketch": ".eavi-info-overlay {\n  position: fixed;\n  inset: 0;\n  z-index: 20;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  background: rgba(0, 0, 0, 0.75);\n  backdrop-filter: blur(8px);\n  padding:\n    env(safe-area-inset-top, 0px)\n    env(safe-area-inset-right, 0px)\n    env(safe-area-inset-bottom, 0px)\n    env(safe-area-inset-left, 0px);\n}"
+    },
+    {
+      "step": 5,
+      "action": "Run tests and verify build",
+      "details": [
+        "Run npm run build to confirm no build errors",
+        "Run npx vitest run tests/visual/viewport-safe-area.test.ts to confirm new tests pass",
+        "Run full test suite to confirm no regressions"
+      ]
+    }
+  ],
+  "acceptance_criteria_mapping": {
+    "Viewport meta config supports edge-to-edge displays": "Already satisfied by viewport-fit=cover in index.html (US-028). Verified in step 1 test T-037-05.",
+    "UI respects safe-area insets (top/bottom) where applicable": "Steps 2-4: buttons already have bottom/side insets (US-028); overlay gains all-four-side safe-area padding.",
+    "Dynamic viewport height changes do not leave permanent blank bars": "Already satisfied by 100dvh + visualViewport listener (US-028). Reinforced by overscroll-behavior: none (step 2) and touch-action: none (step 3).",
+    "No scrollbars appear": "Already satisfied by overflow: hidden (US-028). Reinforced by overscroll-behavior: none and touch-action: none."
+  },
+  "risk_assessment": {
+    "low_risk": [
+      "overscroll-behavior: none is well-supported and purely additive",
+      "Safe-area padding on overlay is purely additive",
+      "All changes are CSS-only — no JS runtime changes needed"
+    ],
+    "medium_risk": [
+      "touch-action: none on #app may interfere with pointer entropy collection if pointer.ts relies on touch events — verify pointer.ts uses pointer events (not touch events) which are unaffected by touch-action"
+    ],
+    "mitigation": "Verify src/input/pointer.ts uses pointermove/pointerdown (not touchmove/touchstart). Pointer events fire regardless of touch-action: none."
+  },
+  "estimated_complexity": "small",
+  "notes": "This is primarily a CSS-only ticket. The heavy lifting (visualViewport, dvh, viewport-fit=cover) was done in US-028. US-037 hardens the remaining edge cases: overlay safe-area coverage, overscroll prevention, and gesture interference."
+}
