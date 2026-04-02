@@ -261,14 +261,14 @@ describe('US-026: ModeManager', () => {
     expect(unique.size).toBeGreaterThanOrEqual(2);
   });
 
-  it('T-026-24: mode manager works with real ParticleField and WaveField', async () => {
+  it('T-026-24: mode manager works with real ParticleField and RibbonField', async () => {
     const { createParticleField } = await import('../../src/visual/systems/particleField');
-    const { createWaveField } = await import('../../src/visual/systems/waveField');
+    const { createRibbonField } = await import('../../src/visual/systems/ribbonField');
 
     const scene = createTestScene();
     const manager = createModeManager([
       { name: 'particles', factory: () => createParticleField() },
-      { name: 'waves', factory: () => createWaveField() },
+      { name: 'ribbon', factory: () => createRibbonField() },
     ]);
 
     expect(() => manager.init(scene, 'integration-seed', defaultParams)).not.toThrow();
