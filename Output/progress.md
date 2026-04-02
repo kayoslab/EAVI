@@ -60,3 +60,5 @@
 
 ## US-031: Implement 3D point cloud base geometry
 
+## US-032: Add audio-driven 3D warp shader for the point cloud
+

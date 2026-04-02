@@ -637,8 +637,8 @@
         "Visuals continue even if autoplay is blocked or audio is muted"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-031",
         "US-018",
