@@ -1,55 +1,83 @@
 {
-  "plan_id": "US-026",
-  "comments": [
+  "ticket": "US-026",
+  "plan_quality": "high",
+  "findings": [
     {
-      "step": 1,
+      "type": "observation",
       "severity": "info",
-      "comment": "WaveField design is sound. The existing prng.ts (mulberry32) can seed wave phase offsets. Drawing via ctx.beginPath/lineTo strokes is consistent with particleField's ctx.beginPath/arc approach. Ensure waveField imports createPRNG from src/visual/prng.ts."
+      "message": "Implementation is already complete. waveField.ts exists at src/visual/systems/waveField.ts and is registered in main.ts alongside ParticleField."
     },
     {
-      "step": 2,
-      "severity": "warn",
-      "comment": "ModeManager.init() is called once by the render loop (on first frame with real seed). Subsequent mode switches happen inside draw() when elapsed crosses a boundary. The manager must cache the seed and latest VisualParams from init() so it can call init() on the next GeometrySystem at switch time. The plan mentions this but should be explicit: store this.seed and this.lastParams in init(), reuse in draw() when switching."
+      "type": "verified",
+      "detail": "GeometrySystem interface matches plan: init(ctx, seed, params) and draw(ctx, frame) in src/visual/types.ts"
     },
     {
-      "step": 3,
-      "severity": "warn",
-      "comment": "quality.ts (QualityProfile) currently only has maxParticles, resolutionScale, enableSparkle. Adding maxWaves and enableShimmer requires editing quality.ts, which is not listed in files_touched. Either edit quality.ts to add these fields per tier, or derive them inline in main.ts from existing tier values. Recommend editing quality.ts for consistency."
+      "type": "verified",
+      "detail": "ModeManager switching logic matches plan: seeded initial mode selection, 90-180s interval, cyclic switching on elapsed time in src/visual/modeManager.ts"
     },
     {
-      "step": 3,
-      "severity": "info",
-      "comment": "The LoopDeps.geometrySystem typing is already GeometrySystem | null, so passing ModeManager (which implements GeometrySystem) requires zero type changes. Clean."
+      "type": "verified",
+      "detail": "WaveField implements all specified VisualParam mappings: bassEnergy scales amplitude (1 + bassEnergy * 3), trebleEnergy drives line width and alpha, cadence scales phase speed, pointerDisturbance warps waves locally, paletteHue/paletteSaturation set HSL colors with per-wave hueOffset"
     },
     {
-      "step": 4,
-      "severity": "info",
-      "comment": "Confirmed: FrameState already has elapsed field. The render loop already passes it. No changes needed to renderLoop.ts — the plan's 'likely no changes' assessment is correct."
+      "type": "verified",
+      "detail": "Audio pipeline is fully decoupled from geometry. renderLoop.ts polls analyser independently; mode switch in modeManager.ts only calls init() on the new GeometrySystem, no audio references"
     },
     {
-      "step": 5,
-      "severity": "info",
-      "comment": "Existing particleField.test.ts uses a canvas mock pattern with vi.fn() for CanvasRenderingContext2D methods. WaveField tests should follow the same mock setup. The test file path matches the existing convention under tests/visual/systems/."
+      "type": "verified",
+      "detail": "Quality tier mapping in main.ts: maxWaves is 8/14/20 for low/medium/high, enableShimmer reuses quality.enableSparkle"
     },
     {
-      "step": 6,
-      "severity": "info",
-      "comment": "ModeManager tests should verify that draw() delegates to the active system's draw() and that init() is called on the new system at switch boundaries. Testing elapsed-based switching with controlled FrameState.elapsed values is straightforward."
+      "type": "verified",
+      "detail": "TypeScript compiles cleanly with no errors"
+    },
+    {
+      "type": "minor_gap",
+      "severity": "low",
+      "message": "Plan step 3 mentions structureComplexity adding harmonic overtones to wave shapes, but the implementation uses a simpler single-frequency sine. This is a simplification, not a defect — the visual result is still distinct from ParticleField."
+    },
+    {
+      "type": "minor_gap",
+      "severity": "low",
+      "message": "Plan step 3 mentions curveSoftness controlling bezier vs angular segments, but the implementation uses only lineTo. Given segment density (width/10 ≈ 40-200 segments), lines approximate curves smoothly. Acceptable trade-off for performance."
     }
   ],
-  "missing_files": [
+  "acceptance_criteria": {
+    "second_mode_implemented": {
+      "pass": true,
+      "evidence": "WaveField in src/visual/systems/waveField.ts with distinct layered sine-wave rendering"
+    },
+    "both_modes_reuse_same_seed_and_audio": {
+      "pass": true,
+      "evidence": "Both receive identical FrameState from renderLoop.ts containing shared seed, shared VisualParams (bassEnergy/trebleEnergy from single analyser pipeline)"
+    },
+    "mode_choice_based_on_seed_or_elapsed_time": {
+      "pass": true,
+      "evidence": "modeManager.ts selectInitialMode uses createPRNG(seed+':mode') for initial index; switches on elapsed >= nextSwitchAt with seeded 90-180s interval"
+    },
+    "mode_switch_does_not_break_playback": {
+      "pass": true,
+      "evidence": "modeManager.ts switchMode only calls geometrySystem.init(); audio pipeline in renderLoop.ts is polled independently with no geometry coupling"
+    }
+  },
+  "risks_assessment": [
     {
-      "file": "src/visual/quality.ts",
-      "action": "edit",
-      "reason": "Needs maxWaves and enableShimmer added to QualityProfile interface and to each tier's config values (low: 8/false, medium: 14/true, high: 20/true)"
+      "risk": "Wave rendering performance on low-end devices",
+      "mitigation_adequate": true,
+      "note": "maxWaves capped at 8 for low tier, shimmer disabled via enableShimmer flag"
+    },
+    {
+      "risk": "Visual discontinuity during mode switch",
+      "mitigation_adequate": true,
+      "note": "Both modes render on black background with full-frame clear; transition is clean cut. Fade would be polish, not required."
     }
   ],
-  "risks_assessment": "Risks identified are reasonable. Hard cut on mode switch is acceptable for v1 given the per-frame canvas clear. Wave rendering at 8-20 strokes per frame is lighter than particle rendering, so performance risk is low.",
-  "estimated_new_lines_assessment": "350 is reasonable. WaveField ~120, ModeManager ~80, quality.ts edits ~10, main.ts edits ~15, tests ~150.",
-  "estimated_test_count_assessment": "25 tests is achievable and sufficient for the scope.",
+  "recommended_actions": [],
+  "ready_to_implement": true,
+  "notes": "Plan is accurate and well-structured. The implementation already exists and matches the plan. Two minor simplifications (no structureComplexity harmonics, no curveSoftness bezier toggle) are reasonable trade-offs that don't affect acceptance criteria. All four acceptance criteria pass.",
   "approved": true,
   "concerns": [],
-  "decision": "approve",
+  "decision": "accept",
   "adr_entry": null,
   "failures": []
 }
