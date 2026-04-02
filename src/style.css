@@ -4,7 +4,9 @@ body {
   padding: 0;
   overflow: hidden;
   width: 100vw;
+  width: 100dvw;
   height: 100vh;
+  height: 100dvh;
   background: #000;
 }
 
@@ -18,12 +20,14 @@ body {
 
 canvas {
   display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .eavi-info-btn {
   position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
+  bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem));
+  right: max(1.5rem, calc(env(safe-area-inset-right, 0px) + 0.75rem));
   z-index: 10;
   min-width: 44px;
   min-height: 44px;
@@ -77,8 +81,8 @@ canvas {
 
 .eavi-mute-btn {
   position: fixed;
-  bottom: 1.5rem;
-  left: 1.5rem;
+  bottom: max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem));
+  left: max(1.5rem, calc(env(safe-area-inset-left, 0px) + 0.75rem));
   z-index: 10;
   min-width: 44px;
   min-height: 44px;
