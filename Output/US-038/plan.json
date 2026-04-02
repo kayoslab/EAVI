@@ -1,0 +1,169 @@
+{
+  "id": "US-038",
+  "title": "Add minimal visual instrumentation for tuning",
+  "overview": "Create a debug overlay toggled by `?debug` query param that displays FPS, active mode name, point count, and bass/treble values. The overlay reads frame data from the render loop via a lightweight callback, renders into a fixed-position DOM element, and is completely disabled by default.",
+  "files_to_create": [
+    {
+      "path": "src/ui/debugOverlay.ts",
+      "purpose": "Debug overlay module: exports `createDebugOverlay()` that returns a DOM element and an `update(data)` method. The update method accepts a `DebugFrameData` object and writes formatted text into the overlay. FPS is computed from delta. No raw visitor identifiers are exposed.",
+      "key_details": [
+        "Export interface DebugFrameData: { fps: number, modeName: string, pointCount: number, bass: number, treble: number }",
+        "Export function createDebugOverlay(): { element: HTMLElement, update: (data: DebugFrameData) => void }",
+        "Element uses class `eavi-debug-overlay` with fixed position top-left",
+        "Update throttled to ~4Hz (every ~250ms) to avoid layout thrash",
+        "Text-only, monospace font, semi-transparent background matching existing UI style"
+      ]
+    },
+    {
+      "path": "tests/ui/debugOverlay.test.ts",
+      "purpose": "Tests for the debug overlay module covering creation, update behavior, content format, privacy, and CSS presence."
+    }
+  ],
+  "files_to_modify": [
+    {
+      "path": "src/visual/renderLoop.ts",
+      "changes": [
+        "Add optional `onDebugFrame` callback to `LoopDeps` interface: `onDebugFrame?: ((data: { fps: number, modeName: string, pointCount: number, bass: number, treble: number }) => void) | null`",
+        "At end of frame function (after render, before requestAnimationFrame), call `d.onDebugFrame?.({ fps: 1000/delta, modeName, pointCount, bass, treble })`",
+        "Mode name and point count need to come from deps — add optional `getModeName?: (() => string) | null` and `getPointCount?: (() => number) | null` to LoopDeps"
+      ]
+    },
+    {
+      "path": "src/main.ts",
+      "changes": [
+        "Import `createDebugOverlay` from `./ui/debugOverlay`",
+        "Check `new URLSearchParams(window.location.search).has('debug')` at startup",
+        "If debug enabled: create overlay, append element to body, wire `deps.onDebugFrame` to `overlay.update`",
+        "After modeManager creation, set `deps.getModeName` and `deps.getPointCount` from modeManager and quality"
+      ]
+    },
+    {
+      "path": "src/style.css",
+      "changes": [
+        "Add `.eavi-debug-overlay` styles: fixed top-left, z-index 30, monospace font, small text, semi-transparent dark background, padding, pointer-events none, safe-area insets",
+        "Add prefers-reduced-motion rule for debug overlay (transition: none)"
+      ]
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": 1,
+      "action": "Create `src/ui/debugOverlay.ts`",
+      "details": [
+        "Define `DebugFrameData` interface with fps, modeName, pointCount, bass, treble",
+        "Implement `createDebugOverlay()` returning { element, update }",
+        "Element is a `<div>` with class `eavi-debug-overlay`, hidden attribute initially false",
+        "update() throttles to ~4Hz using a timestamp check",
+        "Format: multi-line text showing each value on its own line, e.g. `FPS: 60 | mode: pointcloud\\npoints: 1200 | bass: 142 | treble: 38`",
+        "Round FPS to integer, bass/treble to integer (0-255 range)",
+        "No raw identifiers (IP, UA, geo, seed) are shown"
+      ]
+    },
+    {
+      "step": 2,
+      "action": "Extend `LoopDeps` in `src/visual/renderLoop.ts`",
+      "details": [
+        "Add `onDebugFrame?: ((data: { fps: number, modeName: string, pointCount: number, bass: number, treble: number }) => void) | null`",
+        "Add `getModeName?: (() => string) | null`",
+        "Add `getPointCount?: (() => number) | null`",
+        "After `renderer.render(scene, camera)`, invoke `d.onDebugFrame` with computed values",
+        "fps = delta > 0 ? 1000 / delta : 0",
+        "modeName from `d.getModeName?.() ?? 'loading'`",
+        "pointCount from `d.getPointCount?.() ?? 0`"
+      ]
+    },
+    {
+      "step": 3,
+      "action": "Add CSS for `.eavi-debug-overlay` in `src/style.css`",
+      "details": [
+        "position: fixed, top with safe-area-inset, left with safe-area-inset",
+        "z-index: 30 (above buttons at 10, below info overlay at 20 — actually make it 30 so it's always visible)",
+        "font-family: monospace, font-size: 0.7rem, color: rgba(255,255,255,0.7)",
+        "background: rgba(0,0,0,0.5), padding: 0.5rem 0.75rem, border-radius: 4px",
+        "pointer-events: none (don't interfere with scene interaction)",
+        "white-space: pre (preserve line breaks)",
+        "Add to prefers-reduced-motion rule"
+      ]
+    },
+    {
+      "step": 4,
+      "action": "Wire debug overlay in `src/main.ts`",
+      "details": [
+        "At top level (before startLoop), check `new URLSearchParams(window.location.search).has('debug')`",
+        "If true: call createDebugOverlay(), append element to document.body",
+        "Set `deps.onDebugFrame = overlay.update`",
+        "In geoPromise.then(), after modeManager creation, set deps.getModeName to return `modes[modeManager.activeIndex].name` (use the modes array from the createModeManager call)",
+        "Set deps.getPointCount to return the active mode's max point count from quality profile"
+      ]
+    },
+    {
+      "step": 5,
+      "action": "Create `tests/ui/debugOverlay.test.ts`",
+      "details": [
+        "Test: createDebugOverlay returns element and update function",
+        "Test: element has class eavi-debug-overlay",
+        "Test: update writes FPS, mode name, point count, bass, treble into text content",
+        "Test: overlay does not display raw identifiers (no IP, UA, seed, geo in text)",
+        "Test: CSS file contains .eavi-debug-overlay with position fixed",
+        "Test: CSS file contains pointer-events none for debug overlay",
+        "Test: no localStorage or cookie access (privacy check, matching existing pattern)",
+        "Test: update throttles (calling update rapidly doesn't update text every time)"
+      ]
+    },
+    {
+      "step": 6,
+      "action": "Verify build and tests pass",
+      "details": [
+        "Run `npm run build` — must succeed",
+        "Run `npm test` — all tests must pass",
+        "Manual check: load without ?debug — no overlay visible",
+        "Manual check: load with ?debug — overlay shows updating values"
+      ]
+    }
+  ],
+  "testing_strategy": {
+    "unit_tests": [
+      "createDebugOverlay returns correct structure (element + update fn)",
+      "Element has correct CSS class",
+      "update() populates text content with all required fields",
+      "No forbidden storage APIs used (localStorage, cookies)",
+      "Throttle behavior: rapid calls don't update every frame",
+      "CSS contains required debug overlay rules"
+    ],
+    "integration_checks": [
+      "LoopDeps type accepts new optional debug fields without breaking existing tests",
+      "Render loop test still passes with no debug callback set",
+      "Build succeeds with no type errors"
+    ],
+    "manual_checks": [
+      "Default load (no query param): no overlay visible",
+      "Load with ?debug: overlay appears top-left with live values",
+      "Values update at readable rate (~4Hz)",
+      "Mode name changes when mode switches",
+      "Bass/treble respond to audio",
+      "Overlay doesn't block pointer interaction (pointer-events: none)",
+      "No raw identifiers shown"
+    ]
+  },
+  "risks": [
+    {
+      "risk": "Adding fields to LoopDeps could break existing render loop tests",
+      "mitigation": "All new fields are optional (? suffix), so existing code and tests remain compatible"
+    },
+    {
+      "risk": "Debug overlay DOM updates could cause layout thrash affecting FPS",
+      "mitigation": "Throttle updates to ~4Hz and use textContent (not innerHTML) to minimize reflow"
+    }
+  ],
+  "definition_of_done": [
+    "Debug overlay enabled only via `?debug` query param — disabled by default",
+    "Shows FPS, active mode name, point count, bass value, treble value",
+    "Does not display raw visitor identifiers (IP, UA, geo, seed)",
+    "Build passes (`npm run build`)",
+    "All tests pass (`npm test`)",
+    "No console errors on normal load",
+    "No forbidden storage APIs (cookies, localStorage)",
+    "Scene works with and without autoplay",
+    "Mute toggle and info overlay still work"
+  ]
+}

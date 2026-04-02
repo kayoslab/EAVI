@@ -1,0 +1,67 @@
+{
+  "id": "US-038",
+  "confidence": 0.92,
+  "summary": "Plan is well-structured and aligns with the existing codebase. LoopDeps extension with optional fields is consistent with the current pattern. Minor refinements suggested but nothing blocking.",
+  "issues": [
+    {
+      "severity": "low",
+      "location": "src/visual/renderLoop.ts",
+      "description": "`getPointCount` getter is unnecessary — `d.quality?.maxPoints` is already available in the render loop. Remove the extra indirection.",
+      "suggestion": "Drop `getPointCount` from LoopDeps; use `d.quality?.maxPoints ?? 0` directly in the onDebugFrame call."
+    },
+    {
+      "severity": "low",
+      "location": "src/main.ts",
+      "description": "Plan step 4 says to set getModeName after modeManager creation inside geoPromise.then(), but the modes array is a local const in that closure. The closure must capture the array reference for the getter.",
+      "suggestion": "Capture `const modeEntries = [{ name: 'particles', ... }, ...]` before createModeManager so `getModeName` can reference `modeEntries[modeManager.activeIndex].name`."
+    },
+    {
+      "severity": "info",
+      "location": "tests/ui/debugOverlay.test.ts",
+      "description": "Test naming should follow existing convention: `describe('US-038: ...')` and `it('T-038-XX: ...')` as seen in other test files.",
+      "suggestion": "Use the established ticket-prefixed naming pattern."
+    }
+  ],
+  "approved_steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "blocked_steps": [],
+  "recommendations": [
+    "The render loop already computes smoothed `bass` and `treble` as local variables plus `fps` from delta — all values needed for onDebugFrame are readily available at the call site with no extra work.",
+    "Consider using `requestAnimationFrame` timestamp diff for FPS rather than the existing delta, since delta already exists and `1000/delta` is exactly right.",
+    "The plan correctly places z-index: 30 above the info overlay (z-index: 20) and buttons (z-index: 10), which is appropriate for a developer tool."
+  ],
+  "approved": true,
+  "concerns": [
+    "{\"severity\":\"low\",\"location\":\"src/visual/renderLoop.ts\",\"description\":\"`getPointCount` getter is unnecessary — `d.quality?.maxPoints` is already available in the render loop. Remove the extra indirection.\",\"suggestion\":\"Drop `getPointCount` from LoopDeps; use `d.quality?.maxPoints ?? 0` directly in the onDebugFrame call.\"}",
+    "{\"severity\":\"low\",\"location\":\"src/main.ts\",\"description\":\"Plan step 4 says to set getModeName after modeManager creation inside geoPromise.then(), but the modes array is a local const in that closure. The closure must capture the array reference for the getter.\",\"suggestion\":\"Capture `const modeEntries = [{ name: 'particles', ... }, ...]` before createModeManager so `getModeName` can reference `modeEntries[modeManager.activeIndex].name`.\"}",
+    "{\"severity\":\"info\",\"location\":\"tests/ui/debugOverlay.test.ts\",\"description\":\"Test naming should follow existing convention: `describe('US-038: ...')` and `it('T-038-XX: ...')` as seen in other test files.\",\"suggestion\":\"Use the established ticket-prefixed naming pattern.\"}"
+  ],
+  "decision": "approve",
+  "failures": [
+    {
+      "severity": "low",
+      "location": "src/visual/renderLoop.ts",
+      "description": "`getPointCount` getter is unnecessary — `d.quality?.maxPoints` is already available in the render loop. Remove the extra indirection.",
+      "suggestion": "Drop `getPointCount` from LoopDeps; use `d.quality?.maxPoints ?? 0` directly in the onDebugFrame call."
+    },
+    {
+      "severity": "low",
+      "location": "src/main.ts",
+      "description": "Plan step 4 says to set getModeName after modeManager creation inside geoPromise.then(), but the modes array is a local const in that closure. The closure must capture the array reference for the getter.",
+      "suggestion": "Capture `const modeEntries = [{ name: 'particles', ... }, ...]` before createModeManager so `getModeName` can reference `modeEntries[modeManager.activeIndex].name`."
+    },
+    {
+      "severity": "info",
+      "location": "tests/ui/debugOverlay.test.ts",
+      "description": "Test naming should follow existing convention: `describe('US-038: ...')` and `it('T-038-XX: ...')` as seen in other test files.",
+      "suggestion": "Use the established ticket-prefixed naming pattern."
+    }
+  ],
+  "adr_entry": null
+}
