@@ -111,3 +111,17 @@ Example structure:
 Client:
 - fetch('/api/geo')
 - merge into session inputs
+
+## Non-Negotiable Visual Target
+- Visuals MUST be 3D (perspective camera, visible depth/parallax).
+- The primary visual primitive MUST be a 3D point cloud (Three.js Points + BufferGeometry).
+- Canvas2D is NOT an acceptable final rendering backend (only optional fallback if WebGL is unavailable).
+
+## Mobile Full-Screen Requirement
+- Quality scaling MUST NOT shrink the canvas element’s CSS size.
+- Lower tiers reduce GPU cost via pixel ratio / point count / shader complexity, while remaining full-screen.
+
+## Audio Reactivity Requirement
+- Bass MUST drive macro 3D deformation.
+- Treble MUST drive fine detail behaviour (sparkle/micro-displacement/point size).
+- Audio reactivity must still run when muted.
