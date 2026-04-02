@@ -3,7 +3,7 @@ import { computeQuality } from '../../src/visual/quality';
 import type { BrowserSignals } from '../../src/input/signals';
 import * as THREE from 'three';
 import { createParticleField, getParticleCount } from '../../src/visual/systems/particleField';
-import { createWaveField, getWaveCount } from '../../src/visual/systems/waveField';
+import { createRibbonField, getPointCount as getRibbonPointCount } from '../../src/visual/systems/ribbonField';
 import type { VisualParams } from '../../src/visual/mappings';
 
 function makeSignals(overrides: Partial<BrowserSignals> = {}): BrowserSignals {
@@ -189,7 +189,7 @@ describe('US-025: Quality integration tests', () => {
     expect(getParticleCount(field)).toBeLessThanOrEqual(150);
   });
 
-  it('T-025-23: low-tier quality profile produces wave field with <= 10 waves end-to-end', () => {
+  it('T-025-23: low-tier quality profile produces ribbon field with <= maxRibbonPoints end-to-end', () => {
     const signals = makeSignals({
       devicePixelRatio: 1,
       hardwareConcurrency: 2,
@@ -200,12 +200,12 @@ describe('US-025: Quality integration tests', () => {
     });
     const quality = computeQuality(signals);
     expect(quality.tier).toBe('low');
+    expect(quality.maxRibbonPoints).toBe(200);
 
     const scene = new THREE.Scene();
-    const maxWaves = quality.tier === 'low' ? 10 : 20;
-    const field = createWaveField({ maxWaves });
-    field.init(scene, 'wave-integration-seed', { ...defaultParams, density: 1.0 });
-    expect(getWaveCount(field)).toBeLessThanOrEqual(10);
+    const field = createRibbonField({ maxPoints: quality.maxRibbonPoints });
+    field.init(scene, 'ribbon-integration-seed', { ...defaultParams, density: 1.0 });
+    expect(getRibbonPointCount(field)).toBeLessThanOrEqual(200);
   });
 
   it('T-025-24: quality scaling does not introduce localStorage or cookie access', () => {
@@ -227,9 +227,9 @@ describe('US-025: Quality integration tests', () => {
     particles.init(scene, 'privacy-seed', defaultParams);
     particles.draw(scene, { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 });
 
-    const waves = createWaveField({ maxWaves: 10, enableShimmer: quality.enableSparkle });
-    waves.init(scene, 'privacy-seed', defaultParams);
-    waves.draw(scene, { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 });
+    const ribbon = createRibbonField({ maxPoints: quality.maxRibbonPoints, enableSparkle: quality.enableSparkle });
+    ribbon.init(scene, 'privacy-seed', defaultParams);
+    ribbon.draw(scene, { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 });
 
     expect(lsSpy).not.toHaveBeenCalled();
     expect(cookieSpy).not.toHaveBeenCalled();
