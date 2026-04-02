@@ -3,8 +3,11 @@ import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
-import vertexShader from '../shaders/ribbonWarp.vert.glsl?raw';
+import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import ribbonWarpVert from '../shaders/ribbonWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/ribbonWarp.frag.glsl?raw';
+
+const vertexShader = noise3dGlsl + '\n' + ribbonWarpVert;
 
 const DEFAULT_MAX_POINTS = 1000;
 
