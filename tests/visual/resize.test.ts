@@ -137,3 +137,51 @@ describe('US-029: Resize handler for Three.js', () => {
     expect(camera.aspect).toBe(1600 / 900);
   });
 });
+
+describe('US-025: Resize handler with resolution scale', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true });
+    Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
+  });
+
+  it('T-025-18: resize handler respects resolutionScale parameter', () => {
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setPixelRatio(2 * 0.5);
+    renderer.setSize(1920, 1080);
+    const camera = new THREE.PerspectiveCamera(60, 1920 / 1080, 0.1, 100);
+
+    attachResizeHandler(renderer, camera, 0.5);
+
+    Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 768, configurable: true });
+    window.dispatchEvent(new Event('resize'));
+
+    // After resize, pixel ratio should be min(2,2)*0.5 = 1.0
+    // Canvas dimensions should be 1024*1.0 x 768*1.0
+    expect(renderer.domElement.width).toBe(1024);
+    expect(renderer.domElement.height).toBe(768);
+  });
+
+  it('T-025-19: resize handler cleanup and re-attach with different resolutionScale works', () => {
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setPixelRatio(2);
+    renderer.setSize(1920, 1080);
+    const camera = new THREE.PerspectiveCamera(60, 1920 / 1080, 0.1, 100);
+
+    // Attach with scale 1.0
+    const cleanup = attachResizeHandler(renderer, camera, 1.0);
+
+    // Detach and re-attach with scale 0.5
+    cleanup();
+    attachResizeHandler(renderer, camera, 0.5);
+
+    Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 768, configurable: true });
+    window.dispatchEvent(new Event('resize'));
+
+    // New scale 0.5: pixel ratio = min(2,2)*0.5 = 1.0 -> canvas 1024x768
+    expect(renderer.domElement.width).toBe(1024);
+    expect(renderer.domElement.height).toBe(768);
+  });
+});

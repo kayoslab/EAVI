@@ -150,6 +150,14 @@ describe('US-026: WaveField geometry system', () => {
     // This test relied on Canvas 2D strokeStyle
   });
 
+  it('T-025-17: createWaveField with reduced maxWaves caps wave count', () => {
+    const scene = new THREE.Scene();
+    const field = createWaveField({ maxWaves: 10 });
+    field.init(scene, 'cap-seed', { ...defaultParams, density: 1.0 });
+    expect(getWaveCount(field)).toBeLessThanOrEqual(10);
+    expect(getWaveCount(field)).toBeGreaterThan(0);
+  });
+
   it('T-026-13: no localStorage or cookie access during wave operations', () => {
     const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');
     const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');

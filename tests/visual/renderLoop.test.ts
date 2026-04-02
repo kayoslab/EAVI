@@ -717,4 +717,44 @@ describe('US-029: Render loop', () => {
       expect(cookieSpy).not.toHaveBeenCalled();
     });
   });
+
+  describe('US-025: Quality profile in LoopDeps', () => {
+    it('T-025-20: render loop accepts quality profile in LoopDeps', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'quality-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        quality: { tier: 'low', maxParticles: 150, resolutionScale: 0.5, enableSparkle: false },
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      const { renderer, scene, camera } = createTestRenderer();
+      expect(() => startLoop(renderer, scene, camera, deps)).not.toThrow();
+      expect(drawSpy).toHaveBeenCalled();
+    });
+
+    it('T-025-21: render loop runs without error when quality is null or undefined', () => {
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      const { renderer, scene, camera } = createTestRenderer();
+
+      // quality: null
+      expect(() => startLoop(renderer, scene, camera, { quality: null })).not.toThrow();
+
+      frameCount = 0;
+      // quality: undefined (omitted)
+      expect(() => startLoop(renderer, scene, camera, {})).not.toThrow();
+    });
+  });
 });
