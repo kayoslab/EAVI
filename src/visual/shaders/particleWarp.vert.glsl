@@ -1,6 +1,5 @@
-// Audio-driven 3D warp vertex shader for point cloud
-// US-032: GPU-side deformation driven by bass/treble energy uniforms
-// US-041: Simplex noise FBM for sculptural displacement
+// Audio-driven 3D particle field vertex shader
+// US-041: GPU-side curl noise displacement for sculptural deformation
 
 uniform float uTime;
 uniform float uBassEnergy;
@@ -53,37 +52,24 @@ void main() {
   // --- Structural: radial scale ---
   pos *= uRadialScale;
 
-  // --- Bass macro deformation ---
-  // Radial expansion
-  float expansion = 1.0 + uBassEnergy * 0.25 * ma;
+  // --- Bass macro deformation via curl noise ---
+  // Curl noise produces divergence-free flow — sculptural, swirling displacement
+  vec3 curlDisp = curl3(pos * 0.4 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
+  pos += curlDisp * uBassEnergy * uDisplacementScale * 0.35;
+
+  // Radial expansion driven by bass
+  float expansion = 1.0 + uBassEnergy * 0.2 * ma;
   pos *= expansion;
-
-  // Bass-driven macro noise displacement (sculptural 3D simplex FBM)
-  float bassNoise = fbm3(pos * 0.5 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
-  vec3 bassNoiseDir = normalize(pos + vec3(0.001));
-  pos += bassNoiseDir * bassNoise * uBassEnergy * uDisplacementScale * 0.3;
-
-  // Twist around Y axis (differential per-point), scaled by structural twist
-  float twistAngle = uBassEnergy * sin(t * 0.0003 + aRandom.x * TAU) * 0.3 * ma * uTwistStrength;
-  float cosT = cos(twistAngle);
-  float sinT = sin(twistAngle);
-  pos = vec3(
-    pos.x * cosT - pos.z * sinT,
-    pos.y,
-    pos.x * sinT + pos.z * cosT
-  );
-
-  // Bass directional drift
-  float bassDrift = uBassEnergy * 0.25 * ma;
-  pos.x += sin(t * 0.0004 + aRandom.x * 11.0) * bassDrift;
-  pos.y += cos(t * 0.0003 + aRandom.y * 13.0) * bassDrift;
-  pos.z += sin(t * 0.0005 + aRandom.z * 7.0) * bassDrift;
 
   // --- Treble micro displacement ---
   float trebleJitter = uTrebleEnergy * 0.12 * ma;
   pos.x += sin(t * 0.011 + aRandom.x * 7.3) * trebleJitter;
   pos.y += cos(t * 0.013 + aRandom.y * 5.7) * trebleJitter;
   pos.z += sin(t * 0.009 + aRandom.z * 3.1) * trebleJitter;
+
+  // Treble fine-grain noise displacement
+  float trebleFine = snoise(pos * 3.0 * uNoiseFrequency + vec3(t * 0.002)) * uTrebleEnergy * 0.08 * ma;
+  pos += normalize(pos + vec3(0.001)) * trebleFine;
 
   // --- Time evolution (slow modulation via simplex FBM) ---
   if (uEnableSlowModulation > 0.5) {

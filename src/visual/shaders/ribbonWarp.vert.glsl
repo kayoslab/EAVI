@@ -1,5 +1,6 @@
 // Audio-driven 3D ribbon warp vertex shader
 // US-034: GPU-side deformation for ribbon-of-points mode
+// US-041: Simplex noise FBM for sculptural displacement
 
 uniform float uTime;
 uniform float uBassEnergy;
@@ -19,6 +20,7 @@ uniform float uFieldSpread;
 uniform int uNoiseOctaves;
 uniform float uEnablePointerRepulsion;
 uniform float uEnableSlowModulation;
+uniform float uDisplacementScale;
 
 attribute float aHueOffset;
 attribute vec3 aRandom;
@@ -26,18 +28,6 @@ attribute vec3 aRandom;
 varying vec3 vColor;
 
 const float TAU = 6.283185307;
-
-// Layered sine noise — octave count controlled by uNoiseOctaves uniform
-float layeredNoise(float x, float y, float z) {
-  float n = sin(x * 7.3 + y * 13.7 + z * 23.1);
-  if (uNoiseOctaves >= 2) {
-    n += 0.5 * sin(x * 17.1 + y * 31.3 + z * 11.9);
-  }
-  if (uNoiseOctaves >= 3) {
-    n += 0.25 * sin(x * 43.7 + y * 7.9 + z * 53.3);
-  }
-  return n / 1.75;
-}
 
 // HSL to RGB conversion
 vec3 hsl2rgb(float h, float s, float l) {
@@ -68,6 +58,11 @@ void main() {
   float expansion = 1.0 + uBassEnergy * 0.3 * ma;
   pos *= expansion;
 
+  // Bass-driven macro noise displacement (sculptural 3D simplex FBM)
+  float bassNoise = fbm3(pos * 0.5 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
+  vec3 bassNoiseDir = normalize(pos + vec3(0.001));
+  pos += bassNoiseDir * bassNoise * uBassEnergy * uDisplacementScale * 0.3;
+
   // Sinusoidal ribbon sway — large-scale wave along the ribbon length
   float ribbonPhase = pos.x * 0.8 + pos.z * 0.5 + t * 0.0004;
   float bassSway = uBassEnergy * sin(ribbonPhase + aRandom.x * TAU) * 0.4 * ma;
@@ -90,13 +85,14 @@ void main() {
   pos.y += cos(t * 0.015 + aRandom.y * 7.3) * trebleJitter;
   pos.z += sin(t * 0.011 + aRandom.z * 5.7) * trebleJitter;
 
-  // --- Time evolution (slow modulation) ---
+  // --- Time evolution (slow modulation via simplex FBM) ---
   if (uEnableSlowModulation > 0.5) {
     float slowMod = sin(t * 0.00015 + aRandom.x * TAU) * 0.08 * ma;
     float slowMod2 = cos(t * 0.0001 + aRandom.y * TAU) * 0.06 * ma;
-    pos.x += slowMod * layeredNoise(pos.x * uNoiseFrequency, pos.y * uNoiseFrequency, t * 0.0001);
-    pos.y += slowMod2 * layeredNoise(pos.y * uNoiseFrequency, pos.z * uNoiseFrequency, t * 0.00012);
-    pos.z += slowMod * layeredNoise(pos.z * uNoiseFrequency, pos.x * uNoiseFrequency, t * 0.00008);
+    float nf = uNoiseFrequency;
+    pos.x += slowMod * fbm3(vec3(pos.x * nf, pos.y * nf, t * 0.00005 * uCadence), uNoiseOctaves);
+    pos.y += slowMod2 * fbm3(vec3(pos.y * nf, pos.z * nf, t * 0.00006 * uCadence), uNoiseOctaves);
+    pos.z += slowMod * fbm3(vec3(pos.z * nf, pos.x * nf, t * 0.00004 * uCadence), uNoiseOctaves);
   }
 
   // --- Pointer repulsion (screen-space approximation) ---
@@ -115,9 +111,10 @@ void main() {
   // --- Apply breathing scale ---
   pos *= uBreathScale;
 
-  // --- Point size ---
+  // --- Point size with treble sparkle modulation ---
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-  gl_PointSize = size * uBasePointSize * (300.0 / -mvPosition.z);
+  float trebleSparkle = 1.0 + uTrebleEnergy * 0.3 * snoise(pos * 3.0 + vec3(t * 0.005));
+  gl_PointSize = size * uBasePointSize * (300.0 / -mvPosition.z) * trebleSparkle;
   gl_Position = projectionMatrix * mvPosition;
 
   // --- Color computation ---
