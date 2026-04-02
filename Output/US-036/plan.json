@@ -1,0 +1,209 @@
+{
+  "id": "US-036",
+  "title": "Rework quality scaling to preserve full-screen while reducing GPU cost",
+  "overview": "Replace the single-lever resolutionScale approach with a multi-lever quality system that reduces GPU cost via pixel ratio, point count, AND shader complexity — while guaranteeing the canvas CSS always fills the viewport. The current code already uses pixelRatio scaling (not canvas shrinking), but shader complexity is not tiered and there are no guards or tests proving full-screen is preserved across all quality tiers.",
+  "current_state": {
+    "quality_system": "3-tier (low/medium/high) in src/visual/quality.ts, driven by DPR/cores/memory/screen/touch signals",
+    "scaling_levers": [
+      "resolutionScale (0.5–1.0) applied to renderer.setPixelRatio",
+      "maxParticles / maxPoints / maxRibbonPoints per tier",
+      "enableSparkle boolean (disables treble-modulated lightness on low tier)"
+    ],
+    "missing": [
+      "No shader complexity tiers — all tiers run full 3-octave noise, pointer repulsion, slow modulation",
+      "No dedicated test proving canvas CSS dimensions === viewport across all tiers",
+      "No GPU context loss handling for mobile crash prevention",
+      "enableSparkle only gates a single if-branch in vertex shaders — not a meaningful GPU cost reduction"
+    ],
+    "canvas_sizing": "Already correct: renderer.setSize(viewport) + style.width/height='100%' + CSS canvas{width:100%!important;height:100%!important}. No layout shrinkage bug exists today."
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "Extend QualityProfile with shaderComplexity field",
+      "file": "src/visual/quality.ts",
+      "changes": [
+        "Add `shaderComplexity: 'low' | 'medium' | 'high'` to QualityProfile interface",
+        "Low tier: shaderComplexity='low', Medium: 'medium', High: 'high'",
+        "Add `noiseOctaves: 1 | 2 | 3` to QualityProfile (low=1, medium=2, high=3)",
+        "Add `enablePointerRepulsion: boolean` (false for low, true for medium/high)",
+        "Add `enableSlowModulation: boolean` (false for low, true for medium/high)"
+      ],
+      "rationale": "The current system only scales point count and pixel ratio. Shader complexity is the third lever the acceptance criteria requires."
+    },
+    {
+      "step": 2,
+      "title": "Add shader complexity uniforms to vertex shaders",
+      "files": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl"
+      ],
+      "changes": [
+        "Add `uniform int uNoiseOctaves;` (1/2/3 — controls layeredNoise octave count)",
+        "Add `uniform float uEnablePointerRepulsion;` (0.0 or 1.0 — gates pointer repulsion block)",
+        "Add `uniform float uEnableSlowModulation;` (0.0 or 1.0 — gates time evolution block)",
+        "Refactor layeredNoise() to conditionally compute octaves: always octave 1, add octave 2 if uNoiseOctaves>=2, add octave 3 if uNoiseOctaves>=3",
+        "Guard pointer repulsion block with `if (uEnablePointerRepulsion > 0.5 && uPointerDisturbance > 0.0)`",
+        "Guard slow modulation block with `if (uEnableSlowModulation > 0.5)`"
+      ],
+      "rationale": "Reduces ALU operations per vertex on low-tier devices. 1 octave vs 3 octaves cuts sin() calls from 9 to 3 per vertex. Skipping pointer/slow-mod removes additional sin/cos/multiply chains."
+    },
+    {
+      "step": 3,
+      "title": "Wire shader complexity uniforms into geometry systems",
+      "files": [
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/ribbonField.ts"
+      ],
+      "changes": [
+        "Extend PointCloudConfig and RibbonFieldConfig to accept `noiseOctaves`, `enablePointerRepulsion`, `enableSlowModulation`",
+        "Add corresponding uniforms to the ShaderMaterial uniform blocks",
+        "Set uniform values from config during init"
+      ],
+      "rationale": "Connects the quality profile decisions to the GPU shaders."
+    },
+    {
+      "step": 4,
+      "title": "Pass shader complexity config from main.ts",
+      "file": "src/main.ts",
+      "changes": [
+        "When creating geometry systems, pass quality.noiseOctaves, quality.enablePointerRepulsion, quality.enableSlowModulation to createPointCloud, createRibbonField, createParticleField configs"
+      ],
+      "rationale": "Completes the data flow from quality tier to GPU."
+    },
+    {
+      "step": 5,
+      "title": "Add GPU context loss handler for mobile crash prevention",
+      "file": "src/visual/scene.ts",
+      "changes": [
+        "Add webglcontextlost event listener on the canvas element",
+        "Call event.preventDefault() to allow context restoration",
+        "Add webglcontextrestored event listener that re-applies renderer state (pixel ratio, size, clear color)",
+        "Export the cleanup function for these listeners"
+      ],
+      "rationale": "Mobile GPUs frequently lose context under memory pressure. Without handling this, the canvas goes black permanently — which looks like a crash."
+    },
+    {
+      "step": 6,
+      "title": "Harden canvas full-screen guarantee in resize handler",
+      "file": "src/visual/resize.ts",
+      "changes": [
+        "After setSize, assert and re-apply style.width='100%' and style.height='100%' (already done, but add a comment explaining why this is critical for US-036)",
+        "No functional change needed — current code is correct"
+      ],
+      "rationale": "The resize handler already preserves full-screen. This step is about verifying and documenting the guarantee."
+    },
+    {
+      "step": 7,
+      "title": "Write tests for US-036 acceptance criteria",
+      "file": "tests/visual/quality-scaling.test.ts",
+      "tests": [
+        {
+          "id": "T-036-01",
+          "name": "QualityProfile includes shaderComplexity for all tiers",
+          "assertion": "Low tier has shaderComplexity='low', noiseOctaves=1, enablePointerRepulsion=false, enableSlowModulation=false"
+        },
+        {
+          "id": "T-036-02",
+          "name": "Medium tier has shaderComplexity='medium' with noiseOctaves=2",
+          "assertion": "Medium tier profile has expected shader complexity values"
+        },
+        {
+          "id": "T-036-03",
+          "name": "High tier has shaderComplexity='high' with noiseOctaves=3 and all features enabled",
+          "assertion": "High tier profile enables all shader features"
+        },
+        {
+          "id": "T-036-04",
+          "name": "Canvas CSS dimensions always fill viewport regardless of quality tier",
+          "assertion": "For each tier, after initScene with that tier's resolutionScale, renderer.domElement.style.width === '100%' and style.height === '100%'"
+        },
+        {
+          "id": "T-036-05",
+          "name": "Low-tier renderer backing store is smaller than high-tier",
+          "assertion": "renderer pixel ratio with low resolutionScale < renderer pixel ratio with high resolutionScale, while CSS size is identical"
+        },
+        {
+          "id": "T-036-06",
+          "name": "Shader uniforms reflect quality config for point cloud",
+          "assertion": "createPointCloud with noiseOctaves=1 produces material with uNoiseOctaves=1"
+        },
+        {
+          "id": "T-036-07",
+          "name": "Shader uniforms reflect quality config for ribbon field",
+          "assertion": "createRibbonField with enablePointerRepulsion=false produces material with uEnablePointerRepulsion=0.0"
+        },
+        {
+          "id": "T-036-08",
+          "name": "Low-tier point cloud has <= maxPoints particles",
+          "assertion": "Already covered by T-025-22 but re-verified with new config shape"
+        },
+        {
+          "id": "T-036-09",
+          "name": "Visual identity preserved: all tiers produce non-zero point counts",
+          "assertion": "For low/medium/high, pointCount > 0 and geometry has positions"
+        },
+        {
+          "id": "T-036-10",
+          "name": "No localStorage or cookie access during quality-scaled rendering",
+          "assertion": "Privacy check across all tiers with new shader complexity config"
+        }
+      ]
+    },
+    {
+      "step": 8,
+      "title": "Update existing tests for new QualityProfile shape",
+      "file": "tests/visual/quality.test.ts",
+      "changes": [
+        "Update T-025-01 through T-025-08 assertions to include new shaderComplexity, noiseOctaves, enablePointerRepulsion, enableSlowModulation fields",
+        "Update T-025-22, T-025-23, T-025-24 to pass new config fields when creating geometry systems"
+      ],
+      "rationale": "Existing tests will break when QualityProfile shape changes."
+    },
+    {
+      "step": 9,
+      "title": "Verify build and run full test suite",
+      "commands": ["npm run build", "npm run test"],
+      "acceptance": [
+        "Build passes with no errors",
+        "All existing tests pass (updated for new profile shape)",
+        "All new T-036-* tests pass",
+        "No console errors on load"
+      ]
+    }
+  ],
+  "files_modified": [
+    "src/visual/quality.ts",
+    "src/visual/shaders/pointWarp.vert.glsl",
+    "src/visual/shaders/ribbonWarp.vert.glsl",
+    "src/visual/systems/pointCloud.ts",
+    "src/visual/systems/ribbonField.ts",
+    "src/visual/scene.ts",
+    "src/main.ts",
+    "tests/visual/quality.test.ts"
+  ],
+  "files_created": [
+    "tests/visual/quality-scaling.test.ts"
+  ],
+  "acceptance_criteria_mapping": {
+    "Canvas/renderer still fills the viewport on low-tier devices": "Steps 6, 7 (T-036-04, T-036-05). Canvas CSS is always 100% — resolutionScale only affects backing store pixel ratio.",
+    "Quality scaling affects pixel ratio, point count, and shader complexity (not layout size)": "Steps 1-4. QualityProfile now drives three levers: resolutionScale→pixelRatio, maxPoints→point count, shaderComplexity→noise octaves + feature gates.",
+    "Mobile does not crash on load": "Step 5 (context loss handler) + existing low-tier point count caps (150 particles, 200 points). Low tier also skips expensive shader branches.",
+    "Visual identity remains recognisable across tiers": "Step 7 (T-036-09). All tiers produce the same geometric structure (shell+interior point cloud, ribbon bands, particle field) — only density, resolution, and shader detail vary."
+  },
+  "risks": [
+    {
+      "risk": "Shader branching on uniforms may not save GPU cycles on some hardware (branch prediction)",
+      "mitigation": "Use integer uniforms and early-exit patterns. The primary savings come from reduced noise octaves (fewer sin() calls), not from branching."
+    },
+    {
+      "risk": "Changing QualityProfile interface breaks downstream consumers",
+      "mitigation": "New fields are additive. Update all call sites in step 4 and all tests in step 8."
+    }
+  ],
+  "out_of_scope": [
+    "Adaptive quality (runtime FPS-based tier switching) — separate story",
+    "Post-processing pipeline changes",
+    "New geometry modes or visual primitives"
+  ]
+}
