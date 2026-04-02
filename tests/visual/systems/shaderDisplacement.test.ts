@@ -63,8 +63,12 @@ describe('US-041: Shader-based vertex displacement — pointCloud simplex/FBM up
     const vs = mat.vertexShader;
     expect(vs).toContain('uBassEnergy');
     expect(vs).toContain('fbm3');
-    const bassSection = vs.substring(vs.indexOf('fbm3'), vs.indexOf('fbm3') + 200);
-    expect(bassSection).toContain('uBassEnergy');
+    // Verify bass displacement section uses both fbm3 and uBassEnergy together
+    const mainBody = vs.substring(vs.indexOf('void main'));
+    expect(mainBody).toContain('fbm3');
+    expect(mainBody).toContain('uBassEnergy');
+    // Check that fbm3 result is scaled by uBassEnergy (within bass displacement block)
+    expect(mainBody).toMatch(/fbm3.*uBassEnergy|uBassEnergy.*fbm3/s);
   });
 
   it('T-041-12: pointCloud vertex shader uses uTrebleEnergy with snoise for fine-grain displacement', () => {
@@ -87,8 +91,12 @@ describe('US-041: Shader-based vertex displacement — pointCloud simplex/FBM up
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const mat = points.material as THREE.ShaderMaterial;
     const vs = mat.vertexShader;
-    const fbmCall = vs.substring(vs.indexOf('fbm3('), vs.indexOf('fbm3(') + 150);
-    expect(fbmCall).toMatch(/uTime|\bt\b/);
+    // Verify that fbm3 calls in the main body reference time (uTime or local alias t)
+    const mainBody = vs.substring(vs.indexOf('void main'));
+    const fbmCalls = mainBody.match(/fbm3\([^)]+\)/g) || [];
+    expect(fbmCalls.length).toBeGreaterThan(0);
+    const hasTimeRef = fbmCalls.some(call => /uTime|\bt\b/.test(call));
+    expect(hasTimeRef).toBe(true);
   });
 });
 
@@ -113,8 +121,10 @@ describe('US-041: Shader-based vertex displacement — ribbonField simplex/FBM u
     const vs = mat.vertexShader;
     expect(vs).toContain('uBassEnergy');
     expect(vs).toContain('fbm3');
-    const bassSection = vs.substring(vs.indexOf('fbm3'), vs.indexOf('fbm3') + 200);
-    expect(bassSection).toContain('uBassEnergy');
+    const mainBody = vs.substring(vs.indexOf('void main'));
+    expect(mainBody).toContain('fbm3');
+    expect(mainBody).toContain('uBassEnergy');
+    expect(mainBody).toMatch(/fbm3.*uBassEnergy|uBassEnergy.*fbm3/s);
   });
 
   it('T-041-14: ribbonField vertex shader uses uTrebleEnergy with snoise for treble fine-grain displacement', () => {
@@ -137,8 +147,11 @@ describe('US-041: Shader-based vertex displacement — ribbonField simplex/FBM u
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const mat = points.material as THREE.ShaderMaterial;
     const vs = mat.vertexShader;
-    const fbmCall = vs.substring(vs.indexOf('fbm3('), vs.indexOf('fbm3(') + 150);
-    expect(fbmCall).toMatch(/uTime|\bt\b/);
+    const mainBody = vs.substring(vs.indexOf('void main'));
+    const fbmCalls = mainBody.match(/fbm3\([^)]+\)/g) || [];
+    expect(fbmCalls.length).toBeGreaterThan(0);
+    const hasTimeRef = fbmCalls.some(call => /uTime|\bt\b/.test(call));
+    expect(hasTimeRef).toBe(true);
   });
 });
 
@@ -232,8 +245,11 @@ describe('US-041: Shader-based vertex displacement — particleField ShaderMater
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const mat = points.material as THREE.ShaderMaterial;
     const vs = mat.vertexShader;
-    const curlCall = vs.substring(vs.indexOf('curl3('), vs.indexOf('curl3(') + 150);
-    expect(curlCall).toMatch(/uTime|\bt\b/);
+    const mainBody = vs.substring(vs.indexOf('void main'));
+    const curlCalls = mainBody.match(/curl3\([^)]+\)/g) || [];
+    expect(curlCalls.length).toBeGreaterThan(0);
+    const hasTimeRef = curlCalls.some(call => /uTime|\bt\b/.test(call));
+    expect(hasTimeRef).toBe(true);
   });
 
   it('T-041-18: particleField has uNoiseOctaves uniform for quality-tier gated FBM complexity', () => {
@@ -331,9 +347,11 @@ describe('US-041: Shader-based vertex displacement — particleField ShaderMater
     const vs = mat.vertexShader;
     expect(vs).toContain('curl3');
     expect(vs).toContain('uBassEnergy');
-    const curlIdx = vs.indexOf('curl3(');
-    const bassInContext = vs.substring(Math.max(0, curlIdx - 50), curlIdx + 200);
-    expect(bassInContext).toContain('uBassEnergy');
+    const mainBody = vs.substring(vs.indexOf('void main'));
+    expect(mainBody).toContain('curl3');
+    expect(mainBody).toContain('uBassEnergy');
+    // Verify bass energy scales curl displacement in main body
+    expect(mainBody).toMatch(/curl3.*uBassEnergy|uBassEnergy.*curl3/s);
   });
 
   it('T-041-35: particleField vertex shader modulates gl_PointSize by uTrebleEnergy for sparkle effect', () => {

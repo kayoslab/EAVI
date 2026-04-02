@@ -98,48 +98,34 @@ describe('US-009: ParticleField geometry system', () => {
     expect(() => field.draw(scene, frame)).not.toThrow();
   });
 
-  it('T-030-01: particle positions change between frames (animation works via Three.js buffer updates)', () => {
+  it('T-030-01: animation driven by GPU uniforms — uTime changes between frames', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'animate-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const mat = points.material as THREE.ShaderMaterial;
     const frame1 = { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 };
     field.draw(scene, frame1);
-    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const geo = points.geometry as THREE.BufferGeometry;
-    const posAttr = geo.getAttribute('position');
-    const pos1 = Float32Array.from(posAttr.array as Float32Array);
+    const time1 = mat.uniforms.uTime.value;
     const frame2 = { time: 1000, delta: 16, elapsed: 1000, params: defaultParams, width: 800, height: 600 };
     field.draw(scene, frame2);
-    const pos2 = Float32Array.from(posAttr.array as Float32Array);
-    expect(pos1).not.toEqual(pos2);
+    const time2 = mat.uniforms.uTime.value;
+    expect(time2).not.toBe(time1);
   });
 
-  it('T-030-02: particles with low motionAmplitude move less than high motionAmplitude via buffer displacement', () => {
+  it('T-030-02: motionAmplitude is passed to GPU via uMotionAmplitude uniform', () => {
     const scene = new THREE.Scene();
-    const lowMotion = createParticleField();
+    const field = createParticleField();
     const lowParams = { ...defaultParams, motionAmplitude: 0.2 };
-    lowMotion.init(scene, 'motion-seed', lowParams);
-    const lowPoints = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const lowGeo = lowPoints.geometry as THREE.BufferGeometry;
-    const lowInitial = Float32Array.from(lowGeo.getAttribute('position').array as Float32Array);
-    lowMotion.draw(scene, { time: 0, delta: 16, elapsed: 100, params: lowParams, width: 800, height: 600 });
-    const lowAfter = Float32Array.from(lowGeo.getAttribute('position').array as Float32Array);
-    let lowDisp = 0;
-    for (let i = 0; i < lowInitial.length; i++) lowDisp += Math.abs(lowAfter[i] - lowInitial[i]);
+    field.init(scene, 'motion-seed', lowParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const mat = points.material as THREE.ShaderMaterial;
+    field.draw(scene, { time: 0, delta: 16, elapsed: 100, params: lowParams, width: 800, height: 600 });
+    expect(mat.uniforms.uMotionAmplitude.value).toBe(0.2);
 
-    const scene2 = new THREE.Scene();
-    const highMotion = createParticleField();
     const highParams = { ...defaultParams, motionAmplitude: 1.0 };
-    highMotion.init(scene2, 'motion-seed', highParams);
-    const highPoints = scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const highGeo = highPoints.geometry as THREE.BufferGeometry;
-    const highInitial = Float32Array.from(highGeo.getAttribute('position').array as Float32Array);
-    highMotion.draw(scene2, { time: 0, delta: 16, elapsed: 100, params: highParams, width: 800, height: 600 });
-    const highAfter = Float32Array.from(highGeo.getAttribute('position').array as Float32Array);
-    let highDisp = 0;
-    for (let i = 0; i < highInitial.length; i++) highDisp += Math.abs(highAfter[i] - highInitial[i]);
-
-    expect(highDisp).toBeGreaterThan(lowDisp);
+    field.draw(scene, { time: 0, delta: 16, elapsed: 100, params: highParams, width: 800, height: 600 });
+    expect(mat.uniforms.uMotionAmplitude.value).toBe(1.0);
   });
 
   it('T-030-03: init() adds a THREE.Points mesh to the scene', () => {
@@ -162,49 +148,45 @@ describe('US-009: ParticleField geometry system', () => {
     expect(posAttr.itemSize).toBe(3);
   });
 
-  it('T-030-05: Points mesh has color buffer attribute with vertexColors enabled', () => {
+  it('T-030-05: ShaderMaterial computes colors GPU-side via uPaletteHue uniform', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'color-buf-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const mat = points.material as THREE.ShaderMaterial;
+    expect(mat.uniforms.uPaletteHue).toBeDefined();
+    expect(mat.uniforms.uPaletteSaturation).toBeDefined();
+    // Per-point hue offset is in buffer attribute
     const geo = points.geometry as THREE.BufferGeometry;
-    const colorAttr = geo.getAttribute('color');
-    expect(colorAttr).toBeDefined();
-    expect(colorAttr.itemSize).toBe(3);
-    const mat = points.material as THREE.PointsMaterial;
-    expect(mat.vertexColors).toBe(true);
+    const hueAttr = geo.getAttribute('aHueOffset');
+    expect(hueAttr).toBeDefined();
+    expect(hueAttr.itemSize).toBe(1);
   });
 
-  it('T-030-06: draw() flags position buffer needsUpdate (version increments)', () => {
+  it('T-030-06: draw() updates shader uniforms (GPU-side displacement, no CPU buffer mutation)', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'update-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const geo = points.geometry as THREE.BufferGeometry;
-    const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
-    const versionBefore = posAttr.version;
+    const mat = points.material as THREE.ShaderMaterial;
     field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: defaultParams, width: 800, height: 600 });
-    expect(posAttr.version).toBeGreaterThan(versionBefore);
+    expect(mat.uniforms.uTime.value).toBe(100);
+    field.draw(scene, { time: 500, delta: 16, elapsed: 500, params: defaultParams, width: 800, height: 600 });
+    expect(mat.uniforms.uTime.value).toBe(500);
   });
 
-  it('T-030-07: treble energy influences particle visual properties (size or jitter in buffer)', () => {
-    const scene1 = new THREE.Scene();
-    const field1 = createParticleField();
-    const lowTrebleParams = { ...defaultParams, trebleEnergy: 0 };
-    field1.init(scene1, 'treble-seed', lowTrebleParams);
-    field1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: lowTrebleParams, width: 800, height: 600 });
-    const pts1 = scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const pos1 = Float32Array.from((pts1.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array);
+  it('T-030-07: treble energy is passed to GPU via uTrebleEnergy uniform', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'treble-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const mat = points.material as THREE.ShaderMaterial;
 
-    const scene2 = new THREE.Scene();
-    const field2 = createParticleField();
-    const highTrebleParams = { ...defaultParams, trebleEnergy: 1.0 };
-    field2.init(scene2, 'treble-seed', highTrebleParams);
-    field2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: highTrebleParams, width: 800, height: 600 });
-    const pts2 = scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const pos2 = Float32Array.from((pts2.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array);
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, trebleEnergy: 0 }, width: 800, height: 600 });
+    expect(mat.uniforms.uTrebleEnergy.value).toBe(0);
 
-    expect(pos1).not.toEqual(pos2);
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, trebleEnergy: 1.0 }, width: 800, height: 600 });
+    expect(mat.uniforms.uTrebleEnergy.value).toBe(1.0);
   });
 
   it('T-030-08: particles near pointer position displace more than distant ones', () => {
@@ -220,56 +202,48 @@ describe('US-009: ParticleField geometry system', () => {
     expect(hasNonZero).toBe(true);
   });
 
-  it('T-030-09: zero pointerDisturbance produces no extra particle displacement versus baseline', () => {
-    const scene1 = new THREE.Scene();
-    const field1 = createParticleField();
-    const noDistParams = { ...defaultParams, pointerDisturbance: 0, bassEnergy: 0, trebleEnergy: 0 };
-    field1.init(scene1, 'no-ptr-seed', noDistParams);
-    field1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: noDistParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });
-    const pos1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+  it('T-030-09: pointerDisturbance is passed to GPU via uPointerDisturbance uniform', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'no-ptr-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const mat = points.material as THREE.ShaderMaterial;
 
-    const scene2 = new THREE.Scene();
-    const field2 = createParticleField();
-    const distParams = { ...defaultParams, pointerDisturbance: 1.0, bassEnergy: 0, trebleEnergy: 0 };
-    field2.init(scene2, 'no-ptr-seed', distParams);
-    field2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: distParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });
-    const pos2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+    const noDistParams = { ...defaultParams, pointerDisturbance: 0 };
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: noDistParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });
+    expect(mat.uniforms.uPointerDisturbance.value).toBe(0);
 
-    expect(pos1).not.toEqual(pos2);
+    const distParams = { ...defaultParams, pointerDisturbance: 1.0 };
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: distParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });
+    expect(mat.uniforms.uPointerDisturbance.value).toBe(1.0);
   });
 
-  it('T-030-10: particle colors derive from paletteHue via HSL in color buffer', () => {
-    const scene1 = new THREE.Scene();
-    const field1 = createParticleField();
-    field1.init(scene1, 'hue-seed', { ...defaultParams, paletteHue: 0 });
-    field1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, paletteHue: 0 }, width: 800, height: 600 });
-    const col1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('color').array as Float32Array);
+  it('T-030-10: paletteHue is passed to GPU via uPaletteHue uniform for GPU-side color', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'hue-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const mat = points.material as THREE.ShaderMaterial;
 
-    const scene2 = new THREE.Scene();
-    const field2 = createParticleField();
-    field2.init(scene2, 'hue-seed', { ...defaultParams, paletteHue: 180 });
-    field2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, paletteHue: 180 }, width: 800, height: 600 });
-    const col2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('color').array as Float32Array);
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, paletteHue: 0 }, width: 800, height: 600 });
+    expect(mat.uniforms.uPaletteHue.value).toBe(0);
 
-    expect(col1).not.toEqual(col2);
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, paletteHue: 180 }, width: 800, height: 600 });
+    expect(mat.uniforms.uPaletteHue.value).toBe(180);
   });
 
-  it('T-030-11: bass energy influences particle macro drift in position buffer', () => {
-    const scene1 = new THREE.Scene();
-    const field1 = createParticleField();
-    const noBassParams = { ...defaultParams, bassEnergy: 0, trebleEnergy: 0, pointerDisturbance: 0 };
-    field1.init(scene1, 'bass-seed', noBassParams);
-    field1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: noBassParams, width: 800, height: 600 });
-    const pos1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+  it('T-030-11: bass energy is passed to GPU via uBassEnergy uniform for macro displacement', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'bass-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const mat = points.material as THREE.ShaderMaterial;
 
-    const scene2 = new THREE.Scene();
-    const field2 = createParticleField();
-    const highBassParams = { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 0, pointerDisturbance: 0 };
-    field2.init(scene2, 'bass-seed', highBassParams);
-    field2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: highBassParams, width: 800, height: 600 });
-    const pos2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, bassEnergy: 0 }, width: 800, height: 600 });
+    expect(mat.uniforms.uBassEnergy.value).toBe(0);
 
-    expect(pos1).not.toEqual(pos2);
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, bassEnergy: 1.0 }, width: 800, height: 600 });
+    expect(mat.uniforms.uBassEnergy.value).toBe(1.0);
   });
 
   it('T-030-12: cleanup() removes Points mesh from scene and disposes geometry/material', () => {
@@ -286,14 +260,15 @@ describe('US-009: ParticleField geometry system', () => {
     expect(matDisposeSpy).toHaveBeenCalled();
   });
 
-  it('T-030-27: PointsMaterial has sizeAttenuation and transparency enabled', () => {
+  it('T-030-27: ShaderMaterial has transparency and additive blending enabled', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'mat-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const mat = points.material as THREE.PointsMaterial;
-    expect(mat.sizeAttenuation).toBe(true);
+    const mat = points.material as THREE.ShaderMaterial;
     expect(mat.transparent).toBe(true);
+    expect(mat.blending).toBe(THREE.AdditiveBlending);
+    expect(mat.depthWrite).toBe(false);
   });
 
   it('T-009-14: particle count scales with density parameter', () => {
