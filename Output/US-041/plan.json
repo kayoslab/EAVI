@@ -1,164 +1,158 @@
 {
   "ticket": "US-041",
   "title": "Implement shader-based vertex displacement",
-  "summary": "Replace sine-based layeredNoise with simplex noise FBM in pointCloud and ribbonField shaders, migrate particleField from CPU-side PointsMaterial to GPU ShaderMaterial with curl-noise displacement, ensuring all three geometry systems use shader-based 3D deformation driven by bass (macro), treble (fine-grain), and time evolution.",
+  "summary": "Enhance existing vertex shaders with proper 3D noise-based displacement so audio reactivity produces sculptural, volumetric deformation rather than flat oscillation. The codebase already has ShaderMaterial with bass/treble uniforms and per-vertex randomness — this ticket layers richer displacement functions on top.",
   "currentState": {
-    "pointCloud": "Uses ShaderMaterial with pointWarp.vert.glsl. Has 21+ uniforms including uBassEnergy, uTrebleEnergy, uTime. Contains layeredNoise() function using sine-hash combinations with uNoiseOctaves (1-3). Deformation is additive sine offsets — not coherent spatial noise.",
-    "ribbonField": "Uses ShaderMaterial with ribbonWarp.vert.glsl. Mirrors pointCloud pipeline with identical layeredNoise() and uniform set. Has ribbon-specific bass sway logic.",
-    "particleField": "Uses PointsMaterial with CPU-side per-frame position/velocity/color loops in draw() (lines 113-181). No ShaderMaterial. Receives only maxParticles and enableSparkle from quality config — missing noiseOctaves, enablePointerRepulsion, enableSlowModulation.",
-    "qualitySystem": "Three-tier system in quality.ts controlling noiseOctaves (1-3), pointerRepulsion, slowModulation, and particle/point counts. Already wired for pointCloud and ribbonField but not fully for particleField.",
-    "shaderFiles": "Four GLSL files: pointWarp.vert.glsl (134 lines), pointWarp.frag.glsl (21 lines), ribbonWarp.vert.glsl (133 lines), ribbonWarp.frag.glsl (21 lines). No shared noise utility."
+    "shaderInfrastructure": "ShaderMaterial with 20+ uniforms, bass/treble energy, per-vertex aRandom attribute already in place",
+    "existingDisplacement": "Radial expansion, Y-axis twist, directional drift, treble jitter, breathing scale, pointer repulsion — all GPU-side",
+    "noiseFunction": "Simple sine-based layeredNoise() with 1-3 octaves — not true 3D spatial noise",
+    "gap": "Current displacement feels oscillatory/2D because it uses sin/cos waves rather than coherent 3D noise fields. No wave propagation, no sculptural morphing, no displacement that respects volumetric structure."
   },
   "steps": [
     {
       "id": 1,
-      "title": "Create shared simplex noise GLSL module",
-      "description": "Create src/visual/shaders/noise3d.glsl containing a 3D simplex noise function (snoise) and an FBM wrapper (fbm3) that layers octaves with configurable count. Use the Ashima/webgl-noise MIT-licensed simplex implementation as the base primitive. The fbm3 function should accept position, octave count, lacunarity, and gain parameters.",
+      "title": "Add 3D simplex noise GLSL function",
+      "description": "Create a shared GLSL include with a proper 3D simplex noise function (Ashima/webgl-noise style) that both point cloud and ribbon shaders can use. This replaces the sine-based layeredNoise() with spatially coherent 3D noise that produces organic, sculptural displacement patterns.",
       "files": {
-        "new": ["src/visual/shaders/noise3d.glsl"],
-        "modified": []
+        "create": ["src/visual/shaders/noise3d.glsl"],
+        "modify": []
       },
       "details": [
-        "snoise(vec3) returns float in [-1, 1] — classic 3D simplex, ALU-only, no texture lookups",
-        "fbm3(vec3 pos, int octaves, float lacunarity, float gain) sums snoise octaves with frequency doubling and amplitude decay",
-        "Default lacunarity=2.0, gain=0.5 matches standard FBM",
-        "Octave count driven by int uniform (maps to quality tier's noiseOctaves 1-3)",
-        "Include curl3(vec3) helper that computes curl of fbm3 field via finite differences — needed by particleField in step 4"
+        "Implement snoise(vec3) — classic 3D simplex noise returning -1 to 1",
+        "Implement fbm(vec3, octaves) — fractal Brownian motion layering multiple noise octaves",
+        "Keep it self-contained so it can be prepended to both vertex shaders",
+        "Use permutation-based approach (no texture lookups) for compatibility"
       ],
-      "estimatedLines": { "new": 80, "modified": 0 }
+      "acceptanceCriteria": ["AC1"]
     },
     {
       "id": 2,
-      "title": "Upgrade pointWarp.vert.glsl to simplex FBM displacement",
-      "description": "Replace the existing layeredNoise() function in pointWarp.vert.glsl with an import of noise3d.glsl's fbm3. Wire the noise import in pointCloud.ts by prepending the noise3d.glsl source to the vertex shader string via Vite's ?raw import. Stack fbm3-based displacement on top of existing twist/pointer/breathing deformations. Bass scales low-frequency FBM amplitude for macro 3D displacement; treble scales high-frequency snoise for fine-grain jitter and point size modulation. Time offset drifts the noise domain for continuous evolution.",
+      "title": "Refactor vertex shaders to use 3D noise displacement",
+      "description": "Replace the sine-based displacement in pointWarp.vert.glsl and ribbonWarp.vert.glsl with 3D simplex noise-driven displacement. Bass drives large-scale low-frequency noise deformation, treble drives high-frequency fine-grain noise displacement.",
       "files": {
-        "new": [],
-        "modified": ["src/visual/shaders/pointWarp.vert.glsl", "src/visual/systems/pointCloud.ts"]
+        "create": [],
+        "modify": [
+          "src/visual/shaders/pointWarp.vert.glsl",
+          "src/visual/shaders/ribbonWarp.vert.glsl"
+        ]
       },
       "details": [
-        "Remove layeredNoise() function entirely from pointWarp.vert.glsl",
-        "Replace slow modulation block with: vec3 noisePos = pos * uNoiseFrequency + vec3(t * 0.00008); float bassDisp = fbm3(noisePos, uNoiseOctaves, 2.0, 0.5) * uBassEnergy * 0.4 * ma; pos += normal_approx * bassDisp;",
-        "Add treble fine-grain: float trebleDisp = snoise(pos * 3.0 + t * 0.0003) * uTrebleEnergy * 0.12 * ma; pos += vec3(trebleDisp);",
-        "Modulate gl_PointSize by: 1.0 + uTrebleEnergy * snoise(pos * 5.0) * 0.3",
-        "Time drift in noise domain (t * 0.00008) ensures deformation evolves continuously — not static modulation",
-        "In pointCloud.ts: import noise3dSrc from '../shaders/noise3d.glsl?raw' and prepend to vertexShader string before compilation",
-        "Existing uNoiseOctaves uniform already wired — no new uniforms needed for octave control"
+        "Bass macro displacement: use fbm(position * lowFreq + time * cadence, 2) scaled by uBassEnergy to push vertices along their radial direction — produces large sculptural warping",
+        "Treble micro displacement: use snoise(position * highFreq + time * fastRate) on each axis independently, scaled by uTrebleEnergy — produces shimmering surface detail",
+        "Temporal evolution: slowly animate the noise sampling coordinate (uTime * 0.05) so the displacement field drifts and morphs over 20-60 second cycles",
+        "Preserve existing pointer repulsion and breathing scale layers",
+        "Replace layeredNoise() calls with the new noise3d functions",
+        "Add new uniforms: uDisplacementScale (overall amplitude), uNoiseEvolutionRate (temporal drift speed)"
       ],
-      "estimatedLines": { "new": 0, "modified": 35 }
+      "acceptanceCriteria": ["AC1", "AC2", "AC3", "AC4"]
     },
     {
       "id": 3,
-      "title": "Upgrade ribbonWarp.vert.glsl to simplex FBM displacement",
-      "description": "Mirror step 2 changes into ribbonWarp.vert.glsl. Replace layeredNoise() with fbm3 from noise3d.glsl. Wire noise import in ribbonField.ts. Preserve ribbon-specific bass sway while adding coherent spatial noise displacement. Same bass/treble/time evolution pattern as pointCloud.",
+      "title": "Add displacement uniforms and wire them through the update pipeline",
+      "description": "Add the new displacement-related uniforms to the geometry system creation and frame update paths so they respond to audio and evolve over time.",
       "files": {
-        "new": [],
-        "modified": ["src/visual/shaders/ribbonWarp.vert.glsl", "src/visual/systems/ribbonField.ts"]
+        "create": [],
+        "modify": [
+          "src/visual/geometrySystems/pointCloud.ts",
+          "src/visual/geometrySystems/ribbonField.ts"
+        ]
       },
       "details": [
-        "Remove layeredNoise() function entirely from ribbonWarp.vert.glsl",
-        "Same fbm3 displacement pattern as step 2, stacked after ribbon-specific bassSway",
-        "Preserve existing ribbonPhase bass sway logic — it adds character specific to ribbons",
-        "In ribbonField.ts: import noise3dSrc from '../shaders/noise3d.glsl?raw' and prepend to vertexShader string",
-        "Existing uniform set is identical to pointCloud — no changes needed"
+        "Add uDisplacementScale uniform — driven by motionAmplitude (respects prefers-reduced-motion)",
+        "Add uNoiseEvolutionRate uniform — driven by cadence mapping (time-of-day rhythm)",
+        "Ensure bass/treble uniform updates use the existing smoothed values from FrameState",
+        "Prepend noise3d.glsl source to vertex shader strings at material creation time",
+        "No new CPU-side per-point loops — all displacement remains GPU-side"
       ],
-      "estimatedLines": { "new": 0, "modified": 35 }
+      "acceptanceCriteria": ["AC1", "AC2", "AC3"]
     },
     {
       "id": 4,
-      "title": "Create particleWarp vertex and fragment shaders",
-      "description": "Create new ShaderMaterial shaders for particleField. The vertex shader uses curl-noise flow field displacement to preserve the drifting character of the current CPU-based velocity system. Fragment shader matches pointWarp.frag.glsl (soft circular point rendering).",
+      "title": "Tune displacement parameters for sculptural feel",
+      "description": "Adjust noise frequencies, displacement amplitudes, and temporal rates so the deformation feels organic and volumetric rather than jittery or flat.",
       "files": {
-        "new": ["src/visual/shaders/particleWarp.vert.glsl", "src/visual/shaders/particleWarp.frag.glsl"],
-        "modified": []
+        "create": [],
+        "modify": [
+          "src/visual/shaders/pointWarp.vert.glsl",
+          "src/visual/shaders/ribbonWarp.vert.glsl"
+        ]
       },
       "details": [
-        "particleWarp.vert.glsl: Same uniform interface as pointWarp (all 21+ uniforms) for consistency",
-        "Use curl3() from noise3d.glsl for primary displacement — curl noise produces divergence-free flow that mimics the drifting particle behavior",
-        "Bass scales curl amplitude for macro 3D displacement: pos += curl3(pos * uNoiseFrequency + vec3(t * 0.0001)) * uBassEnergy * 0.35 * ma",
-        "Treble drives high-frequency snoise displacement + point size modulation",
-        "Time offset drifts curl field for continuous evolution",
-        "Include pointer repulsion (quality-gated), breathing, and twist logic matching pointCloud pattern",
-        "Compute vColor via HSL→RGB in vertex shader (matching pointCloud pattern) — replaces CPU color computation",
-        "particleWarp.frag.glsl: Can be identical to pointWarp.frag.glsl (soft disc with alpha fade)"
+        "Bass displacement frequency: ~0.3-0.8 (large spatial wavelength for sculptural warps)",
+        "Bass displacement amplitude: ~0.15-0.4 world units at full energy",
+        "Treble displacement frequency: ~2.0-4.0 (fine spatial detail)",
+        "Treble displacement amplitude: ~0.02-0.08 world units (subtle shimmer)",
+        "Evolution rate: noise coordinate drifts ~0.03-0.08 units/second for slow morphing",
+        "Ensure reduced-motion mode scales displacement amplitude to 20% via uMotionAmplitude",
+        "Verify displacement looks volumetric from multiple camera angles (depth/parallax visible)"
       ],
-      "estimatedLines": { "new": 140, "modified": 0 }
+      "acceptanceCriteria": ["AC2", "AC3", "AC4"]
     },
     {
       "id": 5,
-      "title": "Migrate particleField.ts from CPU to ShaderMaterial",
-      "description": "Rewrite particleField.ts to use ShaderMaterial with particleWarp shaders instead of PointsMaterial with CPU loops. Set basePositions once as a buffer attribute. Move all per-frame position and color computation to the GPU. Wire noise3d.glsl import. Update main.ts to pass full quality config (noiseOctaves, enablePointerRepulsion, enableSlowModulation).",
+      "title": "Update VisualParams and mappings for new displacement controls",
+      "description": "Extend the VisualParams type and mapSignalsToVisuals to include displacement scale and evolution rate, seeded from session context.",
       "files": {
-        "new": [],
-        "modified": ["src/visual/systems/particleField.ts", "src/main.ts"]
+        "create": [],
+        "modify": [
+          "src/visual/mappings.ts"
+        ]
       },
       "details": [
-        "Replace PointsMaterial with ShaderMaterial using particleWarp.vert/frag",
-        "Import noise3dSrc from '../shaders/noise3d.glsl?raw' and prepend to vertex shader",
-        "Remove CPU per-frame position loop (lines 113-167) — all displacement now in GPU shader",
-        "Remove CPU per-frame color loop (lines 168-177) — color now computed in vertex shader via HSL→RGB",
-        "Set basePositions once as BufferGeometry position attribute (no per-frame updates)",
-        "Add per-point attributes matching pointCloud: aSize, aHueOffset, aRandom",
-        "Add full uniform set matching pointCloud (21+ uniforms including uNoiseOctaves, uEnablePointerRepulsion, uEnableSlowModulation)",
-        "draw() method updates uniforms only — no array iteration",
-        "Update main.ts (lines 93-96) to pass noiseOctaves, enablePointerRepulsion, enableSlowModulation to createParticleField alongside existing maxParticles and enableSparkle",
-        "Use THREE.AdditiveBlending and depthWrite:false to match pointCloud/ribbonField"
+        "Add displacementScale to VisualParams — derived from structureComplexity and motionAmplitude",
+        "Add noiseEvolutionRate to VisualParams — derived from cadence with seeded variation",
+        "Ensure evolveParams() modulates these over time for non-static behavior",
+        "Keep mappings indirect/partially-legible per project rules"
       ],
-      "estimatedLines": { "new": 30, "modified": 90 }
+      "acceptanceCriteria": ["AC4"]
     },
     {
       "id": 6,
-      "title": "Verification and acceptance criteria checklist",
-      "description": "Verify all acceptance criteria, Definition of Done items, and non-negotiable requirements are met.",
+      "title": "Verify build, test, and definition of done",
+      "description": "Run production build, verify no console errors, confirm all acceptance criteria and definition-of-done requirements are met.",
       "files": {
-        "new": [],
-        "modified": []
+        "create": [],
+        "modify": []
       },
       "details": [
-        "AC1: All three geometry systems (pointCloud, ribbonField, particleField) use ShaderMaterial with GPU vertex displacement",
-        "AC2: Bass energy drives large-scale 3D displacement via fbm3/curl3 amplitude scaling in all shaders",
-        "AC3: Treble energy drives fine-grain snoise displacement and point size modulation in all shaders",
-        "AC4: Time-offset noise domain drift ensures deformation evolves continuously — not static",
-        "Ticket note: No CPU-based per-point loops remain for deformation",
-        "DoD: npm run build succeeds",
-        "DoD: No console errors on normal load",
-        "DoD: No forbidden storage APIs",
-        "DoD: Scene works with and without successful autoplay",
-        "DoD: Mute toggle and info overlay still work",
-        "Non-negotiable: Perspective camera, volumetric point cloud, shader-based 3D deformation, visible depth/parallax all preserved",
-        "Quality tiers: noiseOctaves 1/2/3 gates FBM complexity across all three systems",
-        "Reduced motion: uMotionAmplitude 0.2x still applied to all displacement"
+        "npm run build passes with no errors",
+        "No console errors on normal load",
+        "No forbidden storage APIs used",
+        "Scene works with and without successful autoplay",
+        "Mute toggle and info overlay still work",
+        "Displacement is visible and sculptural in the 3D scene",
+        "Bass produces large-scale warping, treble produces fine shimmer",
+        "Deformation visibly evolves over 30+ seconds (not static)"
       ],
-      "estimatedLines": { "new": 0, "modified": 0 }
+      "acceptanceCriteria": ["AC1", "AC2", "AC3", "AC4"]
     }
   ],
-  "executionOrder": [1, [2, 3], [4, 5], 6],
-  "executionNotes": "Step 1 first (shared dependency). Steps 2+3 can be parallelized (independent shader upgrades). Steps 4+5 can be parallelized after step 1 (new shaders + migration). Step 6 is final verification. Noise import wiring happens inline within steps 2, 3, and 5 — no separate wiring step needed.",
-  "risks": [
-    {
-      "risk": "Simplex noise ALU cost on low-tier devices",
-      "mitigation": "Quality tier already gates noiseOctaves to 1 on low tier. Single-octave snoise is ~20 ALU ops — comparable to existing sine-hash layeredNoise.",
-      "severity": "low"
-    },
-    {
-      "risk": "particleField migration breaks existing visual character",
-      "mitigation": "Curl-noise produces divergence-free flow matching the drifting feel of CPU velocity system. Uniform interface matches pointCloud so all existing quality/evolution knobs apply automatically.",
-      "severity": "medium"
-    },
-    {
-      "risk": "GLSL concatenation (noise3d + shader source) may cause compilation errors",
-      "mitigation": "Use Vite ?raw import and string concatenation at material creation time. Test on WebGL1 and WebGL2 contexts. Keep noise3d.glsl self-contained with no #version directive.",
-      "severity": "low"
-    }
-  ],
-  "estimate": {
-    "newLines": 250,
-    "modifiedLines": 160,
-    "totalFiles": 9
-  },
   "acceptanceCriteriaMapping": {
-    "ShaderMaterial deformation": "Steps 2, 3, 4, 5 — all three modes use ShaderMaterial",
-    "Bass large-scale 3D displacement": "Steps 2, 3, 4 — fbm3/curl3 noise scaled by uBassEnergy",
-    "Treble fine-grain displacement": "Steps 2, 3, 4 — high-freq snoise + point size modulation by uTrebleEnergy",
-    "Time evolution": "Steps 2, 3, 4 — noise domain offset by uTime drift (t * 0.00008-0.0003)"
-  }
+    "AC1": "Geometry deformation occurs in a ShaderMaterial",
+    "AC2": "Bass energy affects large-scale displacement in 3D",
+    "AC3": "Treble energy affects fine-grain displacement or point size",
+    "AC4": "Deformation evolves over time (not static modulation)"
+  },
+  "risksAndMitigations": [
+    {
+      "risk": "Simplex noise computation cost on lower-end GPUs",
+      "mitigation": "Use 2-octave fbm max for bass, single snoise call for treble; reduced-motion mode can lower octave count"
+    },
+    {
+      "risk": "Displacement amplitude too large causes points to scatter incoherently",
+      "mitigation": "Displace along radial direction (normalize(position)) rather than arbitrary axes for bass — preserves volumetric structure"
+    },
+    {
+      "risk": "Noise3d.glsl string concatenation breaks shader compilation",
+      "mitigation": "Test shader compilation in both geometry systems immediately after wiring; use raw string import via Vite"
+    }
+  ],
+  "estimatedComplexity": "medium",
+  "dependencies": ["US-040 (render loop and audio pipeline)", "US-017 (ShaderMaterial setup)"],
+  "nonGoals": [
+    "No CPU-side per-point displacement loops",
+    "No new geometry systems or modes — enhance existing point cloud and ribbon shaders",
+    "No post-processing effects (deferred per CLAUDE.md)",
+    "No normal-mapped surfaces — remain point-cloud based"
+  ]
 }
