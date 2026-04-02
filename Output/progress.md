@@ -68,3 +68,5 @@
 
 ## US-036: Rework quality scaling to preserve full-screen while reducing GPU cost
 
+## US-035: Add smooth visual transitions between 3D modes
+
