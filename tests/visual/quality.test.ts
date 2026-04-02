@@ -37,6 +37,10 @@ describe('US-025: Quality tier computation', () => {
     expect(result.maxParticles).toBe(600);
     expect(result.resolutionScale).toBe(1.0);
     expect(result.enableSparkle).toBe(true);
+    expect(result.shaderComplexity).toBe('high');
+    expect(result.noiseOctaves).toBe(3);
+    expect(result.enablePointerRepulsion).toBe(true);
+    expect(result.enableSlowModulation).toBe(true);
   });
 
   it('T-025-02: mid-range phone signals produce medium quality tier', () => {
@@ -53,6 +57,10 @@ describe('US-025: Quality tier computation', () => {
     expect(result.maxParticles).toBe(350);
     expect(result.resolutionScale).toBe(0.75);
     expect(result.enableSparkle).toBe(true);
+    expect(result.shaderComplexity).toBe('medium');
+    expect(result.noiseOctaves).toBe(2);
+    expect(result.enablePointerRepulsion).toBe(true);
+    expect(result.enableSlowModulation).toBe(true);
   });
 
   it('T-025-03: low-end phone signals produce low quality tier', () => {
@@ -69,6 +77,10 @@ describe('US-025: Quality tier computation', () => {
     expect(result.maxParticles).toBe(150);
     expect(result.resolutionScale).toBe(0.5);
     expect(result.enableSparkle).toBe(false);
+    expect(result.shaderComplexity).toBe('low');
+    expect(result.noiseOctaves).toBe(1);
+    expect(result.enablePointerRepulsion).toBe(false);
+    expect(result.enableSlowModulation).toBe(false);
   });
 
   it('T-025-04: null and unknown values fall back to medium tier', () => {
@@ -148,6 +160,10 @@ describe('US-025: Quality tier computation', () => {
       expect(result.resolutionScale).toBeGreaterThanOrEqual(0.25);
       expect(result.resolutionScale).toBeLessThanOrEqual(1.0);
       expect(['low', 'medium', 'high']).toContain(result.tier);
+      expect(['low', 'medium', 'high']).toContain(result.shaderComplexity);
+      expect([1, 2, 3]).toContain(result.noiseOctaves);
+      expect(typeof result.enablePointerRepulsion).toBe('boolean');
+      expect(typeof result.enableSlowModulation).toBe('boolean');
     }
   });
 });
@@ -203,7 +219,7 @@ describe('US-025: Quality integration tests', () => {
     expect(quality.maxRibbonPoints).toBe(200);
 
     const scene = new THREE.Scene();
-    const field = createRibbonField({ maxPoints: quality.maxRibbonPoints });
+    const field = createRibbonField({ maxPoints: quality.maxRibbonPoints, noiseOctaves: quality.noiseOctaves, enablePointerRepulsion: quality.enablePointerRepulsion, enableSlowModulation: quality.enableSlowModulation });
     field.init(scene, 'ribbon-integration-seed', { ...defaultParams, density: 1.0 });
     expect(getRibbonPointCount(field)).toBeLessThanOrEqual(200);
   });
@@ -227,7 +243,7 @@ describe('US-025: Quality integration tests', () => {
     particles.init(scene, 'privacy-seed', defaultParams);
     particles.draw(scene, { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 });
 
-    const ribbon = createRibbonField({ maxPoints: quality.maxRibbonPoints, enableSparkle: quality.enableSparkle });
+    const ribbon = createRibbonField({ maxPoints: quality.maxRibbonPoints, enableSparkle: quality.enableSparkle, noiseOctaves: quality.noiseOctaves, enablePointerRepulsion: quality.enablePointerRepulsion, enableSlowModulation: quality.enableSlowModulation });
     ribbon.init(scene, 'privacy-seed', defaultParams);
     ribbon.draw(scene, { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 });
 

@@ -2,6 +2,8 @@ import type { BrowserSignals } from '../input/signals';
 
 export type QualityTier = 'low' | 'medium' | 'high';
 
+export type ShaderComplexity = 'low' | 'medium' | 'high';
+
 export interface QualityProfile {
   tier: QualityTier;
   maxParticles: number;
@@ -9,6 +11,10 @@ export interface QualityProfile {
   maxRibbonPoints: number;
   resolutionScale: number;
   enableSparkle: boolean;
+  shaderComplexity: ShaderComplexity;
+  noiseOctaves: 1 | 2 | 3;
+  enablePointerRepulsion: boolean;
+  enableSlowModulation: boolean;
 }
 
 export function computeQuality(signals: BrowserSignals): QualityProfile {
@@ -51,10 +57,10 @@ export function computeQuality(signals: BrowserSignals): QualityProfile {
   score = Math.max(0, Math.min(1, score));
 
   if (score < 0.35) {
-    return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, resolutionScale: 0.5, enableSparkle: false };
+    return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false };
   }
   if (score > 0.65) {
-    return { tier: 'high', maxParticles: 600, maxPoints: 1200, maxRibbonPoints: 1000, resolutionScale: 1.0, enableSparkle: true };
+    return { tier: 'high', maxParticles: 600, maxPoints: 1200, maxRibbonPoints: 1000, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true };
   }
-  return { tier: 'medium', maxParticles: 350, maxPoints: 500, maxRibbonPoints: 500, resolutionScale: 0.75, enableSparkle: true };
+  return { tier: 'medium', maxParticles: 350, maxPoints: 500, maxRibbonPoints: 500, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true };
 }

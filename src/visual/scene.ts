@@ -8,7 +8,7 @@ export interface SceneOptions {
 export function initScene(
   container: HTMLElement,
   options?: SceneOptions,
-): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera } {
+): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; cleanupContextHandlers: () => void } {
   const resolutionScale = options?.resolutionScale ?? 1.0;
   const disableAntialias = options?.disableAntialias ?? false;
 
@@ -37,5 +37,25 @@ export function initScene(
   const ambient = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambient);
 
-  return { renderer, scene, camera };
+  // GPU context loss handling for mobile crash prevention
+  const canvas = renderer.domElement;
+  const onContextLost = (event: Event) => {
+    event.preventDefault();
+  };
+  const onContextRestored = () => {
+    renderer.setClearColor(0x000000);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * resolutionScale);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+  };
+  canvas.addEventListener('webglcontextlost', onContextLost);
+  canvas.addEventListener('webglcontextrestored', onContextRestored);
+
+  const cleanupContextHandlers = () => {
+    canvas.removeEventListener('webglcontextlost', onContextLost);
+    canvas.removeEventListener('webglcontextrestored', onContextRestored);
+  };
+
+  return { renderer, scene, camera, cleanupContextHandlers };
 }
