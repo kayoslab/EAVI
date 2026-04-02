@@ -72,10 +72,16 @@ geoPromise.then((geo) => {
   const ribbon = createRibbonField({
     maxPoints: quality.maxRibbonPoints,
     enableSparkle: quality.enableSparkle,
+    noiseOctaves: quality.noiseOctaves,
+    enablePointerRepulsion: quality.enablePointerRepulsion,
+    enableSlowModulation: quality.enableSlowModulation,
   });
   const pointCloud = createPointCloud({
     maxPoints: quality.maxPoints,
     enableSparkle: quality.enableSparkle,
+    noiseOctaves: quality.noiseOctaves,
+    enablePointerRepulsion: quality.enablePointerRepulsion,
+    enableSlowModulation: quality.enableSlowModulation,
   });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },

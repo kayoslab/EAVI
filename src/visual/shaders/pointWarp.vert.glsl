@@ -16,6 +16,9 @@ uniform float uNoiseFrequency;
 uniform float uRadialScale;
 uniform float uTwistStrength;
 uniform float uFieldSpread;
+uniform int uNoiseOctaves;
+uniform float uEnablePointerRepulsion;
+uniform float uEnableSlowModulation;
 
 attribute float aHueOffset;
 attribute vec3 aRandom;
@@ -24,12 +27,16 @@ varying vec3 vColor;
 
 const float TAU = 6.283185307;
 
-// Layered sine noise — 3 octaves with prime frequencies
+// Layered sine noise — octave count controlled by uNoiseOctaves uniform
 // Produces non-repeating organic motion without texture lookups
 float layeredNoise(float x, float y, float z) {
   float n = sin(x * 7.3 + y * 13.7 + z * 23.1);
-  n += 0.5 * sin(x * 17.1 + y * 31.3 + z * 11.9);
-  n += 0.25 * sin(x * 43.7 + y * 7.9 + z * 53.3);
+  if (uNoiseOctaves >= 2) {
+    n += 0.5 * sin(x * 17.1 + y * 31.3 + z * 11.9);
+  }
+  if (uNoiseOctaves >= 3) {
+    n += 0.25 * sin(x * 43.7 + y * 7.9 + z * 53.3);
+  }
   return n / 1.75;
 }
 
@@ -85,14 +92,16 @@ void main() {
   pos.z += sin(t * 0.009 + aRandom.z * 3.1) * trebleJitter;
 
   // --- Time evolution (slow modulation, period 30-60s) ---
-  float slowMod = sin(t * 0.00015 + aRandom.x * TAU) * 0.08 * ma;
-  float slowMod2 = cos(t * 0.0001 + aRandom.y * TAU) * 0.06 * ma;
-  pos.x += slowMod * layeredNoise(pos.x * uNoiseFrequency, pos.y * uNoiseFrequency, t * 0.0001);
-  pos.y += slowMod2 * layeredNoise(pos.y * uNoiseFrequency, pos.z * uNoiseFrequency, t * 0.00012);
-  pos.z += slowMod * layeredNoise(pos.z * uNoiseFrequency, pos.x * uNoiseFrequency, t * 0.00008);
+  if (uEnableSlowModulation > 0.5) {
+    float slowMod = sin(t * 0.00015 + aRandom.x * TAU) * 0.08 * ma;
+    float slowMod2 = cos(t * 0.0001 + aRandom.y * TAU) * 0.06 * ma;
+    pos.x += slowMod * layeredNoise(pos.x * uNoiseFrequency, pos.y * uNoiseFrequency, t * 0.0001);
+    pos.y += slowMod2 * layeredNoise(pos.y * uNoiseFrequency, pos.z * uNoiseFrequency, t * 0.00012);
+    pos.z += slowMod * layeredNoise(pos.z * uNoiseFrequency, pos.x * uNoiseFrequency, t * 0.00008);
+  }
 
   // --- Pointer repulsion (screen-space approximation) ---
-  if (uPointerDisturbance > 0.0) {
+  if (uEnablePointerRepulsion > 0.5 && uPointerDisturbance > 0.0) {
     vec2 screenApprox = vec2(pos.x / 3.0, pos.y / 3.0);
     vec2 diff = screenApprox - uPointerPos;
     float dist = length(diff) + 0.01;

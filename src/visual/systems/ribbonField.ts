@@ -11,6 +11,9 @@ const DEFAULT_MAX_POINTS = 1000;
 export interface RibbonFieldConfig {
   maxPoints?: number;
   enableSparkle?: boolean;
+  noiseOctaves?: 1 | 2 | 3;
+  enablePointerRepulsion?: boolean;
+  enableSlowModulation?: boolean;
 }
 
 export interface RibbonField extends GeometrySystem {
@@ -21,6 +24,9 @@ export interface RibbonField extends GeometrySystem {
 
 export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
   const maxPoints = config?.maxPoints ?? DEFAULT_MAX_POINTS;
+  const noiseOctaves = config?.noiseOctaves ?? 3;
+  const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
+  const enableSlowModulation = config?.enableSlowModulation ?? true;
 
   let effectiveCount = 0;
   let pointsMesh: THREE.Points | null = null;
@@ -167,6 +173,9 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
         uRadialScale: { value: 1.0 },
         uTwistStrength: { value: 1.0 },
         uFieldSpread: { value: 1.0 },
+        uNoiseOctaves: { value: noiseOctaves },
+        uEnablePointerRepulsion: { value: enablePointerRepulsion ? 1.0 : 0.0 },
+        uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
