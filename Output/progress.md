@@ -58,3 +58,5 @@
 
 ## US-030: Migrate render loop from Canvas2D to WebGL
 
+## US-031: Implement 3D point cloud base geometry
+
