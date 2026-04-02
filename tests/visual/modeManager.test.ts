@@ -273,6 +273,41 @@ describe('US-026: ModeManager', () => {
     expect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();
   });
 
+  it('T-030-23: cleanup() is called on outgoing system during mode switch', () => {
+    const mockA = createMockGeometrySystem();
+    (mockA as any).cleanup = vi.fn();
+    const mockB = createMockGeometrySystem();
+    (mockB as any).cleanup = vi.fn();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.init(scene, 'cleanup-switch-seed', defaultParams);
+    const initialIndex = manager.activeIndex;
+    const initialMock = initialIndex === 0 ? mockA : mockB;
+
+    // Trigger mode switch
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+
+    expect((initialMock as any).cleanup).toHaveBeenCalled();
+  });
+
+  it('T-030-24: mode switch with cleanup does not throw even when cleanup is undefined', () => {
+    const mockA = createMockGeometrySystem();
+    const mockB = createMockGeometrySystem();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.init(scene, 'no-cleanup-seed', defaultParams);
+
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();
+  });
+
   it('T-026-25: no localStorage or cookie access during mode management', () => {
     const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');
     const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');

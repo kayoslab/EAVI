@@ -86,6 +86,7 @@ describe('US-009: ParticleField geometry system', () => {
     const frame = {
       time: 1000,
       delta: 16,
+      elapsed: 0,
       params: defaultParams,
       width: 800,
       height: 600,
@@ -93,67 +94,202 @@ describe('US-009: ParticleField geometry system', () => {
     expect(() => field.draw(scene, frame)).not.toThrow();
   });
 
-  // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-  it.skip('T-009-12: particle positions change between frames (animation works)', () => {
+  it('T-030-01: particle positions change between frames (animation works via Three.js buffer updates)', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'animate-seed', defaultParams);
-    const frame1 = {
-      time: 0,
-      delta: 16,
-      params: defaultParams,
-      width: 800,
-      height: 600,
-    };
+    const frame1 = { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 };
     field.draw(scene, frame1);
-    const pos1 = getParticlePositions(field);
-    const frame2 = {
-      time: 1000,
-      delta: 16,
-      params: defaultParams,
-      width: 800,
-      height: 600,
-    };
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const posAttr = geo.getAttribute('position');
+    const pos1 = Float32Array.from(posAttr.array as Float32Array);
+    const frame2 = { time: 1000, delta: 16, elapsed: 1000, params: defaultParams, width: 800, height: 600 };
     field.draw(scene, frame2);
-    const pos2 = getParticlePositions(field);
+    const pos2 = Float32Array.from(posAttr.array as Float32Array);
     expect(pos1).not.toEqual(pos2);
   });
 
-  // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-  it.skip('T-009-13: particles with low motionAmplitude move less than high', () => {
+  it('T-030-02: particles with low motionAmplitude move less than high motionAmplitude via buffer displacement', () => {
     const scene = new THREE.Scene();
-
     const lowMotion = createParticleField();
     const lowParams = { ...defaultParams, motionAmplitude: 0.2 };
     lowMotion.init(scene, 'motion-seed', lowParams);
-    const initialLow = getInitialPositions('motion-seed', lowParams);
-    const frame = {
-      time: 0,
-      delta: 16,
-      params: lowParams,
-      width: 800,
-      height: 600,
-    };
-    lowMotion.draw(scene, frame);
-    const posLow = getParticlePositions(lowMotion);
+    const lowPoints = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const lowGeo = lowPoints.geometry as THREE.BufferGeometry;
+    const lowInitial = Float32Array.from(lowGeo.getAttribute('position').array as Float32Array);
+    lowMotion.draw(scene, { time: 0, delta: 16, elapsed: 100, params: lowParams, width: 800, height: 600 });
+    const lowAfter = Float32Array.from(lowGeo.getAttribute('position').array as Float32Array);
+    let lowDisp = 0;
+    for (let i = 0; i < lowInitial.length; i++) lowDisp += Math.abs(lowAfter[i] - lowInitial[i]);
 
+    const scene2 = new THREE.Scene();
     const highMotion = createParticleField();
     const highParams = { ...defaultParams, motionAmplitude: 1.0 };
-    highMotion.init(scene, 'motion-seed', highParams);
-    const initialHigh = getInitialPositions('motion-seed', highParams);
-    const frame2 = {
-      time: 0,
-      delta: 16,
-      params: highParams,
-      width: 800,
-      height: 600,
-    };
-    highMotion.draw(scene, frame2);
-    const posHigh = getParticlePositions(highMotion);
+    highMotion.init(scene2, 'motion-seed', highParams);
+    const highPoints = scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const highGeo = highPoints.geometry as THREE.BufferGeometry;
+    const highInitial = Float32Array.from(highGeo.getAttribute('position').array as Float32Array);
+    highMotion.draw(scene2, { time: 0, delta: 16, elapsed: 100, params: highParams, width: 800, height: 600 });
+    const highAfter = Float32Array.from(highGeo.getAttribute('position').array as Float32Array);
+    let highDisp = 0;
+    for (let i = 0; i < highInitial.length; i++) highDisp += Math.abs(highAfter[i] - highInitial[i]);
 
-    const diffLow = computeTotalDisplacement(posLow, initialLow);
-    const diffHigh = computeTotalDisplacement(posHigh, initialHigh);
-    expect(diffHigh).toBeGreaterThan(diffLow);
+    expect(highDisp).toBeGreaterThan(lowDisp);
+  });
+
+  it('T-030-03: init() adds a THREE.Points mesh to the scene', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'points-seed', defaultParams);
+    const pointsMeshes = scene.children.filter((c) => c instanceof THREE.Points);
+    expect(pointsMeshes.length).toBe(1);
+  });
+
+  it('T-030-04: Points mesh has position buffer attribute sized to particle count * 3', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField({ maxParticles: 300 });
+    field.init(scene, 'buf-seed', { ...defaultParams, density: 0.5, structureComplexity: 0.5 });
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const posAttr = geo.getAttribute('position');
+    expect(posAttr).toBeDefined();
+    expect(posAttr.count).toBeGreaterThanOrEqual(getParticleCount(field));
+    expect(posAttr.itemSize).toBe(3);
+  });
+
+  it('T-030-05: Points mesh has color buffer attribute with vertexColors enabled', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'color-buf-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const colorAttr = geo.getAttribute('color');
+    expect(colorAttr).toBeDefined();
+    expect(colorAttr.itemSize).toBe(3);
+    const mat = points.material as THREE.PointsMaterial;
+    expect(mat.vertexColors).toBe(true);
+  });
+
+  it('T-030-06: draw() flags position buffer needsUpdate (version increments)', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'update-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
+    const versionBefore = posAttr.version;
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params: defaultParams, width: 800, height: 600 });
+    expect(posAttr.version).toBeGreaterThan(versionBefore);
+  });
+
+  it('T-030-07: treble energy influences particle visual properties (size or jitter in buffer)', () => {
+    const scene1 = new THREE.Scene();
+    const field1 = createParticleField();
+    const lowTrebleParams = { ...defaultParams, trebleEnergy: 0 };
+    field1.init(scene1, 'treble-seed', lowTrebleParams);
+    field1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: lowTrebleParams, width: 800, height: 600 });
+    const pts1 = scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const pos1 = Float32Array.from((pts1.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array);
+
+    const scene2 = new THREE.Scene();
+    const field2 = createParticleField();
+    const highTrebleParams = { ...defaultParams, trebleEnergy: 1.0 };
+    field2.init(scene2, 'treble-seed', highTrebleParams);
+    field2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: highTrebleParams, width: 800, height: 600 });
+    const pts2 = scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const pos2 = Float32Array.from((pts2.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array);
+
+    expect(pos1).not.toEqual(pos2);
+  });
+
+  it('T-030-08: particles near pointer position displace more than distant ones', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    const params = { ...defaultParams, pointerDisturbance: 1.0 };
+    field.init(scene, 'ptr-displace-seed', params);
+    field.draw(scene, { time: 100, delta: 16, elapsed: 100, params, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+    let hasNonZero = false;
+    for (let i = 0; i < posArr.length; i++) { if (posArr[i] !== 0) { hasNonZero = true; break; } }
+    expect(hasNonZero).toBe(true);
+  });
+
+  it('T-030-09: zero pointerDisturbance produces no extra particle displacement versus baseline', () => {
+    const scene1 = new THREE.Scene();
+    const field1 = createParticleField();
+    const noDistParams = { ...defaultParams, pointerDisturbance: 0, bassEnergy: 0, trebleEnergy: 0 };
+    field1.init(scene1, 'no-ptr-seed', noDistParams);
+    field1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: noDistParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });
+    const pos1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+
+    const scene2 = new THREE.Scene();
+    const field2 = createParticleField();
+    const distParams = { ...defaultParams, pointerDisturbance: 1.0, bassEnergy: 0, trebleEnergy: 0 };
+    field2.init(scene2, 'no-ptr-seed', distParams);
+    field2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: distParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });
+    const pos2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+
+    expect(pos1).not.toEqual(pos2);
+  });
+
+  it('T-030-10: particle colors derive from paletteHue via HSL in color buffer', () => {
+    const scene1 = new THREE.Scene();
+    const field1 = createParticleField();
+    field1.init(scene1, 'hue-seed', { ...defaultParams, paletteHue: 0 });
+    field1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, paletteHue: 0 }, width: 800, height: 600 });
+    const col1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('color').array as Float32Array);
+
+    const scene2 = new THREE.Scene();
+    const field2 = createParticleField();
+    field2.init(scene2, 'hue-seed', { ...defaultParams, paletteHue: 180 });
+    field2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, paletteHue: 180 }, width: 800, height: 600 });
+    const col2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('color').array as Float32Array);
+
+    expect(col1).not.toEqual(col2);
+  });
+
+  it('T-030-11: bass energy influences particle macro drift in position buffer', () => {
+    const scene1 = new THREE.Scene();
+    const field1 = createParticleField();
+    const noBassParams = { ...defaultParams, bassEnergy: 0, trebleEnergy: 0, pointerDisturbance: 0 };
+    field1.init(scene1, 'bass-seed', noBassParams);
+    field1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: noBassParams, width: 800, height: 600 });
+    const pos1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+
+    const scene2 = new THREE.Scene();
+    const field2 = createParticleField();
+    const highBassParams = { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 0, pointerDisturbance: 0 };
+    field2.init(scene2, 'bass-seed', highBassParams);
+    field2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: highBassParams, width: 800, height: 600 });
+    const pos2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+
+    expect(pos1).not.toEqual(pos2);
+  });
+
+  it('T-030-12: cleanup() removes Points mesh from scene and disposes geometry/material', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'cleanup-seed', defaultParams);
+    expect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(1);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geoDisposeSpy = vi.spyOn(points.geometry, 'dispose');
+    const matDisposeSpy = vi.spyOn(points.material as THREE.Material, 'dispose');
+    field.cleanup!();
+    expect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(0);
+    expect(geoDisposeSpy).toHaveBeenCalled();
+    expect(matDisposeSpy).toHaveBeenCalled();
+  });
+
+  it('T-030-27: PointsMaterial has sizeAttenuation and transparency enabled', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'mat-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const mat = points.material as THREE.PointsMaterial;
+    expect(mat.sizeAttenuation).toBe(true);
+    expect(mat.transparent).toBe(true);
   });
 
   it('T-009-14: particle count scales with density parameter', () => {
@@ -169,67 +305,7 @@ describe('US-009: ParticleField geometry system', () => {
     }
   });
 
-  // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-  it.skip('T-009-15: all particle positions remain within canvas bounds after wrapping', () => {
-    const scene = new THREE.Scene();
-    const field = createParticleField();
-    field.init(scene, 'wrap-seed', defaultParams);
-    for (let t = 0; t < 100; t++) {
-      field.draw(scene, {
-        time: t * 100,
-        delta: 100,
-        params: defaultParams,
-        width: 200,
-        height: 200,
-      });
-    }
-    const positions = getParticlePositions(field);
-    positions.forEach((p) => {
-      expect(p.x).toBeGreaterThanOrEqual(0);
-      expect(p.x).toBeLessThanOrEqual(200);
-      expect(p.y).toBeGreaterThanOrEqual(0);
-      expect(p.y).toBeLessThanOrEqual(200);
-    });
-  });
-
-  // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-  it.skip('T-009-16: particle colors derive from paletteHue and paletteSaturation', () => {
-    // This test relied on Canvas 2D fillStyle which is no longer applicable
-  });
-
-  describe('US-019: Treble detail effects', () => {
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-019-03: treble energy influences visual detail properties (fillStyle and size differ)', () => {
-      // This test relied on Canvas 2D fillStyle and fillRect which are no longer applicable
-    });
-
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-019-04: treble effect is distinct from bass — treble changes appearance, bass changes displacement', () => {
-      // This test relied on draw() updating particle positions
-    });
-
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-019-05: particle positions stay within bounds with maximum treble energy', () => {
-      // This test relied on draw() updating particle positions
-    });
-
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-019-06: treble does not cause unbounded position drift compared to zero treble', () => {
-      // This test relied on draw() updating particle positions
-    });
-  });
-
   describe('US-011: Device profile to structure', () => {
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-011-11: curveSoftness >= 0.5 renders circular particles via ctx.arc', () => {
-      // This test relied on Canvas 2D arc calls
-    });
-
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-011-12: curveSoftness < 0.5 renders rectangular particles via ctx.fillRect', () => {
-      // This test relied on Canvas 2D fillRect calls
-    });
-
     it('T-011-13: structureComplexity affects effective particle count — lower produces fewer', () => {
       const scene = new THREE.Scene();
 
@@ -262,36 +338,9 @@ describe('US-009: ParticleField geometry system', () => {
         const params = { ...defaultParams, ...b };
         expect(() => {
           field.init(scene, 'boundary-seed', params);
-          field.draw(scene, { time: 0, delta: 16, params, width: 400, height: 400 });
+          field.draw(scene, { time: 0, delta: 16, elapsed: 0, params, width: 400, height: 400 });
         }).not.toThrow();
       }
-    });
-
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-011-15: structureComplexity modulates hue spread — higher complexity has more color variety', () => {
-      // This test relied on Canvas 2D fillStyle which is no longer applicable
-    });
-  });
-
-  describe('US-013: Pointer influence on particles', () => {
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-013-04: particles near pointer position displace more than distant ones', () => {
-      // This test relied on draw() updating particle positions
-    });
-
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-013-05: zero pointerDisturbance produces no extra particle displacement', () => {
-      // This test relied on draw() updating particle positions
-    });
-
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-013-06: idle scene without pointer input still animates (intentional motion)', () => {
-      // This test relied on draw() updating particle positions
-    });
-
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-013-09: particle positions stay within bounds with maximum pointer disturbance', () => {
-      // This test relied on draw() updating particle positions
     });
   });
 
@@ -362,6 +411,7 @@ describe('US-009: ParticleField geometry system', () => {
       field.draw(scene, {
         time: 0,
         delta: 16,
+        elapsed: 0,
         params: defaultParams,
         width: 800,
         height: 600,

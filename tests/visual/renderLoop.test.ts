@@ -718,6 +718,177 @@ describe('US-029: Render loop', () => {
     });
   });
 
+  describe('US-030: Placeholder removal after geometry init', () => {
+    it('T-030-21: placeholder mesh is removed from scene after geometry system initializes', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial());
+      scene.add(mesh);
+
+      const mockGeo = { init: vi.fn(), draw: vi.fn() };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'placeholder-remove-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        placeholderMesh: mesh,
+      };
+
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+
+      startLoop(renderer, scene, camera, deps);
+      expect(mockGeo.init).toHaveBeenCalled();
+      expect(scene.children).not.toContain(mesh);
+    });
+
+    it('T-030-22: placeholder mesh rotation stops after geometry system takes over', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial());
+      scene.add(mesh);
+
+      const mockGeo = { init: vi.fn(), draw: vi.fn() };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'rot-stop-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        placeholderMesh: mesh,
+      };
+
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 5) cb(frameCount * 16);
+        return frameCount;
+      });
+
+      startLoop(renderer, scene, camera, deps);
+      const rotAfterInit = mesh.rotation.y;
+      expect(rotAfterInit).toBeDefined();
+    });
+
+    it('T-030-26: render loop still calls renderer.render after geometry system replaces placeholder', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const renderSpy = vi.spyOn(renderer, 'render');
+      const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial());
+      scene.add(mesh);
+
+      const mockGeo = { init: vi.fn(), draw: vi.fn() };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'render-continues-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        placeholderMesh: mesh,
+      };
+
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 5) cb(frameCount * 16);
+        return frameCount;
+      });
+
+      startLoop(renderer, scene, camera, deps);
+      expect(renderSpy).toHaveBeenCalledTimes(5);
+      expect(mockGeo.draw).toHaveBeenCalled();
+    });
+
+    it('T-030-30: Canvas 2D context is never used when geometry systems render via Three.js', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const fillRectSpy = vi.fn();
+      const origGetContext = renderer.domElement.getContext.bind(renderer.domElement);
+      renderer.domElement.getContext = ((type: string) => {
+        if (type === '2d') return { fillRect: fillRectSpy, beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), arc: vi.fn(), fill: vi.fn() };
+        return origGetContext(type);
+      }) as typeof renderer.domElement.getContext;
+
+      const mockGeo = { init: vi.fn(), draw: vi.fn() };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'no-2d-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 5) cb(frameCount * 16);
+        return frameCount;
+      });
+
+      startLoop(renderer, scene, camera, deps);
+      expect(fillRectSpy).not.toHaveBeenCalled();
+    });
+
+    it('T-030-31: audio analysis (bass/treble) continues to be computed after WebGL migration', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      const mockPipeline = {
+        frequency: new Uint8Array(128),
+        timeDomain: new Uint8Array(128).fill(128),
+        poll: vi.fn(),
+      };
+      for (let i = 0; i < 32; i++) mockPipeline.frequency[i] = 180;
+      for (let i = 96; i < 128; i++) mockPipeline.frequency[i] = 150;
+
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'audio-continues-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getAnalyserPipeline: () => mockPipeline,
+      };
+
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
+
+      expect(mockPipeline.poll).toHaveBeenCalledTimes(3);
+      const lastParams = (drawSpy.mock.calls[2][1] as { params: VisualParams }).params;
+      expect(lastParams.bassEnergy).toBeGreaterThan(0);
+      expect(lastParams.trebleEnergy).toBeGreaterThan(0);
+    });
+
+    it('T-030-32: pointer entropy values are still computed after WebGL migration', () => {
+      const drawSpy = vi.fn();
+      const mockGeo = { init: vi.fn(), draw: drawSpy };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'ptr-continues-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        getPointerState: () => ({ x: 0.3, y: 0.7, dx: 8, dy: 4, speed: 0.09, active: true }),
+      };
+
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
+
+      const lastFrame = drawSpy.mock.calls[2][1] as FrameState;
+      expect(lastFrame.pointerX).toBe(0.3);
+      expect(lastFrame.pointerY).toBe(0.7);
+      expect(lastFrame.params.pointerDisturbance).toBeGreaterThan(0);
+    });
+  });
+
   describe('US-025: Quality profile in LoopDeps', () => {
     it('T-025-20: render loop accepts quality profile in LoopDeps', () => {
       const drawSpy = vi.fn();

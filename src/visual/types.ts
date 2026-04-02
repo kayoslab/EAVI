@@ -19,4 +19,5 @@ export interface GeometrySystem {
     params: VisualParams,
   ): void;
   draw(scene: Scene, frame: FrameState): void;
+  cleanup?(): void;
 }
