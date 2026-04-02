@@ -5,6 +5,7 @@ export type QualityTier = 'low' | 'medium' | 'high';
 export interface QualityProfile {
   tier: QualityTier;
   maxParticles: number;
+  maxPoints: number;
   resolutionScale: number;
   enableSparkle: boolean;
 }
@@ -49,10 +50,10 @@ export function computeQuality(signals: BrowserSignals): QualityProfile {
   score = Math.max(0, Math.min(1, score));
 
   if (score < 0.35) {
-    return { tier: 'low', maxParticles: 150, resolutionScale: 0.5, enableSparkle: false };
+    return { tier: 'low', maxParticles: 150, maxPoints: 200, resolutionScale: 0.5, enableSparkle: false };
   }
   if (score > 0.65) {
-    return { tier: 'high', maxParticles: 600, resolutionScale: 1.0, enableSparkle: true };
+    return { tier: 'high', maxParticles: 600, maxPoints: 1200, resolutionScale: 1.0, enableSparkle: true };
   }
-  return { tier: 'medium', maxParticles: 350, resolutionScale: 0.75, enableSparkle: true };
+  return { tier: 'medium', maxParticles: 350, maxPoints: 500, resolutionScale: 0.75, enableSparkle: true };
 }
