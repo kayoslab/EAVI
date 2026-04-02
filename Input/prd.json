@@ -492,8 +492,8 @@
         "Visual output stays recognizably similar"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-003",
         "US-004",
@@ -501,8 +501,7 @@
         "US-013"
       ],
       "split_from": "US-014",
-      "notes": "Scale particle counts, shader complexity, or post-processing.",
-      "claimed_by": "worker-2"
+      "notes": "Scale particle counts, shader complexity, or post-processing."
     },
     {
       "id": "US-026",
