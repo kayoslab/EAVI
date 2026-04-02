@@ -1,53 +1,15 @@
 {
-  "reasoning": "Plan is well-structured and technically sound, but contains incorrect file paths in step 3 that would cause implementation confusion. The actual geometry system files are under src/visual/systems/, not src/visual/geometrySystems/.",
-  "issues": [
-    {
-      "step": 3,
-      "severity": "high",
-      "issue": "Wrong file paths: plan references src/visual/geometrySystems/pointCloud.ts and src/visual/geometrySystems/ribbonField.ts but actual paths are src/visual/systems/pointCloud.ts and src/visual/systems/ribbonField.ts"
-    },
-    {
-      "step": 2,
-      "severity": "low",
-      "issue": "Step says 'replace layeredNoise() calls' but layeredNoise() is only used in the slow modulation section. The bulk of existing displacement (radial expansion, twist, drift, jitter) uses direct sin/cos — plan should clarify whether those are also being replaced or just augmented with noise-based displacement."
-    },
-    {
-      "step": 5,
-      "severity": "low",
-      "issue": "VisualParams already has structureComplexity and motionAmplitude which could drive displacement scale without new fields. Adding displacementScale and noiseEvolutionRate may be redundant if they are simple derivations — consider computing them at uniform-update time instead of expanding the VisualParams type."
-    }
-  ],
-  "requiredChanges": [
-    "Fix file paths in step 3: src/visual/geometrySystems/ → src/visual/systems/ for both pointCloud.ts and ribbonField.ts"
-  ],
+  "reasoning": "The revised plan correctly addresses all three issues from the prior review: file paths are now correct (src/visual/systems/), displacement scale is derived from existing VisualParams fields (motionAmplitude * structureComplexity) rather than expanding the interface, and step 2 now explicitly describes replacing both layeredNoise() calls AND the sin/cos displacement layers (radial expansion, drift, jitter) with simplex FBM. The technical approach is sound: Ashima-style GLSL simplex noise avoids dependencies, string concatenation via Vite ?raw imports is the established pattern, and reusing cadence for noise evolution speed aligns with artistic intent. The only minor organizational concern is that steps 2-3 and step 4 both touch pointCloud.ts and ribbonField.ts, but the split is defensible (shader prep vs runtime uniform wiring).",
+  "issues": [],
+  "requiredChanges": [],
   "suggestedImprovements": [
-    "Clarify in step 2 whether existing sin/cos displacement layers (radial expansion, twist, drift) are replaced, removed, or preserved alongside the new noise displacement",
-    "Consider whether step 5 additions to VisualParams are necessary or if displacement scale can be derived inline from existing params during uniform updates"
+    "Consider consolidating steps 2+4 (and 3+4) since both modify pointCloud.ts and ribbonField.ts — the shader concatenation and uniform wiring in draw() could be done in a single step per system to reduce context-switching",
+    "Step 2 describes modulating gl_PointSize by treble simplex for sparkle, but the current shader computes gl_PointSize after the position block (line 121). Ensure the treble-based point size modulation is applied at line 121 rather than in the displacement section to avoid using the wrong mvPosition"
   ],
   "assessedComplexity": "medium",
-  "concerns": [
-    "{\"step\":3,\"severity\":\"high\",\"issue\":\"Wrong file paths: plan references src/visual/geometrySystems/pointCloud.ts and src/visual/geometrySystems/ribbonField.ts but actual paths are src/visual/systems/pointCloud.ts and src/visual/systems/ribbonField.ts\"}",
-    "{\"step\":2,\"severity\":\"low\",\"issue\":\"Step says 'replace layeredNoise() calls' but layeredNoise() is only used in the slow modulation section. The bulk of existing displacement (radial expansion, twist, drift, jitter) uses direct sin/cos — plan should clarify whether those are also being replaced or just augmented with noise-based displacement.\"}",
-    "{\"step\":5,\"severity\":\"low\",\"issue\":\"VisualParams already has structureComplexity and motionAmplitude which could drive displacement scale without new fields. Adding displacementScale and noiseEvolutionRate may be redundant if they are simple derivations — consider computing them at uniform-update time instead of expanding the VisualParams type.\"}"
-  ],
-  "decision": "revise",
-  "failures": [
-    {
-      "step": 3,
-      "severity": "high",
-      "issue": "Wrong file paths: plan references src/visual/geometrySystems/pointCloud.ts and src/visual/geometrySystems/ribbonField.ts but actual paths are src/visual/systems/pointCloud.ts and src/visual/systems/ribbonField.ts"
-    },
-    {
-      "step": 2,
-      "severity": "low",
-      "issue": "Step says 'replace layeredNoise() calls' but layeredNoise() is only used in the slow modulation section. The bulk of existing displacement (radial expansion, twist, drift, jitter) uses direct sin/cos — plan should clarify whether those are also being replaced or just augmented with noise-based displacement."
-    },
-    {
-      "step": 5,
-      "severity": "low",
-      "issue": "VisualParams already has structureComplexity and motionAmplitude which could drive displacement scale without new fields. Adding displacementScale and noiseEvolutionRate may be redundant if they are simple derivations — consider computing them at uniform-update time instead of expanding the VisualParams type."
-    }
-  ],
+  "concerns": [],
+  "decision": "approve",
+  "failures": [],
   "adr_entry": null,
-  "approved": false
+  "approved": true
 }
