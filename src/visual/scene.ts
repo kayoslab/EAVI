@@ -41,9 +41,7 @@ export function initScene(
 
   renderer.setClearColor(0x000000);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * resolutionScale);
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.domElement.style.width = '100%';
-  renderer.domElement.style.height = '100%';
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
   container.appendChild(renderer.domElement);
 
   const aspect = window.innerWidth / window.innerHeight;
@@ -66,9 +64,7 @@ export function initScene(
   const onContextRestored = () => {
     renderer.setClearColor(0x000000);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * resolutionScale);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.domElement.style.width = '100%';
-    renderer.domElement.style.height = '100%';
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
   };
   canvas.addEventListener('webglcontextlost', onContextLost);
   canvas.addEventListener('webglcontextrestored', onContextRestored);

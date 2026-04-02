@@ -20,7 +20,7 @@ vi.mock('three', async () => {
         this.domElement = document.createElement('canvas');
       }
 
-      setSize(w: number, h: number) {
+      setSize(w: number, h: number, _updateStyle?: boolean) {
         this.domElement.width = w * this._pixelRatio;
         this.domElement.height = h * this._pixelRatio;
       }
@@ -154,8 +154,9 @@ describe('US-036: Quality scaling — canvas full-screen guarantee', () => {
       const container = document.createElement('div');
       document.body.appendChild(container);
       const { renderer } = initScene(container, { resolutionScale: scale });
-      expect(renderer.domElement.style.width).toBe('100%');
-      expect(renderer.domElement.style.height).toBe('100%');
+      // JS must not set inline CSS — stylesheet rule handles layout
+      expect(renderer.domElement.style.width).toBe('');
+      expect(renderer.domElement.style.height).toBe('');
       renderer.dispose();
       document.body.removeChild(container);
     }
@@ -171,11 +172,11 @@ describe('US-036: Quality scaling — canvas full-screen guarantee', () => {
     const { renderer: rLow } = initScene(containerLow, { resolutionScale: 0.5 });
     const { renderer: rHigh } = initScene(containerHigh, { resolutionScale: 1.0 });
 
-    // Both should fill viewport via CSS
-    expect(rLow.domElement.style.width).toBe('100%');
-    expect(rHigh.domElement.style.width).toBe('100%');
-    expect(rLow.domElement.style.height).toBe('100%');
-    expect(rHigh.domElement.style.height).toBe('100%');
+    // JS must not set inline CSS — stylesheet rule handles layout
+    expect(rLow.domElement.style.width).toBe('');
+    expect(rHigh.domElement.style.width).toBe('');
+    expect(rLow.domElement.style.height).toBe('');
+    expect(rHigh.domElement.style.height).toBe('');
 
     // Low tier pixel ratio should be lower
     expect(rLow.getPixelRatio()).toBeLessThan(rHigh.getPixelRatio());

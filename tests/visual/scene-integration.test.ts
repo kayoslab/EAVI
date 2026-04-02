@@ -22,7 +22,7 @@ vi.mock('three', async () => {
         this.domElement.width = 800;
         this.domElement.height = 600;
       }
-      setSize(w: number, h: number) {
+      setSize(w: number, h: number, _updateStyle?: boolean) {
         this.domElement.width = w;
         this.domElement.height = h;
       }
