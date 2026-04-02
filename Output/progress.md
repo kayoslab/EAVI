@@ -62,3 +62,5 @@
 
 ## US-032: Add audio-driven 3D warp shader for the point cloud
 
+## US-033: Increase structural variation within a session
+
