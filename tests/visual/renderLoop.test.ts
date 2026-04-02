@@ -1,16 +1,40 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as THREE from 'three';
 import { startLoop, type LoopDeps } from '../../src/visual/renderLoop';
 import type { BrowserSignals } from '../../src/input/signals';
 import type { GeoHint } from '../../src/input/geo';
 import type { VisualParams } from '../../src/visual/mappings';
 import type { FrameState } from '../../src/visual/types';
 
-function createTestCanvas(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
-  const canvas = document.createElement('canvas');
-  canvas.width = 800;
-  canvas.height = 600;
-  const ctx = canvas.getContext('2d')!;
-  return { canvas, ctx };
+// Mock WebGLRenderer
+vi.mock('three', async () => {
+  const actual = await vi.importActual<typeof import('three')>('three');
+  return {
+    ...actual,
+    WebGLRenderer: class MockWebGLRenderer {
+      domElement: HTMLCanvasElement;
+      constructor() {
+        this.domElement = document.createElement('canvas');
+        this.domElement.width = 800;
+        this.domElement.height = 600;
+      }
+      setSize(w: number, h: number) {
+        this.domElement.width = w;
+        this.domElement.height = h;
+      }
+      setPixelRatio() {}
+      setClearColor() {}
+      render() {}
+      dispose() {}
+    },
+  };
+});
+
+function createTestRenderer() {
+  const renderer = new THREE.WebGLRenderer();
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, 800 / 600, 0.1, 100);
+  return { renderer, scene, camera };
 }
 
 const defaultSignals: BrowserSignals = {
@@ -29,83 +53,77 @@ const defaultGeo: GeoHint = { country: 'US', region: 'CA' };
 
 const minimalDeps: LoopDeps = {};
 
-describe('US-009: Render loop', () => {
+describe('US-029: Render loop', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('T-009-18: loop calls requestAnimationFrame recursively', () => {
+  it('T-029-19: loop calls requestAnimationFrame recursively', () => {
     let callCount = 0;
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
       callCount++;
       if (callCount <= 3) cb(callCount * 16);
       return callCount;
     });
-    const { canvas, ctx } = createTestCanvas();
-    startLoop(canvas, ctx, minimalDeps);
+    const { renderer, scene, camera } = createTestRenderer();
+    startLoop(renderer, scene, camera, minimalDeps);
     expect(callCount).toBeGreaterThan(1);
   });
 
-  it('T-009-19: canvas is cleared each frame', () => {
-    const { canvas, ctx } = createTestCanvas();
-    const fillRectSpy = vi.spyOn(ctx, 'fillRect');
+  it('T-029-20: renderer.render(scene, camera) is called each frame', () => {
+    const { renderer, scene, camera } = createTestRenderer();
+    const renderSpy = vi.spyOn(renderer, 'render');
+    let frameCount = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      frameCount++;
+      if (frameCount <= 3) cb(frameCount * 16);
+      return frameCount;
+    });
+    startLoop(renderer, scene, camera, minimalDeps);
+    expect(renderSpy).toHaveBeenCalledTimes(3);
+    expect(renderSpy).toHaveBeenCalledWith(scene, camera);
+  });
+
+  it('T-029-21: loop runs without error when deps are minimal (pre-async resolution)', () => {
     let frameCount = 0;
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
       frameCount++;
       if (frameCount <= 2) cb(frameCount * 16);
       return frameCount;
     });
-    startLoop(canvas, ctx, minimalDeps);
-    // fillRect is called to clear (full canvas fill with black)
-    expect(fillRectSpy).toHaveBeenCalled();
-    const fullCanvasFills = fillRectSpy.mock.calls.filter(
-      (c) => c[0] === 0 && c[1] === 0 && c[2] === canvas.width && c[3] === canvas.height,
-    );
-    expect(fullCanvasFills.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('T-009-20: VisualParams are passed through to geometry system', () => {
-    const drawSpy = vi.fn();
-    const mockGeo = { init: vi.fn(), draw: drawSpy };
-    const deps: LoopDeps = {
-      ...minimalDeps,
-      geometrySystem: mockGeo,
-      seed: 'test-seed',
-      signals: defaultSignals,
-      geo: defaultGeo,
-    };
-    let frameCount = 0;
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-      frameCount++;
-      if (frameCount <= 1) cb(16);
-      return frameCount;
-    });
-    const { canvas, ctx } = createTestCanvas();
-    startLoop(canvas, ctx, deps);
-    expect(drawSpy).toHaveBeenCalled();
-    const frameState = drawSpy.mock.calls[0][1];
-    expect(frameState).toHaveProperty('params');
-    expect(frameState.params).toHaveProperty('paletteHue');
-    expect(frameState.params).toHaveProperty('density');
-  });
-
-  it('T-009-21: loop runs with null/default deps (pre-async resolution)', () => {
-    let frameCount = 0;
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-      frameCount++;
-      if (frameCount <= 2) cb(frameCount * 16);
-      return frameCount;
-    });
-    const { canvas, ctx } = createTestCanvas();
-    expect(() => startLoop(canvas, ctx, minimalDeps)).not.toThrow();
+    const { renderer, scene, camera } = createTestRenderer();
+    expect(() => startLoop(renderer, scene, camera, minimalDeps)).not.toThrow();
     expect(frameCount).toBeGreaterThan(0);
   });
 
-  it('T-009-22: delta time is computed correctly between frames', () => {
+  it('T-029-22: placeholder mesh rotates each frame', () => {
+    const { renderer, scene, camera } = createTestRenderer();
+    const mesh = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1, 1),
+      new THREE.MeshBasicMaterial(),
+    );
+    scene.add(mesh);
+
+    const initialRotY = mesh.rotation.y;
+    const initialRotX = mesh.rotation.x;
+
+    let frameCount = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      frameCount++;
+      if (frameCount <= 5) cb(frameCount * 16);
+      return frameCount;
+    });
+
+    startLoop(renderer, scene, camera, { placeholderMesh: mesh });
+
+    expect(mesh.rotation.y).toBeGreaterThan(initialRotY);
+    expect(mesh.rotation.x).toBeGreaterThan(initialRotX);
+  });
+
+  it('T-029-23: delta time is computed correctly between frames', () => {
     const drawSpy = vi.fn();
     const mockGeo = { init: vi.fn(), draw: drawSpy };
     const deps: LoopDeps = {
-      ...minimalDeps,
       geometrySystem: mockGeo,
       seed: 'delta-seed',
       signals: defaultSignals,
@@ -119,46 +137,14 @@ describe('US-009: Render loop', () => {
       else if (frameCount === 3) cb(50);
       return frameCount;
     });
-    const { canvas, ctx } = createTestCanvas();
-    startLoop(canvas, ctx, deps);
+    const { renderer, scene, camera } = createTestRenderer();
+    startLoop(renderer, scene, camera, deps);
     const deltas = drawSpy.mock.calls.map((c: unknown[]) => (c[1] as { delta: number }).delta);
     expect(deltas.length).toBeGreaterThanOrEqual(3);
     expect(deltas[2]).toBeCloseTo(50 - 16, 0);
   });
 
-  it('T-009-23: loop integrates pointer state changes', () => {
-    const drawSpy = vi.fn();
-    const mockGeo = { init: vi.fn(), draw: drawSpy };
-    const pointerState = {
-      x: 100,
-      y: 200,
-      dx: 5,
-      dy: 3,
-      speed: 5.83,
-      active: true,
-    };
-    const deps: LoopDeps = {
-      ...minimalDeps,
-      geometrySystem: mockGeo,
-      seed: 'ptr-seed',
-      signals: defaultSignals,
-      geo: defaultGeo,
-      getPointerState: () => pointerState,
-    };
-    let frameCount = 0;
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-      frameCount++;
-      if (frameCount <= 1) cb(16);
-      return frameCount;
-    });
-    const { canvas, ctx } = createTestCanvas();
-    startLoop(canvas, ctx, deps);
-    expect(drawSpy).toHaveBeenCalled();
-    const params = (drawSpy.mock.calls[0][1] as { params: VisualParams }).params;
-    expect(params.pointerDisturbance).toBeGreaterThan(0);
-  });
-
-  it('T-009-24: loop integrates audio analyser data when available', () => {
+  it('T-029-24: loop integrates audio analyser data when available', () => {
     const drawSpy = vi.fn();
     const mockGeo = { init: vi.fn(), draw: drawSpy };
     const mockPipeline = {
@@ -167,7 +153,6 @@ describe('US-009: Render loop', () => {
       poll: vi.fn(),
     };
     const deps: LoopDeps = {
-      ...minimalDeps,
       geometrySystem: mockGeo,
       seed: 'audio-seed',
       signals: defaultSignals,
@@ -180,18 +165,17 @@ describe('US-009: Render loop', () => {
       if (frameCount <= 1) cb(16);
       return frameCount;
     });
-    const { canvas, ctx } = createTestCanvas();
-    startLoop(canvas, ctx, deps);
+    const { renderer, scene, camera } = createTestRenderer();
+    startLoop(renderer, scene, camera, deps);
     expect(mockPipeline.poll).toHaveBeenCalled();
     const params = (drawSpy.mock.calls[0][1] as { params: VisualParams }).params;
     expect(params.bassEnergy).toBeGreaterThan(0);
   });
 
-  it('T-009-25: loop renders scene without audio (zero bass/treble when no pipeline)', () => {
+  it('T-029-25: loop renders scene without audio (zero treble when no pipeline)', () => {
     const drawSpy = vi.fn();
     const mockGeo = { init: vi.fn(), draw: drawSpy };
     const deps: LoopDeps = {
-      ...minimalDeps,
       geometrySystem: mockGeo,
       seed: 'no-audio-seed',
       signals: defaultSignals,
@@ -204,13 +188,109 @@ describe('US-009: Render loop', () => {
       if (frameCount <= 1) cb(16);
       return frameCount;
     });
-    const { canvas, ctx } = createTestCanvas();
-    startLoop(canvas, ctx, deps);
+    const { renderer, scene, camera } = createTestRenderer();
+    startLoop(renderer, scene, camera, deps);
     expect(drawSpy).toHaveBeenCalled();
     const params = (drawSpy.mock.calls[0][1] as { params: VisualParams }).params;
-    // Bass has synthetic fallback (US-018) so it's >= 0 even without a pipeline
     expect(params.bassEnergy).toBeGreaterThanOrEqual(0);
     expect(params.trebleEnergy).toBe(0);
+  });
+
+  it('T-029-26: loop integrates pointer state changes', () => {
+    const drawSpy = vi.fn();
+    const mockGeo = { init: vi.fn(), draw: drawSpy };
+    const pointerState = {
+      x: 100,
+      y: 200,
+      dx: 5,
+      dy: 3,
+      speed: 5.83,
+      active: true,
+    };
+    const deps: LoopDeps = {
+      geometrySystem: mockGeo,
+      seed: 'ptr-seed',
+      signals: defaultSignals,
+      geo: defaultGeo,
+      getPointerState: () => pointerState,
+    };
+    let frameCount = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      frameCount++;
+      if (frameCount <= 1) cb(16);
+      return frameCount;
+    });
+    const { renderer, scene, camera } = createTestRenderer();
+    startLoop(renderer, scene, camera, deps);
+    expect(drawSpy).toHaveBeenCalled();
+    const params = (drawSpy.mock.calls[0][1] as { params: VisualParams }).params;
+    expect(params.pointerDisturbance).toBeGreaterThan(0);
+  });
+
+  it('T-029-27: elapsed time increases monotonically across frames', () => {
+    const drawSpy = vi.fn();
+    const mockGeo = { init: vi.fn(), draw: drawSpy };
+    const deps: LoopDeps = {
+      geometrySystem: mockGeo,
+      seed: 'mono-elapsed-seed',
+      signals: defaultSignals,
+      geo: defaultGeo,
+    };
+    let frameCount = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      frameCount++;
+      if (frameCount <= 10) cb(100 + frameCount * 16);
+      return frameCount;
+    });
+    const { renderer, scene, camera } = createTestRenderer();
+    startLoop(renderer, scene, camera, deps);
+    const elapsedValues = drawSpy.mock.calls.map(
+      (c: unknown[]) => (c[1] as FrameState).elapsed,
+    );
+    for (let i = 1; i < elapsedValues.length; i++) {
+      expect(elapsedValues[i]).toBeGreaterThan(elapsedValues[i - 1]);
+    }
+  });
+
+  it('T-029-28: no localStorage or cookie access during render loop', () => {
+    const lsSpy = vi.spyOn(Storage.prototype, 'getItem');
+    const cookieSpy = vi.spyOn(document, 'cookie', 'get');
+    let frameCount = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      frameCount++;
+      if (frameCount <= 3) cb(frameCount * 16);
+      return frameCount;
+    });
+    const { renderer, scene, camera } = createTestRenderer();
+    startLoop(renderer, scene, camera, minimalDeps);
+    expect(lsSpy).not.toHaveBeenCalled();
+    expect(cookieSpy).not.toHaveBeenCalled();
+  });
+
+  it('T-029-29: Canvas 2D context methods are NOT called — rendering uses renderer.render only', () => {
+    const { renderer, scene, camera } = createTestRenderer();
+    const renderSpy = vi.spyOn(renderer, 'render');
+
+    // Track any Canvas 2D fillRect calls
+    const fillRectSpy = vi.fn();
+    const origGetContext = renderer.domElement.getContext.bind(renderer.domElement);
+    renderer.domElement.getContext = ((type: string) => {
+      if (type === '2d') {
+        return { fillRect: fillRectSpy };
+      }
+      return origGetContext(type);
+    }) as typeof renderer.domElement.getContext;
+
+    let frameCount = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      frameCount++;
+      if (frameCount <= 3) cb(frameCount * 16);
+      return frameCount;
+    });
+    startLoop(renderer, scene, camera, minimalDeps);
+
+    expect(renderSpy).toHaveBeenCalled();
+    expect(fillRectSpy).not.toHaveBeenCalled();
   });
 
   describe('US-019: Treble smoothing in render loop', () => {
@@ -218,11 +298,8 @@ describe('US-009: Render loop', () => {
       const drawSpy = vi.fn();
       const mockGeo = { init: vi.fn(), draw: drawSpy };
 
-      // Frame 1: treble spike (high-frequency bins filled)
-      // Frame 2+: silence (bins zeroed)
       let frameCount = 0;
       const highTreble = new Uint8Array(128);
-      // Fill upper 25% with high values to create treble spike
       for (let i = 96; i < 128; i++) highTreble[i] = 200;
       const silence = new Uint8Array(128).fill(0);
 
@@ -230,7 +307,6 @@ describe('US-009: Render loop', () => {
         frequency: highTreble,
         timeDomain: new Uint8Array(128).fill(128),
         poll: vi.fn(() => {
-          // After first frame, switch to silence
           if (frameCount > 1) {
             mockPipeline.frequency = silence;
           }
@@ -251,23 +327,16 @@ describe('US-009: Render loop', () => {
         return frameCount;
       });
 
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
 
-      // Collect trebleEnergy across frames
       const trebleValues = drawSpy.mock.calls.map(
         (c: unknown[]) => (c[1] as { params: VisualParams }).params.trebleEnergy,
       );
 
-      // Frame 1 should have high treble
       expect(trebleValues[0]).toBeGreaterThan(0);
-
-      // After silence frames, treble should still be > 0 due to smoothing
-      // (not an instant drop to zero)
-      const postSilenceTreble = trebleValues[2]; // 2nd frame after silence
+      const postSilenceTreble = trebleValues[2];
       expect(postSilenceTreble).toBeGreaterThan(0);
-
-      // But it should be decaying (later frames lower than spike frame)
       expect(trebleValues[trebleValues.length - 1]).toBeLessThan(trebleValues[0]);
     });
 
@@ -275,7 +344,6 @@ describe('US-009: Render loop', () => {
       const drawSpy = vi.fn();
       const mockGeo = { init: vi.fn(), draw: drawSpy };
 
-      // Max possible treble: all upper-quarter bins at 255
       const maxTreble = new Uint8Array(128);
       for (let i = 96; i < 128; i++) maxTreble[i] = 255;
 
@@ -300,8 +368,8 @@ describe('US-009: Render loop', () => {
         return frameCount;
       });
 
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
 
       drawSpy.mock.calls.forEach((c: unknown[]) => {
         const treble = (c[1] as { params: VisualParams }).params.trebleEnergy;
@@ -329,8 +397,8 @@ describe('US-009: Render loop', () => {
         else if (frameCount === 3) cb(200);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       expect(drawSpy).toHaveBeenCalledTimes(3);
       const elapsed0 = (drawSpy.mock.calls[0][1] as FrameState).elapsed;
       const elapsed1 = (drawSpy.mock.calls[1][1] as FrameState).elapsed;
@@ -358,8 +426,8 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 3) cb(frameCount * 16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       expect(evolveSpy).toHaveBeenCalledTimes(3);
       for (const call of evolveSpy.mock.calls) {
         expect(call[2]).toBe('evo-call-seed');
@@ -377,8 +445,8 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 3) cb(frameCount * 16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, { signals: defaultSignals }); // no seed
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, { signals: defaultSignals });
       expect(evolveSpy).not.toHaveBeenCalled();
       evolveSpy.mockRestore();
     });
@@ -404,8 +472,8 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 1) cb(16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       expect(drawSpy).toHaveBeenCalled();
       const frameState = drawSpy.mock.calls[0][1] as FrameState;
       expect(frameState.params.paletteHue).toBe(999);
@@ -427,8 +495,8 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 10) cb(100 + frameCount * 16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       const elapsedValues = drawSpy.mock.calls.map(
         (c: unknown[]) => (c[1] as FrameState).elapsed,
       );
@@ -461,15 +529,13 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 4) cb(frameCount * 16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       const values = drawSpy.mock.calls.map(
         (c: unknown[]) => (c[1] as { params: VisualParams }).params.pointerDisturbance,
       );
       expect(values[0]).toBeGreaterThan(0);
-      // Frame 2 (idle) should still have non-zero disturbance due to decay
       expect(values[1]).toBeGreaterThan(0);
-      // But decaying
       expect(values[1]).toBeLessThan(values[0]);
     });
 
@@ -495,8 +561,8 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 65) cb(frameCount * 16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       const lastValue = (drawSpy.mock.calls[drawSpy.mock.calls.length - 1][1] as { params: VisualParams }).params.pointerDisturbance;
       expect(lastValue).toBeLessThan(0.01);
       expect(lastValue).toBeGreaterThanOrEqual(0);
@@ -524,16 +590,13 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 6) cb(frameCount * 16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       const values = drawSpy.mock.calls.map(
         (c: unknown[]) => (c[1] as { params: VisualParams }).params.pointerDisturbance,
       );
-      // First active frame (index 2) should be > 0
       expect(values[2]).toBeGreaterThan(0);
-      // Second active frame should be higher (ramping)
       expect(values[3]).toBeGreaterThan(values[2]);
-      // All within bounds
       values.forEach((v) => {
         expect(v).toBeGreaterThanOrEqual(0);
         expect(v).toBeLessThanOrEqual(1);
@@ -556,8 +619,8 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 1) cb(16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       expect(drawSpy).toHaveBeenCalled();
       const frameState = drawSpy.mock.calls[0][1] as FrameState;
       expect(frameState.pointerX).toBe(0.3);
@@ -569,7 +632,6 @@ describe('US-009: Render loop', () => {
       const mockGeo = { init: vi.fn(), draw: drawSpy };
       let frameCount = 0;
       const getPointerState = () => {
-        // Alternate extreme speed and idle
         if (frameCount % 2 === 0) {
           return { x: 0.5, y: 0.5, dx: 100, dy: 100, speed: 100, active: true };
         }
@@ -587,8 +649,8 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 10) cb(frameCount * 16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, deps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, deps);
       drawSpy.mock.calls.forEach((c: unknown[]) => {
         const dist = (c[1] as { params: VisualParams }).params.pointerDisturbance;
         expect(dist).toBeGreaterThanOrEqual(0);
@@ -597,7 +659,6 @@ describe('US-009: Render loop', () => {
     });
 
     it('T-013-10: touch and mouse both produce non-zero pointerDisturbance in render loop', () => {
-      // Mouse-like
       const drawSpy1 = vi.fn();
       const mockGeo1 = { init: vi.fn(), draw: drawSpy1 };
       let fc1 = 0;
@@ -606,8 +667,8 @@ describe('US-009: Render loop', () => {
         if (fc1 <= 1) cb(16);
         return fc1;
       });
-      const { canvas: c1, ctx: x1 } = createTestCanvas();
-      startLoop(c1, x1, {
+      const r1 = createTestRenderer();
+      startLoop(r1.renderer, r1.scene, r1.camera, {
         geometrySystem: mockGeo1,
         seed: 'touch-mouse-seed',
         signals: defaultSignals,
@@ -616,7 +677,6 @@ describe('US-009: Render loop', () => {
       });
       const mouseVal = (drawSpy1.mock.calls[0][1] as { params: VisualParams }).params.pointerDisturbance;
 
-      // Touch-like (same values — pointer.ts normalizes both)
       const drawSpy2 = vi.fn();
       const mockGeo2 = { init: vi.fn(), draw: drawSpy2 };
       let fc2 = 0;
@@ -625,8 +685,8 @@ describe('US-009: Render loop', () => {
         if (fc2 <= 1) cb(16);
         return fc2;
       });
-      const { canvas: c2, ctx: x2 } = createTestCanvas();
-      startLoop(c2, x2, {
+      const r2 = createTestRenderer();
+      startLoop(r2.renderer, r2.scene, r2.camera, {
         geometrySystem: mockGeo2,
         seed: 'touch-mouse-seed',
         signals: defaultSignals,
@@ -651,8 +711,8 @@ describe('US-009: Render loop', () => {
         if (frameCount <= 3) cb(frameCount * 16);
         return frameCount;
       });
-      const { canvas, ctx } = createTestCanvas();
-      startLoop(canvas, ctx, minimalDeps);
+      const { renderer, scene, camera } = createTestRenderer();
+      startLoop(renderer, scene, camera, minimalDeps);
       expect(lsSpy).not.toHaveBeenCalled();
       expect(cookieSpy).not.toHaveBeenCalled();
     });

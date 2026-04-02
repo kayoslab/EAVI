@@ -1,75 +1,137 @@
 {
-  "ticketId": "US-029",
-  "risk": "medium",
-  "confidence": 0.9,
-  "summary": "The plan correctly identifies all touchpoints for migrating from Canvas 2D to Three.js. The 8-step sequence is well-ordered with appropriate dependency chains. Temporarily disabling Canvas 2D geometry systems (particleField, waveField, modeManager) rather than deleting them is the right call. The scope is well-bounded to bootstrap only.",
-  "structuralImpact": {
-    "filesModified": 6,
-    "filesCreated": 1,
-    "filesTemporarilyDisabled": 3,
-    "modulesAffected": [
-      "visual",
-      "main"
+  "confidence": 0.92,
+  "summary": "The plan is architecturally sound. It replaces Canvas 2D with a well-structured Three.js bootstrap (renderer, camera, scene, placeholder, resize handler, animation loop) while preserving the async-first initialization pattern and privacy model. The GeometrySystem interface migration from CanvasRenderingContext2D to Scene is clean and future-proof. Remaining work (3 TS errors + 88 test updates) is mechanical, not architectural.",
+  "architectural_impact": {
+    "scope": "medium",
+    "affected_layers": [
+      "rendering",
+      "visual_systems",
+      "entry_point"
     ],
-    "modulesUnchanged": [
+    "unaffected_layers": [
       "audio",
       "input",
       "seed",
-      "ui"
+      "ui",
+      "server"
     ],
-    "dependencyChanges": [
-      "three (new runtime)",
-      "@types/three (new dev)"
+    "breaking_changes": [
+      "initScene() return type changed from { canvas, ctx } to { renderer, scene, camera }",
+      "attachResizeHandler() signature changed from (canvas, ctx, resolutionScale) to (renderer, camera)",
+      "startLoop() signature changed from (canvas, ctx, deps) to (renderer, scene, camera, deps)",
+      "GeometrySystem.init() and .draw() first parameter changed from CanvasRenderingContext2D to Scene",
+      "LoopDeps gains placeholderMesh field, loses canvas/ctx references"
     ]
   },
   "strengths": [
-    "Clean separation: only visual layer and entry point are touched; audio, input, seed, and UI modules remain untouched",
-    "GeometrySystem interface update (step 6) prepares the contract for future Three.js-based systems without forcing immediate migration",
-    "Placeholder object provides immediate visual verification that the pipeline works end-to-end",
-    "Resize handler returns cleanup function, maintaining the existing teardown pattern from current resize.ts",
-    "Renderer config choices are sound: pixel ratio capped at 2, powerPreference high-performance, no alpha (matches full-screen dark scene requirement)",
-    "Existing audio/signal/pointer plumbing in renderLoop.ts is preserved, only draw calls change"
+    {
+      "point": "Immediate render with deferred async",
+      "detail": "Scene + placeholder visible before geo/audio resolves. The mutable LoopDeps pattern allows partial initialization without blocking the render loop. This matches the project's 'fleeting experience' identity — no blank screens."
+    },
+    {
+      "point": "Clean renderer configuration",
+      "detail": "Pixel ratio capped at 2 (prevents GPU thrash on 3x displays), high-performance power preference, antialias enabled. Camera at z=5 with 60° FOV gives reasonable working volume for future geometry systems."
+    },
+    {
+      "point": "Proper resize lifecycle",
+      "detail": "Returns cleanup function for memory safety. Updates aspect, projection matrix, and renderer size in correct order. No debounce needed given rAF cadence."
+    },
+    {
+      "point": "GeometrySystem interface is renderer-agnostic enough",
+      "detail": "Passing Scene (not renderer) to geometry systems keeps them focused on scene graph manipulation. Renderer details stay in renderLoop.ts. This is the right abstraction boundary."
+    },
+    {
+      "point": "Stubbed geometry systems preserve init logic",
+      "detail": "ParticleField and WaveField retain their seeded initialization (particle positions, wave parameters) while draw() becomes a no-op. This means future Three.js porting only needs to implement rendering, not re-derive the data model."
+    },
+    {
+      "point": "EMA smoothing constants are well-chosen",
+      "detail": "Bass α=0.12 (sluggish, weighty), treble α=0.15 (responsive but not flickery), pointer α=0.08 (gradual decay). These create perceptible but non-jarring reactivity. Synthetic bass fallback (30+25*sin) prevents dead scenes when audio is blocked."
+    }
   ],
   "concerns": [
     {
       "severity": "low",
-      "area": "types.ts",
-      "issue": "Changing GeometrySystem interface from CanvasRenderingContext2D to THREE.Scene will cause TypeScript errors in particleField.ts and waveField.ts even though they are commented out in main.ts imports",
-      "recommendation": "Either leave types.ts unchanged in this story (keeping the old interface) and introduce a new ThreeGeometrySystem interface, or ensure the old systems are not imported anywhere that would trigger type-checking. Since the plan comments out imports in main.ts, the files themselves will still be compiled by tsc unless excluded."
+      "area": "unused parameter",
+      "detail": "resolutionScale parameter in initScene() is accepted but never used. The plan correctly identifies this as a TS6133 error to fix in step 9. Recommendation: remove it entirely rather than underscore-prefixing, since pixel ratio is already capped at 2 via renderer.setPixelRatio().",
+      "recommendation": "Remove resolutionScale parameter from initScene signature"
     },
     {
       "severity": "low",
-      "area": "renderLoop.ts",
-      "issue": "The plan says placeholder mesh rotation is handled in renderLoop.ts, requiring the mesh reference to be passed in. The current startLoop signature and LoopDeps type will need the mesh reference threaded through, which is not explicitly described.",
-      "recommendation": "Either pass the placeholder mesh via LoopDeps or have startLoop accept the mesh as a parameter. The plan should clarify this plumbing."
+      "area": "no animation loop cancellation",
+      "detail": "startLoop() calls requestAnimationFrame recursively but returns void — there is no way to cancel the loop. This is acceptable for the current single-scene architecture but would need addressing if scene teardown/hot-reload is added later.",
+      "recommendation": "Consider returning a cancel handle or storing the rAF ID for future cleanup needs. Not blocking for this story."
     },
     {
       "severity": "low",
-      "area": "quality.ts integration",
-      "issue": "The current quality system (computeQualityProfile) feeds maxParticles, sparkle, shimmer flags into geometry systems. The plan does not mention how resolutionScale from quality feeds into renderer.setPixelRatio or scene complexity. scene.ts signature mentions resolutionScale as optional but details are sparse.",
-      "recommendation": "Ensure resolutionScale from quality profile is mapped to renderer pixel ratio or renderer size scaling to maintain the existing performance tiering."
+      "area": "deps mutation pattern",
+      "detail": "The mutable LoopDeps object is pragmatic but loses type safety — TypeScript cannot enforce that seed/signals are set before geometrySystem.init() is called. The runtime null-checks in renderLoop.ts handle this correctly, but the pattern is implicit.",
+      "recommendation": "Acceptable for current scope. If deps grow further, consider a state-machine or discriminated-union pattern."
+    },
+    {
+      "severity": "low",
+      "area": "placeholder mesh lifecycle",
+      "detail": "The placeholder mesh is added to the scene but never removed. Once geometry systems are ported in future stories, the placeholder should be removed from the scene graph to avoid rendering hidden geometry.",
+      "recommendation": "Track as a cleanup item for the geometry porting stories."
     },
     {
       "severity": "info",
-      "area": "pointer.ts",
-      "issue": "Plan correctly updates initPointer to use renderer.domElement. Current pointer.ts attaches listeners to the canvas element, so this is a direct swap with no behavioral change.",
-      "recommendation": "None needed."
+      "area": "Canvas 2D draw code removal",
+      "detail": "ParticleField and WaveField draw() methods are now no-ops. This is intentional per plan scope — actual Three.js rendering deferred to future stories. Canvas 2D code is preserved in git history."
     }
   ],
-  "alignmentWithADRs": {
-    "techContext": "Fully aligned — tech context already lists Three.js as the target rendering technology. This plan executes that migration.",
-    "claudeMd": "Aligned — no forbidden APIs introduced, privacy model untouched, audio pipeline preserved, dark full-screen scene maintained."
+  "risks": [
+    {
+      "risk": "Three.js mocking in jsdom test environment",
+      "likelihood": "medium",
+      "impact": "medium",
+      "detail": "88 tests need Three.js mock objects. jsdom has no WebGL context, so tests must mock WebGLRenderer, Scene, PerspectiveCamera, and Mesh. The plan correctly identifies this as the bulk of remaining work.",
+      "mitigation": "Create a shared test helper (e.g., tests/helpers/threeMocks.ts) with factory functions for mock Three.js objects. This avoids duplicating mock setup across 10+ test files."
+    },
+    {
+      "risk": "Geometry system interface change ripple",
+      "likelihood": "low",
+      "impact": "low",
+      "detail": "Changing GeometrySystem from CanvasRenderingContext2D to Scene affects particleField, waveField, modeManager, and all their tests. Since draw() is stubbed, the interface change is compile-time only — no runtime behavior changes.",
+      "mitigation": "Already handled by steps 6-7 in the plan."
+    }
+  ],
+  "plan_quality": {
+    "step_ordering": "correct",
+    "dependency_chain": "valid — install → bootstrap → placeholder → resize → loop → types → systems → main → fix errors → tests → verify",
+    "scope_containment": "good — correctly defers Canvas 2D → Three.js geometry porting to future stories",
+    "acceptance_criteria_coverage": "complete — all 4 ACs mapped to specific steps with clear verification",
+    "test_strategy": "sound — mock-based testing appropriate for jsdom environment"
   },
-  "missingConsiderations": [
-    "No mention of updating or verifying existing tests (if any exist for visual modules)",
-    "No explicit handling of the evolution.ts module which may reference Canvas 2D patterns",
-    "palette.ts and mappings.ts return HSL color values used by Canvas 2D systems — future stories will need to convert these to Three.js compatible color formats, but this is correctly deferred"
+  "recommendations": [
+    {
+      "priority": "should",
+      "action": "Create shared Three.js mock helpers before updating individual test files",
+      "reason": "Reduces duplication across 10+ test files and establishes consistent mock patterns"
+    },
+    {
+      "priority": "should",
+      "action": "Remove resolutionScale parameter entirely rather than underscore-prefixing",
+      "reason": "Dead parameter with no consumer. Pixel ratio capping is handled internally."
+    },
+    {
+      "priority": "could",
+      "action": "Add a TODO comment in placeholder.ts noting mesh should be removed when real geometry systems are ported",
+      "reason": "Prevents forgotten scene graph cleanup in future stories"
+    },
+    {
+      "priority": "could",
+      "action": "Consider returning rAF cancel handle from startLoop for future cleanup",
+      "reason": "Not needed now but prevents refactoring later if scene teardown is required"
+    }
   ],
-  "suggestedRevisions": [
-    "Clarify how placeholder mesh reference reaches renderLoop.ts (via LoopDeps or direct parameter)",
-    "Consider introducing ThreeGeometrySystem as a new interface alongside the existing one rather than modifying it in-place, to avoid compile errors in unported systems",
-    "Add a sub-step to verify that evolution.ts and mappings.ts still compile without errors after the type changes"
-  ],
+  "alignment_with_project": {
+    "claude_md_compliance": true,
+    "tech_stack_match": true,
+    "privacy_model_preserved": true,
+    "definition_of_done_achievable": true,
+    "notes": "Plan aligns with CLAUDE.md recommended module split. Three.js is the specified rendering technology. No privacy violations introduced. All DoD criteria are verifiable through the plan's step 11."
+  },
   "approved": true,
   "decision": "APPROVE",
   "adr_entry": null,
