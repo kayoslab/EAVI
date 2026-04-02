@@ -1,5 +1,21 @@
 import * as THREE from 'three';
 
+export class WebGLUnavailableError extends Error {
+  constructor(message = 'WebGL is not available in your browser.') {
+    super(message);
+    this.name = 'WebGLUnavailableError';
+  }
+}
+
+function detectWebGL(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
 export interface SceneOptions {
   resolutionScale?: number;
   disableAntialias?: boolean;
@@ -9,9 +25,14 @@ export function initScene(
   container: HTMLElement,
   options?: SceneOptions,
 ): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; cleanupContextHandlers: () => void } {
+  if (!detectWebGL()) {
+    throw new WebGLUnavailableError();
+  }
+
   const resolutionScale = options?.resolutionScale ?? 1.0;
   const disableAntialias = options?.disableAntialias ?? false;
 
+  // US-039: WebGL is the only rendering backend; Canvas2D is not supported
   const renderer = new THREE.WebGLRenderer({
     antialias: !disableAntialias,
     alpha: false,

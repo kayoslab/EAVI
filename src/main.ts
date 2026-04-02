@@ -6,7 +6,7 @@ import { initAudio } from './audio/player';
 import { createMuteButton } from './ui/audioToggle';
 import { createInfoButton, createInfoOverlay } from './ui/infoOverlay';
 import { createDebugOverlay } from './ui/debugOverlay';
-import { initScene } from './visual/scene';
+import { initScene, WebGLUnavailableError } from './visual/scene';
 import { attachResizeHandler } from './visual/resize';
 import { startLoop, type LoopDeps } from './visual/renderLoop';
 import { initPointer } from './input/pointer';
@@ -23,9 +23,27 @@ const lowDPR = window.devicePixelRatio <= 1;
 
 // Three.js scene bootstrap — render immediately so the dark scene is visible before async work
 const app = document.getElementById('app')!;
-const { renderer, scene, camera } = initScene(app, {
-  disableAntialias: quickTouch && lowDPR,
-});
+
+let sceneResult: ReturnType<typeof initScene>;
+try {
+  sceneResult = initScene(app, {
+    disableAntialias: quickTouch && lowDPR,
+  });
+} catch (err) {
+  if (err instanceof WebGLUnavailableError) {
+    const fallback = document.createElement('div');
+    fallback.style.cssText =
+      'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;' +
+      'background:#000;color:#ccc;font-family:system-ui,sans-serif;font-size:1.1rem;' +
+      'text-align:center;padding:2rem;';
+    fallback.textContent = 'This experience requires WebGL, which is not available in your browser.';
+    app.appendChild(fallback);
+    throw err; // stop execution — no render loop, audio, or pointer systems
+  }
+  throw err;
+}
+
+const { renderer, scene, camera } = sceneResult;
 let cleanupResize = attachResizeHandler(renderer, camera);
 
 // Add placeholder 3D object
