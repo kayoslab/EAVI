@@ -618,8 +618,8 @@
         "Point count scales by quality tier (desktop higher, mobile lower)"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-030"
       ],
