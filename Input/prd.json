@@ -839,8 +839,8 @@
         "User pointer does not directly control orbit"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-040"
       ],
