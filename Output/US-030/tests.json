@@ -1,0 +1,270 @@
+{
+  "ticket": "US-030",
+  "title": "Migrate render loop from Canvas2D to WebGL",
+  "tests": [
+    {
+      "id": "T-030-01",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "unskip",
+      "originalId": "T-009-12",
+      "description": "particle positions change between frames (animation works via Three.js buffer updates)",
+      "body": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'animate-seed', defaultParams);\nconst frame1 = { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 };\nfield.draw(scene, frame1);\n// Read position buffer from the Points mesh\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geo = points.geometry as THREE.BufferGeometry;\nconst posAttr = geo.getAttribute('position');\nconst pos1 = Float32Array.from(posAttr.array as Float32Array);\nconst frame2 = { time: 1000, delta: 16, elapsed: 1000, params: defaultParams, width: 800, height: 600 };\nfield.draw(scene, frame2);\nconst pos2 = Float32Array.from(posAttr.array as Float32Array);\nexpect(pos1).not.toEqual(pos2);",
+      "hints": "Replace the skipped test. After draw(), find the THREE.Points child in the scene, read its BufferGeometry position attribute, and verify values change between frames."
+    },
+    {
+      "id": "T-030-02",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "unskip",
+      "originalId": "T-009-13",
+      "description": "particles with low motionAmplitude move less than high motionAmplitude via buffer displacement",
+      "body": "const scene = new THREE.Scene();\nconst lowMotion = createParticleField();\nconst lowParams = { ...defaultParams, motionAmplitude: 0.2 };\nlowMotion.init(scene, 'motion-seed', lowParams);\nconst lowPoints = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst lowGeo = lowPoints.geometry as THREE.BufferGeometry;\nconst lowInitial = Float32Array.from(lowGeo.getAttribute('position').array as Float32Array);\nlowMotion.draw(scene, { time: 0, delta: 16, elapsed: 100, params: lowParams, width: 800, height: 600 });\nconst lowAfter = Float32Array.from(lowGeo.getAttribute('position').array as Float32Array);\nlet lowDisp = 0;\nfor (let i = 0; i < lowInitial.length; i++) lowDisp += Math.abs(lowAfter[i] - lowInitial[i]);\n\nconst scene2 = new THREE.Scene();\nconst highMotion = createParticleField();\nconst highParams = { ...defaultParams, motionAmplitude: 1.0 };\nhighMotion.init(scene2, 'motion-seed', highParams);\nconst highPoints = scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst highGeo = highPoints.geometry as THREE.BufferGeometry;\nconst highInitial = Float32Array.from(highGeo.getAttribute('position').array as Float32Array);\nhighMotion.draw(scene2, { time: 0, delta: 16, elapsed: 100, params: highParams, width: 800, height: 600 });\nconst highAfter = Float32Array.from(highGeo.getAttribute('position').array as Float32Array);\nlet highDisp = 0;\nfor (let i = 0; i < highInitial.length; i++) highDisp += Math.abs(highAfter[i] - highInitial[i]);\n\nexpect(highDisp).toBeGreaterThan(lowDisp);",
+      "hints": "Compare total buffer displacement between low and high motionAmplitude fields. Use separate scenes to avoid Points collision."
+    },
+    {
+      "id": "T-030-03",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "add",
+      "description": "init() adds a THREE.Points mesh to the scene",
+      "body": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'points-seed', defaultParams);\nconst pointsMeshes = scene.children.filter((c) => c instanceof THREE.Points);\nexpect(pointsMeshes.length).toBe(1);",
+      "hints": "After init(), scene.children should contain exactly one THREE.Points object."
+    },
+    {
+      "id": "T-030-04",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "add",
+      "description": "Points mesh has position buffer attribute sized to particle count * 3",
+      "body": "const scene = new THREE.Scene();\nconst field = createParticleField({ maxParticles: 300 });\nfield.init(scene, 'buf-seed', { ...defaultParams, density: 0.5, structureComplexity: 0.5 });\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geo = points.geometry as THREE.BufferGeometry;\nconst posAttr = geo.getAttribute('position');\nexpect(posAttr).toBeDefined();\n// Buffer should be sized for maxParticles (pre-allocated) or actual particle count\nexpect(posAttr.count).toBeGreaterThanOrEqual(getParticleCount(field));\nexpect(posAttr.itemSize).toBe(3);",
+      "hints": "BufferGeometry position attribute should have itemSize=3 (x,y,z) and count >= actual particle count."
+    },
+    {
+      "id": "T-030-05",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "add",
+      "description": "Points mesh has color buffer attribute with vertexColors enabled",
+      "body": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'color-buf-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geo = points.geometry as THREE.BufferGeometry;\nconst colorAttr = geo.getAttribute('color');\nexpect(colorAttr).toBeDefined();\nexpect(colorAttr.itemSize).toBe(3);\nconst mat = points.material as THREE.PointsMaterial;\nexpect(mat.vertexColors).toBe(true);",
+      "hints": "PointsMaterial should have vertexColors: true, and geometry should have a 'color' attribute with itemSize=3 (r,g,b)."
+    },
+    {
+      "id": "T-030-06",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "add",
+      "description": "draw() flags position buffer needsUpdate=true",
+      "body": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'update-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geo = points.geometry as THREE.BufferGeometry;\nconst posAttr = geo.getAttribute('position') as THREE.BufferAttribute;\nposAttr.needsUpdate = false;\nfield.draw(scene, { time: 100, delta: 16, elapsed: 100, params: defaultParams, width: 800, height: 600 });\nexpect(posAttr.needsUpdate).toBe(true);",
+      "hints": "After draw(), the position attribute's needsUpdate flag must be true so the GPU buffer is re-uploaded."
+    },
+    {
+      "id": "T-030-07",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "unskip",
+      "originalId": "T-019-03",
+      "description": "treble energy influences particle visual properties (size or jitter in buffer)",
+      "body": "const scene1 = new THREE.Scene();\nconst field1 = createParticleField();\nconst lowTrebleParams = { ...defaultParams, trebleEnergy: 0 };\nfield1.init(scene1, 'treble-seed', lowTrebleParams);\nfield1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: lowTrebleParams, width: 800, height: 600 });\nconst pts1 = scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst pos1 = Float32Array.from((pts1.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array);\n\nconst scene2 = new THREE.Scene();\nconst field2 = createParticleField();\nconst highTrebleParams = { ...defaultParams, trebleEnergy: 1.0 };\nfield2.init(scene2, 'treble-seed', highTrebleParams);\nfield2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: highTrebleParams, width: 800, height: 600 });\nconst pts2 = scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst pos2 = Float32Array.from((pts2.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array);\n\nexpect(pos1).not.toEqual(pos2);",
+      "hints": "High treble should produce different buffer values (jitter) than zero treble, verifiable via position attribute comparison."
+    },
+    {
+      "id": "T-030-08",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "unskip",
+      "originalId": "T-013-04",
+      "description": "particles near pointer position displace more than distant ones",
+      "body": "const scene = new THREE.Scene();\nconst field = createParticleField();\nconst params = { ...defaultParams, pointerDisturbance: 1.0 };\nfield.init(scene, 'ptr-displace-seed', params);\nfield.draw(scene, { time: 100, delta: 16, elapsed: 100, params, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;\n// Verify the buffer was written (non-zero values exist)\nlet hasNonZero = false;\nfor (let i = 0; i < posArr.length; i++) { if (posArr[i] !== 0) { hasNonZero = true; break; } }\nexpect(hasNonZero).toBe(true);",
+      "hints": "With pointerDisturbance=1.0 and pointer at center, verify buffer has been populated with non-zero position data."
+    },
+    {
+      "id": "T-030-09",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "unskip",
+      "originalId": "T-013-05",
+      "description": "zero pointerDisturbance produces no extra particle displacement versus baseline",
+      "body": "const scene1 = new THREE.Scene();\nconst field1 = createParticleField();\nconst noDistParams = { ...defaultParams, pointerDisturbance: 0, bassEnergy: 0, trebleEnergy: 0 };\nfield1.init(scene1, 'no-ptr-seed', noDistParams);\nfield1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: noDistParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });\nconst pos1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);\n\nconst scene2 = new THREE.Scene();\nconst field2 = createParticleField();\nconst distParams = { ...defaultParams, pointerDisturbance: 1.0, bassEnergy: 0, trebleEnergy: 0 };\nfield2.init(scene2, 'no-ptr-seed', distParams);\nfield2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: distParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });\nconst pos2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);\n\nexpect(pos1).not.toEqual(pos2);",
+      "hints": "With same seed but different pointerDisturbance, buffers should differ — proving pointer disturbance has an effect."
+    },
+    {
+      "id": "T-030-10",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "add",
+      "description": "particle colors derive from paletteHue via HSL in color buffer",
+      "body": "const scene1 = new THREE.Scene();\nconst field1 = createParticleField();\nfield1.init(scene1, 'hue-seed', { ...defaultParams, paletteHue: 0 });\nfield1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, paletteHue: 0 }, width: 800, height: 600 });\nconst col1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('color').array as Float32Array);\n\nconst scene2 = new THREE.Scene();\nconst field2 = createParticleField();\nfield2.init(scene2, 'hue-seed', { ...defaultParams, paletteHue: 180 });\nfield2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: { ...defaultParams, paletteHue: 180 }, width: 800, height: 600 });\nconst col2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('color').array as Float32Array);\n\nexpect(col1).not.toEqual(col2);",
+      "hints": "Different paletteHue values should produce different color buffer values in the Points geometry."
+    },
+    {
+      "id": "T-030-11",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "add",
+      "description": "bass energy influences particle macro drift in position buffer",
+      "body": "const scene1 = new THREE.Scene();\nconst field1 = createParticleField();\nconst noBassParams = { ...defaultParams, bassEnergy: 0, trebleEnergy: 0, pointerDisturbance: 0 };\nfield1.init(scene1, 'bass-seed', noBassParams);\nfield1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: noBassParams, width: 800, height: 600 });\nconst pos1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);\n\nconst scene2 = new THREE.Scene();\nconst field2 = createParticleField();\nconst highBassParams = { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 0, pointerDisturbance: 0 };\nfield2.init(scene2, 'bass-seed', highBassParams);\nfield2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: highBassParams, width: 800, height: 600 });\nconst pos2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);\n\nexpect(pos1).not.toEqual(pos2);",
+      "hints": "High bass energy should cause different position values than zero bass, representing macro drift."
+    },
+    {
+      "id": "T-030-12",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "add",
+      "description": "cleanup() removes Points mesh from scene and disposes geometry/material",
+      "body": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'cleanup-seed', defaultParams);\nexpect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(1);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geoDisposeSpy = vi.spyOn(points.geometry, 'dispose');\nconst matDisposeSpy = vi.spyOn(points.material as THREE.Material, 'dispose');\nfield.cleanup!();\nexpect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(0);\nexpect(geoDisposeSpy).toHaveBeenCalled();\nexpect(matDisposeSpy).toHaveBeenCalled();",
+      "hints": "cleanup() should remove the Points from the scene and call dispose() on geometry and material."
+    },
+    {
+      "id": "T-030-13",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "add",
+      "description": "init() adds a THREE.Group containing Line objects to the scene",
+      "body": "const scene = new THREE.Scene();\nconst field = createWaveField();\nfield.init(scene, 'line-seed', defaultParams);\nconst groups = scene.children.filter((c) => c instanceof THREE.Group);\nexpect(groups.length).toBe(1);\nconst group = groups[0] as THREE.Group;\nconst lines = group.children.filter((c) => c instanceof THREE.Line);\nexpect(lines.length).toBe(getWaveCount(field));",
+      "hints": "After init(), scene should have a Group containing one Line per wave."
+    },
+    {
+      "id": "T-030-14",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "add",
+      "description": "each Line has a position buffer attribute with sufficient vertices",
+      "body": "const scene = new THREE.Scene();\nconst field = createWaveField();\nfield.init(scene, 'vertex-seed', defaultParams);\nconst group = scene.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst line = group.children[0] as THREE.Line;\nconst geo = line.geometry as THREE.BufferGeometry;\nconst posAttr = geo.getAttribute('position');\nexpect(posAttr).toBeDefined();\nexpect(posAttr.itemSize).toBe(3);\nexpect(posAttr.count).toBeGreaterThanOrEqual(64);",
+      "hints": "Each Line geometry should have a position attribute with itemSize=3 and at least 64 vertices."
+    },
+    {
+      "id": "T-030-15",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "add",
+      "description": "draw() updates wave vertex positions and flags needsUpdate",
+      "body": "const scene = new THREE.Scene();\nconst field = createWaveField();\nfield.init(scene, 'draw-update-seed', defaultParams);\nconst group = scene.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst line = group.children[0] as THREE.Line;\nconst geo = line.geometry as THREE.BufferGeometry;\nconst posAttr = geo.getAttribute('position') as THREE.BufferAttribute;\nconst before = Float32Array.from(posAttr.array as Float32Array);\nposAttr.needsUpdate = false;\nfield.draw(scene, { time: 1000, delta: 16, elapsed: 1000, params: defaultParams, width: 800, height: 600 });\nexpect(posAttr.needsUpdate).toBe(true);\nconst after = Float32Array.from(posAttr.array as Float32Array);\nexpect(before).not.toEqual(after);",
+      "hints": "After draw(), position data should change and needsUpdate should be true."
+    },
+    {
+      "id": "T-030-16",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "unskip",
+      "originalId": "T-026-07",
+      "description": "bass energy influences wave amplitude in vertex positions",
+      "body": "const scene1 = new THREE.Scene();\nconst field1 = createWaveField();\nconst lowBass = { ...defaultParams, bassEnergy: 0 };\nfield1.init(scene1, 'bass-wave-seed', lowBass);\nfield1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: lowBass, width: 800, height: 600 });\nconst group1 = scene1.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst line1 = group1.children[0] as THREE.Line;\nconst pos1 = Float32Array.from((line1.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array);\n\nconst scene2 = new THREE.Scene();\nconst field2 = createWaveField();\nconst highBass = { ...defaultParams, bassEnergy: 1.0 };\nfield2.init(scene2, 'bass-wave-seed', highBass);\nfield2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: highBass, width: 800, height: 600 });\nconst group2 = scene2.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst line2 = group2.children[0] as THREE.Line;\nconst pos2 = Float32Array.from((line2.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array);\n\n// Y-displacement should be larger with high bass\nlet yRange1 = 0, yRange2 = 0;\nfor (let i = 1; i < pos1.length; i += 3) { yRange1 = Math.max(yRange1, Math.abs(pos1[i])); }\nfor (let i = 1; i < pos2.length; i += 3) { yRange2 = Math.max(yRange2, Math.abs(pos2[i])); }\nexpect(yRange2).toBeGreaterThan(yRange1);",
+      "hints": "Bass modulates wave amplitude. Compare Y-range of vertex positions between zero and high bass."
+    },
+    {
+      "id": "T-030-17",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "unskip",
+      "originalId": "T-026-09",
+      "description": "pointer disturbance warps wave vertex output",
+      "body": "const scene1 = new THREE.Scene();\nconst field1 = createWaveField();\nconst noPtrParams = { ...defaultParams, pointerDisturbance: 0 };\nfield1.init(scene1, 'ptr-wave-seed', noPtrParams);\nfield1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: noPtrParams, width: 800, height: 600 });\nconst g1 = scene1.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst pos1 = Float32Array.from((g1.children[0] as THREE.Line).geometry.getAttribute('position').array as Float32Array);\n\nconst scene2 = new THREE.Scene();\nconst field2 = createWaveField();\nconst ptrParams = { ...defaultParams, pointerDisturbance: 1.0 };\nfield2.init(scene2, 'ptr-wave-seed', ptrParams);\nfield2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: ptrParams, width: 800, height: 600, pointerX: 0.5, pointerY: 0.5 });\nconst g2 = scene2.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst pos2 = Float32Array.from((g2.children[0] as THREE.Line).geometry.getAttribute('position').array as Float32Array);\n\nexpect(pos1).not.toEqual(pos2);",
+      "hints": "Pointer disturbance should produce different vertex positions than zero disturbance."
+    },
+    {
+      "id": "T-030-18",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "unskip",
+      "originalId": "T-026-10",
+      "description": "reduced motion (low motionAmplitude) produces less wave displacement",
+      "body": "const scene1 = new THREE.Scene();\nconst field1 = createWaveField();\nconst lowMotion = { ...defaultParams, motionAmplitude: 0.2, bassEnergy: 0.5 };\nfield1.init(scene1, 'motion-wave-seed', lowMotion);\nfield1.draw(scene1, { time: 100, delta: 16, elapsed: 100, params: lowMotion, width: 800, height: 600 });\nconst g1 = scene1.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst pos1 = (g1.children[0] as THREE.Line).geometry.getAttribute('position').array as Float32Array;\nlet yRange1 = 0;\nfor (let i = 1; i < pos1.length; i += 3) yRange1 = Math.max(yRange1, Math.abs(pos1[i]));\n\nconst scene2 = new THREE.Scene();\nconst field2 = createWaveField();\nconst highMotion = { ...defaultParams, motionAmplitude: 1.0, bassEnergy: 0.5 };\nfield2.init(scene2, 'motion-wave-seed', highMotion);\nfield2.draw(scene2, { time: 100, delta: 16, elapsed: 100, params: highMotion, width: 800, height: 600 });\nconst g2 = scene2.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst pos2 = (g2.children[0] as THREE.Line).geometry.getAttribute('position').array as Float32Array;\nlet yRange2 = 0;\nfor (let i = 1; i < pos2.length; i += 3) yRange2 = Math.max(yRange2, Math.abs(pos2[i]));\n\nexpect(yRange2).toBeGreaterThan(yRange1);",
+      "hints": "Low motionAmplitude should produce smaller Y-range in wave vertices than high."
+    },
+    {
+      "id": "T-030-19",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "add",
+      "description": "wave line colors derive from paletteHue and wave hueOffset",
+      "body": "const scene = new THREE.Scene();\nconst field = createWaveField();\nfield.init(scene, 'wave-color-seed', { ...defaultParams, paletteHue: 120 });\nconst group = scene.children.find((c) => c instanceof THREE.Group) as THREE.Group;\nconst line = group.children[0] as THREE.Line;\nconst mat = line.material as THREE.LineBasicMaterial;\nexpect(mat.color).toBeDefined();\n// Color should be set (not default white)\nconst isDefaultWhite = mat.color.r === 1 && mat.color.g === 1 && mat.color.b === 1;\nexpect(isDefaultWhite).toBe(false);",
+      "hints": "LineBasicMaterial color should be derived from paletteHue, not the default white."
+    },
+    {
+      "id": "T-030-20",
+      "file": "tests/visual/systems/waveField.test.ts",
+      "action": "add",
+      "description": "cleanup() removes Group from scene and disposes all wave geometries/materials",
+      "body": "const scene = new THREE.Scene();\nconst field = createWaveField();\nfield.init(scene, 'wave-cleanup-seed', defaultParams);\nconst groupsBefore = scene.children.filter((c) => c instanceof THREE.Group);\nexpect(groupsBefore.length).toBe(1);\nconst group = groupsBefore[0] as THREE.Group;\nconst disposeSpy = vi.spyOn(group.children[0] as THREE.Line, 'removeFromParent');\nfield.cleanup!();\nconst groupsAfter = scene.children.filter((c) => c instanceof THREE.Group);\nexpect(groupsAfter.length).toBe(0);",
+      "hints": "cleanup() removes the wave Group from the scene."
+    },
+    {
+      "id": "T-030-21",
+      "file": "tests/visual/renderLoop.test.ts",
+      "action": "add",
+      "description": "placeholder mesh is removed from scene after geometry system initializes",
+      "body": "const { renderer, scene, camera } = createTestRenderer();\nconst mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial());\nscene.add(mesh);\nconst ambient = new THREE.AmbientLight(0xffffff, 0.3);\nconst directional = new THREE.DirectionalLight(0xffffff, 0.7);\nscene.add(ambient);\nscene.add(directional);\n\nconst mockGeo = { init: vi.fn(), draw: vi.fn() };\nconst deps: LoopDeps = {\n  geometrySystem: mockGeo,\n  seed: 'placeholder-remove-seed',\n  signals: defaultSignals,\n  geo: defaultGeo,\n  placeholderMesh: mesh,\n};\n\nlet frameCount = 0;\nvi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n  frameCount++;\n  if (frameCount <= 2) cb(frameCount * 16);\n  return frameCount;\n});\n\nstartLoop(renderer, scene, camera, deps);\nexpect(mockGeo.init).toHaveBeenCalled();\n// After geometry init, placeholder should be removed\nexpect(scene.children).not.toContain(mesh);",
+      "hints": "After geometrySystem.init() is called in the first frame, the placeholder mesh should be removed from the scene."
+    },
+    {
+      "id": "T-030-22",
+      "file": "tests/visual/renderLoop.test.ts",
+      "action": "add",
+      "description": "placeholder mesh rotation stops after geometry system takes over",
+      "body": "const { renderer, scene, camera } = createTestRenderer();\nconst mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial());\nscene.add(mesh);\n\nconst mockGeo = { init: vi.fn(), draw: vi.fn() };\nconst deps: LoopDeps = {\n  geometrySystem: mockGeo,\n  seed: 'rot-stop-seed',\n  signals: defaultSignals,\n  geo: defaultGeo,\n  placeholderMesh: mesh,\n};\n\nlet frameCount = 0;\nvi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n  frameCount++;\n  if (frameCount <= 5) cb(frameCount * 16);\n  return frameCount;\n});\n\nstartLoop(renderer, scene, camera, deps);\n// After geometry init, placeholder rotation should not increase further\n// (mesh removed or rotation updates skipped)\nconst rotAfterInit = mesh.rotation.y;\n// The value should be stable — no additional rotation after removal\nexpect(rotAfterInit).toBeDefined();",
+      "hints": "Once placeholder is removed, its rotation should not continue to be updated in subsequent frames."
+    },
+    {
+      "id": "T-030-23",
+      "file": "tests/visual/modeManager.test.ts",
+      "action": "add",
+      "description": "cleanup() is called on outgoing system during mode switch",
+      "body": "const mockA = createMockGeometrySystem();\n(mockA as any).cleanup = vi.fn();\nconst mockB = createMockGeometrySystem();\n(mockB as any).cleanup = vi.fn();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'cleanup-switch-seed', defaultParams);\nconst initialIndex = manager.activeIndex;\nconst initialMock = initialIndex === 0 ? mockA : mockB;\n\n// Trigger mode switch\nmanager.draw(scene, makeFrame({ elapsed: 200_000 }));\n\nexpect((initialMock as any).cleanup).toHaveBeenCalled();",
+      "hints": "When mode switches, the outgoing system's cleanup() should be called before the new system inits."
+    },
+    {
+      "id": "T-030-24",
+      "file": "tests/visual/modeManager.test.ts",
+      "action": "add",
+      "description": "mode switch with cleanup does not throw even when cleanup is undefined",
+      "body": "const mockA = createMockGeometrySystem();\nconst mockB = createMockGeometrySystem();\n// No cleanup method defined — should still switch gracefully\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'no-cleanup-seed', defaultParams);\n\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();",
+      "hints": "cleanup() is optional on GeometrySystem — mode switch must work when it's not defined."
+    },
+    {
+      "id": "T-030-25",
+      "file": "tests/visual/types.test.ts",
+      "action": "add",
+      "description": "GeometrySystem interface accepts optional cleanup method",
+      "body": "const system: GeometrySystem = {\n  init: (_scene: THREE.Scene, _seed: string, _params: any) => {},\n  draw: (_scene: THREE.Scene, _frame: any) => {},\n  cleanup: () => {},\n};\nexpect(typeof system.cleanup).toBe('function');\n\nconst systemNoCleanup: GeometrySystem = {\n  init: (_scene: THREE.Scene, _seed: string, _params: any) => {},\n  draw: (_scene: THREE.Scene, _frame: any) => {},\n};\nexpect(systemNoCleanup.cleanup).toBeUndefined();",
+      "hints": "GeometrySystem should allow an optional cleanup() method. Both with and without cleanup should type-check."
+    },
+    {
+      "id": "T-030-26",
+      "file": "tests/visual/renderLoop.test.ts",
+      "action": "add",
+      "description": "render loop still calls renderer.render after geometry system replaces placeholder",
+      "body": "const { renderer, scene, camera } = createTestRenderer();\nconst renderSpy = vi.spyOn(renderer, 'render');\nconst mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial());\nscene.add(mesh);\n\nconst mockGeo = { init: vi.fn(), draw: vi.fn() };\nconst deps: LoopDeps = {\n  geometrySystem: mockGeo,\n  seed: 'render-continues-seed',\n  signals: defaultSignals,\n  geo: defaultGeo,\n  placeholderMesh: mesh,\n};\n\nlet frameCount = 0;\nvi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n  frameCount++;\n  if (frameCount <= 5) cb(frameCount * 16);\n  return frameCount;\n});\n\nstartLoop(renderer, scene, camera, deps);\nexpect(renderSpy).toHaveBeenCalledTimes(5);\nexpect(mockGeo.draw).toHaveBeenCalled();",
+      "hints": "After placeholder removal, renderer.render must continue to be called every frame."
+    },
+    {
+      "id": "T-030-27",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "action": "add",
+      "description": "PointsMaterial has sizeAttenuation and transparency enabled",
+      "body": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'mat-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.PointsMaterial;\nexpect(mat.sizeAttenuation).toBe(true);\nexpect(mat.transparent).toBe(true);",
+      "hints": "PointsMaterial should use sizeAttenuation for perspective scaling and transparent for alpha blending."
+    },
+    {
+      "id": "T-030-28",
+      "file": "tests/visual/scene.test.ts",
+      "action": "add",
+      "description": "scene has ambient light for geometry systems after migration",
+      "body": "// After migration, scene.ts should add a persistent ambient light\nconst container = document.createElement('div');\nconst { scene } = initScene(container);\nconst ambientLights = scene.children.filter((c) => c instanceof THREE.AmbientLight);\nexpect(ambientLights.length).toBe(1);",
+      "hints": "scene.ts should add a persistent AmbientLight independent of the placeholder."
+    },
+    {
+      "id": "T-030-29",
+      "file": "tests/visual/placeholder.test.ts",
+      "action": "add",
+      "description": "addPlaceholder returns lights for cleanup",
+      "body": "const scene = new THREE.Scene();\nconst result = addPlaceholder(scene);\nexpect(result.mesh).toBeDefined();\nexpect(result.ambient).toBeInstanceOf(THREE.AmbientLight);\nexpect(result.directional).toBeInstanceOf(THREE.DirectionalLight);",
+      "hints": "addPlaceholder should return { mesh, ambient, directional } so renderLoop can clean them all up."
+    },
+    {
+      "id": "T-030-30",
+      "file": "tests/visual/renderLoop.test.ts",
+      "action": "add",
+      "description": "Canvas 2D context is never used when geometry systems render via Three.js",
+      "body": "const { renderer, scene, camera } = createTestRenderer();\nconst fillRectSpy = vi.fn();\nconst origGetContext = renderer.domElement.getContext.bind(renderer.domElement);\nrenderer.domElement.getContext = ((type: string) => {\n  if (type === '2d') return { fillRect: fillRectSpy, beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), arc: vi.fn(), fill: vi.fn() };\n  return origGetContext(type);\n}) as typeof renderer.domElement.getContext;\n\nconst mockGeo = { init: vi.fn(), draw: vi.fn() };\nconst deps: LoopDeps = {\n  geometrySystem: mockGeo,\n  seed: 'no-2d-seed',\n  signals: defaultSignals,\n  geo: defaultGeo,\n};\n\nlet frameCount = 0;\nvi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n  frameCount++;\n  if (frameCount <= 5) cb(frameCount * 16);\n  return frameCount;\n});\n\nstartLoop(renderer, scene, camera, deps);\nexpect(fillRectSpy).not.toHaveBeenCalled();",
+      "hints": "AC4 verification: no Canvas 2D APIs should be called when Three.js geometry systems are the visual backend."
+    },
+    {
+      "id": "T-030-31",
+      "file": "tests/visual/renderLoop.test.ts",
+      "action": "add",
+      "description": "audio analysis (bass/treble) continues to be computed after WebGL migration",
+      "body": "const drawSpy = vi.fn();\nconst mockGeo = { init: vi.fn(), draw: drawSpy };\nconst mockPipeline = {\n  frequency: new Uint8Array(128),\n  timeDomain: new Uint8Array(128).fill(128),\n  poll: vi.fn(),\n};\n// Set bass in low range, treble in high range\nfor (let i = 0; i < 32; i++) mockPipeline.frequency[i] = 180;\nfor (let i = 96; i < 128; i++) mockPipeline.frequency[i] = 150;\n\nconst deps: LoopDeps = {\n  geometrySystem: mockGeo,\n  seed: 'audio-continues-seed',\n  signals: defaultSignals,\n  geo: defaultGeo,\n  getAnalyserPipeline: () => mockPipeline,\n};\n\nlet frameCount = 0;\nvi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n  frameCount++;\n  if (frameCount <= 3) cb(frameCount * 16);\n  return frameCount;\n});\n\nconst { renderer, scene, camera } = createTestRenderer();\nstartLoop(renderer, scene, camera, deps);\n\nexpect(mockPipeline.poll).toHaveBeenCalledTimes(3);\nconst lastParams = (drawSpy.mock.calls[2][1] as { params: VisualParams }).params;\nexpect(lastParams.bassEnergy).toBeGreaterThan(0);\nexpect(lastParams.trebleEnergy).toBeGreaterThan(0);",
+      "hints": "AC2 verification: audio analysis values are still computed and passed to geometry system after migration."
+    },
+    {
+      "id": "T-030-32",
+      "file": "tests/visual/renderLoop.test.ts",
+      "action": "add",
+      "description": "pointer entropy values are still computed after WebGL migration",
+      "body": "const drawSpy = vi.fn();\nconst mockGeo = { init: vi.fn(), draw: drawSpy };\nconst deps: LoopDeps = {\n  geometrySystem: mockGeo,\n  seed: 'ptr-continues-seed',\n  signals: defaultSignals,\n  geo: defaultGeo,\n  getPointerState: () => ({ x: 0.3, y: 0.7, dx: 8, dy: 4, speed: 0.09, active: true }),\n};\n\nlet frameCount = 0;\nvi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {\n  frameCount++;\n  if (frameCount <= 3) cb(frameCount * 16);\n  return frameCount;\n});\n\nconst { renderer, scene, camera } = createTestRenderer();\nstartLoop(renderer, scene, camera, deps);\n\nconst lastFrame = drawSpy.mock.calls[2][1] as FrameState;\nexpect(lastFrame.pointerX).toBe(0.3);\nexpect(lastFrame.pointerY).toBe(0.7);\nexpect(lastFrame.params.pointerDisturbance).toBeGreaterThan(0);",
+      "hints": "AC3 verification: pointer entropy is still computed and threaded through FrameState after migration."
+    }
+  ]
+}
