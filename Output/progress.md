@@ -84,3 +84,5 @@
 
 ## US-042: Add autonomous spatial camera motion
 
+## US-041: Implement shader-based vertex displacement
+
