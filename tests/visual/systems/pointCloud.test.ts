@@ -225,6 +225,75 @@ describe('US-031: PointCloud geometry system', () => {
     expect(mat.vertexShader.length).toBeGreaterThan(0);
   });
 
+  describe('US-040: PointCloud generator integration', () => {
+    it('T-040-32: init() produces volumetric geometry with Z-depth > 1.0 after generator integration', () => {
+      const scene = new THREE.Scene();
+      const cloud = createPointCloud();
+      cloud.init(scene, 'vol-depth', defaultParams);
+      const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+      const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+      const count = getPointCount(cloud);
+      let minZ = Infinity, maxZ = -Infinity;
+      for (let i = 0; i < count; i++) {
+        const z = posArr[i * 3 + 2];
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+      }
+      expect(maxZ - minZ).toBeGreaterThan(1.0);
+    });
+
+    it('T-040-33: init() produces non-coplanar points after generator integration', () => {
+      const scene = new THREE.Scene();
+      const cloud = createPointCloud();
+      cloud.init(scene, 'vol-coplanar', defaultParams);
+      const positions = getPointPositions(cloud)!;
+      const count = positions.length / 3;
+      let sumX = 0, sumY = 0, sumZ = 0;
+      for (let i = 0; i < count; i++) {
+        sumX += positions[i * 3];
+        sumY += positions[i * 3 + 1];
+        sumZ += positions[i * 3 + 2];
+      }
+      const meanX = sumX / count, meanY = sumY / count, meanZ = sumZ / count;
+      let varX = 0, varY = 0, varZ = 0;
+      for (let i = 0; i < count; i++) {
+        varX += (positions[i * 3] - meanX) ** 2;
+        varY += (positions[i * 3 + 1] - meanY) ** 2;
+        varZ += (positions[i * 3 + 2] - meanZ) ** 2;
+      }
+      expect(Math.sqrt(varX / count)).toBeGreaterThan(0.1);
+      expect(Math.sqrt(varY / count)).toBeGreaterThan(0.1);
+      expect(Math.sqrt(varZ / count)).toBeGreaterThan(0.1);
+    });
+
+    it('T-040-34: different seeds can produce different generator shapes', () => {
+      const scene = new THREE.Scene();
+      const seeds = ['shape-a', 'shape-b', 'shape-c', 'shape-d', 'shape-e'];
+      const positionSets = seeds.map(seed => {
+        const cloud = createPointCloud();
+        cloud.init(scene, seed, defaultParams);
+        return getPointPositions(cloud);
+      });
+      let hasDifference = false;
+      for (let i = 1; i < positionSets.length; i++) {
+        if (positionSets[i]!.length !== positionSets[0]!.length || !positionSets[i]!.every((v, j) => v === positionSets[0]![j])) {
+          hasDifference = true;
+          break;
+        }
+      }
+      expect(hasDifference).toBe(true);
+    });
+
+    it('T-040-35: determinism preserved after generator integration', () => {
+      const scene = new THREE.Scene();
+      const a = createPointCloud();
+      a.init(scene, 'gen-det', defaultParams);
+      const b = createPointCloud();
+      b.init(scene, 'gen-det', defaultParams);
+      expect(getPointPositions(a)).toEqual(getPointPositions(b));
+    });
+  });
+
   describe('privacy', () => {
     it('T-031-17: no localStorage or cookie access during init/draw operations', () => {
       const lsSpy = vi.spyOn(Storage.prototype, 'getItem');

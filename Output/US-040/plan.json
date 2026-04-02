@@ -1,0 +1,81 @@
+{
+  "id": "US-040",
+  "title": "Create volumetric point cloud generator",
+  "overview": "Extract and generalize the point generation logic from pointCloud.ts into a dedicated volumetric generator module that supports multiple 3D base shapes (sphere volume, shell, torus volume, 3D noise lattice, spiral field). The current pointCloud.ts hard-codes a 60/40 shell/interior sphere distribution; US-040 replaces this with a pluggable generator system that guarantees non-zero volume in all three axes regardless of which shape is selected.",
+  "steps": [
+    {
+      "id": 1,
+      "title": "Create volumetric generator module with base shape functions",
+      "description": "Create src/visual/generators/volumetricPoints.ts exporting a generateVolumetricPoints(config) function. Each generator takes a PRNG, point count, and shape-specific params, returning a Float32Array of XYZ positions. Implement five generators: sphereVolume (uniform random radius within sphere), shell (surface ± thin band), torusVolume (major/minor radius fill), noiseLattice (3D grid with sine-based displacement), spiralField (parametric spiral with radial spread). All must produce points with non-zero spread in X, Y, and Z. Use the existing createPRNG from src/visual/prng.ts for determinism.",
+      "files": [
+        "src/visual/generators/volumetricPoints.ts"
+      ],
+      "testing_notes": "Unit tested in step 2"
+    },
+    {
+      "id": 2,
+      "title": "Write tests for volumetric generator",
+      "description": "Create tests/visual/generators/volumetricPoints.test.ts. For each of the five generators verify: (1) output length equals 3×pointCount, (2) bounding box spans non-zero range in X, Y, and Z independently, (3) points are NOT coplanar — compute covariance matrix eigenvalues or simpler: verify stddev in each axis exceeds a threshold, (4) deterministic — same seed+config produces identical output, (5) different seeds produce different output. Also test edge cases: pointCount=0 returns empty array, pointCount=1 returns valid 3D point.",
+      "files": [
+        "tests/visual/generators/volumetricPoints.test.ts"
+      ],
+      "testing_notes": "All five generators × five assertions = ~25 test cases minimum"
+    },
+    {
+      "id": 3,
+      "title": "Integrate generator into pointCloud system",
+      "description": "Refactor pointCloud.ts init() to call generateVolumetricPoints() instead of the inline shell/interior loop. The generator shape is selected deterministically from the seed (seeded choice among the five types). Pass structureComplexity and curveSoftness through to influence shape params (e.g., curveSoftness controls torus minor radius, structureComplexity controls lattice cell size). Keep existing lattice-snapping and softness-modulation as post-processing on the generated positions. The color and size attribute generation remains unchanged.",
+      "files": [
+        "src/visual/systems/pointCloud.ts"
+      ],
+      "testing_notes": "Existing pointCloud tests must still pass after refactor"
+    },
+    {
+      "id": 4,
+      "title": "Update pointCloud tests for generator integration",
+      "description": "Update tests/visual/systems/pointCloud.test.ts to verify: (1) existing volumetric assertions still pass (Z-depth > 1.0, non-coplanar), (2) init() calls through to the generator module, (3) different seeds can produce different generator shapes. Ensure no regressions in determinism, cleanup, or draw-loop tests.",
+      "files": [
+        "tests/visual/systems/pointCloud.test.ts"
+      ],
+      "testing_notes": "Run full test suite to check for regressions"
+    },
+    {
+      "id": 5,
+      "title": "Verify build and acceptance criteria",
+      "description": "Run npm run build to confirm no TypeScript errors. Run full test suite. Manually verify in dev server that the scene renders volumetric geometry with visible depth/parallax when the camera drifts. Confirm no console errors, no forbidden storage APIs, and mute toggle + info overlay still work.",
+      "files": [],
+      "testing_notes": "npm run build && npm run test — all must pass"
+    }
+  ],
+  "acceptanceCriteria": [
+    {
+      "criterion": "Base geometry occupies non-zero volume in X, Y, and Z",
+      "verification": "Unit tests assert stddev > threshold in each axis for all five generators"
+    },
+    {
+      "criterion": "Geometry is not constrained to a single plane",
+      "verification": "Unit tests verify non-coplanarity via three-axis spread check"
+    },
+    {
+      "criterion": "Point positions are generated in 3D space",
+      "verification": "All generators produce Float32Array with XYZ triples using spherical/toroidal/parametric coordinates"
+    },
+    {
+      "criterion": "Depth is visible through parallax when camera moves",
+      "verification": "Existing camera drift in renderLoop.ts + volumetric point spread ensures parallax; manual verification in dev server"
+    }
+  ],
+  "filesToCreate": [
+    "src/visual/generators/volumetricPoints.ts",
+    "tests/visual/generators/volumetricPoints.test.ts"
+  ],
+  "filesToModify": [
+    "src/visual/systems/pointCloud.ts",
+    "tests/visual/systems/pointCloud.test.ts"
+  ],
+  "estimatedTestCount": 30,
+  "risks": [
+    "Refactoring pointCloud.ts init() could regress existing geometry systems (ribbonField, particleField) if shared state is accidentally affected — mitigated by running full test suite",
+    "Some generators (torus, spiral) may produce visually unbalanced distributions at extreme density values — mitigated by clamping params and testing edge cases"
+  ]
+}
