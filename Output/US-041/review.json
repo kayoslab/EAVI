@@ -1,0 +1,16 @@
+{
+  "reasoning": "Verified plan against current codebase state. All line number references are accurate: layeredNoise() at lines 31-40 in both shaders, radial expansion at 68-70, twist at 72-80, drift at 82-86 (pointWarp only), treble jitter at 88-92, slow-modulation at 94-101, pointer repulsion at 103-111, field spread/breathing at 114-117. Ribbon shader correctly has ribbonPhase sway at lines 71-75 instead of directional drift. Both pointCloud.ts and ribbonField.ts use Vite ?raw imports and identical uniform sets — neither has uDisplacementScale yet, confirming it's a new addition. The plan's surgical approach (replace only layeredNoise and add one new displacement layer) minimizes regression risk while achieving the sculptural goal. One minor inaccuracy: plan describes layeredNoise call as `(pos.x * nf + t*0.0001, pos.y * nf, pos.z * nf)` but actual code passes time as the third argument `(pos.x * uNoiseFrequency, pos.y * uNoiseFrequency, t * 0.0001)` — does not affect plan correctness since the entire call is being replaced. The previous review's gl_PointSize treble suggestion no longer applies as the current plan does not modify point size computation, only position displacement.",
+  "issues": [],
+  "requiredChanges": [],
+  "suggestedImprovements": [
+    "Step 2 description of existing layeredNoise call signature is slightly inaccurate (time is the 3rd arg, not added to 1st). Consider correcting for implementation clarity: actual calls are layeredNoise(pos.x * uNoiseFrequency, pos.y * uNoiseFrequency, t * 0.0001) not (pos.x * nf + t*0.0001, pos.y * nf, pos.z * nf)",
+    "Make the cadence-modulated time offset explicit in step 2/3 shader descriptions — e.g. 'fbm3(pos * uNoiseFrequency + vec3(t * 0.00005 * uCadence), uNoiseOctaves)' — since uCadence is currently declared but unused in displacement code",
+    "Step 5 is vague ('if needed, scale *= 0.6') — consider making the low-tier scaling unconditional or specifying the threshold that triggers it, to avoid an open-ended tuning step during implementation"
+  ],
+  "assessedComplexity": "medium",
+  "concerns": [],
+  "decision": "approve",
+  "failures": [],
+  "adr_entry": null,
+  "approved": true
+}

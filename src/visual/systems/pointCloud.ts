@@ -3,8 +3,11 @@ import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
-import vertexShader from '../shaders/pointWarp.vert.glsl?raw';
+import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/pointWarp.frag.glsl?raw';
+
+const vertexShader = noise3dGlsl + '\n' + pointWarpVert;
 import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volumetricPoints';
 import type { VolumetricShape } from '../generators/volumetricPoints';
 
@@ -150,6 +153,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uNoiseOctaves: { value: noiseOctaves },
         uEnablePointerRepulsion: { value: enablePointerRepulsion ? 1.0 : 0.0 },
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
+        uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
@@ -194,6 +198,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
+      u.uDisplacementScale.value = motionAmplitude * structureComplexity;
 
       // Time-based breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;

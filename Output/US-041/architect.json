@@ -1,0 +1,135 @@
+{
+  "ticket": "US-041",
+  "status": "approved_with_recommendations",
+  "summary": "Plan is architecturally sound and well-scoped. One significant redundancy found: noise3d.glsl already exists with snoise(), fbm3(), and curl3() — Step 1 must reuse it instead of creating simplex3d.glsl. All other steps are feasible with minor adjustments.",
+  "risk_level": "low-medium",
+  "architectural_impact": {
+    "scope": "contained",
+    "affected_subsystems": [
+      "visual/shaders",
+      "visual/systems"
+    ],
+    "external_api_changes": false,
+    "new_dependencies": false,
+    "breaking_changes": false,
+    "description": "Changes are confined to two vertex shaders and their TypeScript host systems. No new VisualParams fields, no new dependencies, no API surface changes. The render loop, audio pipeline, UI layer, and quality system are unaffected."
+  },
+  "findings": [
+    {
+      "severity": "high",
+      "type": "redundancy",
+      "title": "simplex3d.glsl already exists as noise3d.glsl",
+      "detail": "src/visual/shaders/noise3d.glsl already contains the exact Ashima-style snoise(vec3), fbm3(vec3, int), and curl3(vec3, int) functions with lacunarity=2.0 and gain=0.5. Step 1 proposes creating src/visual/shaders/simplex3d.glsl with identical content. This file must NOT be created — Steps 2-4 should import noise3d.glsl instead.",
+      "recommendation": "Remove Step 1 entirely. In Steps 2-4, import noise3d.glsl via Vite ?raw and prepend to vertex shader strings. Update test assertions to verify noise3d.glsl integration rather than simplex3d.glsl existence."
+    },
+    {
+      "severity": "low",
+      "type": "accuracy",
+      "title": "Shader line number references are approximate",
+      "detail": "Plan references specific line ranges (e.g., 'line ~68-70', 'lines ~72-80') for displacement layers. Actual shader files are 134/133 lines. Line references are close but implementation should rely on code pattern matching rather than line numbers, as prior commits may have shifted them.",
+      "recommendation": "During implementation, identify displacement sections by their comment headers and code patterns rather than line numbers."
+    },
+    {
+      "severity": "low",
+      "type": "opportunity",
+      "title": "curl3() available for divergence-free displacement",
+      "detail": "noise3d.glsl also includes curl3() which produces divergence-free 3D vector fields — ideal for fluid-like sculptural deformation. The plan only uses fbm3() for scalar displacement along normals. curl3() could provide more organic, swirling displacement patterns.",
+      "recommendation": "Consider using curl3() for the bass macro displacement layer instead of fbm3() displaced along normalize(pos). This would give more sculptural, fluid motion. Can be explored as a follow-up enhancement."
+    },
+    {
+      "severity": "low",
+      "type": "correctness",
+      "title": "uDisplacementScale derivation may produce very small values",
+      "detail": "Plan derives uDisplacementScale = motionAmplitude * structureComplexity. For reduced-motion users on low-capability devices: 0.2 * 0.2 = 0.04. Combined with the bass scaling factor of 0.3 in the shader, effective displacement would be 0.012 * bassEnergy — potentially imperceptible.",
+      "recommendation": "Consider a floor value or additive offset: max(motionAmplitude * structureComplexity, 0.15) to ensure displacement remains visible even on constrained profiles."
+    },
+    {
+      "severity": "info",
+      "type": "validation",
+      "title": "Existing infrastructure supports the plan well",
+      "detail": "Vite ?raw imports already used for GLSL. uNoiseOctaves/uNoiseFrequency uniforms already exist. Quality tiers already control octave count (1/2/3). layeredNoise() is cleanly isolated for replacement. aRandom per-point attribute provides spatial variation. GPU-side deformation architecture is established."
+    },
+    {
+      "severity": "info",
+      "type": "validation",
+      "title": "Test infrastructure is ready",
+      "detail": "Existing test files (pointCloud.test.ts, ribbonField.test.ts, pointCloudWarp.test.ts) provide patterns for ShaderMaterial inspection, uniform verification, and GPU-side deformation assertions. Step 6 test design aligns with established patterns."
+    }
+  ],
+  "dependency_check": {
+    "US-040": "Required — provides quality tier system with noiseOctaves control",
+    "US-017": "Required — provides audio analyser pipeline feeding bassEnergy/trebleEnergy",
+    "satisfied": true,
+    "notes": "Both dependencies appear complete based on existing code (quality.ts, analyser infrastructure, uniform wiring all present)."
+  },
+  "acceptance_criteria_coverage": {
+    "Geometry deformation occurs in a ShaderMaterial": {
+      "covered": true,
+      "notes": "Already satisfied by US-032/US-034. Steps 2-3 enhance within existing ShaderMaterial."
+    },
+    "Bass energy affects large-scale displacement in 3D": {
+      "covered": true,
+      "notes": "New fbm3-based macro noise layer displaced along radial direction, driven by uBassEnergy * uDisplacementScale."
+    },
+    "Treble energy affects fine-grain displacement or point size": {
+      "covered": true,
+      "notes": "Existing treble jitter preserved. Slow-modulation upgrade to simplex adds coherent fine-grain variation."
+    },
+    "Deformation evolves over time (not static modulation)": {
+      "covered": true,
+      "notes": "Time-drifting noise coordinates (uTime * 0.00005 * uCadence) ensure continuous evolution."
+    }
+  },
+  "constraints_validation": {
+    "no_cpu_per_point_loops": "Satisfied — all displacement GPU-side in vertex shaders",
+    "no_new_dependencies": "Satisfied — simplex noise is pure GLSL (already exists in noise3d.glsl)",
+    "quality_tier_compatibility": "Satisfied — reuses existing uNoiseOctaves uniform",
+    "reduced_motion_support": "Satisfied — motionAmplitude scales uDisplacementScale",
+    "existing_layers_preserved": "Satisfied — plan explicitly preserves all displacement layers"
+  },
+  "recommended_step_changes": [
+    {
+      "step": 1,
+      "action": "remove",
+      "reason": "noise3d.glsl already exists with identical functionality. No file creation needed."
+    },
+    {
+      "step": 2,
+      "action": "modify",
+      "reason": "Import noise3d.glsl instead of simplex3d.glsl. Reference existing file path."
+    },
+    {
+      "step": 3,
+      "action": "modify",
+      "reason": "Same as step 2 — use noise3d.glsl."
+    },
+    {
+      "step": 4,
+      "action": "modify",
+      "reason": "Import noise3d.glsl instead of simplex3d.glsl. Consider floor for uDisplacementScale."
+    },
+    {
+      "step": 6,
+      "action": "modify",
+      "reason": "Update test assertions: check for noise3d.glsl integration, not simplex3d.glsl."
+    }
+  ],
+  "files_to_create_revised": [
+    "tests/visual/shaderDisplacement.test.ts"
+  ],
+  "files_to_modify_revised": [
+    "src/visual/shaders/pointWarp.vert.glsl",
+    "src/visual/shaders/ribbonWarp.vert.glsl",
+    "src/visual/systems/pointCloud.ts",
+    "src/visual/systems/ribbonField.ts"
+  ],
+  "estimated_complexity": "medium",
+  "estimated_files_changed": 5,
+  "decision": "approve",
+  "approved": true,
+  "concerns": [],
+  "test_results": "approved_with_recommendations",
+  "resolution": "approved_with_recommendations",
+  "adr_entry": null,
+  "failures": []
+}

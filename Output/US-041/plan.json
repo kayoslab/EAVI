@@ -1,0 +1,122 @@
+{
+  "ticket": "US-041",
+  "title": "Implement shader-based vertex displacement",
+  "summary": "Replace the sine-hash layeredNoise() in both vertex shaders with true 3D simplex noise FBM for sculptural audio-reactive deformation. Existing displacement layers (radial expansion, twist, directional drift, treble jitter, pointer repulsion, breathing scale) are preserved — only the slow-modulation section and bass/treble displacement scaling are augmented with coherent 3D noise. No new VisualParams fields; displacement intensity is derived from existing motionAmplitude and structureComplexity at uniform-update time.",
+  "depends_on": ["US-040", "US-017"],
+  "steps": [
+    {
+      "id": 1,
+      "title": "Create shared simplex 3D noise GLSL chunk",
+      "description": "Write src/visual/shaders/simplex3d.glsl containing a self-contained snoise(vec3) implementation (Ashima/webgl-noise style, no texture lookups). Include an fbm3(vec3, int octaves) wrapper with lacunarity=2.0 and gain=0.5. This file will be imported as a raw string and prepended to vertex shaders via string concatenation (Vite ?raw import).",
+      "files": ["src/visual/shaders/simplex3d.glsl"],
+      "tests": "Verify the GLSL compiles by checking shader material creation in existing test pattern.",
+      "risk": "Low — pure addition, no existing code modified."
+    },
+    {
+      "id": 2,
+      "title": "Upgrade pointWarp.vert.glsl with simplex noise displacement",
+      "description": "Modify the vertex shader to use 3D simplex noise for sculptural deformation. All existing displacement layers are PRESERVED as-is:\n\n- Radial expansion (line ~68-70): KEPT — bass still pushes points outward radially\n- Twist around Y (lines ~72-80): KEPT — bass-driven rotational twist\n- Directional drift (lines ~82-86): KEPT — sin/cos per-axis movement\n- Treble micro-jitter (lines ~88-92): KEPT — high-frequency fine displacement\n- Pointer repulsion (lines ~103-111): KEPT — screen-space push\n- Field spread and breathing (lines ~114-117): KEPT\n\nCHANGES — two targeted modifications:\n\n1. **Replace layeredNoise() function** (lines 31-40) and its calls in the slow-modulation section (lines 94-101) with fbm3() from the prepended simplex3d.glsl chunk. The slow-modulation section currently calls layeredNoise(pos.x * nf + t*0.0001, pos.y * nf, pos.z * nf) — replace with fbm3(pos * uNoiseFrequency + vec3(t * 0.00005), uNoiseOctaves) for coherent 3D spatial deformation instead of oscillatory sine-hash patterns.\n\n2. **Add bass-driven macro noise layer** as a NEW displacement step (after existing radial expansion, before twist). Sample fbm3(pos * 0.5 + vec3(uTime * 0.00003), max(uNoiseOctaves, 1)) and displace along normalize(pos) scaled by uBassEnergy * uDisplacementScale * 0.3. This gives bass a sculptural, volumetric push in addition to the existing radial expansion.\n\nNew uniforms to add: uDisplacementScale (float). No uNoiseEvolutionSpeed — reuse cadence-driven uTime scaling instead.",
+      "files": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/systems/pointCloud.ts"
+      ],
+      "tests": "Verify new uniform uDisplacementScale exists on shader material. Verify shader compiles (no WebGL errors). Verify vertex shader string contains 'snoise'.",
+      "risk": "Medium — core visual change. Test with bass=0 and bass=1 to confirm displacement range is reasonable."
+    },
+    {
+      "id": 3,
+      "title": "Upgrade ribbonWarp.vert.glsl with simplex noise displacement",
+      "description": "Mirror step 2 changes for the ribbon shader in src/visual/shaders/ribbonWarp.vert.glsl and src/visual/systems/ribbonField.ts. Same approach: preserve all existing displacement layers (radial expansion, ribbon-specific bass sway, twist, drift, jitter, pointer repulsion, field spread, breathing). Replace only layeredNoise() function and its calls in the slow-modulation section with fbm3(). Add the same bass-driven macro noise layer. Retain the ribbon-specific sinusoidal sway (ribbonPhase, lines ~72-75) as an additive layer — it provides ribbon-unique character on top of the shared noise displacement. Add uDisplacementScale uniform.",
+      "files": [
+        "src/visual/shaders/ribbonWarp.vert.glsl",
+        "src/visual/systems/ribbonField.ts"
+      ],
+      "tests": "Verify new uniform exists and shader compiles. Verify vertex shader string contains 'snoise'.",
+      "risk": "Medium — same as step 2 but for ribbon mode."
+    },
+    {
+      "id": 4,
+      "title": "Wire uDisplacementScale uniform from existing VisualParams",
+      "description": "In both pointCloud.ts and ribbonField.ts draw() methods, compute uDisplacementScale as motionAmplitude * structureComplexity at uniform-update time. No new VisualParams fields needed — these existing params already encode the right signals:\n- motionAmplitude = 0.2 for prefers-reduced-motion, 1.0 otherwise → displacement automatically calms\n- structureComplexity = 0.2-1.0 from device DPR/cores → weaker devices get less displacement\n\nAlso import simplex3d.glsl as raw string (Vite ?raw) and prepend it to the vertex shader string before passing to ShaderMaterial constructor. Reuse cadence (already a uniform as uCadence) to modulate noise evolution speed in the shader — multiply the time offset in fbm3 sampling by uCadence so nighttime visits (lower cadence) get slower, more meditative deformation drift.",
+      "files": [
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/ribbonField.ts"
+      ],
+      "tests": "Verify uDisplacementScale updates when frame params change. Verify motionAmplitude=0.2 produces uDisplacementScale < 0.3.",
+      "risk": "Low — uniform wiring only."
+    },
+    {
+      "id": 5,
+      "title": "Quality tier scaling verification",
+      "description": "The existing noiseOctaves quality tier (1/2/3 from quality.ts) already controls fbm3 octave count via uNoiseOctaves. Verify that low-tier (1 octave simplex) still performs well with 200 points. If needed, scale uDisplacementScale *= 0.6 for low tier in draw() to prevent visual artifacts from single-octave noise being too uniform. No changes to quality.ts or VisualParams needed.",
+      "files": ["src/visual/systems/pointCloud.ts", "src/visual/systems/ribbonField.ts"],
+      "tests": "Verify low/medium/high quality tiers produce valid shader uniforms and compile cleanly.",
+      "risk": "Low — performance tuning only."
+    },
+    {
+      "id": 6,
+      "title": "Write acceptance tests",
+      "description": "Create tests/visual/shaderDisplacement.test.ts verifying all acceptance criteria:\n\n1. ShaderMaterial used: Both pointCloud and ribbonField create THREE.ShaderMaterial\n2. Bass affects large-scale 3D displacement: With bassEnergy=0.8, uBassEnergy and uDisplacementScale uniforms are set > 0\n3. Treble affects fine-grain displacement: With trebleEnergy=0.7, uTrebleEnergy uniform is set > 0\n4. Deformation evolves over time: draw() at elapsed=0 and elapsed=30000 produces different uTime values (noise field drifts)\n5. No CPU per-point loops: draw() does NOT modify position buffer attributes (all deformation GPU-side)\n6. Simplex noise chunk included: vertex shader source string contains 'snoise' function",
+      "files": ["tests/visual/shaderDisplacement.test.ts"],
+      "tests": "Self — this step IS the acceptance test suite.",
+      "risk": "Low — test-only addition."
+    },
+    {
+      "id": 7,
+      "title": "Build verification and smoke test",
+      "description": "Run npm run build to verify production build succeeds with the new GLSL imports. Run the full test suite. Verify in dev server that:\n- Point cloud deforms fluidly with audio (sculptural, not oscillatory)\n- Ribbon field deforms fluidly with audio\n- Deformation is visibly 3D (depth/parallax in displacement)\n- Scene works when muted (synthetic bass fallback still drives displacement)\n- Reduced-motion mode calms displacement\n- No console errors",
+      "files": [],
+      "tests": "npm run build && npm test",
+      "risk": "Low — verification only."
+    }
+  ],
+  "files_to_modify": [
+    "src/visual/shaders/pointWarp.vert.glsl",
+    "src/visual/shaders/ribbonWarp.vert.glsl",
+    "src/visual/systems/pointCloud.ts",
+    "src/visual/systems/ribbonField.ts"
+  ],
+  "files_to_create": [
+    "src/visual/shaders/simplex3d.glsl",
+    "tests/visual/shaderDisplacement.test.ts"
+  ],
+  "acceptance_criteria_mapping": {
+    "Geometry deformation occurs in a ShaderMaterial": "Already true from US-032/US-034. Steps 2-3 enhance the shader displacement with 3D simplex noise; step 6 test #1 verifies ShaderMaterial usage.",
+    "Bass energy affects large-scale displacement in 3D": "Steps 2-3 add low-frequency simplex FBM displaced along radial direction, driven by uBassEnergy * uDisplacementScale. Existing radial expansion is preserved as additive layer. Step 6 test #2 verifies.",
+    "Treble energy affects fine-grain displacement or point size": "Existing treble jitter (sin/cos based) is preserved. Slow-modulation section upgraded to simplex noise adds coherent fine-grain variation. Step 6 test #3 verifies.",
+    "Deformation evolves over time (not static modulation)": "Noise sampling coordinates drift via uTime * 0.00005 * uCadence, producing continuous sculptural evolution. Step 6 test #4 verifies."
+  },
+  "constraints": [
+    "No CPU-based per-point loops for deformation (ticket note)",
+    "All displacement computed GPU-side in vertex shaders",
+    "Must work with existing quality tier system (1/2/3 octaves)",
+    "Must degrade gracefully with prefers-reduced-motion (motionAmplitude scales uDisplacementScale)",
+    "No new npm dependencies — simplex noise is pure GLSL",
+    "No new VisualParams fields — derive displacement scale from existing motionAmplitude * structureComplexity",
+    "Must not break mute toggle, info overlay, or autoplay fallback",
+    "Preserve all existing displacement layers (radial expansion, twist, drift, jitter, pointer repulsion, breathing)"
+  ],
+  "estimated_complexity": "medium",
+  "key_decisions": [
+    {
+      "decision": "Use Ashima-style GLSL simplex noise (no texture lookups)",
+      "rationale": "Self-contained, no 3D texture setup needed, well-tested in WebGL community, compatible with WebGL 1 and 2."
+    },
+    {
+      "decision": "Prepend simplex3d.glsl via string concatenation rather than #include",
+      "rationale": "Vite raw imports handle this cleanly. Three.js ShaderMaterial doesn't support GLSL #include natively without onBeforeCompile hooks."
+    },
+    {
+      "decision": "Derive uDisplacementScale from motionAmplitude * structureComplexity inline in draw()",
+      "rationale": "Avoids expanding VisualParams for a derived value. motionAmplitude already respects prefers-reduced-motion, structureComplexity scales with device capability."
+    },
+    {
+      "decision": "Reuse uCadence for noise evolution speed modulation",
+      "rationale": "cadence (0.4-1.0) represents time-of-day modulation speed. Nighttime visits get slower, more meditative deformation drift — aligned with artistic intent. No new uniform needed."
+    },
+    {
+      "decision": "Preserve all existing sin/cos displacement layers, only replace layeredNoise() calls",
+      "rationale": "Existing radial expansion, twist, drift, jitter, pointer repulsion, and breathing layers already provide good base motion. The sine-hash layeredNoise() in the slow-modulation section is the only part that produces non-sculptural oscillatory patterns. Replacing just that with 3D simplex noise achieves the sculptural goal without regressing existing visual character."
+    }
+  ]
+}
