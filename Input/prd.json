@@ -353,14 +353,20 @@
         "No clipping or visual instability occurs"
       ],
       "priority": 1,
+<<<<<<< Updated upstream
       "passes": true,
       "status": "pass",
+=======
+      "passes": false,
+      "status": "in_progress",
+>>>>>>> Stashed changes
       "depends_on": [
         "US-009",
         "US-017"
       ],
       "split_from": "US-008",
-      "notes": "Examples: camera drift, field expansion, large wave amplitude."
+      "notes": "Examples: camera drift, field expansion, large wave amplitude.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-019",
