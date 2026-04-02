@@ -1,0 +1,41 @@
+{
+  "concerns": [
+    {
+      "severity": "low",
+      "location": "Step 2 → shape_generation",
+      "issue": "particleField uses createPRNG(seed) without suffix, but plan uses createPRNG(seed + ':pointcloud'). This is fine for differentiation between systems but note the deviation from existing pattern.",
+      "suggestion": "Keep the suffix — it prevents the two systems from generating identical initial distributions when given the same session seed."
+    },
+    {
+      "severity": "low",
+      "location": "Step 2 → camera_drift",
+      "issue": "Rotating the Points mesh around Y gives parallax, but only around one axis. True depth perception benefits from multi-axis drift.",
+      "suggestion": "The plan already mentions Z-axis oscillation which helps. Acceptable as-is; can iterate later."
+    },
+    {
+      "severity": "info",
+      "location": "Step 3 → ModeManager registration",
+      "issue": "Plan references quality.enableSparkle for PointCloudConfig — enableSparkle already exists on QualityProfile so no new field needed there.",
+      "suggestion": "Confirmed correct. enableSparkle is already on QualityProfile with tier values: low=false, medium=true, high=true."
+    },
+    {
+      "severity": "info",
+      "location": "T-031-04",
+      "issue": "Test description is slightly ambiguous: 'No point has Z === 0 for all points'. Intent is clear (the cloud is not coplanar) but wording could be misread.",
+      "suggestion": "Implement as: verify that not all Z values are zero, i.e. at least some points have non-zero Z. The Z-range check in T-031-03 already covers the stronger condition."
+    }
+  ],
+  "notes": [
+    "GeometrySystem interface confirmed: { init(scene, seed, params), draw(scene, frame), cleanup?() }",
+    "QualityProfile already has enableSparkle — no new field needed for that",
+    "Existing particleField uses effectiveCount = density × maxParticles × (0.6 + structureComplexity × 0.4) — plan's formula matches",
+    "ModeManager accepts ModeEntry[] with { name, factory } — plan's registration pattern is correct",
+    "FrameState has pointerX/pointerY as optional fields — pointer disturbance code must handle undefined",
+    "PRNG module uses mulberry32 — createPRNG(seed: string) returns () => number",
+    "20 tests is thorough and covers all acceptance criteria plus edge cases"
+  ],
+  "approved": true,
+  "decision": "APPROVE",
+  "adr_entry": null,
+  "failures": []
+}

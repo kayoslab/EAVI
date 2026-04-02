@@ -1,0 +1,229 @@
+{
+  "ticket": "US-031",
+  "title": "Implement 3D point cloud base geometry",
+  "summary": "Create a new GeometrySystem that renders a Points-based 3D point cloud with procedural volumetric shape, non-zero Z-depth, camera drift for parallax, and quality-tier-scaled point count. Register it in the ModeManager alongside existing particle and wave systems.",
+  "depends_on": ["US-030"],
+  "files": {
+    "create": [
+      "src/visual/systems/pointCloud.ts",
+      "tests/visual/systems/pointCloud.test.ts"
+    ],
+    "modify": [
+      "src/main.ts",
+      "src/visual/quality.ts"
+    ]
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Add maxPoints to QualityProfile",
+      "file": "src/visual/quality.ts",
+      "description": "Add a `maxPoints` field to `QualityProfile` interface and set tier-specific values: low=200, medium=500, high=1200. These are separate from `maxParticles` because the point cloud is a denser volumetric structure requiring different budget.",
+      "changes": [
+        "Add `maxPoints: number` to `QualityProfile` interface",
+        "Set maxPoints in each tier return: low=200, medium=500, high=1200"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Create pointCloud.ts geometry system",
+      "file": "src/visual/systems/pointCloud.ts",
+      "description": "Implement a GeometrySystem that generates a 3D point cloud with visible depth using THREE.Points and BufferGeometry. The cloud shape is procedurally generated from the session seed using the existing PRNG.",
+      "details": {
+        "config_interface": {
+          "name": "PointCloudConfig",
+          "fields": {
+            "maxPoints": "number (default 1200)",
+            "enableSparkle": "boolean (default true)"
+          }
+        },
+        "init_method": [
+          "Create PRNG from seed + ':pointcloud' suffix for deterministic generation",
+          "Compute effectiveCount from density × maxPoints × (0.6 + structureComplexity × 0.4) — same scaling formula as particleField",
+          "Generate 3D positions using a seeded procedural volume shape. Use a mix of shell and interior sampling: for each point, pick a random shape (sphere shell, inner volume, or lattice-perturbed grid) weighted by structureComplexity. curveSoftness controls interpolation between angular (lattice) and smooth (sphere) shapes",
+          "Z-depth range: points span ±2.5 units in Z (compared to particleField's ±1), ensuring non-flat geometry",
+          "Create Float32Array for positions (×3), colors (×3), and sizes (×1)",
+          "Store basePositions copy for displacement calculations",
+          "Create THREE.BufferGeometry with position, color, size attributes",
+          "Create THREE.PointsMaterial with vertexColors, sizeAttenuation, transparent, blending: AdditiveBlending for glow effect",
+          "Add THREE.Points mesh to scene",
+          "Store scene ref for cleanup"
+        ],
+        "shape_generation": {
+          "description": "Procedural volume from seed — no external models",
+          "approach": "Hybrid sphere-shell + volume fill. For each point: rng() < 0.6 → shell point (radius 2 ± 0.3 perturbation), rng() >= 0.6 → interior volume point (random radius 0-1.8). All coordinates use spherical→cartesian conversion with seeded theta/phi. structureComplexity > 0.7 adds lattice-aligned snapping for crystalline feel.",
+          "z_depth": "Spherical generation naturally produces full Z range. Minimum Z spread enforced at ±1.5 even at lowest complexity."
+        },
+        "draw_method": [
+          "Read position, color buffer attributes",
+          "Apply bass-driven macro rotation: rotate entire cloud slowly around Y axis, amplitude scaled by bassEnergy × motionAmplitude",
+          "Apply treble-driven per-point jitter: high-frequency displacement scaled by trebleEnergy × motionAmplitude",
+          "Apply pointer disturbance: points near normalized pointer position get pushed outward (radial repulsion from pointer ray)",
+          "Apply time-based breathing: gentle scale oscillation (sine wave on elapsed) for organic feel",
+          "Update colors from paletteHue with per-point hueOffset, sparkle modulation on treble peaks",
+          "Set needsUpdate on position and color attributes"
+        ],
+        "camera_drift": [
+          "In draw(), apply a subtle camera-like effect by rotating the Points mesh around Y axis with a slow sine/cosine oscillation (period ~20s)",
+          "Amplitude: 0.15 radians × motionAmplitude (reduced-motion safe)",
+          "This creates parallax — near points move more than far points in screen space, making depth perceptible",
+          "Additionally add a small Z-axis oscillation (±0.3) for depth breathing"
+        ],
+        "cleanup_method": [
+          "Remove Points mesh from scene",
+          "Dispose geometry and material",
+          "Null all references"
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "title": "Register pointCloud in ModeManager",
+      "file": "src/main.ts",
+      "description": "Import createPointCloud, instantiate it with quality-driven config, and add it as a third mode entry in the ModeManager.",
+      "changes": [
+        "Add import: `import { createPointCloud } from './visual/systems/pointCloud'`",
+        "After waves creation, add: `const pointCloud = createPointCloud({ maxPoints: quality.maxPoints, enableSparkle: quality.enableSparkle })`",
+        "Add `{ name: 'pointcloud', factory: () => pointCloud }` to the ModeManager modes array"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Write tests for pointCloud system",
+      "file": "tests/visual/systems/pointCloud.test.ts",
+      "description": "Follow the same testing patterns as particleField.test.ts. Tests validate all acceptance criteria.",
+      "tests": [
+        {
+          "id": "T-031-01",
+          "description": "init() adds a THREE.Points mesh to the scene",
+          "validates": "AC: scene contains Points-based 3D point cloud"
+        },
+        {
+          "id": "T-031-02",
+          "description": "Points mesh uses BufferGeometry with position attribute (itemSize 3)",
+          "validates": "AC: built from BufferGeometry"
+        },
+        {
+          "id": "T-031-03",
+          "description": "Point positions have non-zero Z-depth: Z values span a range > 1.0",
+          "validates": "AC: non-zero Z-depth, not a flat plane"
+        },
+        {
+          "id": "T-031-04",
+          "description": "No point has Z === 0 for all points (cloud is not coplanar with XY plane)",
+          "validates": "AC: not a flat plane"
+        },
+        {
+          "id": "T-031-05",
+          "description": "Mesh rotation changes over elapsed time (camera drift / parallax)",
+          "validates": "AC: depth perceptible via parallax or camera drift"
+        },
+        {
+          "id": "T-031-06",
+          "description": "Point count with maxPoints=200 produces fewer points than maxPoints=1200",
+          "validates": "AC: point count scales by quality tier"
+        },
+        {
+          "id": "T-031-07",
+          "description": "Point count with maxPoints config never exceeds the configured maximum",
+          "validates": "AC: point count scales by quality tier"
+        },
+        {
+          "id": "T-031-08",
+          "description": "Same seed produces identical initial positions (deterministic)",
+          "validates": "Notes: seeded by session seed"
+        },
+        {
+          "id": "T-031-09",
+          "description": "Different seeds produce different initial positions",
+          "validates": "Notes: seeded by session seed"
+        },
+        {
+          "id": "T-031-10",
+          "description": "draw() does not throw with valid FrameState",
+          "validates": "Stability"
+        },
+        {
+          "id": "T-031-11",
+          "description": "draw() flags position buffer needsUpdate (version increments)",
+          "validates": "Animation correctness"
+        },
+        {
+          "id": "T-031-12",
+          "description": "cleanup() removes mesh from scene and disposes geometry/material",
+          "validates": "Resource management"
+        },
+        {
+          "id": "T-031-13",
+          "description": "Bass energy influences point cloud motion (positions differ with bass=0 vs bass=1)",
+          "validates": "Audio reactivity"
+        },
+        {
+          "id": "T-031-14",
+          "description": "Treble energy influences point jitter",
+          "validates": "Audio reactivity"
+        },
+        {
+          "id": "T-031-15",
+          "description": "Colors derive from paletteHue (different hue produces different color buffer)",
+          "validates": "Visual mapping"
+        },
+        {
+          "id": "T-031-16",
+          "description": "Has color buffer attribute with vertexColors enabled on material",
+          "validates": "Rendering correctness"
+        },
+        {
+          "id": "T-031-17",
+          "description": "No localStorage or cookie access during init/draw operations",
+          "validates": "Privacy requirement"
+        },
+        {
+          "id": "T-031-18",
+          "description": "Density parameter scales effective point count (higher density = more points)",
+          "validates": "Mapping correctness"
+        },
+        {
+          "id": "T-031-19",
+          "description": "Low motionAmplitude produces less displacement than high motionAmplitude",
+          "validates": "Reduced motion support"
+        },
+        {
+          "id": "T-031-20",
+          "description": "Boundary values (density=0, density=1, structureComplexity=0, structureComplexity=1) do not throw",
+          "validates": "Robustness"
+        }
+      ]
+    }
+  ],
+  "implementation_order": [
+    "Step 1: Add maxPoints to QualityProfile (src/visual/quality.ts)",
+    "Step 2: Create pointCloud.ts geometry system (src/visual/systems/pointCloud.ts)",
+    "Step 3: Write tests (tests/visual/systems/pointCloud.test.ts)",
+    "Step 4: Register in ModeManager (src/main.ts)",
+    "Step 5: Run tests, fix issues, verify build passes"
+  ],
+  "key_patterns_to_follow": {
+    "geometry_system_interface": "Implement GeometrySystem { init, draw, cleanup } from src/visual/types.ts",
+    "prng_usage": "Use createPRNG(seed + ':pointcloud') from src/visual/prng.ts",
+    "buffer_geometry": "Use Float32Array + BufferAttribute, update via needsUpdate flag — no per-frame object creation",
+    "quality_scaling": "effectiveCount = density × maxPoints × (0.6 + structureComplexity × 0.4)",
+    "test_structure": "Mirror particleField.test.ts patterns: shared defaultParams, scene-per-test, spy-based privacy checks"
+  },
+  "acceptance_criteria_mapping": {
+    "Points-based 3D point cloud built from BufferGeometry": "T-031-01, T-031-02",
+    "Non-zero Z-depth (not a flat plane)": "T-031-03, T-031-04",
+    "Depth perceptible via parallax or camera drift": "T-031-05",
+    "Point count scales by quality tier": "T-031-06, T-031-07"
+  },
+  "risks": [
+    {
+      "risk": "Camera drift via mesh rotation may feel different from true camera movement",
+      "mitigation": "Mesh rotation around Y-axis produces equivalent parallax effect to camera orbit. If needed, can switch to actual camera position oscillation in renderLoop, but mesh rotation is self-contained within the GeometrySystem interface."
+    },
+    {
+      "risk": "High point counts on mobile could hurt performance",
+      "mitigation": "Quality tier system already in place: low tier gets 200 points, well within mobile budgets. sizeAttenuation and additive blending are GPU-friendly."
+    }
+  ]
+}
