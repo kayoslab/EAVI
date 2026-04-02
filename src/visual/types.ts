@@ -20,4 +20,5 @@ export interface GeometrySystem {
   ): void;
   draw(scene: Scene, frame: FrameState): void;
   cleanup?(): void;
+  setOpacity?(opacity: number): void;
 }

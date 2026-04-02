@@ -180,6 +180,12 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       colorAttr.needsUpdate = true;
     },
 
+    setOpacity(opacity: number): void {
+      if (material) {
+        material.opacity = opacity * 0.9;
+      }
+    },
+
     cleanup(): void {
       if (pointsMesh && sceneRef) {
         sceneRef.remove(pointsMesh);

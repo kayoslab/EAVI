@@ -161,6 +161,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
         uTime: { value: 0.0 },
         uBassEnergy: { value: 0.0 },
         uTrebleEnergy: { value: 0.0 },
+        uOpacity: { value: 1.0 },
         uMotionAmplitude: { value: params.motionAmplitude },
         uPointerDisturbance: { value: 0.0 },
         uPointerPos: { value: new THREE.Vector2(0, 0) },
@@ -237,6 +238,12 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       // Z-axis breathing
       const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
       pointsMesh.position.z = zBreath;
+    },
+
+    setOpacity(opacity: number): void {
+      if (shaderMaterial) {
+        shaderMaterial.uniforms.uOpacity.value = opacity;
+      }
     },
 
     cleanup(): void {
