@@ -1,0 +1,77 @@
+{
+  "ticketId": "US-029",
+  "risk": "medium",
+  "confidence": 0.9,
+  "summary": "The plan correctly identifies all touchpoints for migrating from Canvas 2D to Three.js. The 8-step sequence is well-ordered with appropriate dependency chains. Temporarily disabling Canvas 2D geometry systems (particleField, waveField, modeManager) rather than deleting them is the right call. The scope is well-bounded to bootstrap only.",
+  "structuralImpact": {
+    "filesModified": 6,
+    "filesCreated": 1,
+    "filesTemporarilyDisabled": 3,
+    "modulesAffected": [
+      "visual",
+      "main"
+    ],
+    "modulesUnchanged": [
+      "audio",
+      "input",
+      "seed",
+      "ui"
+    ],
+    "dependencyChanges": [
+      "three (new runtime)",
+      "@types/three (new dev)"
+    ]
+  },
+  "strengths": [
+    "Clean separation: only visual layer and entry point are touched; audio, input, seed, and UI modules remain untouched",
+    "GeometrySystem interface update (step 6) prepares the contract for future Three.js-based systems without forcing immediate migration",
+    "Placeholder object provides immediate visual verification that the pipeline works end-to-end",
+    "Resize handler returns cleanup function, maintaining the existing teardown pattern from current resize.ts",
+    "Renderer config choices are sound: pixel ratio capped at 2, powerPreference high-performance, no alpha (matches full-screen dark scene requirement)",
+    "Existing audio/signal/pointer plumbing in renderLoop.ts is preserved, only draw calls change"
+  ],
+  "concerns": [
+    {
+      "severity": "low",
+      "area": "types.ts",
+      "issue": "Changing GeometrySystem interface from CanvasRenderingContext2D to THREE.Scene will cause TypeScript errors in particleField.ts and waveField.ts even though they are commented out in main.ts imports",
+      "recommendation": "Either leave types.ts unchanged in this story (keeping the old interface) and introduce a new ThreeGeometrySystem interface, or ensure the old systems are not imported anywhere that would trigger type-checking. Since the plan comments out imports in main.ts, the files themselves will still be compiled by tsc unless excluded."
+    },
+    {
+      "severity": "low",
+      "area": "renderLoop.ts",
+      "issue": "The plan says placeholder mesh rotation is handled in renderLoop.ts, requiring the mesh reference to be passed in. The current startLoop signature and LoopDeps type will need the mesh reference threaded through, which is not explicitly described.",
+      "recommendation": "Either pass the placeholder mesh via LoopDeps or have startLoop accept the mesh as a parameter. The plan should clarify this plumbing."
+    },
+    {
+      "severity": "low",
+      "area": "quality.ts integration",
+      "issue": "The current quality system (computeQualityProfile) feeds maxParticles, sparkle, shimmer flags into geometry systems. The plan does not mention how resolutionScale from quality feeds into renderer.setPixelRatio or scene complexity. scene.ts signature mentions resolutionScale as optional but details are sparse.",
+      "recommendation": "Ensure resolutionScale from quality profile is mapped to renderer pixel ratio or renderer size scaling to maintain the existing performance tiering."
+    },
+    {
+      "severity": "info",
+      "area": "pointer.ts",
+      "issue": "Plan correctly updates initPointer to use renderer.domElement. Current pointer.ts attaches listeners to the canvas element, so this is a direct swap with no behavioral change.",
+      "recommendation": "None needed."
+    }
+  ],
+  "alignmentWithADRs": {
+    "techContext": "Fully aligned — tech context already lists Three.js as the target rendering technology. This plan executes that migration.",
+    "claudeMd": "Aligned — no forbidden APIs introduced, privacy model untouched, audio pipeline preserved, dark full-screen scene maintained."
+  },
+  "missingConsiderations": [
+    "No mention of updating or verifying existing tests (if any exist for visual modules)",
+    "No explicit handling of the evolution.ts module which may reference Canvas 2D patterns",
+    "palette.ts and mappings.ts return HSL color values used by Canvas 2D systems — future stories will need to convert these to Three.js compatible color formats, but this is correctly deferred"
+  ],
+  "suggestedRevisions": [
+    "Clarify how placeholder mesh reference reaches renderLoop.ts (via LoopDeps or direct parameter)",
+    "Consider introducing ThreeGeometrySystem as a new interface alongside the existing one rather than modifying it in-place, to avoid compile errors in unported systems",
+    "Add a sub-step to verify that evolution.ts and mappings.ts still compile without errors after the type changes"
+  ],
+  "approved": true,
+  "decision": "APPROVE",
+  "adr_entry": null,
+  "failures": []
+}
