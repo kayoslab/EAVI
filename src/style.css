@@ -107,10 +107,26 @@ canvas {
   opacity: 0.9;
 }
 
+.eavi-debug-overlay {
+  position: fixed;
+  top: max(0.5rem, env(safe-area-inset-top, 0px));
+  left: max(0.5rem, env(safe-area-inset-left, 0px));
+  z-index: 30;
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: pre;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .eavi-info-btn,
   .eavi-info-overlay,
-  .eavi-mute-btn {
+  .eavi-mute-btn,
+  .eavi-debug-overlay {
     transition: none;
   }
 }

@@ -20,6 +20,9 @@ export interface LoopDeps {
   placeholderAmbient?: AmbientLight | null;
   placeholderDirectional?: DirectionalLight | null;
   quality?: QualityProfile | null;
+  onDebugFrame?: ((data: { fps: number; modeName: string; pointCount: number; bass: number; treble: number }) => void) | null;
+  getModeName?: (() => string) | null;
+  getPointCount?: (() => number) | null;
 }
 
 const defaultPointer: PointerState = {
@@ -195,6 +198,15 @@ export function startLoop(
 
     // Render
     renderer.render(scene, camera);
+
+    // Debug instrumentation
+    d.onDebugFrame?.({
+      fps: delta > 0 ? 1000 / delta : 0,
+      modeName: d.getModeName?.() ?? 'loading',
+      pointCount: d.getPointCount?.() ?? 0,
+      bass,
+      treble,
+    });
 
     requestAnimationFrame(frame);
   };
