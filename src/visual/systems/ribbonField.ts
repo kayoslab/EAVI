@@ -180,6 +180,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
         uNoiseOctaves: { value: noiseOctaves },
         uEnablePointerRepulsion: { value: enablePointerRepulsion ? 1.0 : 0.0 },
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
+        uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
@@ -224,6 +225,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
+      u.uDisplacementScale.value = motionAmplitude * structureComplexity;
 
       // Time-based breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
