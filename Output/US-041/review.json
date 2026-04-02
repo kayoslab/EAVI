@@ -1,76 +1,53 @@
 {
-  "ticket": "US-041",
-  "planRevision": 1,
-  "confidence": 0.9,
-  "reviewNotes": {
-    "strengths": [
-      "Correctly identifies all three geometry systems and their current shader vs CPU status",
-      "Shared noise3d.glsl module avoids code duplication across three vertex shaders",
-      "Execution order respects the dependency graph: shared module first, then independent upgrades in parallel",
-      "Quality tier gating via noiseOctaves 1-3 is already wired for pointCloud and ribbonField — plan reuses it",
-      "Curl-noise for particleField is a good choice to preserve the drifting character of the CPU velocity system",
-      "Risk assessment is realistic — low-tier ALU cost is mitigated by existing octave gating"
-    ],
-    "issues": [
-      {
-        "severity": "low",
-        "step": 2,
-        "description": "Plan references 'normal_approx' for displacement direction but point clouds have no vertex normals. Existing shader displaces along position-derived directions. Implementation should use normalize(position) or a gradient-based approximation rather than assuming normals exist.",
-        "suggestion": "Use normalize(position) as displacement direction for radial deformation, consistent with existing pointWarp approach."
-      },
-      {
-        "severity": "low",
-        "step": 2,
-        "description": "Plan states '21+ uniforms' but actual count is 17. Not a blocker but the plan overstates the interface size.",
-        "suggestion": "Cosmetic — no action needed."
-      },
-      {
-        "severity": "low",
-        "step": 5,
-        "description": "Plan references CPU loop at 'lines 113-167' and color loop at 'lines 168-177' but actual positions are lines 128-177 (position) and 168-176 (color). Minor line reference drift.",
-        "suggestion": "Implementer should locate loops by structure, not line numbers."
-      },
-      {
-        "severity": "medium",
-        "step": 1,
-        "description": "curl3() via finite differences requires 6 extra fbm3 evaluations per vertex. At 3 octaves, that is 18 snoise calls per vertex for curl alone. On low-tier mobile this could be expensive even at reduced particle counts.",
-        "suggestion": "Gate curl3 octaves separately or use a cheaper analytical curl approximation for low tier. Alternatively, use 1-octave snoise for curl on low tier regardless of noiseOctaves setting."
-      },
-      {
-        "severity": "low",
-        "step": 4,
-        "description": "Plan says particleWarp.vert.glsl should have 'same uniform interface as pointWarp (all 21+ uniforms)' but some uniforms like uRadialScale, uTwistStrength, uFieldSpread are specific to the sphere topology of pointCloud. Blindly copying all uniforms adds dead code.",
-        "suggestion": "Only include uniforms that the particleField shader actually uses. Shared uniforms (audio, time, pointer, palette, noise, quality flags) are fine; topology-specific ones can be omitted."
-      }
-    ],
-    "missingConsiderations": [
-      {
-        "severity": "low",
-        "description": "No mention of GLSL precision qualifiers. noise3d.glsl should declare precision mediump float at top for WebGL1 compatibility if not inherited from the main shader.",
-        "suggestion": "Add precision declaration to noise3d.glsl or document that it inherits from the prepended shader."
-      },
-      {
-        "severity": "low",
-        "description": "Plan does not mention updating the Vite GLSL type declaration (if any) to handle the ?raw import of the new noise3d.glsl file. Existing imports already use ?raw so this is likely already configured.",
-        "suggestion": "Verify vite-env.d.ts or similar declares *.glsl?raw module type."
-      }
-    ],
-    "acceptanceCriteriaGapAnalysis": {
-      "ShaderMaterial deformation": "COVERED — steps 2, 3, 4, 5 migrate all three systems",
-      "Bass large-scale 3D displacement": "COVERED — fbm3/curl3 scaled by uBassEnergy",
-      "Treble fine-grain displacement": "COVERED — high-freq snoise + point size modulation",
-      "Time evolution": "COVERED — noise domain drift via uTime offset",
-      "No CPU per-point loops": "COVERED — step 5 removes CPU loops from particleField"
+  "reasoning": "Plan is well-structured and technically sound, but contains incorrect file paths in step 3 that would cause implementation confusion. The actual geometry system files are under src/visual/systems/, not src/visual/geometrySystems/.",
+  "issues": [
+    {
+      "step": 3,
+      "severity": "high",
+      "issue": "Wrong file paths: plan references src/visual/geometrySystems/pointCloud.ts and src/visual/geometrySystems/ribbonField.ts but actual paths are src/visual/systems/pointCloud.ts and src/visual/systems/ribbonField.ts"
+    },
+    {
+      "step": 2,
+      "severity": "low",
+      "issue": "Step says 'replace layeredNoise() calls' but layeredNoise() is only used in the slow modulation section. The bulk of existing displacement (radial expansion, twist, drift, jitter) uses direct sin/cos — plan should clarify whether those are also being replaced or just augmented with noise-based displacement."
+    },
+    {
+      "step": 5,
+      "severity": "low",
+      "issue": "VisualParams already has structureComplexity and motionAmplitude which could drive displacement scale without new fields. Adding displacementScale and noiseEvolutionRate may be redundant if they are simple derivations — consider computing them at uniform-update time instead of expanding the VisualParams type."
     }
-  },
-  "estimateAssessment": {
-    "linesReasonable": true,
-    "filesReasonable": true,
-    "notes": "Estimate of 250 new + 160 modified lines across 9 files is realistic for the scope. The particleField migration (step 5) may run slightly over the 90 modified lines estimate given the full rewrite of the draw() method and config interface changes."
-  },
-  "approved": true,
-  "concerns": [],
-  "decision": "APPROVE",
+  ],
+  "requiredChanges": [
+    "Fix file paths in step 3: src/visual/geometrySystems/ → src/visual/systems/ for both pointCloud.ts and ribbonField.ts"
+  ],
+  "suggestedImprovements": [
+    "Clarify in step 2 whether existing sin/cos displacement layers (radial expansion, twist, drift) are replaced, removed, or preserved alongside the new noise displacement",
+    "Consider whether step 5 additions to VisualParams are necessary or if displacement scale can be derived inline from existing params during uniform updates"
+  ],
+  "assessedComplexity": "medium",
+  "concerns": [
+    "{\"step\":3,\"severity\":\"high\",\"issue\":\"Wrong file paths: plan references src/visual/geometrySystems/pointCloud.ts and src/visual/geometrySystems/ribbonField.ts but actual paths are src/visual/systems/pointCloud.ts and src/visual/systems/ribbonField.ts\"}",
+    "{\"step\":2,\"severity\":\"low\",\"issue\":\"Step says 'replace layeredNoise() calls' but layeredNoise() is only used in the slow modulation section. The bulk of existing displacement (radial expansion, twist, drift, jitter) uses direct sin/cos — plan should clarify whether those are also being replaced or just augmented with noise-based displacement.\"}",
+    "{\"step\":5,\"severity\":\"low\",\"issue\":\"VisualParams already has structureComplexity and motionAmplitude which could drive displacement scale without new fields. Adding displacementScale and noiseEvolutionRate may be redundant if they are simple derivations — consider computing them at uniform-update time instead of expanding the VisualParams type.\"}"
+  ],
+  "decision": "revise",
+  "failures": [
+    {
+      "step": 3,
+      "severity": "high",
+      "issue": "Wrong file paths: plan references src/visual/geometrySystems/pointCloud.ts and src/visual/geometrySystems/ribbonField.ts but actual paths are src/visual/systems/pointCloud.ts and src/visual/systems/ribbonField.ts"
+    },
+    {
+      "step": 2,
+      "severity": "low",
+      "issue": "Step says 'replace layeredNoise() calls' but layeredNoise() is only used in the slow modulation section. The bulk of existing displacement (radial expansion, twist, drift, jitter) uses direct sin/cos — plan should clarify whether those are also being replaced or just augmented with noise-based displacement."
+    },
+    {
+      "step": 5,
+      "severity": "low",
+      "issue": "VisualParams already has structureComplexity and motionAmplitude which could drive displacement scale without new fields. Adding displacementScale and noiseEvolutionRate may be redundant if they are simple derivations — consider computing them at uniform-update time instead of expanding the VisualParams type."
+    }
+  ],
   "adr_entry": null,
-  "failures": []
+  "approved": false
 }

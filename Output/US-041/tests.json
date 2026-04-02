@@ -1,0 +1,329 @@
+{
+  "ticket": "US-041",
+  "title": "Implement shader-based vertex displacement",
+  "testFile": "tests/visual/systems/shaderDisplacement.test.ts",
+  "tests": [
+    {
+      "id": "T-041-01",
+      "description": "pointCloud vertex shader contains simplex noise function (snoise), not sine-hash layeredNoise",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst cloud = createPointCloud();\ncloud.init(scene, 'noise-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.vertexShader).toContain('snoise');\nexpect(mat.vertexShader).not.toContain('layeredNoise');",
+      "imports": ["createPointCloud from '../../../src/visual/systems/pointCloud'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-02",
+      "description": "pointCloud vertex shader contains fbm3 function for layered noise displacement",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst cloud = createPointCloud();\ncloud.init(scene, 'fbm-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.vertexShader).toContain('fbm3');",
+      "imports": ["createPointCloud from '../../../src/visual/systems/pointCloud'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-03",
+      "description": "ribbonField vertex shader contains simplex noise (snoise) and fbm3, not sine-hash layeredNoise",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'noise-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.vertexShader).toContain('snoise');\nexpect(mat.vertexShader).toContain('fbm3');\nexpect(mat.vertexShader).not.toContain('layeredNoise');",
+      "imports": ["createRibbonField from '../../../src/visual/systems/ribbonField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-04",
+      "description": "particleField uses ShaderMaterial (not PointsMaterial) after migration to GPU displacement",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'shader-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material;\nexpect(mat).toBeInstanceOf(THREE.ShaderMaterial);\nexpect(mat).not.toBeInstanceOf(THREE.PointsMaterial);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-05",
+      "description": "particleField vertex shader contains snoise and curl-noise displacement functions",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'curl-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.vertexShader).toContain('snoise');\nexpect(mat.vertexShader).toContain('curl3');",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-06",
+      "description": "particleField has vertex and fragment shaders with non-trivial content",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'shader-content-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.vertexShader.length).toBeGreaterThan(100);\nexpect(mat.fragmentShader.length).toBeGreaterThan(10);\nexpect(mat.vertexShader).toContain('gl_Position');\nexpect(mat.vertexShader).toContain('gl_PointSize');",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-07",
+      "description": "particleField ShaderMaterial has uBassEnergy uniform for bass-driven macro displacement",
+      "acceptanceCriteria": ["Bass energy affects large-scale displacement in 3D"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'bass-uniform-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uBassEnergy).toBeDefined();\nfield.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, bassEnergy: 0.8 } }));\nexpect(mat.uniforms.uBassEnergy.value).toBe(0.8);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-08",
+      "description": "particleField ShaderMaterial has uTrebleEnergy uniform for fine-grain displacement",
+      "acceptanceCriteria": ["Treble energy affects fine-grain displacement or point size"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'treble-uniform-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uTrebleEnergy).toBeDefined();\nfield.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, trebleEnergy: 0.6 } }));\nexpect(mat.uniforms.uTrebleEnergy.value).toBe(0.6);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-09",
+      "description": "particleField ShaderMaterial has uTime uniform that updates each frame for time evolution",
+      "acceptanceCriteria": ["Deformation evolves over time (not static modulation)"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'time-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uTime).toBeDefined();\nfield.draw(scene, makeFrame({ time: 500, elapsed: 500 }));\nexpect(mat.uniforms.uTime.value).toBe(500);\nfield.draw(scene, makeFrame({ time: 1500, elapsed: 1500 }));\nexpect(mat.uniforms.uTime.value).toBe(1500);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-10",
+      "description": "particleField draw() does not modify position buffer (GPU handles displacement, no CPU per-point loops)",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'no-cpu-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geo = points.geometry as THREE.BufferGeometry;\nconst posAttr = geo.getAttribute('position') as THREE.BufferAttribute;\nconst posBefore = Float32Array.from(posAttr.array as Float32Array);\nconst versionBefore = posAttr.version;\nfield.draw(scene, makeFrame({ time: 1000, elapsed: 1000, params: { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 1.0 } }));\nconst posAfter = Float32Array.from(posAttr.array as Float32Array);\nexpect(posAfter).toEqual(posBefore);\nexpect(posAttr.version).toBe(versionBefore);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-11",
+      "description": "pointCloud vertex shader uses uBassEnergy to scale fbm3 displacement amplitude (bass drives macro 3D deformation)",
+      "acceptanceCriteria": ["Bass energy affects large-scale displacement in 3D"],
+      "testBody": "const scene = new THREE.Scene();\nconst cloud = createPointCloud();\ncloud.init(scene, 'bass-fbm-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\n// Verify bass energy is multiplied with fbm3 output for displacement\nexpect(vs).toContain('uBassEnergy');\nexpect(vs).toContain('fbm3');\n// Bass and fbm3 should appear in the same displacement context\nconst bassSection = vs.substring(vs.indexOf('fbm3'), vs.indexOf('fbm3') + 200);\nexpect(bassSection).toContain('uBassEnergy');",
+      "imports": ["createPointCloud from '../../../src/visual/systems/pointCloud'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-12",
+      "description": "pointCloud vertex shader uses uTrebleEnergy with high-frequency snoise for fine-grain displacement",
+      "acceptanceCriteria": ["Treble energy affects fine-grain displacement or point size"],
+      "testBody": "const scene = new THREE.Scene();\nconst cloud = createPointCloud();\ncloud.init(scene, 'treble-fine-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\n// Verify treble energy modulates snoise for fine-grain displacement\nexpect(vs).toContain('uTrebleEnergy');\nexpect(vs).toContain('snoise');\n// Treble should modulate gl_PointSize for sparkle effect\nconst pointSizeSection = vs.substring(vs.indexOf('gl_PointSize'));\nexpect(pointSizeSection).toContain('uTrebleEnergy');",
+      "imports": ["createPointCloud from '../../../src/visual/systems/pointCloud'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-13",
+      "description": "ribbonField vertex shader uses uBassEnergy with fbm3 for bass-driven 3D displacement",
+      "acceptanceCriteria": ["Bass energy affects large-scale displacement in 3D"],
+      "testBody": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'ribbon-bass-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\nexpect(vs).toContain('uBassEnergy');\nexpect(vs).toContain('fbm3');\nconst bassSection = vs.substring(vs.indexOf('fbm3'), vs.indexOf('fbm3') + 200);\nexpect(bassSection).toContain('uBassEnergy');",
+      "imports": ["createRibbonField from '../../../src/visual/systems/ribbonField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-14",
+      "description": "ribbonField vertex shader uses uTrebleEnergy with snoise for treble fine-grain displacement",
+      "acceptanceCriteria": ["Treble energy affects fine-grain displacement or point size"],
+      "testBody": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'ribbon-treble-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\nexpect(vs).toContain('uTrebleEnergy');\nexpect(vs).toContain('snoise');\nconst pointSizeSection = vs.substring(vs.indexOf('gl_PointSize'));\nexpect(pointSizeSection).toContain('uTrebleEnergy');",
+      "imports": ["createRibbonField from '../../../src/visual/systems/ribbonField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-15",
+      "description": "pointCloud vertex shader uses uTime to drift noise domain for continuous time evolution",
+      "acceptanceCriteria": ["Deformation evolves over time (not static modulation)"],
+      "testBody": "const scene = new THREE.Scene();\nconst cloud = createPointCloud();\ncloud.init(scene, 'time-evolve-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\n// Time must be used inside noise domain offset, not just as a separate modulator\n// Look for uTime used as part of noise position input (noise domain drift)\nconst fbmCall = vs.substring(vs.indexOf('fbm3('), vs.indexOf('fbm3(') + 150);\nexpect(fbmCall).toMatch(/uTime|\\bt\\b/);",
+      "imports": ["createPointCloud from '../../../src/visual/systems/pointCloud'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-16",
+      "description": "ribbonField vertex shader uses uTime to drift noise domain for time-evolving deformation",
+      "acceptanceCriteria": ["Deformation evolves over time (not static modulation)"],
+      "testBody": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'ribbon-time-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\nconst fbmCall = vs.substring(vs.indexOf('fbm3('), vs.indexOf('fbm3(') + 150);\nexpect(fbmCall).toMatch(/uTime|\\bt\\b/);",
+      "imports": ["createRibbonField from '../../../src/visual/systems/ribbonField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-17",
+      "description": "particleField vertex shader uses uTime inside curl3/noise for time-evolving displacement",
+      "acceptanceCriteria": ["Deformation evolves over time (not static modulation)"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'particle-time-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\nconst curlCall = vs.substring(vs.indexOf('curl3('), vs.indexOf('curl3(') + 150);\nexpect(curlCall).toMatch(/uTime|\\bt\\b/);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-18",
+      "description": "particleField has uNoiseOctaves uniform for quality-tier gated FBM complexity",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField({ noiseOctaves: 3 });\nfield.init(scene, 'octave-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uNoiseOctaves).toBeDefined();\nexpect(mat.uniforms.uNoiseOctaves.value).toBe(3);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-19",
+      "description": "particleField has uMotionAmplitude uniform that respects reduced-motion scaling",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'motion-amp-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uMotionAmplitude).toBeDefined();\nfield.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, motionAmplitude: 0.2 } }));\nexpect(mat.uniforms.uMotionAmplitude.value).toBe(0.2);\nfield.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, motionAmplitude: 1.0 } }));\nexpect(mat.uniforms.uMotionAmplitude.value).toBe(1.0);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-20",
+      "description": "particleField uses additive blending with transparency and depthWrite disabled (matches pointCloud/ribbonField)",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'blend-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.blending).toBe(THREE.AdditiveBlending);\nexpect(mat.transparent).toBe(true);\nexpect(mat.depthWrite).toBe(false);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-21",
+      "description": "particleField has per-point buffer attributes: aHueOffset, aRandom, size (matching pointCloud pattern)",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'attr-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geo = points.geometry as THREE.BufferGeometry;\nconst posAttr = geo.getAttribute('position');\nexpect(posAttr).toBeDefined();\nexpect(posAttr.itemSize).toBe(3);\nconst sizeAttr = geo.getAttribute('size');\nexpect(sizeAttr).toBeDefined();\nexpect(sizeAttr.itemSize).toBe(1);\nconst hueOffsetAttr = geo.getAttribute('aHueOffset');\nexpect(hueOffsetAttr).toBeDefined();\nexpect(hueOffsetAttr.itemSize).toBe(1);\nconst randomAttr = geo.getAttribute('aRandom');\nexpect(randomAttr).toBeDefined();\nexpect(randomAttr.itemSize).toBe(3);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-22",
+      "description": "particleField has uPointerPos and uPointerDisturbance uniforms for pointer repulsion",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'pointer-uniform-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uPointerPos).toBeDefined();\nexpect(mat.uniforms.uPointerDisturbance).toBeDefined();\nfield.draw(scene, makeFrame({ time: 100, elapsed: 100, pointerX: 0.7, pointerY: 0.3, params: { ...defaultParams, pointerDisturbance: 0.5 } }));\nexpect(mat.uniforms.uPointerDisturbance.value).toBe(0.5);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-23",
+      "description": "particleField has uPaletteHue uniform for GPU-side color computation",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'palette-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uPaletteHue).toBeDefined();\nfield.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, paletteHue: 240 } }));\nexpect(mat.uniforms.uPaletteHue.value).toBe(240);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-24",
+      "description": "particleField vertex shader contains HSL to RGB conversion for GPU-side color (hsl2rgb)",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'hsl-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.vertexShader).toContain('hsl2rgb');",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "low"
+    },
+    {
+      "id": "T-041-25",
+      "description": "all three systems share the same noise3d.glsl source (snoise function present in all vertex shaders)",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst cloud = createPointCloud();\ncloud.init(scene, 'shared-noise-seed', defaultParams);\nconst cloudMat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n\nconst scene2 = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene2, 'shared-noise-seed', defaultParams);\nconst ribbonMat = (scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n\nconst scene3 = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene3, 'shared-noise-seed', defaultParams);\nconst fieldMat = (scene3.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n\n// All three should contain the shared snoise primitive\nexpect(cloudMat.vertexShader).toContain('snoise');\nexpect(ribbonMat.vertexShader).toContain('snoise');\nexpect(fieldMat.vertexShader).toContain('snoise');",
+      "imports": ["createPointCloud from '../../../src/visual/systems/pointCloud'", "createRibbonField from '../../../src/visual/systems/ribbonField'", "createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-26",
+      "description": "particleField cleanup() still removes mesh and disposes geometry/material after ShaderMaterial migration",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'cleanup-seed', defaultParams);\nexpect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(1);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geoDisposeSpy = vi.spyOn(points.geometry, 'dispose');\nconst matDisposeSpy = vi.spyOn(points.material as THREE.Material, 'dispose');\nfield.cleanup!();\nexpect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(0);\nexpect(geoDisposeSpy).toHaveBeenCalled();\nexpect(matDisposeSpy).toHaveBeenCalled();",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-27",
+      "description": "particleField draw() does not throw with valid FrameState after ShaderMaterial migration",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'safe-seed', defaultParams);\nexpect(() => field.draw(scene, makeFrame({ time: 1000, elapsed: 500 }))).not.toThrow();\nexpect(() => field.draw(scene, makeFrame({ time: 2000, elapsed: 2000, params: { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 1.0, pointerDisturbance: 1.0 }, pointerX: 0.5, pointerY: 0.5 }))).not.toThrow();",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-28",
+      "description": "particleField determinism preserved after ShaderMaterial migration (same seed = same base positions)",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene1 = new THREE.Scene();\nconst a = createParticleField();\na.init(scene1, 'det-seed', defaultParams);\nconst posA = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);\n\nconst scene2 = new THREE.Scene();\nconst b = createParticleField();\nb.init(scene2, 'det-seed', defaultParams);\nconst posB = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);\n\nexpect(posA).toEqual(posB);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-29",
+      "description": "particleField density and maxParticles scaling still works after ShaderMaterial migration",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst fieldLow = createParticleField({ maxParticles: 150 });\nfieldLow.init(scene, 'scale-seed', { ...defaultParams, density: 0.5 });\nconst lowCount = getParticleCount(fieldLow);\n\nconst fieldHigh = createParticleField({ maxParticles: 600 });\nfieldHigh.init(scene, 'scale-seed', { ...defaultParams, density: 1.0 });\nconst highCount = getParticleCount(fieldHigh);\n\nexpect(highCount).toBeGreaterThan(lowCount);\nexpect(lowCount).toBeLessThanOrEqual(150);",
+      "imports": ["createParticleField, getParticleCount from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-30",
+      "description": "no localStorage or cookie access during particleField init/draw after ShaderMaterial migration",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const lsSpy = vi.spyOn(Storage.prototype, 'getItem');\nconst cookieSpy = vi.spyOn(document, 'cookie', 'get');\nconst scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'privacy-seed', defaultParams);\nfield.draw(scene, makeFrame({ time: 100, elapsed: 100 }));\nexpect(lsSpy).not.toHaveBeenCalled();\nexpect(cookieSpy).not.toHaveBeenCalled();",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-31",
+      "description": "particleField config accepts noiseOctaves, enablePointerRepulsion, enableSlowModulation alongside existing options",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField({\n  maxParticles: 300,\n  enableSparkle: true,\n  noiseOctaves: 2,\n  enablePointerRepulsion: true,\n  enableSlowModulation: true,\n});\nfield.init(scene, 'config-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uNoiseOctaves.value).toBe(2);\nexpect(mat.uniforms.uEnablePointerRepulsion.value).toBeCloseTo(1.0);\nexpect(mat.uniforms.uEnableSlowModulation.value).toBeCloseTo(1.0);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "medium"
+    },
+    {
+      "id": "T-041-32",
+      "description": "particleField with enablePointerRepulsion=false sets uEnablePointerRepulsion uniform to 0",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField({ enablePointerRepulsion: false });\nfield.init(scene, 'no-ptr-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.uniforms.uEnablePointerRepulsion.value).toBeCloseTo(0.0);",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "low"
+    },
+    {
+      "id": "T-041-33",
+      "description": "noise3d.glsl file exists as a shared GLSL module",
+      "acceptanceCriteria": ["Geometry deformation occurs in a ShaderMaterial"],
+      "testBody": "import noise3dSrc from '../../../src/visual/shaders/noise3d.glsl?raw';\nexpect(noise3dSrc).toBeDefined();\nexpect(typeof noise3dSrc).toBe('string');\nexpect(noise3dSrc).toContain('snoise');\nexpect(noise3dSrc).toContain('fbm3');\nexpect(noise3dSrc).toContain('curl3');",
+      "imports": [],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-34",
+      "description": "particleField vertex shader contains uBassEnergy multiplied with curl3 for macro displacement",
+      "acceptanceCriteria": ["Bass energy affects large-scale displacement in 3D"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'bass-curl-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\nexpect(vs).toContain('curl3');\nexpect(vs).toContain('uBassEnergy');\n// curl3 and uBassEnergy should be in proximity (same displacement block)\nconst curlIdx = vs.indexOf('curl3(');\nconst bassInContext = vs.substring(Math.max(0, curlIdx - 50), curlIdx + 200);\nexpect(bassInContext).toContain('uBassEnergy');",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    },
+    {
+      "id": "T-041-35",
+      "description": "particleField vertex shader modulates gl_PointSize by uTrebleEnergy for sparkle effect",
+      "acceptanceCriteria": ["Treble energy affects fine-grain displacement or point size"],
+      "testBody": "const scene = new THREE.Scene();\nconst field = createParticleField();\nfield.init(scene, 'treble-size-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nconst vs = mat.vertexShader;\nconst pointSizeSection = vs.substring(vs.indexOf('gl_PointSize'));\nexpect(pointSizeSection).toContain('uTrebleEnergy');",
+      "imports": ["createParticleField from '../../../src/visual/systems/particleField'"],
+      "priority": "high"
+    }
+  ],
+  "structure": {
+    "imports": [
+      "import { describe, it, expect, vi } from 'vitest';",
+      "import * as THREE from 'three';",
+      "import { createPointCloud } from '../../../src/visual/systems/pointCloud';",
+      "import { createRibbonField } from '../../../src/visual/systems/ribbonField';",
+      "import { createParticleField, getParticleCount } from '../../../src/visual/systems/particleField';",
+      "import type { VisualParams } from '../../../src/visual/mappings';"
+    ],
+    "helpers": [
+      {
+        "name": "defaultParams",
+        "code": "const defaultParams: VisualParams = {\n  paletteHue: 180,\n  paletteSaturation: 0.5,\n  cadence: 0.7,\n  density: 0.6,\n  motionAmplitude: 1.0,\n  pointerDisturbance: 0,\n  bassEnergy: 0,\n  trebleEnergy: 0,\n  curveSoftness: 0.5,\n  structureComplexity: 0.5,\n  noiseFrequency: 1.0,\n  radialScale: 1.0,\n  twistStrength: 1.0,\n  fieldSpread: 1.0,\n};"
+      },
+      {
+        "name": "makeFrame",
+        "code": "function makeFrame(overrides: Partial<{ time: number; delta: number; elapsed: number; params: VisualParams; width: number; height: number; pointerX: number; pointerY: number }> = {}) {\n  return {\n    time: 0,\n    delta: 16,\n    elapsed: 0,\n    params: defaultParams,\n    width: 800,\n    height: 600,\n    ...overrides,\n  };\n}"
+      }
+    ],
+    "describeBlocks": [
+      {
+        "name": "US-041: Shader-based vertex displacement — pointCloud simplex/FBM upgrade",
+        "tests": ["T-041-01", "T-041-02", "T-041-11", "T-041-12", "T-041-15"]
+      },
+      {
+        "name": "US-041: Shader-based vertex displacement — ribbonField simplex/FBM upgrade",
+        "tests": ["T-041-03", "T-041-13", "T-041-14", "T-041-16"]
+      },
+      {
+        "name": "US-041: Shader-based vertex displacement — particleField ShaderMaterial migration",
+        "tests": ["T-041-04", "T-041-05", "T-041-06", "T-041-07", "T-041-08", "T-041-09", "T-041-10", "T-041-17", "T-041-18", "T-041-19", "T-041-20", "T-041-21", "T-041-22", "T-041-23", "T-041-24", "T-041-34", "T-041-35"]
+      },
+      {
+        "name": "US-041: Shader-based vertex displacement — particleField regression after migration",
+        "tests": ["T-041-26", "T-041-27", "T-041-28", "T-041-29", "T-041-30", "T-041-31", "T-041-32"]
+      },
+      {
+        "name": "US-041: Shader-based vertex displacement — shared noise module",
+        "tests": ["T-041-25", "T-041-33"]
+      }
+    ]
+  }
+}
