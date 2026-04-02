@@ -52,3 +52,5 @@
 
 ## US-029: Introduce Three.js renderer bootstrap
 
+## US-025: Add mobile quality scaling
+
