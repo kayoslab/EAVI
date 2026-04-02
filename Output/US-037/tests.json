@@ -1,0 +1,118 @@
+{
+  "tests": [
+    {
+      "id": "T-037-01",
+      "description": "html,body includes overscroll-behavior: none to prevent pull-to-refresh and rubber-banding",
+      "type": "unit",
+      "file": "tests/visual/viewport-safe-area.test.ts",
+      "steps": [
+        "Read src/style.css",
+        "Assert the html/body rule block contains overscroll-behavior: none"
+      ],
+      "assertions": [
+        "css matches /html[\\s\\S]*?body[\\s\\S]*?\\{[^}]*overscroll-behavior:\\s*none/"
+      ],
+      "acceptance_criteria": "No scrollbars appear"
+    },
+    {
+      "id": "T-037-02",
+      "description": "#app includes touch-action: none to prevent unintended browser gestures",
+      "type": "unit",
+      "file": "tests/visual/viewport-safe-area.test.ts",
+      "steps": [
+        "Read src/style.css",
+        "Assert the #app rule block contains touch-action: none"
+      ],
+      "assertions": [
+        "css matches /#app[^}]*touch-action:\\s*none/"
+      ],
+      "acceptance_criteria": "Dynamic viewport height changes do not leave permanent blank bars"
+    },
+    {
+      "id": "T-037-03",
+      "description": ".eavi-info-overlay uses safe-area-inset padding on all four sides",
+      "type": "unit",
+      "file": "tests/visual/viewport-safe-area.test.ts",
+      "steps": [
+        "Read src/style.css",
+        "Assert the .eavi-info-overlay rule block contains safe-area-inset-top",
+        "Assert the .eavi-info-overlay rule block contains safe-area-inset-right",
+        "Assert the .eavi-info-overlay rule block contains safe-area-inset-bottom",
+        "Assert the .eavi-info-overlay rule block contains safe-area-inset-left"
+      ],
+      "assertions": [
+        "css matches /\\.eavi-info-overlay[^}]*safe-area-inset-top/",
+        "css matches /\\.eavi-info-overlay[^}]*safe-area-inset-right/",
+        "css matches /\\.eavi-info-overlay[^}]*safe-area-inset-bottom/",
+        "css matches /\\.eavi-info-overlay[^}]*safe-area-inset-left/"
+      ],
+      "acceptance_criteria": "UI respects safe-area insets (top/bottom) where applicable"
+    },
+    {
+      "id": "T-037-04",
+      "description": "index.html viewport meta includes viewport-fit=cover (re-verify from US-028)",
+      "type": "unit",
+      "file": "tests/visual/viewport-safe-area.test.ts",
+      "steps": [
+        "Read index.html",
+        "Assert viewport meta tag contains viewport-fit=cover"
+      ],
+      "assertions": [
+        "html matches /viewport-fit\\s*=\\s*cover/"
+      ],
+      "acceptance_criteria": "Viewport meta config supports edge-to-edge displays"
+    },
+    {
+      "id": "T-037-05",
+      "description": "html,body overflow is hidden (re-verify no scrollbars)",
+      "type": "unit",
+      "file": "tests/visual/viewport-safe-area.test.ts",
+      "steps": [
+        "Read src/style.css",
+        "Assert the html/body rule block contains overflow: hidden"
+      ],
+      "assertions": [
+        "css matches /overflow:\\s*hidden/"
+      ],
+      "acceptance_criteria": "No scrollbars appear"
+    },
+    {
+      "id": "T-037-06",
+      "description": "html,body uses 100dvh with 100vh fallback for dynamic viewport sizing",
+      "type": "unit",
+      "file": "tests/visual/viewport-safe-area.test.ts",
+      "steps": [
+        "Read src/style.css",
+        "Assert css contains height: 100vh (fallback)",
+        "Assert css contains height: 100dvh (modern override)"
+      ],
+      "assertions": [
+        "css matches /height:\\s*100vh/",
+        "css matches /height:\\s*100dvh/"
+      ],
+      "acceptance_criteria": "Dynamic viewport height changes do not leave permanent blank bars"
+    },
+    {
+      "id": "T-037-07",
+      "description": ".eavi-info-close respects safe-area-inset-top so close button is not hidden behind notch",
+      "type": "unit",
+      "file": "tests/visual/viewport-safe-area.test.ts",
+      "steps": [
+        "Read src/style.css",
+        "Assert the overlay or panel area accounts for safe-area-inset-top (covered by T-037-03 overlay padding which pushes content including close button away from notch)"
+      ],
+      "assertions": [
+        "css matches /\\.eavi-info-overlay[^}]*safe-area-inset-top/"
+      ],
+      "acceptance_criteria": "UI respects safe-area insets (top/bottom) where applicable"
+    }
+  ],
+  "file": "tests/visual/viewport-safe-area.test.ts",
+  "imports": [
+    "import { describe, it, expect } from 'vitest'",
+    "import { readFileSync } from 'fs'",
+    "import { resolve } from 'path'"
+  ],
+  "setup": "Read src/style.css and index.html once at the top of the describe block using readFileSync",
+  "pattern": "Static file analysis with regex assertions matching the existing US-028 viewport-css.test.ts pattern"
+}
