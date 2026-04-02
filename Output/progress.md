@@ -76,3 +76,5 @@
 
 ## US-039: Enforce WebGL-only rendering backend
 
+## US-045: Correct resolution scaling without shrinking layout
+
