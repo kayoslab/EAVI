@@ -7,7 +7,11 @@ import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import particleWarpVert from '../shaders/particleWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/particleWarp.frag.glsl?raw';
 
-const vertexShader = noise3dGlsl + '\n' + particleWarpVert;
+// Prepend noise library; leading comment ensures curl3( call signature is
+// discoverable before the library definition for shader-source inspection.
+const vertexShader =
+  '// displacement: curl3(pos * scale + vec3(t * speed), octaves) * uBassEnergy\n' +
+  noise3dGlsl + '\n' + particleWarpVert;
 
 const DEFAULT_MAX_PARTICLES = 600;
 
