@@ -1,6 +1,38 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import * as THREE from 'three';
+
+vi.mock('three', async () => {
+  const actual = await vi.importActual<typeof import('three')>('three');
+  return {
+    ...actual,
+    WebGLRenderer: class MockWebGLRenderer {
+      domElement: HTMLCanvasElement;
+      private _clearColor = new actual.Color(0x000000);
+      private _pixelRatio = 1;
+      constructor() {
+        this.domElement = document.createElement('canvas');
+        this.domElement.style.display = 'block';
+      }
+      setSize(w: number, h: number) {
+        this.domElement.width = w * this._pixelRatio;
+        this.domElement.height = h * this._pixelRatio;
+      }
+      setPixelRatio(ratio: number) { this._pixelRatio = ratio; }
+      setClearColor(color: number | string | actual.Color) {
+        if (typeof color === 'number') this._clearColor.setHex(color);
+      }
+      getClearColor(target: actual.Color) { target.copy(this._clearColor); return target; }
+      render() {}
+      dispose() {}
+      getSize(target: actual.Vector2) {
+        target.set(this.domElement.width / this._pixelRatio, this.domElement.height / this._pixelRatio);
+        return target;
+      }
+    },
+  };
+});
 
 describe('US-002: Full-screen canvas shell', () => {
   describe('initScene module', () => {
@@ -11,20 +43,21 @@ describe('US-002: Full-screen canvas shell', () => {
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
     });
 
-    it('returns canvas and 2d rendering context', async () => {
+    it('returns renderer with a canvas domElement', async () => {
       const { initScene } = await import('../src/visual/scene');
       const container = document.querySelector<HTMLDivElement>('#app')!;
       const result = initScene(container);
-      expect(result.canvas).toBeInstanceOf(HTMLCanvasElement);
-      expect(result.ctx).toBeDefined();
+      expect(result.renderer.domElement).toBeInstanceOf(HTMLCanvasElement);
+      expect(result.scene).toBeDefined();
+      expect(result.camera).toBeDefined();
     });
 
     it('canvas fills the viewport dimensions', async () => {
       const { initScene } = await import('../src/visual/scene');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas } = initScene(container);
-      expect(canvas.width).toBe(1024);
-      expect(canvas.height).toBe(768);
+      const { renderer } = initScene(container);
+      expect(renderer.domElement.width).toBe(1024);
+      expect(renderer.domElement.height).toBe(768);
     });
 
     it('canvas is appended to the provided container', async () => {
@@ -38,8 +71,8 @@ describe('US-002: Full-screen canvas shell', () => {
     it('canvas has display block to prevent inline gaps', async () => {
       const { initScene } = await import('../src/visual/scene');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas } = initScene(container);
-      expect(canvas.style.display).toBe('block');
+      const { renderer } = initScene(container);
+      expect(renderer.domElement.style.display).toBe('block');
     });
   });
 
@@ -55,23 +88,23 @@ describe('US-002: Full-screen canvas shell', () => {
       const { initScene } = await import('../src/visual/scene');
       const { attachResizeHandler } = await import('../src/visual/resize');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas, ctx } = initScene(container);
-      attachResizeHandler(canvas, ctx);
+      const { renderer, camera } = initScene(container);
+      attachResizeHandler(renderer, camera);
 
       Object.defineProperty(window, 'innerWidth', { value: 800, writable: true, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: 600, writable: true, configurable: true });
       window.dispatchEvent(new Event('resize'));
 
-      expect(canvas.width).toBe(800);
-      expect(canvas.height).toBe(600);
+      expect(renderer.domElement.width).toBe(800);
+      expect(renderer.domElement.height).toBe(600);
     });
 
     it('returns a cleanup function that removes the listener', async () => {
       const { initScene } = await import('../src/visual/scene');
       const { attachResizeHandler } = await import('../src/visual/resize');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas, ctx } = initScene(container);
-      const cleanup = attachResizeHandler(canvas, ctx);
+      const { renderer, camera } = initScene(container);
+      const cleanup = attachResizeHandler(renderer, camera);
 
       cleanup();
 
@@ -79,8 +112,8 @@ describe('US-002: Full-screen canvas shell', () => {
       Object.defineProperty(window, 'innerHeight', { value: 480, writable: true, configurable: true });
       window.dispatchEvent(new Event('resize'));
 
-      expect(canvas.width).toBe(1024);
-      expect(canvas.height).toBe(768);
+      expect(renderer.domElement.width).toBe(1024);
+      expect(renderer.domElement.height).toBe(768);
     });
   });
 
@@ -121,11 +154,13 @@ describe('US-002: Full-screen canvas shell', () => {
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
     });
 
-    it('initScene fills canvas with dark background', async () => {
+    it('initScene sets a black background on the scene', async () => {
       const { initScene } = await import('../src/visual/scene');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { ctx } = initScene(container);
-      expect(ctx.fillStyle).toBe('#000000');
+      const { scene } = initScene(container);
+      const bg = scene.background as THREE.Color;
+      expect(bg).toBeDefined();
+      expect(bg.getHex()).toBe(0x000000);
     });
   });
 
@@ -145,14 +180,14 @@ describe('US-002: Full-screen canvas shell', () => {
       const { initScene } = await import('../src/visual/scene');
       const { startLoop } = await import('../src/visual/renderLoop');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas, ctx } = initScene(container);
+      const { renderer, scene, camera } = initScene(container);
       let callCount = 0;
       vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
         callCount++;
         if (callCount <= 2) cb(callCount * 16);
         return callCount;
       });
-      startLoop(canvas, ctx);
+      startLoop(renderer, scene, camera);
       expect(window.requestAnimationFrame).toHaveBeenCalled();
     });
   });
