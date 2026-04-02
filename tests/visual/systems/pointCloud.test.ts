@@ -145,15 +145,14 @@ describe('US-031: PointCloud geometry system', () => {
     expect(() => cloud.draw(scene, makeFrame({ time: 1000, elapsed: 500 }))).not.toThrow();
   });
 
-  it('T-031-11: draw() flags position buffer needsUpdate (version increments)', () => {
+  it('T-031-11: draw() updates shader uniforms (GPU-side deformation)', () => {
     const scene = new THREE.Scene();
     const cloud = createPointCloud();
     cloud.init(scene, 'update-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const posAttr = (points.geometry as THREE.BufferGeometry).getAttribute('position') as THREE.BufferAttribute;
-    const versionBefore = posAttr.version;
+    const mat = points.material as THREE.ShaderMaterial;
     cloud.draw(scene, makeFrame({ time: 100, elapsed: 100 }));
-    expect(posAttr.version).toBeGreaterThan(versionBefore);
+    expect(mat.uniforms.uTime.value).toBe(100);
   });
 
   it('T-031-12: cleanup() removes mesh from scene and disposes geometry/material', () => {
@@ -170,59 +169,46 @@ describe('US-031: PointCloud geometry system', () => {
     expect(matDisposeSpy).toHaveBeenCalled();
   });
 
-  it('T-031-13: bass energy influences point cloud motion (positions differ with bass=0 vs bass=1)', () => {
-    const scene1 = new THREE.Scene();
-    const cloud1 = createPointCloud();
-    const noBassParams = { ...defaultParams, bassEnergy: 0, trebleEnergy: 0, pointerDisturbance: 0 };
-    cloud1.init(scene1, 'bass-seed', noBassParams);
-    cloud1.draw(scene1, makeFrame({ time: 100, elapsed: 100, params: noBassParams }));
-    const pos1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+  it('T-031-13: bass energy influences point cloud motion (uBassEnergy uniform differs)', () => {
+    const scene = new THREE.Scene();
+    const cloud = createPointCloud();
+    cloud.init(scene, 'bass-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
 
-    const scene2 = new THREE.Scene();
-    const cloud2 = createPointCloud();
-    const highBassParams = { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 0, pointerDisturbance: 0 };
-    cloud2.init(scene2, 'bass-seed', highBassParams);
-    cloud2.draw(scene2, makeFrame({ time: 100, elapsed: 100, params: highBassParams }));
-    const pos2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+    cloud.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, bassEnergy: 0 } }));
+    expect(mat.uniforms.uBassEnergy.value).toBe(0);
 
-    expect(pos1).not.toEqual(pos2);
+    cloud.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, bassEnergy: 1.0 } }));
+    expect(mat.uniforms.uBassEnergy.value).toBe(1.0);
   });
 
-  it('T-031-14: treble energy influences point jitter', () => {
-    const scene1 = new THREE.Scene();
-    const cloud1 = createPointCloud();
-    const lowTrebleParams = { ...defaultParams, trebleEnergy: 0 };
-    cloud1.init(scene1, 'treble-seed', lowTrebleParams);
-    cloud1.draw(scene1, makeFrame({ time: 100, elapsed: 100, params: lowTrebleParams }));
-    const pos1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+  it('T-031-14: treble energy influences point jitter (uTrebleEnergy uniform differs)', () => {
+    const scene = new THREE.Scene();
+    const cloud = createPointCloud();
+    cloud.init(scene, 'treble-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
 
-    const scene2 = new THREE.Scene();
-    const cloud2 = createPointCloud();
-    const highTrebleParams = { ...defaultParams, trebleEnergy: 1.0 };
-    cloud2.init(scene2, 'treble-seed', highTrebleParams);
-    cloud2.draw(scene2, makeFrame({ time: 100, elapsed: 100, params: highTrebleParams }));
-    const pos2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('position').array as Float32Array);
+    cloud.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, trebleEnergy: 0 } }));
+    expect(mat.uniforms.uTrebleEnergy.value).toBe(0);
 
-    expect(pos1).not.toEqual(pos2);
+    cloud.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, trebleEnergy: 1.0 } }));
+    expect(mat.uniforms.uTrebleEnergy.value).toBe(1.0);
   });
 
-  it('T-031-15: colors derive from paletteHue (different hue produces different color buffer)', () => {
-    const scene1 = new THREE.Scene();
-    const cloud1 = createPointCloud();
-    cloud1.init(scene1, 'hue-seed', { ...defaultParams, paletteHue: 0 });
-    cloud1.draw(scene1, makeFrame({ params: { ...defaultParams, paletteHue: 0 } }));
-    const col1 = Float32Array.from((scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('color').array as Float32Array);
+  it('T-031-15: colors derive from paletteHue (uPaletteHue uniform reflects param)', () => {
+    const scene = new THREE.Scene();
+    const cloud = createPointCloud();
+    cloud.init(scene, 'hue-seed', { ...defaultParams, paletteHue: 0 });
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
 
-    const scene2 = new THREE.Scene();
-    const cloud2 = createPointCloud();
-    cloud2.init(scene2, 'hue-seed', { ...defaultParams, paletteHue: 180 });
-    cloud2.draw(scene2, makeFrame({ params: { ...defaultParams, paletteHue: 180 } }));
-    const col2 = Float32Array.from((scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points).geometry.getAttribute('color').array as Float32Array);
+    cloud.draw(scene, makeFrame({ params: { ...defaultParams, paletteHue: 0 } }));
+    expect(mat.uniforms.uPaletteHue.value).toBe(0);
 
-    expect(col1).not.toEqual(col2);
+    cloud.draw(scene, makeFrame({ params: { ...defaultParams, paletteHue: 180 } }));
+    expect(mat.uniforms.uPaletteHue.value).toBe(180);
   });
 
-  it('T-031-16: has color buffer attribute with vertexColors enabled on material', () => {
+  it('T-031-16: has color buffer attribute and ShaderMaterial with vertex/fragment shaders', () => {
     const scene = new THREE.Scene();
     const cloud = createPointCloud();
     cloud.init(scene, 'color-buf-seed', defaultParams);
@@ -230,8 +216,9 @@ describe('US-031: PointCloud geometry system', () => {
     const colorAttr = (points.geometry as THREE.BufferGeometry).getAttribute('color');
     expect(colorAttr).toBeDefined();
     expect(colorAttr.itemSize).toBe(3);
-    const mat = points.material as THREE.PointsMaterial;
-    expect(mat.vertexColors).toBe(true);
+    const mat = points.material as THREE.ShaderMaterial;
+    expect(mat).toBeInstanceOf(THREE.ShaderMaterial);
+    expect(mat.vertexShader.length).toBeGreaterThan(0);
   });
 
   describe('privacy', () => {
@@ -260,32 +247,21 @@ describe('US-031: PointCloud geometry system', () => {
     expect(highCount).toBeGreaterThan(lowCount);
   });
 
-  it('T-031-19: low motionAmplitude produces less displacement than high motionAmplitude', () => {
-    const scene1 = new THREE.Scene();
-    const cloudLow = createPointCloud();
+  it('T-031-19: low motionAmplitude produces smaller uMotionAmplitude uniform than high', () => {
+    const scene = new THREE.Scene();
+    const cloud = createPointCloud();
+    cloud.init(scene, 'motion-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+
     const lowParams = { ...defaultParams, motionAmplitude: 0.2 };
-    cloudLow.init(scene1, 'motion-seed', lowParams);
-    const lowPoints = scene1.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const lowGeo = lowPoints.geometry as THREE.BufferGeometry;
-    const lowInitial = Float32Array.from(lowGeo.getAttribute('position').array as Float32Array);
-    cloudLow.draw(scene1, makeFrame({ elapsed: 100, params: lowParams }));
-    const lowAfter = Float32Array.from(lowGeo.getAttribute('position').array as Float32Array);
-    let lowDisp = 0;
-    for (let i = 0; i < lowInitial.length; i++) lowDisp += Math.abs(lowAfter[i] - lowInitial[i]);
+    cloud.draw(scene, makeFrame({ elapsed: 100, params: lowParams }));
+    const lowVal = mat.uniforms.uMotionAmplitude.value;
 
-    const scene2 = new THREE.Scene();
-    const cloudHigh = createPointCloud();
     const highParams = { ...defaultParams, motionAmplitude: 1.0 };
-    cloudHigh.init(scene2, 'motion-seed', highParams);
-    const highPoints = scene2.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const highGeo = highPoints.geometry as THREE.BufferGeometry;
-    const highInitial = Float32Array.from(highGeo.getAttribute('position').array as Float32Array);
-    cloudHigh.draw(scene2, makeFrame({ elapsed: 100, params: highParams }));
-    const highAfter = Float32Array.from(highGeo.getAttribute('position').array as Float32Array);
-    let highDisp = 0;
-    for (let i = 0; i < highInitial.length; i++) highDisp += Math.abs(highAfter[i] - highInitial[i]);
+    cloud.draw(scene, makeFrame({ elapsed: 100, params: highParams }));
+    const highVal = mat.uniforms.uMotionAmplitude.value;
 
-    expect(highDisp).toBeGreaterThan(lowDisp);
+    expect(highVal).toBeGreaterThan(lowVal);
   });
 
   it('T-031-20: boundary values (density=0, density=1, structureComplexity=0, structureComplexity=1) do not throw', () => {

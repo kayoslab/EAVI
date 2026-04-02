@@ -3,6 +3,8 @@ import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
+import vertexShader from '../shaders/pointWarp.vert.glsl?raw';
+import fragmentShader from '../shaders/pointWarp.frag.glsl?raw';
 
 const DEFAULT_MAX_POINTS = 1200;
 
@@ -19,15 +21,13 @@ export interface PointCloud extends GeometrySystem {
 
 export function createPointCloud(config?: PointCloudConfig): PointCloud {
   const maxPoints = config?.maxPoints ?? DEFAULT_MAX_POINTS;
-  const enableSparkle = config?.enableSparkle ?? true;
 
   let effectiveCount = 0;
   let pointsMesh: THREE.Points | null = null;
   let geometry: THREE.BufferGeometry | null = null;
-  let material: THREE.PointsMaterial | null = null;
+  let shaderMaterial: THREE.ShaderMaterial | null = null;
   let sceneRef: Scene | null = null;
   let basePositions: Float32Array | null = null;
-  let hueOffsets: Float32Array | null = null;
 
   return {
     get pointCount() {
@@ -53,7 +53,8 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const positionsArr = new Float32Array(effectiveCount * 3);
       const colorsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
-      hueOffsets = new Float32Array(effectiveCount);
+      const hueOffsetsArr = new Float32Array(effectiveCount);
+      const aRandomArr = new Float32Array(effectiveCount * 3);
 
       const color = new THREE.Color();
 
@@ -102,10 +103,10 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         positionsArr[i * 3 + 2] = z;
 
         // Per-point hue offset for color variation
-        hueOffsets[i] = (rng() - 0.5) * 40;
+        hueOffsetsArr[i] = (rng() - 0.5) * 40;
 
         // Initial colors
-        const hue = ((params.paletteHue + hueOffsets[i]) % 360 + 360) % 360;
+        const hue = ((params.paletteHue + hueOffsetsArr[i]) % 360 + 360) % 360;
         color.setHSL(hue / 360, params.paletteSaturation, 0.6);
         colorsArr[i * 3] = color.r;
         colorsArr[i * 3 + 1] = color.g;
@@ -113,6 +114,11 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
 
         // Per-point size variation
         sizesArr[i] = 0.03 + rng() * 0.04;
+
+        // Per-point random values for GPU noise variation
+        aRandomArr[i * 3] = rng();
+        aRandomArr[i * 3 + 1] = rng();
+        aRandomArr[i * 3 + 2] = rng();
       }
 
       basePositions = Float32Array.from(positionsArr);
@@ -121,104 +127,78 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       geometry.setAttribute('position', new THREE.BufferAttribute(positionsArr, 3));
       geometry.setAttribute('color', new THREE.BufferAttribute(colorsArr, 3));
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
+      geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
+      geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
 
-      material = new THREE.PointsMaterial({
-        size: 0.06 * (1 + params.structureComplexity * 0.5),
-        vertexColors: true,
-        sizeAttenuation: true,
+      const uniforms = {
+        uTime: { value: 0.0 },
+        uBassEnergy: { value: 0.0 },
+        uTrebleEnergy: { value: 0.0 },
+        uMotionAmplitude: { value: params.motionAmplitude },
+        uPointerDisturbance: { value: 0.0 },
+        uPointerPos: { value: new THREE.Vector2(0, 0) },
+        uPaletteHue: { value: params.paletteHue },
+        uPaletteSaturation: { value: params.paletteSaturation },
+        uCadence: { value: params.cadence },
+        uBreathScale: { value: 1.0 },
+        uBasePointSize: { value: 0.06 * (1 + params.structureComplexity * 0.5) },
+      };
+
+      shaderMaterial = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        uniforms,
         transparent: true,
-        opacity: 0.85,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       });
 
-      pointsMesh = new THREE.Points(geometry, material);
+      pointsMesh = new THREE.Points(geometry, shaderMaterial);
       scene.add(pointsMesh);
       sceneRef = scene;
     },
 
     draw(_scene: Scene, frame: FrameState): void {
-      if (!geometry || !pointsMesh || !basePositions || !hueOffsets) return;
-
-      const posAttr = geometry.getAttribute('position') as THREE.BufferAttribute;
-      const colorAttr = geometry.getAttribute('color') as THREE.BufferAttribute;
-      const positions = posAttr.array as Float32Array;
-      const colors = colorAttr.array as Float32Array;
+      if (!geometry || !pointsMesh || !shaderMaterial) return;
 
       const {
         bassEnergy, trebleEnergy, pointerDisturbance,
-        motionAmplitude, paletteHue, paletteSaturation,
+        motionAmplitude, paletteHue, paletteSaturation, cadence,
+        structureComplexity,
       } = frame.params;
       const elapsed = frame.elapsed ?? 0;
       const pointerX = (frame.pointerX ?? 0.5) - 0.5;
       const pointerY = (frame.pointerY ?? 0.5) - 0.5;
 
-      const color = new THREE.Color();
+      // Update uniforms — GPU handles all deformation
+      const u = shaderMaterial.uniforms;
+      u.uTime.value = elapsed;
+      u.uBassEnergy.value = bassEnergy;
+      u.uTrebleEnergy.value = trebleEnergy;
+      u.uMotionAmplitude.value = motionAmplitude;
+      u.uPointerDisturbance.value = pointerDisturbance;
+      u.uPointerPos.value.set(pointerX, pointerY);
+      u.uPaletteHue.value = paletteHue;
+      u.uPaletteSaturation.value = paletteSaturation;
+      u.uCadence.value = cadence;
+      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
 
-      // Camera drift — rotate mesh for parallax
-      const driftPeriod = 20000; // 20s period
+      // Time-based breathing scale
+      const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
+      u.uBreathScale.value = breathScale;
+
+      // Mesh-level rotation — single matrix op, kept on CPU
+      const driftPeriod = 20000;
       const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.15 * motionAmplitude;
       pointsMesh.rotation.y = driftAngle;
-
-      // Z-axis breathing
-      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
-      pointsMesh.position.z = zBreath;
 
       // Bass-driven macro rotation offset
       const bassRotation = bassEnergy * motionAmplitude * 0.1;
       pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
 
-      // Time-based breathing scale
-      const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
-
-      for (let i = 0; i < effectiveCount; i++) {
-        const i3 = i * 3;
-        const bx = basePositions[i3];
-        const by = basePositions[i3 + 1];
-        const bz = basePositions[i3 + 2];
-
-        // Bass-driven macro drift
-        const bassDrift = bassEnergy * motionAmplitude * 0.25;
-        const driftX = Math.sin(elapsed * 0.0004 + i * 0.11) * bassDrift;
-        const driftY = Math.cos(elapsed * 0.0003 + i * 0.13) * bassDrift;
-        const driftZ = Math.sin(elapsed * 0.0005 + i * 0.07) * bassDrift;
-
-        // Treble-driven per-point jitter
-        const trebleJitter = trebleEnergy * motionAmplitude * 0.12;
-        const jitterX = (Math.sin(elapsed * 0.011 + i * 7.3) * 2 - 1) * trebleJitter;
-        const jitterY = (Math.cos(elapsed * 0.013 + i * 5.7) * 2 - 1) * trebleJitter;
-        const jitterZ = (Math.sin(elapsed * 0.009 + i * 3.1) * 2 - 1) * trebleJitter;
-
-        // Pointer disturbance — radial repulsion
-        let ptrOffsetX = 0;
-        let ptrOffsetY = 0;
-        if (pointerDisturbance > 0) {
-          const dx = (bx / 3) - pointerX;
-          const dy = (by / 3) - pointerY;
-          const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
-          const influence = Math.max(0, 1 - dist * 2) * pointerDisturbance * motionAmplitude * 0.5;
-          ptrOffsetX = dx * influence;
-          ptrOffsetY = dy * influence;
-        }
-
-        // Apply breathing scale
-        positions[i3] = (bx + driftX + jitterX + ptrOffsetX) * breathScale;
-        positions[i3 + 1] = (by + driftY + jitterY + ptrOffsetY) * breathScale;
-        positions[i3 + 2] = (bz + driftZ + jitterZ) * breathScale;
-
-        // Update colors
-        const hue = ((paletteHue + hueOffsets[i]) % 360 + 360) % 360;
-        const lightness = enableSparkle && trebleEnergy > 0.5
-          ? 0.6 + Math.sin(elapsed * 0.02 + i * 1.3) * 0.15 * trebleEnergy
-          : 0.6;
-        color.setHSL(hue / 360, paletteSaturation, lightness);
-        colors[i3] = color.r;
-        colors[i3 + 1] = color.g;
-        colors[i3 + 2] = color.b;
-      }
-
-      posAttr.needsUpdate = true;
-      colorAttr.needsUpdate = true;
+      // Z-axis breathing
+      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
+      pointsMesh.position.z = zBreath;
     },
 
     cleanup(): void {
@@ -228,14 +208,13 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       if (geometry) {
         geometry.dispose();
       }
-      if (material) {
-        material.dispose();
+      if (shaderMaterial) {
+        shaderMaterial.dispose();
       }
       pointsMesh = null;
       geometry = null;
-      material = null;
+      shaderMaterial = null;
       basePositions = null;
-      hueOffsets = null;
       sceneRef = null;
     },
   };
