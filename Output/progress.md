@@ -78,3 +78,5 @@
 
 ## US-045: Correct resolution scaling without shrinking layout
 
+## US-040: Create volumetric point cloud generator
+
