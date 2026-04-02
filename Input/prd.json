@@ -781,9 +781,11 @@
         "Rendering fails gracefully only if WebGL is unavailable"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
-      "depends_on": ["US-029"],
+      "passes": true,
+      "status": "pass",
+      "depends_on": [
+        "US-029"
+      ],
       "split_from": "US-030",
       "notes": "Canvas2D implementations automatically fail this story."
     },
@@ -800,7 +802,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-039"],
+      "depends_on": [
+        "US-039"
+      ],
       "split_from": "US-031",
       "notes": "Allowed base generators: sphere volume, shell, torus volume, 3D noise lattice, spiral field."
     },
@@ -817,7 +821,10 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-040", "US-017"],
+      "depends_on": [
+        "US-040",
+        "US-017"
+      ],
       "split_from": "US-032",
       "notes": "CPU-based per-point loops for deformation are not acceptable for final implementation."
     },
@@ -834,7 +841,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-040"],
+      "depends_on": [
+        "US-040"
+      ],
       "split_from": null,
       "notes": "OrbitControls may be used for development but not as default interaction."
     },
@@ -851,7 +860,10 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-040", "US-041"],
+      "depends_on": [
+        "US-040",
+        "US-041"
+      ],
       "split_from": "US-033",
       "notes": "Morphing should occur via shader interpolation or buffer blending."
     },
@@ -868,7 +880,9 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-041"],
+      "depends_on": [
+        "US-041"
+      ],
       "split_from": "US-034",
       "notes": "WaveField.ts must be deprecated."
     },
@@ -885,7 +899,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-039"],
+      "depends_on": [
+        "US-039"
+      ],
       "split_from": "US-028",
       "notes": "renderer.setPixelRatio() should be used instead of shrinking canvas width/height."
     },
@@ -902,7 +918,9 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-040"],
+      "depends_on": [
+        "US-040"
+      ],
       "split_from": null,
       "notes": "Use THREE.Fog or shader depth-based fade."
     },
@@ -919,7 +937,10 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-040", "US-045"],
+      "depends_on": [
+        "US-040",
+        "US-045"
+      ],
       "split_from": "US-036",
       "notes": "Low tier may reduce point count but must remain 3D."
     }
