@@ -1,3 +1,4 @@
+import type { Scene } from 'three';
 import type { VisualParams } from './mappings';
 
 export interface FrameState {
@@ -13,9 +14,9 @@ export interface FrameState {
 
 export interface GeometrySystem {
   init(
-    ctx: CanvasRenderingContext2D,
+    scene: Scene,
     seed: string,
     params: VisualParams,
   ): void;
-  draw(ctx: CanvasRenderingContext2D, frame: FrameState): void;
+  draw(scene: Scene, frame: FrameState): void;
 }

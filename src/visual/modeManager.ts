@@ -1,3 +1,4 @@
+import type { Scene } from 'three';
 import { createPRNG } from './prng';
 import type { VisualParams } from './mappings';
 import type { FrameState, GeometrySystem } from './types';
@@ -37,17 +38,17 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
     },
 
     init(
-      ctx: CanvasRenderingContext2D,
+      scene: Scene,
       s: string,
       params: VisualParams,
     ): void {
       seed = s;
       selectInitialMode(seed);
-      systems[activeIndex].init(ctx, seed, params);
+      systems[activeIndex].init(scene, seed, params);
       initialized = true;
     },
 
-    draw(ctx: CanvasRenderingContext2D, frame: FrameState): void {
+    draw(scene: Scene, frame: FrameState): void {
       if (!initialized) return;
 
       // Check for mode switch
@@ -55,12 +56,12 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
         const prevIndex = activeIndex;
         activeIndex = (activeIndex + 1) % systems.length;
         if (activeIndex !== prevIndex) {
-          systems[activeIndex].init(ctx, seed, frame.params);
+          systems[activeIndex].init(scene, seed, frame.params);
         }
         nextSwitchAt = frame.elapsed + switchInterval;
       }
 
-      systems[activeIndex].draw(ctx, frame);
+      systems[activeIndex].draw(scene, frame);
     },
   };
 }

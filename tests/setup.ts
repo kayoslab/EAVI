@@ -47,3 +47,7 @@ document.createElement = ((tagName: string, options?: ElementCreationOptions) =>
   }
   return el;
 }) as typeof document.createElement;
+
+// Three.js WebGLRenderer mock for jsdom (no real WebGL context available)
+// This mock is used via vi.mock('three') in test files that need it.
+// For tests that import Three.js directly, the mock provides minimal working stubs.

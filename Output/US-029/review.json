@@ -1,67 +1,30 @@
 {
-  "status": "approved_with_required_changes",
-  "overallAssessment": "Plan is well-structured and correctly maps the current codebase state. Steps are logically ordered and acceptance criteria align with the ticket. One blocking issue in Step 6 must be fixed before execution.",
-  "blockingIssues": [
+  "id": "US-029",
+  "plan_review": "approved",
+  "findings": [
     {
-      "step": 6,
-      "issue": "Changing GeometrySystem interface breaks the build",
-      "detail": "particleField.ts, waveField.ts, and modeManager.ts all explicitly extend/reference GeometrySystem (e.g. `export interface ParticleField extends GeometrySystem`). Changing init/draw signatures from CanvasRenderingContext2D to THREE.Scene will cause TypeScript compilation errors in those files — even though they are commented out of main.ts imports, `tsc` still type-checks all files in the project.",
-      "recommendation": "Remove Step 6 entirely. Keep the existing GeometrySystem interface unchanged. When geometry systems are ported to Three.js in a future story, update the interface at that time. Alternatively, create a parallel `ThreeGeometrySystem` interface in types.ts that coexists with the Canvas 2D one until migration is complete."
-    }
-  ],
-  "minorSuggestions": [
-    {
-      "step": 5,
-      "issue": "Placeholder mesh reference not passed to render loop",
-      "detail": "Step 5 describes rotating the placeholder mesh each frame, but the startLoop signature only receives renderer/scene/camera/deps. The mesh created in Step 3 (addPlaceholder) needs to reach the loop.",
-      "recommendation": "Either pass the mesh via LoopDeps (e.g. `placeholderMesh?: THREE.Mesh`), or have the loop query `scene.getObjectByName('placeholder')`, or store the mesh reference in a closure in main.ts and pass a rotation callback."
+      "step": 9,
+      "status": "accurate",
+      "note": "All 3 TS6133 errors confirmed: resolutionScale in scene.ts, enableSparkle in particleField.ts, enableShimmer in waveField.ts. Trivial fix."
     },
     {
-      "step": 5,
-      "issue": "LoopDeps still references GeometrySystem which is Canvas 2D",
-      "detail": "Since GeometrySystem should remain unchanged per the blocking issue fix, the geometrySystem field in LoopDeps will be incompatible with Three.js. This is fine for this story since it's set to null, but the plan should explicitly note that geometrySystem in LoopDeps becomes unused (not removed) until systems are ported.",
-      "recommendation": "Mark geometrySystem as deprecated in LoopDeps with a TODO comment, or leave it as-is since it will be null."
+      "step": 10,
+      "status": "accurate",
+      "note": "Test files correctly identified. Existing tests (scene.test.ts, resize.test.ts) already partially updated with Three.js mocks. Remaining test files still reference Canvas 2D APIs and need updating."
     },
     {
-      "step": 2,
-      "issue": "resolutionScale parameter may be unnecessary",
-      "detail": "Three.js WebGLRenderer.setPixelRatio handles DPR scaling internally. The resolutionScale parameter from the Canvas 2D version may not map cleanly. Consider whether it should multiply the pixel ratio or be dropped.",
-      "recommendation": "Use setPixelRatio(Math.min(window.devicePixelRatio * (resolutionScale ?? 1.0), 2)) or drop the parameter if the quality tier system will be reworked for Three.js later."
+      "step": 11,
+      "status": "accurate",
+      "note": "Verification criteria are complete and aligned with ticket acceptance criteria."
     }
   ],
-  "validatedAssumptions": [
-    "Canvas 2D rendering via scene.ts confirmed — returns { canvas, ctx }",
-    "renderLoop.ts signature is startLoop(canvas, ctx, deps?) confirmed",
-    "resize.ts signature is attachResizeHandler(canvas, ctx, resolutionScale) confirmed",
-    "GeometrySystem interface uses CanvasRenderingContext2D confirmed",
-    "three is NOT in package.json — install required",
-    "particleField.ts and waveField.ts exist and extend GeometrySystem",
-    "modeManager.ts exists and uses GeometrySystem",
-    "initPointer(target: HTMLElement) signature confirmed — renderer.domElement will work"
-  ],
-  "estimatedFilesChanged": {
-    "modify": [
-      "package.json",
-      "src/visual/scene.ts",
-      "src/visual/resize.ts",
-      "src/visual/renderLoop.ts",
-      "src/main.ts"
-    ],
-    "create": [
-      "src/visual/placeholder.ts"
-    ],
-    "unchanged": [
-      "src/visual/types.ts",
-      "src/visual/systems/particleField.ts",
-      "src/visual/systems/waveField.ts",
-      "src/visual/modeManager.ts"
-    ]
-  },
+  "risks_assessment": "Both identified risks are valid. The Three.js mocking risk is mitigated by tests/setup.ts already containing partial mock infrastructure. The Canvas 2D removal risk is low since it is intentional and git history preserves the old code.",
+  "suggestions": [],
+  "blocked": false,
+  "ready_to_proceed": true,
   "approved": true,
   "concerns": [],
-  "decision": "approved_with_required_changes",
-  "test_results": "approved_with_required_changes",
-  "resolution": "approved_with_required_changes",
+  "decision": "The plan is accurate, well-structured, and correctly reflects the current codebase state. All completed steps (1–8) are verified against the working tree. The three remaining steps (9–11) are correctly scoped and ordered.",
   "adr_entry": null,
   "failures": []
 }
