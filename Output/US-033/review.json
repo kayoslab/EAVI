@@ -1,0 +1,21 @@
+{
+  "planId": "US-033",
+  "notes": [
+    "Plan aligns well with existing evolution architecture — CurveParams extension and evolveParams changes follow the established harmonic pattern exactly.",
+    "Shader insertion points are correctly identified: radialScale after pos=position, twist multiplication at line 59, noiseFrequency in layeredNoise calls at lines 83-85, fieldSpread before breathing at line 98.",
+    "The types.ts entry correctly notes no changes needed since FrameState.params is typed as VisualParams which will pick up the new fields automatically.",
+    "Conservative amplitude ranges and the multiplicative-identity default of 1.0 are good choices — existing behaviour is preserved when evolution hasn't kicked in.",
+    "Step 7 correctly identifies the downstream test fixtures that need updating (evolution, mappings, pointCloud, pointCloudWarp, particleField, waveField).",
+    "Minor: the plan lists particleField and waveField as CPU-side structural changes (step 5), which is correct — only pointCloud uses the GPU shader path for these new uniforms."
+  ],
+  "warnings": [
+    "The T-012-12 passthrough test update (step 7) needs care: structureComplexity is still pass-through but the four new fields are evolved — ensure the test assertion is updated to reflect exactly which fields pass through and which are evolved.",
+    "The reduced-motion risk note is valid: radialScale and fieldSpread multiply base position (not velocity), so they bypass uMotionAmplitude. If testers flag this, attenuating evolution amplitude by motionAmplitude in evolveParams is the right fix — consider adding a TODO comment in the code for this."
+  ],
+  "blockers": [],
+  "approved": true,
+  "concerns": [],
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
