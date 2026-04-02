@@ -54,3 +54,5 @@
 
 ## US-025: Add mobile quality scaling
 
+## US-028: Fix viewport fill on mobile and tablets
+

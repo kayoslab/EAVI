@@ -557,8 +557,8 @@
         "UI buttons remain reachable and not clipped"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-002",
         "US-025"
