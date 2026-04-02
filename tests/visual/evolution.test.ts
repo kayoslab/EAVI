@@ -13,6 +13,10 @@ const baseParams: VisualParams = {
   trebleEnergy: 0.2,
   curveSoftness: 0.5,
   structureComplexity: 0.5,
+  noiseFrequency: 1.0,
+  radialScale: 1.0,
+  twistStrength: 1.0,
+  fieldSpread: 1.0,
 };
 
 describe('US-012: Time-based evolution', () => {

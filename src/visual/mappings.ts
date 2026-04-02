@@ -37,6 +37,14 @@ export interface VisualParams {
   curveSoftness: number;
   /** Structural intricacy 0.2-1.0 driven by DPR, cores, and screen aspect ratio */
   structureComplexity: number;
+  /** Spatial noise scale multiplier, evolved over time */
+  noiseFrequency: number;
+  /** Shell radius multiplier, evolved over time */
+  radialScale: number;
+  /** Y-axis twist amplitude multiplier, evolved over time */
+  twistStrength: number;
+  /** Overall point spread factor, evolved over time */
+  fieldSpread: number;
 }
 
 /** Bundled inputs for the mapping function — keeps it pure and testable. */
@@ -271,5 +279,23 @@ export function mapSignalsToVisuals(inputs: MappingInputs): VisualParams {
       signals.screenWidth,
       signals.screenHeight,
     ),
+    // Structural evolution base values — seeded per session
+    ...structuralBase(sessionSeed),
+  };
+}
+
+/**
+ * Seeded base values for structural evolution parameters.
+ * Each value is derived from the session seed so different sessions
+ * start with slightly different structures.
+ */
+function structuralBase(seed: string): Pick<VisualParams, 'noiseFrequency' | 'radialScale' | 'twistStrength' | 'fieldSpread'> {
+  const h = simpleHash(seed + ':struct');
+  const h2 = simpleHash(seed + ':struct2');
+  return {
+    noiseFrequency: 0.7 + ((h % 1000) / 1000) * 0.6,           // [0.7, 1.3]
+    radialScale: 0.85 + (((h >>> 8) % 1000) / 1000) * 0.3,     // [0.85, 1.15]
+    twistStrength: 0.5 + ((h2 % 1000) / 1000) * 1.0,            // [0.5, 1.5]
+    fieldSpread: 0.9 + (((h2 >>> 8) % 1000) / 1000) * 0.2,     // [0.9, 1.1]
   };
 }

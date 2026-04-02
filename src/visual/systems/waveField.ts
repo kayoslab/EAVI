@@ -104,7 +104,7 @@ export function createWaveField(config?: WaveFieldConfig): WaveField {
     draw(_scene: Scene, frame: FrameState): void {
       if (!group || waveGeometries.length === 0) return;
 
-      const { bassEnergy, trebleEnergy, pointerDisturbance, motionAmplitude, cadence } = frame.params;
+      const { bassEnergy, trebleEnergy, pointerDisturbance, motionAmplitude, cadence, noiseFrequency, radialScale, fieldSpread } = frame.params;
       const elapsed = frame.elapsed ?? 0;
       const pointerX = frame.pointerX ?? 0.5;
       const pointerY = frame.pointerY ?? 0.5;
@@ -117,15 +117,15 @@ export function createWaveField(config?: WaveFieldConfig): WaveField {
 
         const baseAmplitude = wave.amplitude * motionAmplitude;
         const bassAmplitude = bassEnergy * motionAmplitude * 0.3;
-        const totalAmplitude = baseAmplitude + bassAmplitude;
+        const totalAmplitude = (baseAmplitude + bassAmplitude) * radialScale;
 
         for (let v = 0; v < VERTICES_PER_WAVE; v++) {
           const t = v / (VERTICES_PER_WAVE - 1);
           const x = (t - 0.5) * 8;
 
-          // Base sine wave
-          let y = (wave.y - 0.5) * 6;
-          y += Math.sin(wave.frequency * x + wave.phase + elapsed * 0.001 * cadence) * totalAmplitude;
+          // Base sine wave with structural modulation
+          let y = (wave.y - 0.5) * 6 * fieldSpread;
+          y += Math.sin(wave.frequency * noiseFrequency * x + wave.phase + elapsed * 0.001 * cadence) * totalAmplitude;
 
           // Treble shimmer — higher frequency overlay
           if (enableShimmer && trebleEnergy > 0) {

@@ -142,6 +142,10 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uCadence: { value: params.cadence },
         uBreathScale: { value: 1.0 },
         uBasePointSize: { value: 0.06 * (1 + params.structureComplexity * 0.5) },
+        uNoiseFrequency: { value: 1.0 },
+        uRadialScale: { value: 1.0 },
+        uTwistStrength: { value: 1.0 },
+        uFieldSpread: { value: 1.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
@@ -164,7 +168,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const {
         bassEnergy, trebleEnergy, pointerDisturbance,
         motionAmplitude, paletteHue, paletteSaturation, cadence,
-        structureComplexity,
+        structureComplexity, noiseFrequency, radialScale, twistStrength, fieldSpread,
       } = frame.params;
       const elapsed = frame.elapsed ?? 0;
       const pointerX = (frame.pointerX ?? 0.5) - 0.5;
@@ -182,6 +186,10 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
       u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
+      u.uNoiseFrequency.value = noiseFrequency;
+      u.uRadialScale.value = radialScale;
+      u.uTwistStrength.value = twistStrength;
+      u.uFieldSpread.value = fieldSpread;
 
       // Time-based breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
