@@ -1,0 +1,116 @@
+{
+  "ticket_id": "US-035",
+  "title": "Add smooth visual transitions between 3D modes",
+  "overview": "Replace the instant hard-swap in modeManager.ts with an opacity-based crossfade. During transition, both outgoing and incoming geometry systems coexist in the scene; the outgoing fades out while the incoming fades in. A new uOpacity uniform is added to the GPU shaders, and the CPU-driven ParticleField uses material.opacity. Transition duration is seeded (2-4 seconds). Audio pipeline is untouched.",
+  "architecture_decisions": [
+    {
+      "decision": "Opacity crossfade, not geometry morph",
+      "rationale": "The three systems have incompatible topologies (sphere vs helix vs flat swarm). Morphing would require shared vertex counts and complex interpolation. Since all modes already use transparent + additive blending, overlapping two fading systems produces a natural visual blend with zero topology constraints."
+    },
+    {
+      "decision": "Add uOpacity uniform to fragment shaders rather than using Three.js material.opacity",
+      "rationale": "PointCloud and RibbonField use custom ShaderMaterial which ignores material.opacity. A uOpacity uniform in the fragment shader gives precise per-system opacity control. ParticleField uses PointsMaterial which does support material.opacity natively."
+    },
+    {
+      "decision": "Transition state lives in modeManager, not in individual systems",
+      "rationale": "GeometrySystem interface stays unchanged. The manager orchestrates the fade by setting opacity on both systems each frame. Systems gain a setOpacity method but are otherwise unmodified."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": 1,
+      "title": "Extend GeometrySystem interface with optional setOpacity",
+      "file": "src/visual/types.ts",
+      "action": "modify",
+      "details": "Add `setOpacity?(opacity: number): void` to the GeometrySystem interface. This keeps backward compatibility since the method is optional."
+    },
+    {
+      "step": 2,
+      "title": "Add uOpacity uniform to fragment shaders",
+      "files": [
+        "src/visual/shaders/pointWarp.frag.glsl",
+        "src/visual/shaders/ribbonWarp.frag.glsl"
+      ],
+      "action": "modify",
+      "details": "Add `uniform float uOpacity;` and multiply the final gl_FragColor alpha by uOpacity. Change line 17 from `gl_FragColor = vec4(vColor, alpha * 0.85);` to `gl_FragColor = vec4(vColor, alpha * 0.85 * uOpacity);`."
+    },
+    {
+      "step": 3,
+      "title": "Wire uOpacity into PointCloud and RibbonField",
+      "files": [
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/ribbonField.ts"
+      ],
+      "action": "modify",
+      "details": "Add `uOpacity: { value: 1.0 }` to the uniforms object in init(). Implement `setOpacity(opacity: number)` that updates `shaderMaterial.uniforms.uOpacity.value = opacity`."
+    },
+    {
+      "step": 4,
+      "title": "Wire opacity into ParticleField",
+      "file": "src/visual/systems/particleField.ts",
+      "action": "modify",
+      "details": "Implement `setOpacity(opacity: number)` that sets `material.opacity = opacity * 0.9` (0.9 being its base opacity). No shader changes needed since PointsMaterial handles opacity natively."
+    },
+    {
+      "step": 5,
+      "title": "Rewrite modeManager crossfade logic",
+      "file": "src/visual/modeManager.ts",
+      "action": "modify",
+      "details": "Replace the instant swap with a crossfade state machine. Key changes: (1) Add transition state: `transitioning: boolean`, `transitionStart: number`, `transitionDuration: number` (seeded 2000-4000ms), `outgoingIndex: number`. (2) When elapsed >= nextSwitchAt, instead of immediate cleanup+init, init the incoming system at opacity 0 and enter transition state. (3) Each frame during transition: compute progress = (elapsed - transitionStart) / transitionDuration, clamped 0-1. Use smoothstep easing. Set outgoing opacity = 1 - progress, incoming opacity = progress. (4) When progress reaches 1.0, call cleanup() on outgoing system and exit transition state. (5) During transition, call draw() on BOTH systems each frame. (6) transitionDuration is derived from the existing seeded PRNG: `2000 + Math.floor(rng() * 2000)`."
+    },
+    {
+      "step": 6,
+      "title": "Update ModeManager interface",
+      "file": "src/visual/modeManager.ts",
+      "action": "modify",
+      "details": "Add `readonly transitioning: boolean` to the ModeManager interface so tests and external code can observe transition state."
+    },
+    {
+      "step": 7,
+      "title": "Write tests for transition behavior",
+      "file": "tests/visual/modeManager.test.ts",
+      "action": "modify",
+      "details": "Add new test cases: (1) T-035-01: Mode switch crossfades — during transition, both outgoing and incoming draw() are called. (2) T-035-02: Transition duration is seeded (2-4 seconds range). (3) T-035-03: After transition completes, only incoming system draw() is called and outgoing cleanup() was called. (4) T-035-04: No frame hitches — draw() never throws during transition. (5) T-035-05: Audio params (bassEnergy, trebleEnergy) continue flowing to both systems during transition. (6) T-035-06: Transition state is observable via manager.transitioning. (7) T-035-07: setOpacity is called with correct values during crossfade (outgoing decreases, incoming increases). (8) T-035-08: Integration test with real ParticleField and PointCloud — no throw during transition."
+    },
+    {
+      "step": 8,
+      "title": "Update existing mode switch tests",
+      "file": "tests/visual/modeManager.test.ts",
+      "action": "modify",
+      "details": "Existing tests T-026-17, T-026-22, T-030-23 assert instant switch behavior. Update them to account for the transition period — e.g., T-030-23 should verify cleanup is called after transition completes (at elapsed = switchTime + transitionDuration), not immediately at switch time. T-026-17 should verify that both mocks are eventually drawn (may need to advance elapsed past transition duration)."
+    }
+  ],
+  "files_to_modify": [
+    "src/visual/types.ts",
+    "src/visual/shaders/pointWarp.frag.glsl",
+    "src/visual/shaders/ribbonWarp.frag.glsl",
+    "src/visual/systems/pointCloud.ts",
+    "src/visual/systems/ribbonField.ts",
+    "src/visual/systems/particleField.ts",
+    "src/visual/modeManager.ts",
+    "tests/visual/modeManager.test.ts"
+  ],
+  "files_to_create": [],
+  "acceptance_verification": {
+    "crossfade_or_morph": "Both systems render simultaneously during transition with complementary opacity values (outgoing fades out, incoming fades in). Verified by tests checking both draw() calls and setOpacity values.",
+    "transition_duration_seeded": "Duration derived from createPRNG(seed + ':mode'), range 2000-4000ms. Verified by test with multiple seeds showing variation.",
+    "no_frame_hitches": "No object creation during transition frames — both systems are already initialized. Only uniform updates per frame. Verified by no-throw tests spanning entire transition.",
+    "audio_continues_uninterrupted": "Audio pipeline is entirely decoupled from geometry systems (lives in renderLoop.ts). No audio code is touched. bassEnergy and trebleEnergy flow to both systems during transition via the shared FrameState. Verified by test checking params are passed to both systems."
+  },
+  "risks_and_mitigations": [
+    {
+      "risk": "GPU overdraw during transition (two full point clouds rendering simultaneously)",
+      "mitigation": "Both modes already use additive blending + no depth write, so overdraw cost is bounded. Transition is short (2-4s). Point counts are already quality-capped (600-1200 max). No mitigation needed beyond existing quality scaling."
+    },
+    {
+      "risk": "Memory spike from two geometry systems alive simultaneously",
+      "mitigation": "Peak is ~2x single system for transition duration only. At max quality: ~1200 points × 2 systems × ~80 bytes/point ≈ 192KB. Negligible."
+    }
+  ],
+  "out_of_scope": [
+    "Geometry morphing between modes (incompatible topologies)",
+    "Post-processing effects (blur, bloom) during transition",
+    "Changes to audio pipeline",
+    "Changes to renderLoop.ts (modeManager handles everything internally)"
+  ]
+}
