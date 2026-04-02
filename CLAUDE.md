@@ -125,3 +125,16 @@ Client:
 - Bass MUST drive macro 3D deformation.
 - Treble MUST drive fine detail behaviour (sparkle/micro-displacement/point size).
 - Audio reactivity must still run when muted.
+
+## Non-Negotiable Spatial Requirement
+
+The final visual MUST be three-dimensional.
+
+Flat 2D canvas-based implementations do NOT satisfy the artistic goal.
+The scene must include:
+- Perspective camera
+- Volumetric point cloud geometry
+- Shader-based 3D deformation
+- Visible depth/parallax
+
+Implementations that render only screen-space 2D particles or sine waves are invalid.
