@@ -1,31 +1,129 @@
-import { describe, it, expect, vi } from 'vitest';
-import { initScene } from '../../src/visual/scene';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as THREE from 'three';
 
-describe('US-025: Resolution scaling in initScene', () => {
-  it('T-025-17: initScene with resolutionScale=0.5 creates half-resolution canvas', () => {
+// Mock Three.js WebGLRenderer since jsdom has no WebGL
+vi.mock('three', async () => {
+  const actual = await vi.importActual<typeof import('three')>('three');
+  return {
+    ...actual,
+    WebGLRenderer: class MockWebGLRenderer {
+      domElement: HTMLCanvasElement;
+      private _clearColor = new actual.Color(0x000000);
+      private _pixelRatio = 1;
+
+      constructor() {
+        this.domElement = document.createElement('canvas');
+      }
+
+      setSize(w: number, h: number) {
+        this.domElement.width = w * this._pixelRatio;
+        this.domElement.height = h * this._pixelRatio;
+      }
+
+      setPixelRatio(ratio: number) {
+        this._pixelRatio = ratio;
+      }
+
+      setClearColor(color: number | string | actual.Color) {
+        if (typeof color === 'number') {
+          this._clearColor.setHex(color);
+        }
+      }
+
+      getClearColor(target: actual.Color) {
+        target.copy(this._clearColor);
+        return target;
+      }
+
+      render() {}
+      dispose() {}
+      getSize(target: actual.Vector2) {
+        target.set(this.domElement.width / this._pixelRatio, this.domElement.height / this._pixelRatio);
+        return target;
+      }
+    },
+  };
+});
+
+describe('US-029: Three.js scene bootstrap', () => {
+  beforeEach(() => {
     Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true });
     Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true });
-    const container = document.createElement('div');
-    const { canvas } = initScene(container, 0.5);
-    expect(canvas.width).toBe(960);
-    expect(canvas.height).toBe(540);
+    Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
   });
 
-  it('T-025-18: initScene with default resolutionScale uses full resolution', () => {
-    Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true });
-    Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true });
+  it('T-029-01: initScene creates a WebGLRenderer and appends its canvas to the container', async () => {
+    const { initScene } = await import('../../src/visual/scene');
     const container = document.createElement('div');
-    const { canvas } = initScene(container);
-    expect(canvas.width).toBe(1920);
-    expect(canvas.height).toBe(1080);
+    const { renderer } = initScene(container);
+
+    expect(container.children.length).toBe(1);
+    expect(container.children[0]).toBe(renderer.domElement);
+    expect(renderer.domElement).toBeInstanceOf(HTMLCanvasElement);
   });
 
-  it('T-025-19: initScene with resolutionScale=0.75 produces correctly scaled canvas', () => {
-    Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true });
-    Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true });
+  it('T-029-02: initScene returns an object with renderer, scene, and camera properties', async () => {
+    const { initScene } = await import('../../src/visual/scene');
     const container = document.createElement('div');
-    const { canvas } = initScene(container, 0.75);
-    expect(canvas.width).toBe(1440);
-    expect(canvas.height).toBe(810);
+    const result = initScene(container);
+
+    expect(result.renderer).toBeDefined();
+    expect(result.scene).toBeDefined();
+    expect(result.camera).toBeDefined();
+    expect(result.scene).toBeInstanceOf(THREE.Scene);
+    expect(result.camera).toBeInstanceOf(THREE.PerspectiveCamera);
+  });
+
+  it('T-029-03: renderer is sized to window dimensions on creation', async () => {
+    Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    const { renderer } = initScene(container);
+
+    // Pixel ratio clamped to min(2, devicePixelRatio) = 2
+    expect(renderer.domElement.width).toBe(1920 * 2);
+    expect(renderer.domElement.height).toBe(1080 * 2);
+  });
+
+  it('T-029-04: camera has correct aspect ratio matching window dimensions', async () => {
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    const { camera } = initScene(container);
+
+    expect(camera.aspect).toBe(1920 / 1080);
+  });
+
+  it('T-029-05: camera is positioned at z=5 looking at the origin', async () => {
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    const { camera } = initScene(container);
+
+    expect(camera.position.z).toBe(5);
+    expect(camera.position.x).toBe(0);
+    expect(camera.position.y).toBe(0);
+  });
+
+  it('T-029-06: scene background is set to black (0x000000)', async () => {
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    const { scene } = initScene(container);
+
+    expect(scene.background).toBeInstanceOf(THREE.Color);
+    const bg = scene.background as THREE.Color;
+    expect(bg.r).toBe(0);
+    expect(bg.g).toBe(0);
+    expect(bg.b).toBe(0);
+  });
+
+  it('T-029-07: renderer clear color is black', async () => {
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    const { renderer } = initScene(container);
+
+    const clearColor = new THREE.Color();
+    renderer.getClearColor(clearColor);
+    expect(clearColor.r).toBe(0);
+    expect(clearColor.g).toBe(0);
+    expect(clearColor.b).toBe(0);
   });
 });

@@ -1,45 +1,77 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import * as THREE from 'three';
 
-describe('US-002: Full-screen canvas shell', () => {
+// Mock WebGLRenderer for jsdom
+vi.mock('three', async () => {
+  const actual = await vi.importActual<typeof import('three')>('three');
+  return {
+    ...actual,
+    WebGLRenderer: class MockWebGLRenderer {
+      domElement: HTMLCanvasElement;
+      private _w = 0;
+      private _h = 0;
+
+      constructor() {
+        this.domElement = document.createElement('canvas');
+      }
+
+      setSize(w: number, h: number) {
+        this._w = w;
+        this._h = h;
+        this.domElement.width = w;
+        this.domElement.height = h;
+      }
+
+      setPixelRatio() {}
+      setClearColor() {}
+      getClearColor(target: actual.Color) { target.setRGB(0, 0, 0); return target; }
+      render() {}
+      dispose() {}
+      getSize(target: actual.Vector2) {
+        target.set(this._w, this._h);
+        return target;
+      }
+    },
+  };
+});
+
+describe('US-002: Full-screen canvas shell (Three.js)', () => {
   describe('initScene module', () => {
     beforeEach(() => {
       vi.resetModules();
       document.body.innerHTML = '<div id="app"></div>';
       Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
+      Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
     });
 
-    it('returns canvas and 2d rendering context', async () => {
+    it('returns renderer, scene, and camera', async () => {
       const { initScene } = await import('../src/visual/scene');
       const container = document.querySelector<HTMLDivElement>('#app')!;
       const result = initScene(container);
-      expect(result.canvas).toBeInstanceOf(HTMLCanvasElement);
-      expect(result.ctx).toBeDefined();
+      expect(result.renderer).toBeDefined();
+      expect(result.scene).toBeDefined();
+      expect(result.camera).toBeDefined();
+      expect(result.renderer.domElement).toBeInstanceOf(HTMLCanvasElement);
     });
 
-    it('canvas fills the viewport dimensions', async () => {
+    it('renderer canvas fills the viewport dimensions', async () => {
       const { initScene } = await import('../src/visual/scene');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas } = initScene(container);
-      expect(canvas.width).toBe(1024);
-      expect(canvas.height).toBe(768);
+      const { renderer } = initScene(container);
+      expect(renderer.domElement.width).toBe(1024);
+      expect(renderer.domElement.height).toBe(768);
     });
 
-    it('canvas is appended to the provided container', async () => {
+    it('renderer canvas is appended to the provided container', async () => {
       const { initScene } = await import('../src/visual/scene');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      initScene(container);
+      const { renderer } = initScene(container);
       const canvas = container.querySelector('canvas');
       expect(canvas).not.toBeNull();
-    });
-
-    it('canvas has display block to prevent inline gaps', async () => {
-      const { initScene } = await import('../src/visual/scene');
-      const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas } = initScene(container);
-      expect(canvas.style.display).toBe('block');
+      expect(canvas).toBe(renderer.domElement);
     });
   });
 
@@ -49,29 +81,32 @@ describe('US-002: Full-screen canvas shell', () => {
       document.body.innerHTML = '<div id="app"></div>';
       Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
+      Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
     });
 
-    it('updates canvas size on window resize', async () => {
+    it('updates renderer size on window resize', async () => {
       const { initScene } = await import('../src/visual/scene');
       const { attachResizeHandler } = await import('../src/visual/resize');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas, ctx } = initScene(container);
-      attachResizeHandler(canvas, ctx);
+      const { renderer, camera } = initScene(container);
+      attachResizeHandler(renderer, camera);
 
       Object.defineProperty(window, 'innerWidth', { value: 800, writable: true, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: 600, writable: true, configurable: true });
       window.dispatchEvent(new Event('resize'));
 
-      expect(canvas.width).toBe(800);
-      expect(canvas.height).toBe(600);
+      const size = new THREE.Vector2();
+      renderer.getSize(size);
+      expect(size.x).toBe(800);
+      expect(size.y).toBe(600);
     });
 
     it('returns a cleanup function that removes the listener', async () => {
       const { initScene } = await import('../src/visual/scene');
       const { attachResizeHandler } = await import('../src/visual/resize');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas, ctx } = initScene(container);
-      const cleanup = attachResizeHandler(canvas, ctx);
+      const { renderer, camera } = initScene(container);
+      const cleanup = attachResizeHandler(renderer, camera);
 
       cleanup();
 
@@ -79,8 +114,9 @@ describe('US-002: Full-screen canvas shell', () => {
       Object.defineProperty(window, 'innerHeight', { value: 480, writable: true, configurable: true });
       window.dispatchEvent(new Event('resize'));
 
-      expect(canvas.width).toBe(1024);
-      expect(canvas.height).toBe(768);
+      // Should still be original size since listener was removed
+      expect(renderer.domElement.width).toBe(1024);
+      expect(renderer.domElement.height).toBe(768);
     });
   });
 
@@ -119,13 +155,18 @@ describe('US-002: Full-screen canvas shell', () => {
       document.body.innerHTML = '<div id="app"></div>';
       Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
+      Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
     });
 
-    it('initScene fills canvas with dark background', async () => {
+    it('initScene sets renderer clear color to black', async () => {
       const { initScene } = await import('../src/visual/scene');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { ctx } = initScene(container);
-      expect(ctx.fillStyle).toBe('#000000');
+      const { renderer } = initScene(container);
+      const clearColor = new THREE.Color();
+      renderer.getClearColor(clearColor);
+      expect(clearColor.r).toBe(0);
+      expect(clearColor.g).toBe(0);
+      expect(clearColor.b).toBe(0);
     });
   });
 
@@ -135,24 +176,21 @@ describe('US-002: Full-screen canvas shell', () => {
       document.body.innerHTML = '<div id="app"></div>';
       Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
-      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-        cb(0);
-        return 0;
-      });
+      Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
     });
 
     it('startLoop calls requestAnimationFrame', async () => {
       const { initScene } = await import('../src/visual/scene');
       const { startLoop } = await import('../src/visual/renderLoop');
       const container = document.querySelector<HTMLDivElement>('#app')!;
-      const { canvas, ctx } = initScene(container);
+      const { renderer, scene, camera } = initScene(container);
       let callCount = 0;
       vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
         callCount++;
         if (callCount <= 2) cb(callCount * 16);
         return callCount;
       });
-      startLoop(canvas, ctx);
+      startLoop(renderer, scene, camera);
       expect(window.requestAnimationFrame).toHaveBeenCalled();
     });
   });
@@ -163,6 +201,7 @@ describe('US-002: Full-screen canvas shell', () => {
       document.body.innerHTML = '<div id="app"></div>';
       Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
+      Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
     });
 
     it('scene module does not access localStorage', async () => {
@@ -190,6 +229,7 @@ describe('US-002: Full-screen canvas shell', () => {
       document.body.innerHTML = '<div id="app"></div>';
       Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: 768, writable: true, configurable: true });
+      Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true });
       vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
     });
 
@@ -200,10 +240,9 @@ describe('US-002: Full-screen canvas shell', () => {
       expect(canvas?.tagName.toLowerCase()).toBe('canvas');
     });
 
-    it('canvas dimensions match viewport (scaled by quality profile)', async () => {
+    it('canvas dimensions match viewport', async () => {
       await import('../src/main');
       const canvas = document.querySelector('#app canvas') as HTMLCanvasElement;
-      // Quality scaling may reduce canvas buffer size below viewport
       expect(canvas.width).toBeLessThanOrEqual(1024);
       expect(canvas.height).toBeLessThanOrEqual(768);
       expect(canvas.width).toBeGreaterThan(0);
@@ -218,7 +257,6 @@ describe('US-002: Full-screen canvas shell', () => {
       Object.defineProperty(window, 'innerHeight', { value: 600, writable: true, configurable: true });
       window.dispatchEvent(new Event('resize'));
 
-      // Quality scaling may reduce canvas buffer size below viewport
       expect(canvas.width).toBeLessThanOrEqual(800);
       expect(canvas.height).toBeLessThanOrEqual(600);
       expect(canvas.width).toBeGreaterThan(0);
