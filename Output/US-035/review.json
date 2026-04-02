@@ -1,0 +1,51 @@
+{
+  "plan_id": "US-035",
+  "comments": [
+    {
+      "step": 2,
+      "severity": "low",
+      "comment": "Both shaders are identical. Confirm the exact line number at implementation time rather than hardcoding 'line 17' — the final gl_FragColor assignment is the target regardless of line number."
+    },
+    {
+      "step": 4,
+      "severity": "low",
+      "comment": "ParticleField base opacity is 0.9. The formula `material.opacity = opacity * 0.9` is correct so that full opacity still maps to 0.9. Document this in a brief comment so it doesn't look like a magic number."
+    },
+    {
+      "step": 5,
+      "severity": "medium",
+      "comment": "The plan says transitionDuration uses `createPRNG(seed + ':mode')` but the existing modeManager already has its own `rng` created from the seed. Reuse that existing rng instance for the transition duration rather than creating a new PRNG. Also: ensure nextSwitchAt is recalculated from the END of the transition (elapsed at completion + next interval), not from the original switch trigger time, to avoid the next switch firing too early."
+    },
+    {
+      "step": 5,
+      "severity": "low",
+      "comment": "Smoothstep easing is a good choice. Implement as a simple inline `t * t * (3 - 2 * t)` rather than importing a library."
+    },
+    {
+      "step": 7,
+      "severity": "low",
+      "comment": "T-035-08 mentions integration test with real ParticleField and PointCloud. These systems call THREE.js constructors. Make sure the test environment mocks or stubs WebGL context, or keep this as a mock-based test that verifies the interface contract rather than instantiating real GPU objects."
+    },
+    {
+      "step": 8,
+      "severity": "medium",
+      "comment": "T-030-23 currently asserts cleanup is called during mode switch. The updated test must advance elapsed past switchTime + transitionDuration to verify cleanup is deferred. Also verify that cleanup is NOT called at the switch trigger point — this is a regression-sensitive area."
+    }
+  ],
+  "missing_considerations": [
+    {
+      "severity": "low",
+      "description": "Edge case: if a second mode switch triggers while a transition is still in progress (e.g., if someone seeds an extremely short switch interval). The plan should specify behavior — either queue it, skip it, or immediately complete the current transition and start a new one. Recommend: complete current transition instantly (snap outgoing to 0, clean up) then start new transition."
+    },
+    {
+      "severity": "low",
+      "description": "The ModeManager.draw() currently only calls draw on the active system. During transition it must call draw on both. Ensure the outgoing system's draw() still receives valid FrameState (especially params) even while fading out — the plan implies this but should be explicit."
+    }
+  ],
+  "verdict_rationale": "Plan is well-researched and correctly maps to the actual codebase state. Architecture decision to use opacity crossfade over geometry morph is sound given incompatible topologies. The uOpacity uniform approach is correct for ShaderMaterial systems. Risks are properly bounded. The few issues noted are minor refinements, not blockers.",
+  "approved": true,
+  "concerns": [],
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
