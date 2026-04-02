@@ -515,8 +515,8 @@
         "Mode switch does not break playback"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-009",
         "US-012",
@@ -524,8 +524,7 @@
         "US-019"
       ],
       "split_from": "US-013",
-      "notes": "Keep mode boundaries clean so more can be added later.",
-      "claimed_by": "worker-3"
+      "notes": "Keep mode boundaries clean so more can be added later."
     },
     {
       "id": "US-027",
@@ -548,7 +547,6 @@
       "split_from": null,
       "notes": "Use this as a recurring definition-of-done gate."
     },
-
     {
       "id": "US-028",
       "title": "Fix viewport fill on mobile and tablets",
@@ -562,7 +560,10 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-002", "US-025"],
+      "depends_on": [
+        "US-002",
+        "US-025"
+      ],
       "split_from": "US-002",
       "notes": "Current implementation multiplies canvas width/height by resolutionScale, which can shrink the canvas on low-tier devices. Resolution scaling must affect render buffer/pixel ratio, not layout size."
     },
@@ -579,7 +580,10 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-001", "US-002"],
+      "depends_on": [
+        "US-001",
+        "US-002"
+      ],
       "split_from": "US-002",
       "notes": "This story is complete when a minimal 3D scene renders full-screen. No audio-reactivity required yet."
     },
@@ -596,7 +600,11 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-029", "US-017", "US-013"],
+      "depends_on": [
+        "US-029",
+        "US-017",
+        "US-013"
+      ],
       "split_from": "US-009",
       "notes": "Keep existing mappings/seed logic; replace only the draw backend. This reduces risk and keeps privacy rules intact."
     },
@@ -613,7 +621,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-030"],
+      "depends_on": [
+        "US-030"
+      ],
       "split_from": "US-026",
       "notes": "Base shape should be generated procedurally (e.g., volume/shell/lattice) and seeded by the session seed. Avoid using external models."
     },
@@ -630,7 +640,12 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-031", "US-018", "US-019", "US-016"],
+      "depends_on": [
+        "US-031",
+        "US-018",
+        "US-019",
+        "US-016"
+      ],
       "split_from": "US-018",
       "notes": "Use GPU-side deformation (ShaderMaterial) so point counts can be higher without CPU bottlenecks."
     },
@@ -647,7 +662,10 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-032", "US-012"],
+      "depends_on": [
+        "US-032",
+        "US-012"
+      ],
       "split_from": "US-012",
       "notes": "Examples: morph between two seeded shapes, slowly change noise frequency, gradually alter camera distance and field radius."
     },
@@ -664,7 +682,12 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-030", "US-026", "US-018", "US-019"],
+      "depends_on": [
+        "US-030",
+        "US-026",
+        "US-018",
+        "US-019"
+      ],
       "split_from": "US-026",
       "notes": "Second mode should still be ‘close to point clouds’: e.g., a 3D ribbon of points, a volumetric lattice, or a rotating shell field."
     },
@@ -681,7 +704,9 @@
       "priority": 3,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-034"],
+      "depends_on": [
+        "US-034"
+      ],
       "split_from": "US-026",
       "notes": "Implement as opacity crossfade or geometry morph. Keep it lightweight; no heavy post-processing is required."
     },
@@ -698,7 +723,10 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-028", "US-030"],
+      "depends_on": [
+        "US-028",
+        "US-030"
+      ],
       "split_from": "US-025",
       "notes": "This story replaces the ‘resolutionScale shrinks canvas’ approach with proper render-resolution scaling."
     },
@@ -715,7 +743,9 @@
       "priority": 3,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-028"],
+      "depends_on": [
+        "US-028"
+      ],
       "split_from": "US-002",
       "notes": "Use viewport-fit and safe-area insets; prefer modern dynamic viewport sizing units with fallbacks."
     },
@@ -732,7 +762,11 @@
       "priority": 3,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-030", "US-031", "US-017"],
+      "depends_on": [
+        "US-030",
+        "US-031",
+        "US-017"
+      ],
       "split_from": null,
       "notes": "This is for iteration speed; keep it tiny and removable."
     }

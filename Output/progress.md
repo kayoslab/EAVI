@@ -48,3 +48,5 @@
 
 ## US-026: Create second visual mode
 
+## US-026: Create second visual mode
+
