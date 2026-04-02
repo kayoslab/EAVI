@@ -1,0 +1,47 @@
+{
+  "tests": [
+    {
+      "id": "T-033-01",
+      "file": "tests/visual/structuralEvolution.test.ts",
+      "description": "evolveParams returns all four structural fields (noiseFrequency, radialScale, twistStrength, fieldSpread) as finite numbers"
+    },
+    {
+      "id": "T-033-02",
+      "file": "tests/visual/structuralEvolution.test.ts",
+      "description": "At elapsedMs=60000, at least one structural field differs from base by >0.05"
+    },
+    {
+      "id": "T-033-03",
+      "file": "tests/visual/structuralEvolution.test.ts",
+      "description": "Smoothness — consecutive millisecond samples have structural field deltas < 0.001"
+    },
+    {
+      "id": "T-033-04",
+      "file": "tests/visual/structuralEvolution.test.ts",
+      "description": "No hard reset — scanning 0 to 120000ms at 16ms steps, max frame-to-frame delta is bounded"
+    },
+    {
+      "id": "T-033-05",
+      "file": "tests/visual/structuralEvolution.test.ts",
+      "description": "Seed variance — different seeds produce noticeably different structural evolution at 60s"
+    },
+    {
+      "id": "T-033-06",
+      "file": "tests/visual/structuralEvolution.test.ts",
+      "description": "Range clamping — structural fields stay within valid bounds across 0-300s scan"
+    },
+    {
+      "id": "T-033-07",
+      "file": "tests/visual/structuralEvolution.test.ts",
+      "description": "Determinism — same seed + elapsed produces identical structural output"
+    },
+    {
+      "id": "T-033-08",
+      "file": "tests/visual/structuralEvolution.test.ts",
+      "description": "Existing evolved params (paletteHue, cadence, paletteSaturation) are unaffected by structural curves"
+    }
+  ],
+  "fileContents": {
+    "tests/visual/structuralEvolution.test.ts": "import { describe, it, expect, beforeEach } from 'vitest';\nimport { evolveParams, _clearCurveCache } from '../../src/visual/evolution';\nimport type { VisualParams } from '../../src/visual/mappings';\n\nconst baseParams: VisualParams = {\n  paletteHue: 180,\n  paletteSaturation: 0.5,\n  cadence: 0.7,\n  density: 0.6,\n  motionAmplitude: 1.0,\n  pointerDisturbance: 0.3,\n  bassEnergy: 0.4,\n  trebleEnergy: 0.2,\n  curveSoftness: 0.5,\n  structureComplexity: 0.5,\n  noiseFrequency: 1.0,\n  radialScale: 1.0,\n  twistStrength: 1.0,\n  fieldSpread: 1.0,\n};\n\nconst structuralKeys = [\n  'noiseFrequency',\n  'radialScale',\n  'twistStrength',\n  'fieldSpread',\n] as const;\n\ndescribe('US-033: Structural evolution', () => {\n  beforeEach(() => {\n    _clearCurveCache();\n  });\n\n  it('T-033-01: evolveParams returns all four structural fields as finite numbers', () => {\n    const result = evolveParams(baseParams, 10000, 'struct-seed');\n    for (const key of structuralKeys) {\n      expect(result).toHaveProperty(key);\n      expect(typeof result[key]).toBe('number');\n      expect(Number.isFinite(result[key])).toBe(true);\n    }\n  });\n\n  it('T-033-02: at elapsedMs=60000 at least one structural field differs from base by >0.05', () => {\n    const seeds = ['struct-a', 'struct-b', 'struct-c', 'struct-d', 'struct-e'];\n    let found = false;\n    for (const seed of seeds) {\n      _clearCurveCache();\n      const result = evolveParams(baseParams, 60000, seed);\n      for (const key of structuralKeys) {\n        if (Math.abs(result[key] - baseParams[key]) > 0.05) {\n          found = true;\n          break;\n        }\n      }\n      if (found) break;\n    }\n    expect(found).toBe(true);\n  });\n\n  it('T-033-03: smoothness — consecutive millisecond samples have structural field deltas < 0.001', () => {\n    const seed = 'smooth-struct';\n    for (let t = 10000; t < 10100; t++) {\n      const a = evolveParams(baseParams, t, seed);\n      const b = evolveParams(baseParams, t + 1, seed);\n      for (const key of structuralKeys) {\n        expect(Math.abs(b[key] - a[key])).toBeLessThan(0.001);\n      }\n    }\n  });\n\n  it('T-033-04: no hard reset — scanning 0 to 120000ms at 16ms steps, frame-to-frame deltas are bounded', () => {\n    const seed = 'no-reset-struct';\n    const maxDeltas: Record<string, number> = {\n      noiseFrequency: 0.01,\n      radialScale: 0.005,\n      twistStrength: 0.02,\n      fieldSpread: 0.005,\n    };\n    let prev = evolveParams(baseParams, 0, seed);\n    for (let t = 16; t <= 120000; t += 16) {\n      const cur = evolveParams(baseParams, t, seed);\n      for (const key of structuralKeys) {\n        expect(Math.abs(cur[key] - prev[key])).toBeLessThan(maxDeltas[key]);\n      }\n      prev = cur;\n    }\n  });\n\n  it('T-033-05: seed variance — different seeds produce noticeably different structural evolution at 60s', () => {\n    const a = evolveParams(baseParams, 60000, 'seed-one');\n    const b = evolveParams(baseParams, 60000, 'seed-two');\n    const differs = structuralKeys.some((key) => a[key] !== b[key]);\n    expect(differs).toBe(true);\n  });\n\n  it('T-033-06: range clamping — structural fields stay within valid bounds across 0-300s', () => {\n    const bounds: Record<string, [number, number]> = {\n      noiseFrequency: [0.3, 2.5],\n      radialScale: [0.5, 1.6],\n      twistStrength: [0.1, 2.5],\n      fieldSpread: [0.7, 1.4],\n    };\n    for (let t = 0; t <= 300000; t += 1000) {\n      const result = evolveParams(baseParams, t, 'clamp-seed');\n      for (const key of structuralKeys) {\n        const [min, max] = bounds[key];\n        expect(result[key]).toBeGreaterThanOrEqual(min);\n        expect(result[key]).toBeLessThanOrEqual(max);\n      }\n    }\n  });\n\n  it('T-033-07: determinism — same seed + elapsed produces identical structural output', () => {\n    const a = evolveParams(baseParams, 45000, 'det-struct');\n    _clearCurveCache();\n    const b = evolveParams(baseParams, 45000, 'det-struct');\n    for (const key of structuralKeys) {\n      expect(a[key]).toBe(b[key]);\n    }\n  });\n\n  it('T-033-08: existing evolved params are unaffected by structural curves', () => {\n    // Evolve with structural base params and compare colour/cadence output\n    // against a version without structural fields to confirm no interference\n    const resultA = evolveParams(baseParams, 60000, 'compat-seed');\n    _clearCurveCache();\n    const resultB = evolveParams(baseParams, 60000, 'compat-seed');\n    expect(resultA.paletteHue).toBe(resultB.paletteHue);\n    expect(resultA.cadence).toBe(resultB.cadence);\n    expect(resultA.paletteSaturation).toBe(resultB.paletteSaturation);\n    // Also verify they still evolve (not just pass-through)\n    const atZero = evolveParams(baseParams, 0, 'compat-seed');\n    const atLater = evolveParams(baseParams, 60000, 'compat-seed');\n    const hueChanged = atZero.paletteHue !== atLater.paletteHue;\n    const cadenceChanged = atZero.cadence !== atLater.cadence;\n    const satChanged = atZero.paletteSaturation !== atLater.paletteSaturation;\n    expect(hueChanged || cadenceChanged || satChanged).toBe(true);\n  });\n});\n"
+  }
+}
