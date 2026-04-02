@@ -1,0 +1,167 @@
+{
+  "plan_id": "US-030",
+  "summary": "Plan is well-structured and accurately reflects current state. The core approach — implement draw() in ParticleField/WaveField with Three.js primitives, clean up placeholder on geometry init, add cleanup on mode switch — is correct. A few adjustments needed around coordinate mapping, placeholder rotation removal, and step consolidation.",
+  "current_state_accuracy": {
+    "correct": [
+      "WebGLRenderer already created in scene.ts",
+      "renderer.render(scene, camera) already called each frame in renderLoop.ts",
+      "Audio analysis fully wired with bass/treble EMA smoothing",
+      "Pointer entropy fully wired with disturbance smoothing",
+      "ParticleField and WaveField draw() are no-op stubs",
+      "Placeholder icosahedron is the only visible geometry",
+      "No Canvas 2D rendering code exists — stubs are empty"
+    ],
+    "minor_corrections": [
+      "placeholder.ts currently returns only { mesh }, not lights — the ambient and directional lights are added to scene but not tracked. Plan step 3 already identifies this but should be explicit that this is a required code change, not just optional."
+    ]
+  },
+  "step_reviews": [
+    {
+      "step": 1,
+      "title": "Implement ParticleField Three.js rendering",
+      "status": "approve_with_changes",
+      "issues": [
+        {
+          "severity": "high",
+          "description": "Particle positions are currently in [0,1] normalized range (rng() output). Three.js Points need world-space coordinates visible to a camera at z=5 with 60° FOV. The plan must specify coordinate mapping — e.g., remap [0,1] to [-aspect, +aspect] for x and [-1, 1] for y, with z near 0 or using slight depth spread.",
+          "suggestion": "Add a detail: 'Map particle (x, y) from [0,1] to camera-visible world space. With camera at z=5 and 60° FOV, visible x range is roughly [-aspect*5*tan(30°), +aspect*5*tan(30°)]. Use a simpler approach: spread particles in [-3, 3] x [-2, 2] x [-1, 1] range.'"
+        },
+        {
+          "severity": "low",
+          "description": "PointsMaterial with sizeAttenuation: true means point size is in world units and attenuates with distance. For particles near z=0 with camera at z=5, a size of 1-3 in world units may be too large or too small. Plan should note that size tuning will be needed.",
+          "suggestion": "Add detail: 'Point size may need calibration — start with size: 0.05-0.15 world units and adjust visually.'"
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "title": "Implement WaveField Three.js rendering",
+      "status": "approve_with_changes",
+      "issues": [
+        {
+          "severity": "high",
+          "description": "Same coordinate mapping issue. Wave y positions are in [0,1] normalized range. The plan mentions 'x spans [-aspect, +aspect]' which is good, but wave.y also needs remapping from [0,1] to visible world-space range.",
+          "suggestion": "Specify: 'Remap wave.y from [0,1] to [-2, 2] in world space (or similar range visible from camera at z=5).'"
+        },
+        {
+          "severity": "low",
+          "description": "128 vertices per wave line is reasonable but should be stored as a configurable constant for tuning.",
+          "suggestion": "Minor — just note it as a tunable constant."
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "title": "Clean up scene transitions between placeholder and geometry systems",
+      "status": "approve_with_changes",
+      "issues": [
+        {
+          "severity": "medium",
+          "description": "The plan mentions removing placeholder mesh and lights from the scene after geometry init, but does not mention removing the placeholder rotation code in renderLoop.ts (lines 155-158). After placeholder is removed from scene, the rotation code is harmless but wasteful. More importantly, if placeholderMesh is removed from scene but the reference in deps still exists, the rotation code will still run on a detached mesh.",
+          "suggestion": "After removing placeholder from scene in the geometry init block, also set d.placeholderMesh to null (or add a guard: only rotate if mesh.parent !== null). Simplest: nullify the dep reference after removal."
+        },
+        {
+          "severity": "medium",
+          "description": "placeholder.ts adds lights directly to scene without returning references. The plan correctly identifies this needs fixing but should be explicit: addPlaceholder must return { mesh, ambient, directional } so they can all be removed and disposed.",
+          "suggestion": "Already in plan but emphasize this is a required change to placeholder.ts return type."
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "title": "Handle geometry system cleanup on mode switch",
+      "status": "approve",
+      "issues": [
+        {
+          "severity": "low",
+          "description": "The cleanup() method should be optional in the interface (as the plan states) since not all GeometrySystem implementations may need it. ModeManager itself should also implement cleanup() by delegating to the active system.",
+          "suggestion": "Ensure ModeManager.cleanup() calls the active system's cleanup(). This is implied but worth being explicit."
+        }
+      ]
+    },
+    {
+      "step": 5,
+      "title": "Add scene lighting for geometry systems",
+      "status": "suggest_merge",
+      "issues": [
+        {
+          "severity": "medium",
+          "description": "This step is mostly unnecessary as a standalone step. PointsMaterial and LineBasicMaterial are both unlit — they ignore scene lights entirely. The only reason to add ambient light is for the placeholder (which uses MeshStandardMaterial) or future lit materials. Since the placeholder is being removed in step 3, no persistent lighting is needed.",
+          "suggestion": "Merge into step 3: when removing placeholder lights, optionally add a single ambient light to scene.ts for future extensibility. Do not create a new file. This reduces files_to_create to truly empty and keeps the step count manageable."
+        }
+      ]
+    },
+    {
+      "step": 6,
+      "title": "Verify acceptance criteria",
+      "status": "approve",
+      "issues": []
+    }
+  ],
+  "recommended_step_order": [
+    {
+      "order": 1,
+      "action": "Implement ParticleField Three.js rendering (with coordinate mapping fix)"
+    },
+    {
+      "order": 2,
+      "action": "Implement WaveField Three.js rendering (with coordinate mapping fix)"
+    },
+    {
+      "order": 3,
+      "action": "Add cleanup() to GeometrySystem interface and implement in both systems + ModeManager (was step 4, moved up since step 3 depends on cleanup being available)"
+    },
+    {
+      "order": 4,
+      "action": "Clean up placeholder transition: update placeholder.ts return type, remove placeholder + lights after geometry init, nullify dep reference, add ambient light to scene.ts (merges original steps 3 + 5)"
+    },
+    {
+      "order": 5,
+      "action": "Verify acceptance criteria and run full test suite"
+    }
+  ],
+  "files_to_modify": [
+    "src/visual/systems/particleField.ts",
+    "src/visual/systems/waveField.ts",
+    "src/visual/renderLoop.ts",
+    "src/visual/modeManager.ts",
+    "src/visual/types.ts",
+    "src/visual/scene.ts",
+    "src/visual/placeholder.ts",
+    "tests/visual/systems/particleField.test.ts",
+    "tests/visual/systems/waveField.test.ts",
+    "tests/visual/renderLoop.test.ts",
+    "tests/visual/modeManager.test.ts"
+  ],
+  "files_to_create": [],
+  "files_to_delete": [],
+  "risks": [
+    {
+      "risk": "Three.js objects in jsdom test environment",
+      "severity": "medium",
+      "mitigation": "Mock THREE.BufferGeometry, Points, Line constructors at module level. Verify scene.add() calls and buffer attribute lengths rather than actual WebGL rendering."
+    },
+    {
+      "risk": "Coordinate mapping mismatch — particles/waves invisible or off-screen",
+      "severity": "high",
+      "mitigation": "Calculate visible world-space bounds from camera FOV and position. With 60° FOV at z=5, visible height is ~5.77 units. Map particle/wave coordinates accordingly and verify visually."
+    },
+    {
+      "risk": "GPU memory leaks from undisposed geometries/materials on mode switch",
+      "severity": "medium",
+      "mitigation": "cleanup() must call geometry.dispose() and material.dispose() on all Three.js objects, plus scene.remove(). Test that dispose is called."
+    },
+    {
+      "risk": "Buffer update performance at high particle counts",
+      "severity": "low",
+      "mitigation": "600 particles × 3 floats = 1800 float writes per frame — negligible. Only becomes relevant at 10k+ particles."
+    }
+  ],
+  "unchanged_systems_verified": true,
+  "notes": "The plan correctly identifies that this is not a 'migration from Canvas 2D' but rather 'implementing the Three.js draw methods that were always planned'. No Canvas 2D code exists to remove — the stubs are simply empty. The main.ts file does not need modification since it already wires everything correctly.",
+  "approved": true,
+  "concerns": [],
+  "decision": "approve_with_changes",
+  "adr_entry": null,
+  "failures": []
+}
