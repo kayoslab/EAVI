@@ -3,8 +3,11 @@ import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
-import vertexShader from '../shaders/pointWarp.vert.glsl?raw';
+import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/pointWarp.frag.glsl?raw';
+
+const vertexShader = noise3dGlsl + '\n' + pointWarpVert;
 import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volumetricPoints';
 import type { VolumetricShape } from '../generators/volumetricPoints';
 
