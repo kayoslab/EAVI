@@ -1,3 +1,4 @@
+import type { WebGLRenderer, Scene, PerspectiveCamera, Mesh } from 'three';
 import type { VisualParams } from './mappings';
 import { mapSignalsToVisuals } from './mappings';
 import { evolveParams } from './evolution';
@@ -14,6 +15,7 @@ export interface LoopDeps {
   getPointerState?: (() => PointerState) | null;
   getAnalyserPipeline?: (() => AnalyserPipeline | null) | null;
   geometrySystem?: GeometrySystem | null;
+  placeholderMesh?: Mesh | null;
 }
 
 const defaultPointer: PointerState = {
@@ -71,8 +73,9 @@ function computeTrebleAvg(freq: Uint8Array): number {
 }
 
 export function startLoop(
-  canvas: HTMLCanvasElement,
-  ctx: CanvasRenderingContext2D,
+  renderer: WebGLRenderer,
+  scene: Scene,
+  camera: PerspectiveCamera,
   deps?: LoopDeps,
 ): void {
   const d = deps ?? {};
@@ -142,27 +145,32 @@ export function startLoop(
 
     // Initialize geometry system on first frame with real deps
     if (d.geometrySystem && d.seed && !geoInitialized) {
-      d.geometrySystem.init(ctx, d.seed, params);
+      d.geometrySystem.init(scene, d.seed, params);
       geoInitialized = true;
     }
 
-    // Clear
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Rotate placeholder mesh
+    if (d.placeholderMesh) {
+      d.placeholderMesh.rotation.y += delta * 0.0003;
+      d.placeholderMesh.rotation.x += delta * 0.0001;
+    }
 
     // Draw geometry
     if (d.geometrySystem && geoInitialized) {
-      d.geometrySystem.draw(ctx, {
+      d.geometrySystem.draw(scene, {
         time,
         delta,
         elapsed,
         params,
-        width: canvas.width,
-        height: canvas.height,
+        width: renderer.domElement.width,
+        height: renderer.domElement.height,
         pointerX,
         pointerY,
       });
     }
+
+    // Render
+    renderer.render(scene, camera);
 
     requestAnimationFrame(frame);
   };
