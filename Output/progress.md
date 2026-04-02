@@ -72,3 +72,5 @@
 
 ## US-037: Add viewport safe-area and dynamic viewport handling
 
+## US-038: Add minimal visual instrumentation for tuning
+

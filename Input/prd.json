@@ -759,8 +759,8 @@
         "It is disabled by default"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-030",
         "US-031",
