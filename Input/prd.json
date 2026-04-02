@@ -659,8 +659,8 @@
         "Different sessions produce noticeably different structures"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-032",
         "US-012"
