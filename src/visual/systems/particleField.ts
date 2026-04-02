@@ -118,7 +118,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       const positions = posAttr.array as Float32Array;
       const colors = colorAttr.array as Float32Array;
 
-      const { bassEnergy, trebleEnergy, pointerDisturbance, motionAmplitude, paletteHue, paletteSaturation } = frame.params;
+      const { bassEnergy, trebleEnergy, pointerDisturbance, motionAmplitude, paletteHue, paletteSaturation, noiseFrequency, radialScale, fieldSpread } = frame.params;
       const elapsed = frame.elapsed ?? 0;
       const pointerX = (frame.pointerX ?? 0.5) - 0.5;
       const pointerY = (frame.pointerY ?? 0.5) - 0.5;
@@ -129,20 +129,20 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
         const p = particles[i];
         const i3 = i * 3;
 
-        const bx = basePositions[i3];
-        const by = basePositions[i3 + 1];
-        const bz = basePositions[i3 + 2];
+        const bx = basePositions[i3] * fieldSpread;
+        const by = basePositions[i3 + 1] * fieldSpread;
+        const bz = basePositions[i3 + 2] * fieldSpread;
 
-        // Bass-driven macro drift
-        const bassDrift = bassEnergy * motionAmplitude * 0.3;
+        // Bass-driven macro drift, scaled by radialScale
+        const bassDrift = bassEnergy * motionAmplitude * 0.3 * radialScale;
         const driftX = Math.sin(elapsed * 0.0005 + i * 0.1) * bassDrift;
         const driftY = Math.cos(elapsed * 0.0004 + i * 0.13) * bassDrift;
 
-        // Treble-driven jitter
+        // Treble-driven jitter, frequency modulated by noiseFrequency
         const trebleJitter = trebleEnergy * motionAmplitude * 0.15;
-        const jitterX = (Math.sin(elapsed * 0.01 + i * 7.3) * 2 - 1) * trebleJitter;
-        const jitterY = (Math.cos(elapsed * 0.013 + i * 5.7) * 2 - 1) * trebleJitter;
-        const jitterZ = (Math.sin(elapsed * 0.009 + i * 3.1) * 2 - 1) * trebleJitter;
+        const jitterX = (Math.sin(elapsed * 0.01 * noiseFrequency + i * 7.3) * 2 - 1) * trebleJitter;
+        const jitterY = (Math.cos(elapsed * 0.013 * noiseFrequency + i * 5.7) * 2 - 1) * trebleJitter;
+        const jitterZ = (Math.sin(elapsed * 0.009 * noiseFrequency + i * 3.1) * 2 - 1) * trebleJitter;
 
         // Pointer disturbance — particles near pointer displace more
         let ptrOffsetX = 0;

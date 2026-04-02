@@ -163,6 +163,10 @@ const defaultParams: VisualParams = {
   trebleEnergy: 0,
   curveSoftness: 0.5,
   structureComplexity: 0.5,
+  noiseFrequency: 1.0,
+  radialScale: 1.0,
+  twistStrength: 1.0,
+  fieldSpread: 1.0,
 };
 
 describe('US-025: Quality integration tests', () => {

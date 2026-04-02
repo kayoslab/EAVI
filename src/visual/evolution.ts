@@ -22,6 +22,10 @@ interface CurveParams {
   paletteHue: Harmonic[];
   cadence: Harmonic[];
   paletteSaturation: Harmonic[];
+  noiseFrequency: Harmonic[];
+  radialScale: Harmonic[];
+  twistStrength: Harmonic[];
+  fieldSpread: Harmonic[];
 }
 
 const curveCache = new Map<string, CurveParams>();
@@ -70,6 +74,27 @@ function buildCurves(seed: string): CurveParams {
       (2 * Math.PI) / 300000, (2 * Math.PI) / 120000, // freq range: periods 120-300s
       3,
     ),
+    // Structural evolution curves
+    noiseFrequency: harmonics(
+      0.05, 0.15, // amplitude per harmonic, sums to ~0.15-0.45
+      (2 * Math.PI) / 180000, (2 * Math.PI) / 60000, // periods 60-180s
+      3,
+    ),
+    radialScale: harmonics(
+      0.03, 0.08, // amplitude per harmonic, sums to ~0.09-0.24
+      (2 * Math.PI) / 200000, (2 * Math.PI) / 80000, // periods 80-200s
+      3,
+    ),
+    twistStrength: harmonics(
+      0.1, 0.25, // amplitude per harmonic, sums to ~0.3-0.75
+      (2 * Math.PI) / 120000, (2 * Math.PI) / 45000, // periods 45-120s
+      3,
+    ),
+    fieldSpread: harmonics(
+      0.02, 0.06, // amplitude per harmonic, sums to ~0.06-0.18
+      (2 * Math.PI) / 240000, (2 * Math.PI) / 100000, // periods 100-240s
+      3,
+    ),
   };
 
   curveCache.set(seed, curves);
@@ -103,6 +128,10 @@ export function evolveParams(
   const hueDrift = evalCurve(curves.paletteHue, elapsedMs);
   const cadenceDrift = evalCurve(curves.cadence, elapsedMs);
   const satDrift = evalCurve(curves.paletteSaturation, elapsedMs);
+  const noiseDrift = evalCurve(curves.noiseFrequency, elapsedMs);
+  const radialDrift = evalCurve(curves.radialScale, elapsedMs);
+  const twistDrift = evalCurve(curves.twistStrength, elapsedMs);
+  const spreadDrift = evalCurve(curves.fieldSpread, elapsedMs);
 
   return {
     paletteHue: wrapHue(base.paletteHue + hueDrift),
@@ -116,6 +145,11 @@ export function evolveParams(
     trebleEnergy: base.trebleEnergy,
     curveSoftness: base.curveSoftness,
     structureComplexity: base.structureComplexity,
+    // Structural evolution
+    noiseFrequency: clamp(base.noiseFrequency + noiseDrift, 0.3, 2.5),
+    radialScale: clamp(base.radialScale + radialDrift, 0.5, 1.6),
+    twistStrength: clamp(base.twistStrength + twistDrift, 0.1, 2.5),
+    fieldSpread: clamp(base.fieldSpread + spreadDrift, 0.7, 1.4),
   };
 }
 

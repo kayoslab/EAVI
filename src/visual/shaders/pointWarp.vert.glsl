@@ -12,6 +12,10 @@ uniform float uPaletteSaturation;
 uniform float uCadence;
 uniform float uBreathScale;
 uniform float uBasePointSize;
+uniform float uNoiseFrequency;
+uniform float uRadialScale;
+uniform float uTwistStrength;
+uniform float uFieldSpread;
 
 attribute float aHueOffset;
 attribute vec3 aRandom;
@@ -50,13 +54,16 @@ void main() {
   float t = uTime;
   float ma = uMotionAmplitude;
 
+  // --- Structural: radial scale ---
+  pos *= uRadialScale;
+
   // --- Bass macro deformation ---
   // Radial expansion
   float expansion = 1.0 + uBassEnergy * 0.25 * ma;
   pos *= expansion;
 
-  // Twist around Y axis (differential per-point)
-  float twistAngle = uBassEnergy * sin(t * 0.0003 + aRandom.x * TAU) * 0.3 * ma;
+  // Twist around Y axis (differential per-point), scaled by structural twist
+  float twistAngle = uBassEnergy * sin(t * 0.0003 + aRandom.x * TAU) * 0.3 * ma * uTwistStrength;
   float cosT = cos(twistAngle);
   float sinT = sin(twistAngle);
   pos = vec3(
@@ -80,9 +87,9 @@ void main() {
   // --- Time evolution (slow modulation, period 30-60s) ---
   float slowMod = sin(t * 0.00015 + aRandom.x * TAU) * 0.08 * ma;
   float slowMod2 = cos(t * 0.0001 + aRandom.y * TAU) * 0.06 * ma;
-  pos.x += slowMod * layeredNoise(pos.x, pos.y, t * 0.0001);
-  pos.y += slowMod2 * layeredNoise(pos.y, pos.z, t * 0.00012);
-  pos.z += slowMod * layeredNoise(pos.z, pos.x, t * 0.00008);
+  pos.x += slowMod * layeredNoise(pos.x * uNoiseFrequency, pos.y * uNoiseFrequency, t * 0.0001);
+  pos.y += slowMod2 * layeredNoise(pos.y * uNoiseFrequency, pos.z * uNoiseFrequency, t * 0.00012);
+  pos.z += slowMod * layeredNoise(pos.z * uNoiseFrequency, pos.x * uNoiseFrequency, t * 0.00008);
 
   // --- Pointer repulsion (screen-space approximation) ---
   if (uPointerDisturbance > 0.0) {
@@ -93,6 +100,9 @@ void main() {
     pos.x += diff.x * influence;
     pos.y += diff.y * influence;
   }
+
+  // --- Structural: field spread ---
+  pos *= uFieldSpread;
 
   // --- Apply breathing scale ---
   pos *= uBreathScale;
