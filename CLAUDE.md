@@ -138,3 +138,29 @@ The scene must include:
 - Visible depth/parallax
 
 Implementations that render only screen-space 2D particles or sine waves are invalid.
+
+## Shader Integrity Rules
+
+- Any ShaderMaterial ticket automatically fails if the browser console shows:
+  - shader compile errors
+  - WebGLProgram VALIDATE_STATUS errors
+  - invalid program errors
+
+- Every GLSL symbol used in expressions must be one of:
+  - a declared attribute
+  - a declared uniform
+  - a declared varying
+  - a declared local variable
+
+- Every custom GLSL attribute must be attached to BufferGeometry before first render.
+- Optional attributes must have a safe fallback path that still renders correctly.
+- A visually broken but "running" scene does not count as complete.
+
+## Render Completion Gate
+
+Rendering work is only complete when:
+- shaders compile cleanly
+- no WebGL validation errors appear
+- geometry attributes are present and finite
+- the scene renders a stable first frame
+- the scene still renders in a safe baseline mode with optional modulation disabled
