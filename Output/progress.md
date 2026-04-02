@@ -82,3 +82,5 @@
 
 ## US-040: Create volumetric point cloud generator
 
+## US-042: Add autonomous spatial camera motion
+
