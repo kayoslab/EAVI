@@ -25,7 +25,6 @@ export interface ParticleField extends GeometrySystem {
 
 export function createParticleField(config?: ParticleFieldConfig): ParticleField {
   const maxParticles = config?.maxParticles ?? DEFAULT_MAX_PARTICLES;
-  const enableSparkle = config?.enableSparkle ?? true;
   let particles: Particle[] = [];
 
   return {
