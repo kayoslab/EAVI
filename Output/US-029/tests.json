@@ -1,0 +1,325 @@
+{
+  "ticketId": "US-029",
+  "title": "Introduce Three.js renderer bootstrap",
+  "testFiles": [
+    {
+      "path": "tests/visual/scene.test.ts",
+      "action": "replace",
+      "reason": "Existing tests are for Canvas 2D initScene; must be rewritten for Three.js WebGLRenderer/Scene/Camera bootstrap",
+      "tests": [
+        {
+          "id": "T-029-01",
+          "description": "initScene creates a WebGLRenderer and appends its canvas to the container",
+          "approach": "Call initScene with a container div, verify container.children includes the renderer's domElement (a canvas). Assert renderer.domElement is an HTMLCanvasElement.",
+          "assertions": [
+            "container.children.length === 1",
+            "container.children[0] is renderer.domElement",
+            "renderer.domElement instanceof HTMLCanvasElement"
+          ]
+        },
+        {
+          "id": "T-029-02",
+          "description": "initScene returns an object with renderer, scene, and camera properties",
+          "approach": "Call initScene and destructure the return value. Verify all three properties are defined and are instances of their respective Three.js classes.",
+          "assertions": [
+            "result.renderer is defined (WebGLRenderer)",
+            "result.scene is defined (Scene)",
+            "result.camera is defined (PerspectiveCamera)"
+          ]
+        },
+        {
+          "id": "T-029-03",
+          "description": "renderer is sized to window dimensions on creation",
+          "approach": "Set window.innerWidth=1920 and window.innerHeight=1080 before calling initScene. Verify the renderer's domElement has matching width/height (accounting for pixel ratio clamping via setPixelRatio).",
+          "assertions": [
+            "renderer.domElement.width reflects window.innerWidth * min(devicePixelRatio, 2)",
+            "renderer.domElement.height reflects window.innerHeight * min(devicePixelRatio, 2)"
+          ]
+        },
+        {
+          "id": "T-029-04",
+          "description": "camera has correct aspect ratio matching window dimensions",
+          "approach": "Set known window dimensions, call initScene, check camera.aspect equals innerWidth / innerHeight.",
+          "assertions": [
+            "camera.aspect === window.innerWidth / window.innerHeight"
+          ]
+        },
+        {
+          "id": "T-029-05",
+          "description": "camera is positioned at z=5 looking at the origin",
+          "approach": "Call initScene and verify camera.position.z is 5. Verify camera is looking toward origin (position.x and position.y are 0).",
+          "assertions": [
+            "camera.position.z === 5",
+            "camera.position.x === 0",
+            "camera.position.y === 0"
+          ]
+        },
+        {
+          "id": "T-029-06",
+          "description": "scene background is set to black (0x000000)",
+          "approach": "Call initScene and verify scene.background is a THREE.Color with r=0, g=0, b=0.",
+          "assertions": [
+            "scene.background.r === 0",
+            "scene.background.g === 0",
+            "scene.background.b === 0"
+          ]
+        },
+        {
+          "id": "T-029-07",
+          "description": "renderer clear color is black",
+          "approach": "Call initScene. Use renderer.getClearColor(new THREE.Color()) to read back the clear color and verify it is 0x000000.",
+          "assertions": [
+            "clearColor.r === 0",
+            "clearColor.g === 0",
+            "clearColor.b === 0"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/placeholder.test.ts",
+      "action": "create",
+      "reason": "New module src/visual/placeholder.ts needs test coverage for the placeholder 3D object and lighting setup",
+      "tests": [
+        {
+          "id": "T-029-08",
+          "description": "addPlaceholder adds a mesh to the scene",
+          "approach": "Create a THREE.Scene, call addPlaceholder(scene). Verify scene.children includes at least one Mesh object.",
+          "assertions": [
+            "scene.children includes an object that is a THREE.Mesh"
+          ]
+        },
+        {
+          "id": "T-029-09",
+          "description": "addPlaceholder returns an object with a mesh property",
+          "approach": "Call addPlaceholder and verify the returned object has a mesh property that is a THREE.Mesh.",
+          "assertions": [
+            "result.mesh is defined",
+            "result.mesh is a THREE.Mesh"
+          ]
+        },
+        {
+          "id": "T-029-10",
+          "description": "placeholder mesh uses wireframe material",
+          "approach": "Call addPlaceholder, access result.mesh.material, verify material.wireframe is true.",
+          "assertions": [
+            "result.mesh.material.wireframe === true"
+          ]
+        },
+        {
+          "id": "T-029-11",
+          "description": "placeholder mesh uses IcosahedronGeometry",
+          "approach": "Call addPlaceholder, check result.mesh.geometry.type or instanceof IcosahedronGeometry.",
+          "assertions": [
+            "result.mesh.geometry.type === 'IcosahedronGeometry'"
+          ]
+        },
+        {
+          "id": "T-029-12",
+          "description": "addPlaceholder adds lighting to the scene",
+          "approach": "Create a scene, call addPlaceholder, filter scene.children for Light instances. Expect at least an AmbientLight and a DirectionalLight.",
+          "assertions": [
+            "scene.children includes a THREE.AmbientLight",
+            "scene.children includes a THREE.DirectionalLight"
+          ]
+        },
+        {
+          "id": "T-029-13",
+          "description": "scene has exactly the expected number of children after addPlaceholder (mesh + 2 lights)",
+          "approach": "Start with empty scene, call addPlaceholder, count scene.children.",
+          "assertions": [
+            "scene.children.length === 3"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/resize.test.ts",
+      "action": "replace",
+      "reason": "Existing tests are for Canvas 2D resize handler; must be rewritten for Three.js renderer/camera resize logic",
+      "tests": [
+        {
+          "id": "T-029-14",
+          "description": "resize handler updates renderer size on window resize",
+          "approach": "Create renderer and camera via initScene. Attach resize handler. Change window.innerWidth/innerHeight, dispatch resize event. Verify renderer.domElement dimensions changed to match new window size.",
+          "assertions": [
+            "After resize, renderer.getSize() matches new window dimensions"
+          ]
+        },
+        {
+          "id": "T-029-15",
+          "description": "resize handler updates camera aspect ratio on window resize",
+          "approach": "Attach resize handler. Dispatch resize event with new dimensions. Verify camera.aspect equals new innerWidth / innerHeight.",
+          "assertions": [
+            "camera.aspect === newWidth / newHeight after resize"
+          ]
+        },
+        {
+          "id": "T-029-16",
+          "description": "resize handler calls camera.updateProjectionMatrix after aspect change",
+          "approach": "Spy on camera.updateProjectionMatrix before attaching handler. Dispatch resize event. Verify the spy was called.",
+          "assertions": [
+            "camera.updateProjectionMatrix was called at least once"
+          ]
+        },
+        {
+          "id": "T-029-17",
+          "description": "resize handler returns a cleanup function that removes the listener",
+          "approach": "Attach handler, receive cleanup fn. Call cleanup(). Dispatch another resize event. Verify renderer size did NOT change after cleanup.",
+          "assertions": [
+            "cleanup() is a function",
+            "After cleanup + resize event, renderer size remains unchanged"
+          ]
+        },
+        {
+          "id": "T-029-18",
+          "description": "resize handler handles rapid sequential resize events",
+          "approach": "Attach handler. Dispatch three resize events with different dimensions in quick succession. Verify final state matches the last dispatched dimensions.",
+          "assertions": [
+            "renderer size matches last resize dimensions",
+            "camera aspect matches last resize aspect ratio"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/renderLoop.test.ts",
+      "action": "replace",
+      "reason": "Existing tests use Canvas 2D startLoop signature; must be rewritten for Three.js renderer/scene/camera signature while preserving audio/pointer/evolution test coverage",
+      "tests": [
+        {
+          "id": "T-029-19",
+          "description": "loop calls requestAnimationFrame recursively",
+          "approach": "Mock requestAnimationFrame to count calls and invoke callback up to 3 times. Call startLoop with renderer/scene/camera. Verify callCount > 1.",
+          "assertions": [
+            "requestAnimationFrame called more than once"
+          ]
+        },
+        {
+          "id": "T-029-20",
+          "description": "renderer.render(scene, camera) is called each frame",
+          "approach": "Spy on renderer.render. Run 3 frames via mocked RAF. Verify renderer.render was called with scene and camera arguments at least once per frame.",
+          "assertions": [
+            "renderer.render called >= 3 times",
+            "renderer.render called with (scene, camera)"
+          ]
+        },
+        {
+          "id": "T-029-21",
+          "description": "loop runs without error when deps are minimal (pre-async resolution)",
+          "approach": "Call startLoop with renderer/scene/camera and empty deps. Run 2 frames. Expect no throw.",
+          "assertions": [
+            "startLoop does not throw",
+            "frameCount > 0"
+          ]
+        },
+        {
+          "id": "T-029-22",
+          "description": "placeholder mesh rotates each frame",
+          "approach": "Add placeholder to scene, record initial rotation.y. Run several frames. Verify rotation.y has increased.",
+          "assertions": [
+            "mesh.rotation.y after N frames > initial mesh.rotation.y",
+            "mesh.rotation.x after N frames > initial mesh.rotation.x"
+          ]
+        },
+        {
+          "id": "T-029-23",
+          "description": "delta time is computed correctly between frames",
+          "approach": "Provide a geometry system spy. Feed RAF callbacks with timestamps 0, 16, 50. Verify delta values passed to geometry draw match differences between timestamps.",
+          "assertions": [
+            "delta for frame at t=50 is close to 50-16=34"
+          ]
+        },
+        {
+          "id": "T-029-24",
+          "description": "loop integrates audio analyser data when available",
+          "approach": "Provide mock analyser pipeline with frequency data filled to 200. Verify pipeline.poll() is called and params.bassEnergy > 0.",
+          "assertions": [
+            "pipeline.poll() was called",
+            "params.bassEnergy > 0"
+          ]
+        },
+        {
+          "id": "T-029-25",
+          "description": "loop renders scene without audio (zero treble when no pipeline)",
+          "approach": "Provide getAnalyserPipeline returning null. Run frames. Verify params.trebleEnergy === 0 and params.bassEnergy >= 0 (synthetic fallback).",
+          "assertions": [
+            "params.trebleEnergy === 0",
+            "params.bassEnergy >= 0"
+          ]
+        },
+        {
+          "id": "T-029-26",
+          "description": "loop integrates pointer state changes",
+          "approach": "Provide getPointerState returning active pointer with dx/dy > 0. Verify params.pointerDisturbance > 0.",
+          "assertions": [
+            "params.pointerDisturbance > 0"
+          ]
+        },
+        {
+          "id": "T-029-27",
+          "description": "elapsed time increases monotonically across frames",
+          "approach": "Run 10 frames with increasing timestamps. Collect elapsed from FrameState. Verify each value > previous.",
+          "assertions": [
+            "elapsed[i] > elapsed[i-1] for all i > 0"
+          ]
+        },
+        {
+          "id": "T-029-28",
+          "description": "no localStorage or cookie access during render loop",
+          "approach": "Spy on Storage.prototype.getItem and document.cookie getter. Run several frames. Verify neither spy was called.",
+          "assertions": [
+            "localStorage.getItem not called",
+            "document.cookie not accessed"
+          ]
+        },
+        {
+          "id": "T-029-29",
+          "description": "Canvas 2D context methods (fillRect, fillStyle) are NOT called — rendering uses renderer.render only",
+          "approach": "Run frames and verify no Canvas 2D draw calls are made. This confirms the migration away from ctx-based clearing/drawing.",
+          "assertions": [
+            "No CanvasRenderingContext2D.fillRect calls",
+            "renderer.render is the sole rendering path"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/types.test.ts",
+      "action": "create",
+      "reason": "Verify the updated GeometrySystem interface accepts THREE.Scene instead of CanvasRenderingContext2D — compile-time type check as runtime test",
+      "tests": [
+        {
+          "id": "T-029-30",
+          "description": "GeometrySystem interface accepts THREE.Scene in init and draw methods",
+          "approach": "Create a mock object satisfying GeometrySystem with init(scene: Scene, ...) and draw(scene: Scene, ...). Verify it can be assigned to a GeometrySystem-typed variable and called without type errors. This is primarily a compile-time check that the type signature was updated.",
+          "assertions": [
+            "Mock object satisfies GeometrySystem interface",
+            "init accepts THREE.Scene as first arg",
+            "draw accepts THREE.Scene as first arg"
+          ]
+        }
+      ]
+    }
+  ],
+  "testSetupChanges": {
+    "path": "tests/setup.ts",
+    "changes": [
+      "Add Three.js WebGLRenderer mock for jsdom environment (jsdom lacks WebGL). Mock should provide: domElement (canvas), setSize(), setPixelRatio(), setClearColor(), getClearColor(), render(), getSize(), dispose(). This allows unit tests to verify renderer interactions without a real WebGL context."
+    ]
+  },
+  "totalTests": 30,
+  "coverageGoals": {
+    "scene.ts": "WebGLRenderer creation, canvas attachment, camera config, scene background, clear color",
+    "placeholder.ts": "Mesh creation, geometry type, wireframe material, lighting setup",
+    "resize.ts": "Renderer size update, camera aspect update, projection matrix update, cleanup function",
+    "renderLoop.ts": "RAF recursion, renderer.render calls, placeholder rotation, audio/pointer integration, delta/elapsed timing, privacy, no Canvas 2D calls",
+    "types.ts": "GeometrySystem interface accepts THREE.Scene"
+  },
+  "acceptanceCriteriaMapping": {
+    "A WebGL renderer is created and attached to the app container": ["T-029-01", "T-029-02", "T-029-03", "T-029-07"],
+    "A perspective camera is configured and renders a placeholder object": ["T-029-04", "T-029-05", "T-029-06", "T-029-08", "T-029-09", "T-029-10", "T-029-11", "T-029-12", "T-029-13"],
+    "A single animation loop renders frames without console errors": ["T-029-19", "T-029-20", "T-029-21", "T-029-22", "T-029-23", "T-029-24", "T-029-25", "T-029-26", "T-029-27", "T-029-28", "T-029-29"],
+    "Resize updates renderer size and camera aspect correctly": ["T-029-14", "T-029-15", "T-029-16", "T-029-17", "T-029-18"]
+  }
+}
