@@ -360,7 +360,7 @@
         "US-017"
       ],
       "split_from": "US-008",
-      "notes": "Examples: camera drift, field expansion, large wave amplitude.",
+      "notes": "Examples: camera drift, field expansion, large wave amplitude."
     },
     {
       "id": "US-019",
@@ -943,6 +943,108 @@
       ],
       "split_from": "US-036",
       "notes": "Low tier may reduce point count but must remain 3D."
+    },
+    {
+      "id": "US-048",
+      "title": "Validate shader compilation before scene activation",
+      "description": "As a developer, I want custom shaders to compile successfully before they become part of the active render path so that broken WebGL programs cannot ship as completed work.",
+      "acceptanceCriteria": [
+        "All ShaderMaterial vertex and fragment shaders compile without errors",
+        "No WebGLProgram VALIDATE_STATUS errors appear during normal startup",
+        "No shader compile errors appear in the browser console during normal startup",
+        "A ticket involving ShaderMaterial is not complete if any shader compilation error is present"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-041"],
+      "split_from": null,
+      "notes": "Definition-of-done gate for all custom shader work."
+    },
+    {
+      "id": "US-049",
+      "title": "Enforce shader attribute and uniform integrity",
+      "description": "As a developer, I want every shader variable reference to be backed by a declared GLSL symbol and matching runtime binding so that missing attributes or uniforms cannot break rendering.",
+      "acceptanceCriteria": [
+        "Every custom attribute referenced in GLSL is explicitly declared in the shader",
+        "Every custom attribute referenced in GLSL is attached to the BufferGeometry at runtime",
+        "Every custom uniform referenced in GLSL is declared and initialized before first render",
+        "No undeclared identifiers remain in vertex or fragment shaders"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-041"],
+      "split_from": null,
+      "notes": "Example failure to prevent: referencing `size` in GLSL without declaring `attribute float aSize;` or a local `float size`."
+    },
+    {
+      "id": "US-050",
+      "title": "Add geometry attribute sanity checks",
+      "description": "As a developer, I want geometry buffers to be validated before rendering so that malformed point-cloud data cannot produce broken sprites or invisible scenes.",
+      "acceptanceCriteria": [
+        "Position attribute exists and matches expected item size",
+        "All required custom attributes exist before material assignment",
+        "Geometry initialization rejects NaN or non-finite values in critical buffers",
+        "Renderer does not enter the main loop with invalid geometry state"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-040", "US-049"],
+      "split_from": null,
+      "notes": "Critical attributes may include position, size, hue offset, seed, or morph target data."
+    },
+    {
+      "id": "US-051",
+      "title": "Create safe fallback point-size path",
+      "description": "As a user, I want the point cloud to remain visible even if optional per-point size attributes are absent so that the scene fails gracefully rather than collapsing into broken output.",
+      "acceptanceCriteria": [
+        "Shader supports a valid default point-size path without optional custom size attributes",
+        "Scene renders with a uniform base point size when per-point size data is unavailable",
+        "Optional size modulation can be enabled only when corresponding attributes are present",
+        "Missing optional size attributes do not break shader compilation"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-049", "US-050"],
+      "split_from": null,
+      "notes": "Prefer a guaranteed-safe baseline over clever but brittle shader paths."
+    },
+    {
+      "id": "US-052",
+      "title": "Add render startup health gate",
+      "description": "As a developer, I want startup rendering health checks so that a scene with invalid shaders or invalid geometry cannot be marked complete.",
+      "acceptanceCriteria": [
+        "Startup verifies shader compilation status before entering steady-state rendering",
+        "Startup verifies required geometry attributes before first frame",
+        "Startup logs a clear failure reason for shader or geometry errors",
+        "Stories touching rendering are not complete if startup health checks fail"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-048", "US-050"],
+      "split_from": "US-027",
+      "notes": "This is a hard stop quality gate, not a debugging convenience."
+    },
+    {
+      "id": "US-053",
+      "title": "Add optional debug overlay for shader and geometry state",
+      "description": "As a developer, I want a small debug view for render integrity so that broken point-cloud state is diagnosable without reading minified production traces.",
+      "acceptanceCriteria": [
+        "Debug mode can be enabled intentionally",
+        "Overlay shows active mode, point count, and whether optional attributes are present",
+        "Overlay shows whether shader compile status passed at startup",
+        "Overlay is disabled by default and does not expose visitor identifiers"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-048", "US-050"],
+      "split_from": "US-038",
+      "notes": "Keep it tiny and removable."
     }
   ]
 }
