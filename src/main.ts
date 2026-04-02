@@ -11,7 +11,7 @@ import { startLoop, type LoopDeps } from './visual/renderLoop';
 import { initPointer } from './input/pointer';
 import { addPlaceholder } from './visual/placeholder';
 import { createParticleField } from './visual/systems/particleField';
-import { createWaveField } from './visual/systems/waveField';
+import { createRibbonField } from './visual/systems/ribbonField';
 import { createPointCloud } from './visual/systems/pointCloud';
 import { createModeManager } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
@@ -69,9 +69,9 @@ geoPromise.then((geo) => {
     maxParticles: quality.maxParticles,
     enableSparkle: quality.enableSparkle,
   });
-  const waves = createWaveField({
-    maxWaves: quality.tier === 'low' ? 10 : 20,
-    enableShimmer: quality.enableSparkle,
+  const ribbon = createRibbonField({
+    maxPoints: quality.maxRibbonPoints,
+    enableSparkle: quality.enableSparkle,
   });
   const pointCloud = createPointCloud({
     maxPoints: quality.maxPoints,
@@ -79,7 +79,7 @@ geoPromise.then((geo) => {
   });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },
-    { name: 'waves', factory: () => waves },
+    { name: 'ribbon', factory: () => ribbon },
     { name: 'pointcloud', factory: () => pointCloud },
   ]);
 
