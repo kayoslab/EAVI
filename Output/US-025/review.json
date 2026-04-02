@@ -1,76 +1,58 @@
 {
-  "id": "US-025",
-  "summary": "Plan is well-structured and accurately maps to the existing codebase. MAX_PARTICLES=600 hardcoded in particleField.ts confirmed, sparkle/jitter implementation matches plan description, all target files exist. Two files are listed in files_to_modify but no step actually modifies them — remove to avoid confusion.",
-  "changes_required": [
+  "plan_id": "US-025",
+  "comments": [
     {
-      "step": null,
-      "field": "files_to_modify",
-      "issue": "src/visual/renderLoop.ts is listed but no step describes any change to it. The render loop delegates drawing to the geometry system, so quality scaling flows through particleField.ts — renderLoop.ts needs no modification.",
-      "fix": "Remove src/visual/renderLoop.ts from files_to_modify"
+      "step_id": 1,
+      "severity": "info",
+      "comment": "Verified: computeQuality import is commented out at line 17 of main.ts and readSignals() is called inside the async geoPromise.then block. The wiring is straightforward."
     },
     {
-      "step": null,
-      "field": "files_to_modify",
-      "issue": "tests/visual/renderLoop.test.ts is listed but no step describes changes to it, consistent with renderLoop.ts not needing modification.",
-      "fix": "Remove tests/visual/renderLoop.test.ts from files_to_modify"
+      "step_id": 2,
+      "severity": "info",
+      "comment": "Confirmed: _resolutionScale parameter exists at line 5 of scene.ts but is unused. Activating it with `renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * resolutionScale)` is correct."
     },
     {
-      "step": 6,
-      "field": "details",
-      "issue": "Particle count is not simply MAX_PARTICLES — it is `Math.floor(params.density * MAX_PARTICLES) * (0.6 + structureComplexity * 0.4)`. The config.maxParticles should replace the MAX_PARTICLES constant in this formula, not bypass the density/complexity scaling. The step description is slightly ambiguous on this point.",
-      "fix": "Clarify that config.maxParticles replaces the MAX_PARTICLES constant (line 5) while the density and structureComplexity scaling formula remains intact. Effective count = Math.floor(params.density * config.maxParticles) * (0.6 + structureComplexity * 0.4)."
+      "step_id": 3,
+      "severity": "low",
+      "comment": "The DPR <= 1 && touch heuristic is a reasonable pre-quality proxy. Note that some modern phones have DPR >= 2, so this will only catch the lowest-end devices. Acceptable tradeoff since antialias cannot be changed post-creation."
     },
     {
-      "step": 7,
-      "field": "details",
-      "issue": "main.ts creates the ParticleField before async deps resolve, passing it as geometrySystem to the loop. The plan must ensure the quality profile is computed synchronously (from readSignals()) before ParticleField creation, which is the intent but should be explicit about ordering relative to startLoop().",
-      "fix": "Add detail: computeQuality must run before createParticleField and before startLoop, since all three are synchronous and ordering matters. The existing pattern (sync init → start loop → async deps) is preserved."
+      "step_id": 4,
+      "severity": "low",
+      "comment": "Adding quality to LoopDeps is correct but the plan acknowledges no runtime render-loop changes are needed beyond carrying the reference. Consider whether the field is worth adding if unused by the loop itself — it may be useful for future stories."
+    },
+    {
+      "step_id": 5,
+      "severity": "info",
+      "comment": "Verified: createParticleField accepts ParticleFieldConfig { maxParticles?, enableSparkle? }, createWaveField accepts WaveFieldConfig { maxWaves?, enableShimmer? }, and createModeManager accepts ModeEntry[]. The factory pattern in the plan passes already-constructed instances wrapped in factory functions — this works but means factories are called once and return the same object. Functionally fine for mode switching."
+    },
+    {
+      "step_id": 6,
+      "severity": "info",
+      "comment": "Confirmed: waveField.ts respects maxWaves from config with DEFAULT_MAX_WAVES = 20. No code change needed in the file itself."
+    },
+    {
+      "step_id": 7,
+      "severity": "low",
+      "comment": "The plan says to detach the old resize handler and re-attach. main.ts currently calls attachResizeHandler but does not store the returned cleanup function. The implementation must store it: `let detachResize = attachResizeHandler(renderer, camera)` then later `detachResize(); detachResize = attachResizeHandler(renderer, camera, quality.resolutionScale)`."
+    },
+    {
+      "step_id": 8,
+      "severity": "info",
+      "comment": "Existing 8 tests (T-025-01 through T-025-08) are confirmed present and passing. The 3 proposed integration tests (T-025-09 through T-025-11) cover particle count, wave count, and renderer pixel ratio — good coverage for the wiring."
+    },
+    {
+      "step_id": 9,
+      "severity": "info",
+      "comment": "Standard verification step. Note that draw() methods in both particleField and waveField are no-ops (Canvas 2D port TODO), so visual verification will only confirm the placeholder mesh renders — the plan correctly identifies this risk."
     }
   ],
-  "approved_steps": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    8,
-    9,
-    10
-  ],
-  "risks_acknowledged": true,
-  "additional_risks": [
-    "The scoring formula weights sum to 1.0 only when all signals are present. When deviceMemory is null (Safari/Firefox), the weight must be redistributed across remaining signals or the null field treated as a neutral midpoint — otherwise scores will skew low and Safari users will always get 'low' tier."
-  ],
-  "estimated_complexity_agree": true,
-  "test_strategy_adequate": true,
+  "risks_assessment": "Both identified risks are valid and mitigations are sound. The async quality computation vs sync renderer creation is handled by the two-phase approach (default init then re-apply). The no-op draw methods are a known limitation scoped to a future story.",
+  "missing_items": [],
+  "estimated_complexity": "moderate",
   "approved": true,
-  "concerns": [
-    {
-      "step": null,
-      "field": "files_to_modify",
-      "issue": "src/visual/renderLoop.ts is listed but no step describes any change to it. The render loop delegates drawing to the geometry system, so quality scaling flows through particleField.ts — renderLoop.ts needs no modification.",
-      "fix": "Remove src/visual/renderLoop.ts from files_to_modify"
-    },
-    {
-      "step": null,
-      "field": "files_to_modify",
-      "issue": "tests/visual/renderLoop.test.ts is listed but no step describes changes to it, consistent with renderLoop.ts not needing modification.",
-      "fix": "Remove tests/visual/renderLoop.test.ts from files_to_modify"
-    },
-    {
-      "step": 6,
-      "field": "details",
-      "issue": "Particle count is not simply MAX_PARTICLES — it is `Math.floor(params.density * MAX_PARTICLES) * (0.6 + structureComplexity * 0.4)`. The config.maxParticles should replace the MAX_PARTICLES constant in this formula, not bypass the density/complexity scaling. The step description is slightly ambiguous on this point.",
-      "fix": "Clarify that config.maxParticles replaces the MAX_PARTICLES constant (line 5) while the density and structureComplexity scaling formula remains intact. Effective count = Math.floor(params.density * config.maxParticles) * (0.6 + structureComplexity * 0.4)."
-    },
-    {
-      "step": 7,
-      "field": "details",
-      "issue": "main.ts creates the ParticleField before async deps resolve, passing it as geometrySystem to the loop. The plan must ensure the quality profile is computed synchronously (from readSignals()) before ParticleField creation, which is the intent but should be explicit about ordering relative to startLoop().",
-      "fix": "Add detail: computeQuality must run before createParticleField and before startLoop, since all three are synchronous and ordering matters. The existing pattern (sync init → start loop → async deps) is preserved."
-    }
-  ],
-  "decision": "approve_with_changes",
+  "concerns": [],
+  "decision": "approve",
   "adr_entry": null,
   "failures": []
 }
