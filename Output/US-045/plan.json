@@ -1,0 +1,115 @@
+{
+  "id": "US-045",
+  "title": "Correct resolution scaling without shrinking layout",
+  "overview": "The renderer currently calls setSize(w, h) which sets both the drawing buffer AND inline CSS dimensions, then immediately overwrites CSS back to 100%. This belt-and-suspenders approach is fragile on mobile. The fix is to pass updateStyle=false to setSize() and let CSS exclusively own the canvas layout, while setPixelRatio() handles quality scaling.",
+  "files_to_modify": [
+    {
+      "path": "src/visual/scene.ts",
+      "changes": [
+        "Change renderer.setSize(w, h) to renderer.setSize(w, h, false) at line 44 and line 69",
+        "Remove manual style.width/style.height assignments at lines 45-46 and 70-71 (CSS handles this)"
+      ]
+    },
+    {
+      "path": "src/visual/resize.ts",
+      "changes": [
+        "Change renderer.setSize(width, height) to renderer.setSize(width, height, false) at line 23",
+        "Remove manual style.width/style.height assignments at lines 24-25 (CSS handles this)"
+      ]
+    },
+    {
+      "path": "src/main.ts",
+      "changes": [
+        "Change renderer.setSize(w, h) to renderer.setSize(w, h, false) at line 88",
+        "Remove manual style.width/style.height assignments at lines 89-90 (CSS handles this)"
+      ]
+    },
+    {
+      "path": "src/style.css",
+      "changes": [
+        "Verify canvas CSS already has width: 100% !important and height: 100% !important (already present, no change needed)"
+      ]
+    }
+  ],
+  "files_to_create": [
+    {
+      "path": "tests/unit/visual/resize.test.ts",
+      "description": "Unit tests verifying: (1) renderer.setSize is called with updateStyle=false, (2) setPixelRatio is called with capped DPR * resolutionScale, (3) camera aspect updates on resize, (4) orientationchange triggers handler"
+    },
+    {
+      "path": "tests/unit/visual/scene-scaling.test.ts",
+      "description": "Unit tests verifying: (1) initScene calls setSize with updateStyle=false, (2) no inline style.width/height set on canvas by initScene, (3) context restore re-applies pixel ratio without touching CSS"
+    }
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "action": "Update src/visual/scene.ts",
+      "details": [
+        "In initScene(): change renderer.setSize(window.innerWidth, window.innerHeight) to renderer.setSize(window.innerWidth, window.innerHeight, false)",
+        "Remove the two lines: renderer.domElement.style.width = '100%' and renderer.domElement.style.height = '100%' after setSize",
+        "In onContextRestored(): same changes — setSize with false, remove manual CSS lines"
+      ]
+    },
+    {
+      "step": 2,
+      "action": "Update src/visual/resize.ts",
+      "details": [
+        "In onResize(): change renderer.setSize(width, height) to renderer.setSize(width, height, false)",
+        "Remove the two lines setting renderer.domElement.style.width/height to '100%'"
+      ]
+    },
+    {
+      "step": 3,
+      "action": "Update src/main.ts",
+      "details": [
+        "In the geoPromise.then callback: change renderer.setSize(window.innerWidth, window.innerHeight) to renderer.setSize(window.innerWidth, window.innerHeight, false)",
+        "Remove the two lines setting renderer.domElement.style.width/height to '100%'"
+      ]
+    },
+    {
+      "step": 4,
+      "action": "Write tests for resize handler",
+      "details": [
+        "Test that attachResizeHandler calls setSize with (width, height, false)",
+        "Test that setPixelRatio is called with Math.min(dpr, 2) * resolutionScale",
+        "Test that camera.aspect and camera.updateProjectionMatrix are called",
+        "Test that orientationchange event triggers the resize handler",
+        "Test that visualViewport resize triggers the handler"
+      ]
+    },
+    {
+      "step": 5,
+      "action": "Write tests for scene initialization scaling",
+      "details": [
+        "Test that initScene calls setSize with updateStyle=false (third arg)",
+        "Test that renderer.domElement has no inline width/height style after init",
+        "Test that context restore applies pixel ratio correctly without CSS manipulation",
+        "Test that resolutionScale option is applied to setPixelRatio"
+      ]
+    },
+    {
+      "step": 6,
+      "action": "Verify build and acceptance criteria",
+      "details": [
+        "Run npm run build to confirm no type errors",
+        "Run test suite to confirm all tests pass",
+        "Verify: renderer DOM element CSS is always 100% of container (from stylesheet, never from JS)",
+        "Verify: quality scaling only touches setPixelRatio, never canvas CSS dimensions",
+        "Verify: no black bars scenario — canvas CSS is fixed at 100%, drawing buffer scales independently"
+      ]
+    }
+  ],
+  "acceptance_verification": {
+    "renderer_dom_matches_viewport": "CSS rule canvas { width: 100% !important; height: 100% !important } ensures DOM element always fills viewport. JS never sets inline CSS dimensions.",
+    "quality_scales_pixel_ratio_not_dom": "All setSize calls use updateStyle=false. Quality tier only affects setPixelRatio(Math.min(dpr, 2) * resolutionScale). Canvas CSS dimensions are never touched by quality logic.",
+    "no_black_bars": "Canvas CSS is always 100% of #app container which is position:fixed covering full viewport. setSize(w, h, false) never interferes with this layout.",
+    "orientation_changes_handled": "attachResizeHandler listens to resize, orientationchange, and visualViewport resize events. All three recalculate viewport size, update camera aspect, and call setSize with false."
+  },
+  "risks": [
+    {
+      "risk": "Three.js internal viewport calculation may differ when updateStyle=false",
+      "mitigation": "setSize still sets internal _width/_height correctly regardless of updateStyle flag — verified in Three.js source"
+    }
+  ]
+}
