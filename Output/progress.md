@@ -70,3 +70,5 @@
 
 ## US-035: Add smooth visual transitions between 3D modes
 
+## US-037: Add viewport safe-area and dynamic viewport handling
+
