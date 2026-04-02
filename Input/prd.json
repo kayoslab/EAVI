@@ -547,6 +547,194 @@
       ],
       "split_from": null,
       "notes": "Use this as a recurring definition-of-done gate."
+    },
+
+    {
+      "id": "US-028",
+      "title": "Fix viewport fill on mobile and tablets",
+      "description": "As a user on iPhone/iPad, I want the visual canvas to fill the visible viewport so that the artwork feels immersive on mobile devices.",
+      "acceptanceCriteria": [
+        "Visual output fills the viewport on mobile and desktop",
+        "Resolution scaling does not shrink the canvas element’s CSS size",
+        "Orientation changes update sizing correctly",
+        "UI buttons remain reachable and not clipped"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-002", "US-025"],
+      "split_from": "US-002",
+      "notes": "Current implementation multiplies canvas width/height by resolutionScale, which can shrink the canvas on low-tier devices. Resolution scaling must affect render buffer/pixel ratio, not layout size."
+    },
+    {
+      "id": "US-029",
+      "title": "Introduce Three.js renderer bootstrap",
+      "description": "As a developer, I want a basic Three.js scene (renderer, camera, scene graph) so that 3D visuals can be implemented consistently.",
+      "acceptanceCriteria": [
+        "A WebGL renderer is created and attached to the app container",
+        "A perspective camera is configured and renders a placeholder object",
+        "A single animation loop renders frames without console errors",
+        "Resize updates renderer size and camera aspect correctly"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-001", "US-002"],
+      "split_from": "US-002",
+      "notes": "This story is complete when a minimal 3D scene renders full-screen. No audio-reactivity required yet."
+    },
+    {
+      "id": "US-030",
+      "title": "Migrate render loop from Canvas2D to WebGL",
+      "description": "As a user, I want the core visual loop to render through WebGL so that 3D depth and point clouds are possible.",
+      "acceptanceCriteria": [
+        "The main render path uses the Three.js renderer each frame",
+        "Existing audio analysis values (bass/treble) are still computed",
+        "Pointer entropy values are still computed",
+        "2D canvas systems are no longer the default visual backend"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-029", "US-017", "US-013"],
+      "split_from": "US-009",
+      "notes": "Keep existing mappings/seed logic; replace only the draw backend. This reduces risk and keeps privacy rules intact."
+    },
+    {
+      "id": "US-031",
+      "title": "Implement 3D point cloud base geometry",
+      "description": "As a user, I want to see a 3D point cloud with visible depth so that the visual language matches the original intent.",
+      "acceptanceCriteria": [
+        "The scene contains a Points-based 3D point cloud built from BufferGeometry",
+        "The point cloud has non-zero Z-depth (not a flat plane)",
+        "Depth is perceptible via parallax or camera drift",
+        "Point count scales by quality tier (desktop higher, mobile lower)"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-030"],
+      "split_from": "US-026",
+      "notes": "Base shape should be generated procedurally (e.g., volume/shell/lattice) and seeded by the session seed. Avoid using external models."
+    },
+    {
+      "id": "US-032",
+      "title": "Add audio-driven 3D warp shader for the point cloud",
+      "description": "As a user, I want the 3D point cloud to deform and warp in response to music so that the experience feels audio-alive rather than static.",
+      "acceptanceCriteria": [
+        "Bass energy drives macro deformation (e.g., expansion, twisting, or global breathing)",
+        "Treble energy drives fine detail (e.g., jitter, sparkle size, micro-displacement)",
+        "Warp is time-evolving (not a single repeated shape)",
+        "Visuals continue even if autoplay is blocked or audio is muted"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-031", "US-018", "US-019", "US-016"],
+      "split_from": "US-018",
+      "notes": "Use GPU-side deformation (ShaderMaterial) so point counts can be higher without CPU bottlenecks."
+    },
+    {
+      "id": "US-033",
+      "title": "Increase structural variation within a session",
+      "description": "As a user, I want the 3D point cloud to meaningfully change its structure over time so that the experience does not feel like one repeating waveform.",
+      "acceptanceCriteria": [
+        "At least one seeded structural parameter changes over time (not just colour/brightness)",
+        "The scene avoids hard resets; transitions feel continuous",
+        "Structural evolution remains smooth (no popping)",
+        "Different sessions produce noticeably different structures"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-032", "US-012"],
+      "split_from": "US-012",
+      "notes": "Examples: morph between two seeded shapes, slowly change noise frequency, gradually alter camera distance and field radius."
+    },
+    {
+      "id": "US-034",
+      "title": "Replace 2D wave mode with a 3D secondary mode",
+      "description": "As a user, I want a second 3D mode so that session progression has strong visual variety while staying within the point-cloud aesthetic.",
+      "acceptanceCriteria": [
+        "A second 3D mode is implemented (not a 2D canvas line mode)",
+        "Second mode is also audio-reactive (bass + treble mapped distinctly)",
+        "Mode selection and switching remain seeded",
+        "Switching does not break audio playback or mute control"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-030", "US-026", "US-018", "US-019"],
+      "split_from": "US-026",
+      "notes": "Second mode should still be ‘close to point clouds’: e.g., a 3D ribbon of points, a volumetric lattice, or a rotating shell field."
+    },
+    {
+      "id": "US-035",
+      "title": "Add smooth visual transitions between 3D modes",
+      "description": "As a user, I want mode switches to feel like evolving art rather than a sudden cut so that immersion is preserved.",
+      "acceptanceCriteria": [
+        "Mode switching crossfades or morphs (no sudden hard swap)",
+        "Transition duration is short and seeded (e.g., a few seconds)",
+        "No frame hitches during transition",
+        "Audio continues uninterrupted"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-034"],
+      "split_from": "US-026",
+      "notes": "Implement as opacity crossfade or geometry morph. Keep it lightweight; no heavy post-processing is required."
+    },
+    {
+      "id": "US-036",
+      "title": "Rework quality scaling to preserve full-screen while reducing GPU cost",
+      "description": "As a user on lower-capability devices, I want the work to remain full-screen but cheaper to render so that it remains usable without obvious layout breakage.",
+      "acceptanceCriteria": [
+        "Canvas/renderer still fills the viewport on low-tier devices",
+        "Quality scaling affects pixel ratio, point count, and shader complexity (not layout size)",
+        "Mobile does not crash on load",
+        "Visual identity remains recognisable across tiers"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-028", "US-030"],
+      "split_from": "US-025",
+      "notes": "This story replaces the ‘resolutionScale shrinks canvas’ approach with proper render-resolution scaling."
+    },
+    {
+      "id": "US-037",
+      "title": "Add viewport safe-area and dynamic viewport handling",
+      "description": "As a mobile user, I want the full-screen experience to work with notches and browser UI changes so that the visuals and controls are not clipped.",
+      "acceptanceCriteria": [
+        "Viewport meta config supports edge-to-edge displays",
+        "UI respects safe-area insets (top/bottom) where applicable",
+        "Dynamic viewport height changes do not leave permanent blank bars",
+        "No scrollbars appear"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-028"],
+      "split_from": "US-002",
+      "notes": "Use viewport-fit and safe-area insets; prefer modern dynamic viewport sizing units with fallbacks."
+    },
+    {
+      "id": "US-038",
+      "title": "Add minimal visual instrumentation for tuning",
+      "description": "As a developer/artist, I want a minimal debug readout so that I can tune point count, warp strength, and audio mappings without guessing.",
+      "acceptanceCriteria": [
+        "A debug overlay can be enabled intentionally (e.g., query param)",
+        "It shows FPS (or frame time), active mode name, point count, and bass/treble values",
+        "It does not display raw visitor identifiers",
+        "It is disabled by default"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-030", "US-031", "US-017"],
+      "split_from": null,
+      "notes": "This is for iteration speed; keep it tiny and removable."
     }
   ]
 }
