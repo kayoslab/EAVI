@@ -720,8 +720,8 @@
         "Visual identity remains recognisable across tiers"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-028",
         "US-030"

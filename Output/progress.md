@@ -66,3 +66,5 @@
 
 ## US-034: Replace 2D wave mode with a 3D secondary mode
 
+## US-036: Rework quality scaling to preserve full-screen while reducing GPU cost
+
