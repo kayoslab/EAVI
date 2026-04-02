@@ -1,0 +1,268 @@
+{
+  "ticket": "US-045",
+  "title": "Correct resolution scaling without shrinking layout",
+  "testFiles": [
+    {
+      "path": "tests/visual/resize-scaling.test.ts",
+      "description": "Tests that resize handler uses updateStyle=false and only scales via pixel ratio",
+      "tests": [
+        {
+          "id": "T-045-01",
+          "name": "attachResizeHandler calls renderer.setSize with updateStyle=false on resize",
+          "type": "unit",
+          "criteria": "AC-1",
+          "setup": "Create mock renderer with spy on setSize, attach resize handler, dispatch resize event",
+          "assertion": "renderer.setSize was called with (width, height, false) — third argument must be false",
+          "notes": "The mock renderer needs to track the third argument to setSize"
+        },
+        {
+          "id": "T-045-02",
+          "name": "attachResizeHandler calls setPixelRatio with Math.min(dpr, 2) * resolutionScale on resize",
+          "type": "unit",
+          "criteria": "AC-2",
+          "setup": "Set devicePixelRatio=3, create mock renderer with spy on setPixelRatio, attach with resolutionScale=0.5, dispatch resize",
+          "assertion": "renderer.setPixelRatio called with Math.min(3, 2) * 0.5 = 1.0",
+          "notes": "Verifies DPR capping at 2 and scale multiplication"
+        },
+        {
+          "id": "T-045-03",
+          "name": "resize handler does not set inline style.width or style.height on canvas",
+          "type": "unit",
+          "criteria": "AC-1,AC-3",
+          "setup": "Create renderer, attach resize handler, record canvas inline styles before resize, dispatch resize",
+          "assertion": "renderer.domElement.style.width and style.height are empty strings (not '100%') after resize — CSS stylesheet owns layout",
+          "notes": "This is the key behavioral change: JS must not touch inline CSS dimensions"
+        },
+        {
+          "id": "T-045-04",
+          "name": "orientationchange event triggers resize handler and updates camera",
+          "type": "unit",
+          "criteria": "AC-4",
+          "setup": "Create renderer and camera, attach resize handler, change innerWidth/innerHeight to simulate rotation, dispatch orientationchange",
+          "assertion": "camera.aspect updated to new width/height ratio, camera.updateProjectionMatrix called, renderer.setSize called with new dimensions and false",
+          "notes": "Tests landscape-to-portrait and portrait-to-landscape transitions"
+        },
+        {
+          "id": "T-045-05",
+          "name": "visualViewport resize event triggers resize handler",
+          "type": "unit",
+          "criteria": "AC-4",
+          "setup": "Mock window.visualViewport with width/height, attach resize handler, update viewport size, dispatch resize on visualViewport",
+          "assertion": "renderer.setSize called with visualViewport dimensions and false",
+          "notes": "visualViewport is preferred over innerWidth/innerHeight when available"
+        },
+        {
+          "id": "T-045-06",
+          "name": "cleanup function removes all three event listeners (resize, orientationchange, visualViewport)",
+          "type": "unit",
+          "criteria": "AC-4",
+          "setup": "Attach resize handler, call cleanup, then dispatch resize, orientationchange, and visualViewport resize events",
+          "assertion": "renderer.setSize is not called after cleanup for any of the three event types",
+          "notes": "Ensures no memory leaks from stale listeners after re-attach"
+        },
+        {
+          "id": "T-045-07",
+          "name": "resize handler with resolutionScale=1.0 on high-DPR device does not shrink canvas CSS",
+          "type": "unit",
+          "criteria": "AC-2,AC-3",
+          "setup": "Set devicePixelRatio=3, create renderer, attach with resolutionScale=1.0, dispatch resize",
+          "assertion": "setPixelRatio called with 2.0 (capped), setSize called with full viewport dimensions and false, no inline CSS set",
+          "notes": "Verifies DPR cap does not cause layout shrinkage"
+        },
+        {
+          "id": "T-045-08",
+          "name": "resize handler with resolutionScale=0.5 reduces pixel ratio but not CSS size",
+          "type": "unit",
+          "criteria": "AC-2,AC-3",
+          "setup": "Set devicePixelRatio=2, attach with resolutionScale=0.5, dispatch resize at 390x844 (iPhone)",
+          "assertion": "setPixelRatio called with 1.0, setSize called with (390, 844, false), canvas has no inline width/height",
+          "notes": "Simulates mobile low-tier quality without black bars"
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/scene-scaling.test.ts",
+      "description": "Tests that initScene calls setSize with updateStyle=false and does not set inline CSS",
+      "tests": [
+        {
+          "id": "T-045-09",
+          "name": "initScene calls renderer.setSize with updateStyle=false",
+          "type": "unit",
+          "criteria": "AC-1",
+          "setup": "Mock WebGLRenderer to track setSize arguments, call initScene with container",
+          "assertion": "renderer.setSize was called with (window.innerWidth, window.innerHeight, false)",
+          "notes": "The mock must capture the third boolean argument"
+        },
+        {
+          "id": "T-045-10",
+          "name": "initScene does not set inline style.width or style.height on canvas",
+          "type": "unit",
+          "criteria": "AC-1,AC-3",
+          "setup": "Call initScene, inspect renderer.domElement.style",
+          "assertion": "renderer.domElement.style.width === '' and renderer.domElement.style.height === '' (no inline styles)",
+          "notes": "CSS stylesheet rule 'canvas { width: 100% !important; height: 100% !important }' handles layout"
+        },
+        {
+          "id": "T-045-11",
+          "name": "initScene with resolutionScale applies it to setPixelRatio without affecting CSS",
+          "type": "unit",
+          "criteria": "AC-2",
+          "setup": "Set devicePixelRatio=2, call initScene with resolutionScale=0.75",
+          "assertion": "setPixelRatio called with 1.5 (min(2,2)*0.75), no inline CSS dimensions on canvas",
+          "notes": "Resolution scaling is purely GPU-side"
+        },
+        {
+          "id": "T-045-12",
+          "name": "context restore re-applies pixel ratio and setSize with updateStyle=false",
+          "type": "unit",
+          "criteria": "AC-1,AC-2",
+          "setup": "Call initScene with resolutionScale=0.5, spy on setSize and setPixelRatio, dispatch webglcontextrestored on canvas",
+          "assertion": "setPixelRatio called again with correct scaled value, setSize called with (innerWidth, innerHeight, false), no inline CSS set",
+          "notes": "Context restore must not reintroduce inline CSS dimensions"
+        },
+        {
+          "id": "T-045-13",
+          "name": "context restore does not set inline style on canvas",
+          "type": "unit",
+          "criteria": "AC-3",
+          "setup": "Call initScene, dispatch webglcontextrestored, check inline styles",
+          "assertion": "renderer.domElement.style.width === '' and style.height === '' after context restore",
+          "notes": "Ensures the context loss recovery path also avoids inline CSS"
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/viewport-fullscreen.test.ts",
+      "description": "Integration tests verifying canvas always fills viewport with no black bars",
+      "tests": [
+        {
+          "id": "T-045-14",
+          "name": "CSS stylesheet contains canvas rule with 100% !important for width and height",
+          "type": "integration",
+          "criteria": "AC-1,AC-3",
+          "setup": "Read src/style.css file content",
+          "assertion": "CSS contains 'canvas' selector with 'width: 100% !important' and 'height: 100% !important'",
+          "notes": "This is the layout guarantee — CSS owns canvas sizing, not JS"
+        },
+        {
+          "id": "T-045-15",
+          "name": "canvas CSS dimensions fill viewport at all quality tiers (0.5, 0.75, 1.0)",
+          "type": "integration",
+          "criteria": "AC-1,AC-3",
+          "setup": "For each resolutionScale in [0.5, 0.75, 1.0]: call initScene, check inline styles",
+          "assertion": "For all tiers: canvas has no inline width/height (CSS stylesheet handles it), canvas is child of container",
+          "notes": "Replaces T-036-04 which expected inline '100%' — now expects no inline styles at all"
+        },
+        {
+          "id": "T-045-16",
+          "name": "iPhone SE viewport simulation: no black bars after quality scaling",
+          "type": "integration",
+          "criteria": "AC-3",
+          "setup": "Set innerWidth=375, innerHeight=667, devicePixelRatio=2, initScene with resolutionScale=0.5",
+          "assertion": "setSize called with (375, 667, false), no inline CSS, setPixelRatio=1.0",
+          "notes": "Simulates low-tier quality on small iPhone — canvas must still fill screen"
+        },
+        {
+          "id": "T-045-17",
+          "name": "iPad Pro viewport simulation: no black bars after orientation change",
+          "type": "integration",
+          "criteria": "AC-3,AC-4",
+          "setup": "Set innerWidth=1024, innerHeight=1366 (portrait iPad), initScene, attach resize, then change to 1366x1024 (landscape), dispatch orientationchange",
+          "assertion": "camera.aspect updated to 1366/1024, setSize called with (1366, 1024, false), no inline CSS",
+          "notes": "Tests iPad rotation does not introduce black bars"
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/main-scaling.test.ts",
+      "description": "Tests that main.ts geo callback applies quality scaling via pixel ratio only",
+      "tests": [
+        {
+          "id": "T-045-18",
+          "name": "main.ts geo callback calls setSize with updateStyle=false when applying quality",
+          "type": "unit",
+          "criteria": "AC-2",
+          "setup": "Verify src/main.ts line 88 passes false as third arg to setSize",
+          "assertion": "renderer.setSize(window.innerWidth, window.innerHeight, false) — not renderer.setSize(w, h)",
+          "notes": "Static analysis or mock-based test of the geo callback path"
+        },
+        {
+          "id": "T-045-19",
+          "name": "main.ts geo callback does not set inline CSS dimensions on canvas",
+          "type": "unit",
+          "criteria": "AC-1,AC-3",
+          "setup": "Verify src/main.ts does not contain renderer.domElement.style.width or style.height assignments after setSize",
+          "assertion": "No inline style assignments to canvas dimensions in the geo callback",
+          "notes": "Lines 89-90 in current code must be removed"
+        }
+      ]
+    }
+  ],
+  "coverageMatrix": {
+    "AC-1: Renderer DOM element always matches viewport size in CSS": [
+      "T-045-01",
+      "T-045-03",
+      "T-045-09",
+      "T-045-10",
+      "T-045-12",
+      "T-045-14",
+      "T-045-15",
+      "T-045-19"
+    ],
+    "AC-2: Quality scaling modifies renderer pixel ratio instead of DOM size": [
+      "T-045-02",
+      "T-045-07",
+      "T-045-08",
+      "T-045-11",
+      "T-045-12",
+      "T-045-18"
+    ],
+    "AC-3: No black bars appear on iPhone or iPad": [
+      "T-045-03",
+      "T-045-08",
+      "T-045-10",
+      "T-045-13",
+      "T-045-14",
+      "T-045-15",
+      "T-045-16",
+      "T-045-17",
+      "T-045-19"
+    ],
+    "AC-4: Orientation changes update renderer and camera correctly": [
+      "T-045-04",
+      "T-045-05",
+      "T-045-06",
+      "T-045-17"
+    ]
+  },
+  "existingTestsToUpdate": [
+    {
+      "path": "tests/visual/resize.test.ts",
+      "reason": "Mock WebGLRenderer.setSize does not track the third updateStyle argument. Must update mock to capture and assert on it.",
+      "tests_affected": ["T-029-14", "T-029-15", "T-029-16", "T-029-17", "T-029-18", "T-025-18", "T-025-19"]
+    },
+    {
+      "path": "tests/visual/scene.test.ts",
+      "reason": "Mock WebGLRenderer.setSize does not track updateStyle arg. T-029-03 asserts canvas pixel dimensions which change when setSize gets false.",
+      "tests_affected": ["T-029-03", "T-025-09", "T-025-10"]
+    },
+    {
+      "path": "tests/visual/quality-scaling.test.ts",
+      "reason": "T-036-04 asserts style.width === '100%' which should now be '' (empty) since JS no longer sets inline styles. Must update assertion.",
+      "tests_affected": ["T-036-04", "T-036-05"]
+    }
+  ],
+  "mockRequirements": {
+    "WebGLRenderer": {
+      "setSize": "Must track all three arguments (w, h, updateStyle) — especially the boolean third arg",
+      "setPixelRatio": "Must track calls and store the ratio for getPixelRatio",
+      "domElement": "Real HTMLCanvasElement from document.createElement('canvas') — inline styles must not be set by mock"
+    },
+    "window": {
+      "innerWidth": "Configurable via Object.defineProperty",
+      "innerHeight": "Configurable via Object.defineProperty",
+      "devicePixelRatio": "Configurable via Object.defineProperty",
+      "visualViewport": "Mock object with width, height, and addEventListener/removeEventListener"
+    }
+  }
+}
