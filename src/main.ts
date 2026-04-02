@@ -12,6 +12,7 @@ import { initPointer } from './input/pointer';
 import { addPlaceholder } from './visual/placeholder';
 import { createParticleField } from './visual/systems/particleField';
 import { createWaveField } from './visual/systems/waveField';
+import { createPointCloud } from './visual/systems/pointCloud';
 import { createModeManager } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 
@@ -72,9 +73,14 @@ geoPromise.then((geo) => {
     maxWaves: quality.tier === 'low' ? 10 : 20,
     enableShimmer: quality.enableSparkle,
   });
+  const pointCloud = createPointCloud({
+    maxPoints: quality.maxPoints,
+    enableSparkle: quality.enableSparkle,
+  });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },
     { name: 'waves', factory: () => waves },
+    { name: 'pointcloud', factory: () => pointCloud },
   ]);
 
   // Enrich loop deps — geometry will init on next frame
