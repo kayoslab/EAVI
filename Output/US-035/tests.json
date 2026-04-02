@@ -1,0 +1,111 @@
+{
+  "ticket_id": "US-035",
+  "title": "Add smooth visual transitions between 3D modes",
+  "test_file": "tests/visual/modeManager.test.ts",
+  "test_framework": "vitest",
+  "setup": {
+    "imports": [
+      "import { describe, it, expect, vi } from 'vitest';",
+      "import * as THREE from 'three';",
+      "import { createModeManager } from '../../src/visual/modeManager';",
+      "import type { GeometrySystem, FrameState } from '../../src/visual/types';",
+      "import type { VisualParams } from '../../src/visual/mappings';"
+    ],
+    "helpers": {
+      "createMockGeometrySystemWithOpacity": "function createMockGeometrySystemWithOpacity(): GeometrySystem & { init: ReturnType<typeof vi.fn>; draw: ReturnType<typeof vi.fn>; cleanup: ReturnType<typeof vi.fn>; setOpacity: ReturnType<typeof vi.fn> } { return { init: vi.fn(), draw: vi.fn(), cleanup: vi.fn(), setOpacity: vi.fn() }; }",
+      "note": "Extends existing createMockGeometrySystem to include setOpacity and cleanup mocks for transition tests. The existing helper and defaultParams/makeFrame/createTestScene remain unchanged."
+    }
+  },
+  "new_tests": [
+    {
+      "id": "T-035-01",
+      "name": "mode switch crossfades — both outgoing and incoming draw() are called during transition",
+      "description": "When a mode switch is triggered, both the outgoing and incoming systems should have draw() called on the same frame during the transition period.",
+      "test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'crossfade-seed', defaultParams);\nconst initialIndex = manager.activeIndex;\nconst [initial, incoming] = initialIndex === 0 ? [mockA, mockB] : [mockB, mockA];\n\n// Draw before switch\nmanager.draw(scene, makeFrame({ elapsed: 0 }));\nexpect(initial.draw).toHaveBeenCalledTimes(1);\nexpect(incoming.draw).not.toHaveBeenCalled();\n\n// Trigger switch — use 200s which exceeds 90-180s interval\ninitial.draw.mockClear();\nincoming.draw.mockClear();\nmanager.draw(scene, makeFrame({ elapsed: 200_000 }));\n\n// During transition, BOTH systems should be drawn\nexpect(initial.draw).toHaveBeenCalled();\nexpect(incoming.draw).toHaveBeenCalled();",
+      "expected_behavior": "Both outgoing and incoming systems receive draw() calls during the transition frame, confirming crossfade overlap."
+    },
+    {
+      "id": "T-035-02",
+      "name": "transition duration is seeded and falls within 2-4 second range",
+      "description": "The crossfade duration should be derived from the seeded PRNG and always fall between 2000ms and 4000ms.",
+      "test_body": "const scene = createTestScene();\nconst durations: number[] = [];\n\nfor (let s = 0; s < 20; s++) {\n  const mockA = createMockGeometrySystemWithOpacity();\n  const mockB = createMockGeometrySystemWithOpacity();\n\n  const manager = createModeManager([\n    { name: 'a', factory: () => mockA },\n    { name: 'b', factory: () => mockB },\n  ]);\n  manager.init(scene, `duration-seed-${s}`, defaultParams);\n  const initialIndex = manager.activeIndex;\n\n  // Trigger transition at 200s\n  manager.draw(scene, makeFrame({ elapsed: 200_000 }));\n  expect(manager.transitioning).toBe(true);\n\n  // Probe to find when transition ends (check 1ms increments from 200s+2000ms to 200s+4500ms)\n  let endTime = -1;\n  for (let t = 202_000; t <= 204_500; t += 100) {\n    manager.draw(scene, makeFrame({ elapsed: t }));\n    if (!manager.transitioning) {\n      endTime = t;\n      break;\n    }\n  }\n  expect(endTime).toBeGreaterThanOrEqual(202_000);\n  expect(endTime).toBeLessThanOrEqual(204_100);\n  durations.push(endTime - 200_000);\n}\n\n// Durations should vary across seeds\nconst unique = new Set(durations);\nexpect(unique.size).toBeGreaterThanOrEqual(2);",
+      "expected_behavior": "All transition durations fall within 2000-4000ms range and different seeds produce varying durations."
+    },
+    {
+      "id": "T-035-03",
+      "name": "after transition completes, only incoming system draws and outgoing cleanup was called",
+      "description": "Once the crossfade finishes, only the new active system should receive draw() calls, and the outgoing system's cleanup() should have been invoked.",
+      "test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'post-transition-seed', defaultParams);\nconst initialIndex = manager.activeIndex;\nconst [outgoing, incoming] = initialIndex === 0 ? [mockA, mockB] : [mockB, mockA];\n\n// Trigger switch\nmanager.draw(scene, makeFrame({ elapsed: 200_000 }));\n\n// Advance well past max transition duration (200s + 5s)\noutgoing.draw.mockClear();\nincoming.draw.mockClear();\nmanager.draw(scene, makeFrame({ elapsed: 205_000 }));\n\n// Only incoming should be drawn now\nexpect(incoming.draw).toHaveBeenCalled();\nexpect(outgoing.draw).not.toHaveBeenCalled();\n\n// Outgoing cleanup should have been called\nexpect(outgoing.cleanup).toHaveBeenCalled();",
+      "expected_behavior": "Post-transition: outgoing cleanup() was called, only incoming system receives draw()."
+    },
+    {
+      "id": "T-035-04",
+      "name": "no frame hitches — draw() never throws during entire transition lifecycle",
+      "description": "Drawing frames throughout the transition period should never throw, including the start frame, mid-transition frames, and the completion frame.",
+      "test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'hitch-test-seed', defaultParams);\n\n// Draw frames spanning before, during, and after transition\nfor (let t = 0; t <= 210_000; t += 500) {\n  expect(() => manager.draw(scene, makeFrame({ elapsed: t }))).not.toThrow();\n}",
+      "expected_behavior": "No exceptions thrown across 420 frames spanning pre-transition, transition, and post-transition."
+    },
+    {
+      "id": "T-035-05",
+      "name": "audio params (bassEnergy, trebleEnergy) flow to both systems during transition",
+      "description": "During the crossfade, both outgoing and incoming systems must receive the current audio analysis data in their FrameState.",
+      "test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'audio-flow-seed', defaultParams);\n\n// Trigger transition with audio data\nconst audioFrame = makeFrame({\n  elapsed: 200_000,\n  params: { ...defaultParams, bassEnergy: 0.8, trebleEnergy: 0.6 },\n});\nmanager.draw(scene, audioFrame);\n\n// Both systems should receive the frame with audio params\nconst aFrame = mockA.draw.mock.calls.length > 0 ? mockA.draw.mock.calls[mockA.draw.mock.calls.length - 1][1] : null;\nconst bFrame = mockB.draw.mock.calls.length > 0 ? mockB.draw.mock.calls[mockB.draw.mock.calls.length - 1][1] : null;\n\n// During transition both should have been called\nexpect(aFrame).not.toBeNull();\nexpect(bFrame).not.toBeNull();\nexpect(aFrame.params.bassEnergy).toBe(0.8);\nexpect(aFrame.params.trebleEnergy).toBe(0.6);\nexpect(bFrame.params.bassEnergy).toBe(0.8);\nexpect(bFrame.params.trebleEnergy).toBe(0.6);",
+      "expected_behavior": "Both systems receive identical FrameState with current bassEnergy and trebleEnergy during transition."
+    },
+    {
+      "id": "T-035-06",
+      "name": "transition state is observable via manager.transitioning",
+      "description": "The ModeManager should expose a transitioning boolean that is true during crossfade and false otherwise.",
+      "test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'observable-seed', defaultParams);\n\n// Before any switch\nexpect(manager.transitioning).toBe(false);\n\n// Draw normally\nmanager.draw(scene, makeFrame({ elapsed: 0 }));\nexpect(manager.transitioning).toBe(false);\n\n// Trigger switch\nmanager.draw(scene, makeFrame({ elapsed: 200_000 }));\nexpect(manager.transitioning).toBe(true);\n\n// Well after transition completes\nmanager.draw(scene, makeFrame({ elapsed: 205_000 }));\nexpect(manager.transitioning).toBe(false);",
+      "expected_behavior": "transitioning is false before switch, true during crossfade, false after completion."
+    },
+    {
+      "id": "T-035-07",
+      "name": "setOpacity is called with correct crossfade values (outgoing decreases, incoming increases)",
+      "description": "During the transition, setOpacity should be called on both systems with complementary values that sum approximately to 1.0. Outgoing should decrease from 1 toward 0, incoming should increase from 0 toward 1.",
+      "test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'opacity-values-seed', defaultParams);\nconst initialIndex = manager.activeIndex;\nconst [outgoing, incoming] = initialIndex === 0 ? [mockA, mockB] : [mockB, mockA];\n\n// Trigger transition\nmanager.draw(scene, makeFrame({ elapsed: 200_000 }));\n\n// Record mid-transition opacity\noutgoing.setOpacity.mockClear();\nincoming.setOpacity.mockClear();\nmanager.draw(scene, makeFrame({ elapsed: 201_500 }));\n\n// Both should have setOpacity called\nexpect(outgoing.setOpacity).toHaveBeenCalled();\nexpect(incoming.setOpacity).toHaveBeenCalled();\n\nconst outVal = outgoing.setOpacity.mock.calls[outgoing.setOpacity.mock.calls.length - 1][0];\nconst inVal = incoming.setOpacity.mock.calls[incoming.setOpacity.mock.calls.length - 1][0];\n\n// Outgoing should be decreasing (less than 1)\nexpect(outVal).toBeLessThan(1.0);\nexpect(outVal).toBeGreaterThanOrEqual(0.0);\n\n// Incoming should be increasing (greater than 0)\nexpect(inVal).toBeGreaterThan(0.0);\nexpect(inVal).toBeLessThanOrEqual(1.0);\n\n// They should be roughly complementary\nexpect(outVal + inVal).toBeCloseTo(1.0, 1);",
+      "expected_behavior": "setOpacity values are complementary (sum ~1.0), outgoing decreases, incoming increases."
+    },
+    {
+      "id": "T-035-08",
+      "name": "integration — real ParticleField and PointCloud do not throw during transition",
+      "description": "Using real geometry system implementations, the transition should complete without errors.",
+      "test_body": "const { createParticleField } = await import('../../src/visual/systems/particleField');\nconst { createPointCloud } = await import('../../src/visual/systems/pointCloud');\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'particles', factory: () => createParticleField() },\n  { name: 'points', factory: () => createPointCloud() },\n]);\n\nexpect(() => manager.init(scene, 'integration-transition-seed', defaultParams)).not.toThrow();\n\n// Normal draw\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 0 }))).not.toThrow();\n\n// Trigger transition\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();\n\n// Mid-transition\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 201_500 }))).not.toThrow();\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 203_000 }))).not.toThrow();\n\n// Post-transition\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 205_000 }))).not.toThrow();",
+      "is_async": true,
+      "expected_behavior": "Real geometry systems handle the full transition lifecycle without throwing."
+    }
+  ],
+  "modified_tests": [
+    {
+      "id": "T-026-17",
+      "original_name": "mode switches at elapsed time boundary",
+      "change_description": "With crossfade, the mode switch is no longer instant. After triggering a switch at elapsed=200000, both mocks will be drawn during the transition. Update assertion: instead of requiring exactly 1 call each, verify that total draw calls is >= 2 and both mocks have been called. Then advance past transition (elapsed=205000) to confirm the switch completed and activeIndex changed.",
+      "updated_test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'switch-seed', defaultParams);\nconst initialIndex = manager.activeIndex;\n\n// Draw at elapsed=0\nmanager.draw(scene, makeFrame({ elapsed: 0 }));\n\n// Trigger switch at elapsed=200000\nmanager.draw(scene, makeFrame({ elapsed: 200_000 }));\n\n// During transition both should be drawn\nexpect(mockA.draw.mock.calls.length + mockB.draw.mock.calls.length).toBeGreaterThanOrEqual(2);\n\n// Complete transition\nmanager.draw(scene, makeFrame({ elapsed: 205_000 }));\n\n// Active index should have changed\nexpect(manager.activeIndex).not.toBe(initialIndex);"
+    },
+    {
+      "id": "T-026-22",
+      "original_name": "registry accepts multiple modes and cycles through them",
+      "change_description": "With crossfade, drawing at elapsed boundaries 0/200000/400000 may not instantly complete each transition. Add draws at 205000 and 405000 to complete transitions before checking that all three modes have been drawn.",
+      "updated_test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\nconst mockC = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n  { name: 'c', factory: () => mockC },\n]);\nmanager.init(scene, 'cycle-seed', defaultParams);\n\n// Draw and complete transitions\nmanager.draw(scene, makeFrame({ elapsed: 0 }));\nmanager.draw(scene, makeFrame({ elapsed: 200_000 }));\nmanager.draw(scene, makeFrame({ elapsed: 205_000 }));\nmanager.draw(scene, makeFrame({ elapsed: 400_000 }));\nmanager.draw(scene, makeFrame({ elapsed: 405_000 }));\n\n// All 3 modes should have been drawn at least once\nexpect(mockA.draw.mock.calls.length).toBeGreaterThanOrEqual(1);\nexpect(mockB.draw.mock.calls.length).toBeGreaterThanOrEqual(1);\nexpect(mockC.draw.mock.calls.length).toBeGreaterThanOrEqual(1);"
+    },
+    {
+      "id": "T-030-23",
+      "original_name": "cleanup() is called on outgoing system during mode switch",
+      "change_description": "With crossfade, cleanup() is deferred until the transition completes, not called immediately at switch time. Update to advance past transition duration before asserting cleanup was called.",
+      "updated_test_body": "const mockA = createMockGeometrySystemWithOpacity();\nconst mockB = createMockGeometrySystemWithOpacity();\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'a', factory: () => mockA },\n  { name: 'b', factory: () => mockB },\n]);\nmanager.init(scene, 'cleanup-switch-seed', defaultParams);\nconst initialIndex = manager.activeIndex;\nconst initialMock = initialIndex === 0 ? mockA : mockB;\n\n// Trigger mode switch (starts transition)\nmanager.draw(scene, makeFrame({ elapsed: 200_000 }));\n\n// Cleanup should NOT be called yet (still transitioning)\nexpect(initialMock.cleanup).not.toHaveBeenCalled();\n\n// Complete transition (advance past max 4s transition duration)\nmanager.draw(scene, makeFrame({ elapsed: 205_000 }));\n\n// NOW cleanup should have been called\nexpect(initialMock.cleanup).toHaveBeenCalled();"
+    }
+  ],
+  "interface_changes": [
+    {
+      "file": "src/visual/types.ts",
+      "change": "Add optional setOpacity method to GeometrySystem interface: setOpacity?(opacity: number): void"
+    },
+    {
+      "file": "src/visual/modeManager.ts",
+      "change": "Add 'readonly transitioning: boolean' to ModeManager interface"
+    }
+  ],
+  "describe_block": "US-035: Smooth visual transitions between 3D modes",
+  "total_new_tests": 8,
+  "total_modified_tests": 3
+}
