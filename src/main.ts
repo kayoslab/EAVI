@@ -27,11 +27,13 @@ const { renderer, scene, camera } = initScene(app, {
 let cleanupResize = attachResizeHandler(renderer, camera);
 
 // Add placeholder 3D object
-const { mesh } = addPlaceholder(scene);
+const { mesh, ambient, directional } = addPlaceholder(scene);
 
 // Shared deps object — mutated as async work resolves
 const deps: LoopDeps = {
   placeholderMesh: mesh,
+  placeholderAmbient: ambient,
+  placeholderDirectional: directional,
 };
 
 // Pointer tracking

@@ -32,5 +32,10 @@ export function initScene(
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
 
+  // Persistent ambient light for geometry systems (unlit materials don't need it,
+  // but it's here for future extensibility with lit materials)
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambient);
+
   return { renderer, scene, camera };
 }

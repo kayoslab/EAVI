@@ -35,4 +35,19 @@ describe('US-029: GeometrySystem interface', () => {
       time: 0, delta: 16, elapsed: 0, params, width: 800, height: 600,
     })).not.toThrow();
   });
+
+  it('T-030-25: GeometrySystem interface accepts optional cleanup method', () => {
+    const system: GeometrySystem = {
+      init: (_scene: THREE.Scene, _seed: string, _params: any) => {},
+      draw: (_scene: THREE.Scene, _frame: any) => {},
+      cleanup: () => {},
+    };
+    expect(typeof system.cleanup).toBe('function');
+
+    const systemNoCleanup: GeometrySystem = {
+      init: (_scene: THREE.Scene, _seed: string, _params: any) => {},
+      draw: (_scene: THREE.Scene, _frame: any) => {},
+    };
+    expect(systemNoCleanup.cleanup).toBeUndefined();
+  });
 });

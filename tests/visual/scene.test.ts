@@ -128,6 +128,16 @@ describe('US-029: Three.js scene bootstrap', () => {
   });
 });
 
+describe('US-030: Scene ambient light', () => {
+  it('T-030-28: scene has ambient light for geometry systems after migration', async () => {
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    const { scene } = initScene(container);
+    const ambientLights = scene.children.filter((c) => c instanceof THREE.AmbientLight);
+    expect(ambientLights.length).toBe(1);
+  });
+});
+
 describe('US-025: Scene quality scaling', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true });

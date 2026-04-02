@@ -56,6 +56,7 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
         const prevIndex = activeIndex;
         activeIndex = (activeIndex + 1) % systems.length;
         if (activeIndex !== prevIndex) {
+          systems[prevIndex].cleanup?.();
           systems[activeIndex].init(scene, seed, frame.params);
         }
         nextSwitchAt = frame.elapsed + switchInterval;

@@ -1,4 +1,4 @@
-import type { WebGLRenderer, Scene, PerspectiveCamera, Mesh } from 'three';
+import type { WebGLRenderer, Scene, PerspectiveCamera, Mesh, AmbientLight, DirectionalLight } from 'three';
 import type { VisualParams } from './mappings';
 import { mapSignalsToVisuals } from './mappings';
 import { evolveParams } from './evolution';
@@ -17,6 +17,8 @@ export interface LoopDeps {
   getAnalyserPipeline?: (() => AnalyserPipeline | null) | null;
   geometrySystem?: GeometrySystem | null;
   placeholderMesh?: Mesh | null;
+  placeholderAmbient?: AmbientLight | null;
+  placeholderDirectional?: DirectionalLight | null;
   quality?: QualityProfile | null;
 }
 
@@ -149,9 +151,29 @@ export function startLoop(
     if (d.geometrySystem && d.seed && !geoInitialized) {
       d.geometrySystem.init(scene, d.seed, params);
       geoInitialized = true;
+
+      // Remove placeholder mesh and its lights now that geometry systems are active
+      if (d.placeholderMesh) {
+        scene.remove(d.placeholderMesh);
+        if (d.placeholderMesh.geometry) d.placeholderMesh.geometry.dispose();
+        if (d.placeholderMesh.material) {
+          const mat = d.placeholderMesh.material;
+          if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+          else mat.dispose();
+        }
+        d.placeholderMesh = null;
+      }
+      if (d.placeholderAmbient) {
+        scene.remove(d.placeholderAmbient);
+        d.placeholderAmbient = null;
+      }
+      if (d.placeholderDirectional) {
+        scene.remove(d.placeholderDirectional);
+        d.placeholderDirectional = null;
+      }
     }
 
-    // Rotate placeholder mesh
+    // Rotate placeholder mesh (only while it's still active)
     if (d.placeholderMesh) {
       d.placeholderMesh.rotation.y += delta * 0.0003;
       d.placeholderMesh.rotation.x += delta * 0.0001;

@@ -44,4 +44,12 @@ describe('US-029: Placeholder 3D object', () => {
     addPlaceholder(scene);
     expect(scene.children.length).toBe(3);
   });
+
+  it('T-030-29: addPlaceholder returns lights for cleanup', () => {
+    const scene = new THREE.Scene();
+    const result = addPlaceholder(scene);
+    expect(result.mesh).toBeDefined();
+    expect(result.ambient).toBeInstanceOf(THREE.AmbientLight);
+    expect(result.directional).toBeInstanceOf(THREE.DirectionalLight);
+  });
 });
