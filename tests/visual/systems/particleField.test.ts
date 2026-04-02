@@ -311,9 +311,14 @@ describe('US-009: ParticleField geometry system', () => {
       expect(getParticleCount(field)).toBeGreaterThan(150);
     });
 
-    // TODO: Re-enable when Canvas 2D systems are ported to Three.js
-    it.skip('T-025-14: enableSparkle=false still renders particles without jitter', () => {
-      // This test relied on Canvas 2D fillRect calls
+    it('T-025-14: enableSparkle=false still renders particles without jitter', () => {
+      const scene = new THREE.Scene();
+      const field = createParticleField({ maxParticles: 300, enableSparkle: false });
+      expect(() => {
+        field.init(scene, 'sparkle-off-seed', { ...defaultParams, density: 0.6 });
+        field.draw(scene, { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 });
+      }).not.toThrow();
+      expect(getParticleCount(field)).toBeGreaterThan(0);
     });
 
     it('T-025-15: maxParticles config preserves density and structureComplexity scaling', () => {

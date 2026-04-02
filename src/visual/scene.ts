@@ -1,17 +1,25 @@
 import * as THREE from 'three';
 
+export interface SceneOptions {
+  resolutionScale?: number;
+  disableAntialias?: boolean;
+}
+
 export function initScene(
   container: HTMLElement,
-  _resolutionScale = 1.0,
+  options?: SceneOptions,
 ): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera } {
+  const resolutionScale = options?.resolutionScale ?? 1.0;
+  const disableAntialias = options?.disableAntialias ?? false;
+
   const renderer = new THREE.WebGLRenderer({
-    antialias: true,
+    antialias: !disableAntialias,
     alpha: false,
     powerPreference: 'high-performance',
   });
 
   renderer.setClearColor(0x000000);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * resolutionScale);
   renderer.setSize(window.innerWidth, window.innerHeight);
   container.appendChild(renderer.domElement);
 

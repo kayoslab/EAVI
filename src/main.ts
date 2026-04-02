@@ -10,16 +10,21 @@ import { attachResizeHandler } from './visual/resize';
 import { startLoop, type LoopDeps } from './visual/renderLoop';
 import { initPointer } from './input/pointer';
 import { addPlaceholder } from './visual/placeholder';
-// TODO: Port Canvas 2D geometry systems to Three.js in future stories
-// import { createParticleField } from './visual/systems/particleField';
-// import { createWaveField } from './visual/systems/waveField';
-// import { createModeManager } from './visual/modeManager';
-// import { computeQuality } from './visual/quality';
+import { createParticleField } from './visual/systems/particleField';
+import { createWaveField } from './visual/systems/waveField';
+import { createModeManager } from './visual/modeManager';
+import { computeQuality } from './visual/quality';
+
+// Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
+const quickTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+const lowDPR = window.devicePixelRatio <= 1;
 
 // Three.js scene bootstrap — render immediately so the dark scene is visible before async work
 const app = document.getElementById('app')!;
-const { renderer, scene, camera } = initScene(app);
-attachResizeHandler(renderer, camera);
+const { renderer, scene, camera } = initScene(app, {
+  disableAntialias: quickTouch && lowDPR,
+});
+let cleanupResize = attachResizeHandler(renderer, camera);
 
 // Add placeholder 3D object
 const { mesh } = addPlaceholder(scene);
@@ -44,10 +49,36 @@ geoPromise.then((geo) => {
   const seed = initSessionSeed(signals, geo);
   console.debug('[EAVI] session seed:', seed);
 
+  // Compute quality tier from device signals
+  const quality = computeQuality(signals);
+  console.debug('[EAVI] quality tier:', quality.tier);
+
+  // Apply resolution scale to renderer and resize handler
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * quality.resolutionScale);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  cleanupResize();
+  cleanupResize = attachResizeHandler(renderer, camera, quality.resolutionScale);
+
+  // Create geometry systems with quality-driven config
+  const particles = createParticleField({
+    maxParticles: quality.maxParticles,
+    enableSparkle: quality.enableSparkle,
+  });
+  const waves = createWaveField({
+    maxWaves: quality.tier === 'low' ? 10 : 20,
+    enableShimmer: quality.enableSparkle,
+  });
+  const modeManager = createModeManager([
+    { name: 'particles', factory: () => particles },
+    { name: 'waves', factory: () => waves },
+  ]);
+
   // Enrich loop deps — geometry will init on next frame
   deps.seed = seed;
   deps.signals = signals;
   deps.geo = geo;
+  deps.quality = quality;
+  deps.geometrySystem = modeManager;
 });
 
 // Info button + overlay — append immediately, no async dependency

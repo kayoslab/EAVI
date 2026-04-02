@@ -7,6 +7,7 @@ import type { GeoHint } from '../input/geo';
 import type { PointerState } from '../input/pointer';
 import type { AnalyserPipeline } from '../audio/analyser';
 import type { GeometrySystem } from './types';
+import type { QualityProfile } from './quality';
 
 export interface LoopDeps {
   seed?: string | null;
@@ -16,6 +17,7 @@ export interface LoopDeps {
   getAnalyserPipeline?: (() => AnalyserPipeline | null) | null;
   geometrySystem?: GeometrySystem | null;
   placeholderMesh?: Mesh | null;
+  quality?: QualityProfile | null;
 }
 
 const defaultPointer: PointerState = {

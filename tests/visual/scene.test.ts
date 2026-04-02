@@ -127,3 +127,42 @@ describe('US-029: Three.js scene bootstrap', () => {
     expect(clearColor.b).toBe(0);
   });
 });
+
+describe('US-025: Scene quality scaling', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true });
+  });
+
+  it('T-025-09: initScene accepts resolutionScale parameter and applies it to pixel ratio', async () => {
+    Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    const { renderer } = initScene(container, { resolutionScale: 0.75 });
+
+    // Pixel ratio = min(2, 2) * 0.75 = 1.5, canvas = 1920 * 1.5 x 1080 * 1.5
+    expect(renderer.domElement.width).toBe(1920 * 1.5);
+    expect(renderer.domElement.height).toBe(1080 * 1.5);
+  });
+
+  it('T-025-10: initScene with resolutionScale 0.5 halves effective resolution', async () => {
+    Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    const { renderer } = initScene(container, { resolutionScale: 0.5 });
+
+    // Pixel ratio = min(2, 2) * 0.5 = 1.0, canvas = 1920 * 1 x 1080 * 1
+    expect(renderer.domElement.width).toBe(1920);
+    expect(renderer.domElement.height).toBe(1080);
+  });
+
+  it('T-025-11: initScene with disableAntialias flag creates renderer without antialias', async () => {
+    const { initScene } = await import('../../src/visual/scene');
+    const container = document.createElement('div');
+    // disableAntialias is passed to renderer constructor — we verify it doesn't throw
+    // and still produces a valid renderer
+    const { renderer } = initScene(container, { disableAntialias: true });
+    expect(renderer).toBeDefined();
+    expect(renderer.domElement).toBeInstanceOf(HTMLCanvasElement);
+  });
+});
