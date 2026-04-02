@@ -897,8 +897,8 @@
         "Orientation changes update renderer and camera correctly"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-039"
       ],
