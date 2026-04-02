@@ -1,0 +1,276 @@
+{
+  "tests": [
+    {
+      "id": "T-042-01",
+      "title": "initCameraMotion and updateCamera are exported functions",
+      "type": "unit",
+      "description": "The cameraMotion module exports initCameraMotion(seed) and updateCamera(camera, elapsedMs, bassEnergy, motionAmplitude) as callable functions.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Import initCameraMotion and updateCamera from src/visual/cameraMotion",
+        "Assert both are functions"
+      ],
+      "acceptance_criteria": ["Camera position changes over time"],
+      "priority": 1
+    },
+    {
+      "id": "T-042-02",
+      "title": "updateCamera changes camera position over time",
+      "type": "unit",
+      "description": "Calling updateCamera at different elapsed times produces different camera.position values, confirming the camera moves autonomously.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera with position and lookAt",
+        "Call initCameraMotion with a test seed",
+        "Record camera position after updateCamera at elapsedMs=0",
+        "Record camera position after updateCamera at elapsedMs=5000",
+        "Record camera position after updateCamera at elapsedMs=30000",
+        "Assert at least two of the three positions differ from each other"
+      ],
+      "acceptance_criteria": ["Camera position changes over time"],
+      "priority": 1
+    },
+    {
+      "id": "T-042-03",
+      "title": "Camera movement spans all three axes for parallax",
+      "type": "unit",
+      "description": "Over a 60-second sweep, the camera position changes on x, y, and z axes independently, revealing depth parallax.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera",
+        "Call initCameraMotion with a test seed",
+        "Sample camera positions at 1-second intervals from 0 to 60000ms",
+        "Compute the range (max - min) for each axis",
+        "Assert x range > 0.05, y range > 0.05, z range > 0.05"
+      ],
+      "acceptance_criteria": ["Camera movement reveals parallax across depth"],
+      "priority": 1
+    },
+    {
+      "id": "T-042-04",
+      "title": "Movement is smooth — consecutive frame deltas are small",
+      "type": "unit",
+      "description": "At ~60fps (16ms steps), frame-to-frame camera position deltas are small, ensuring no jumps or discontinuities.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera",
+        "Call initCameraMotion with a test seed",
+        "Step through 10000ms to 12000ms in 16ms increments",
+        "For each step, record camera.position after updateCamera",
+        "Assert the Euclidean distance between consecutive positions is < 0.05"
+      ],
+      "acceptance_criteria": ["Movement is smooth and seeded"],
+      "priority": 1
+    },
+    {
+      "id": "T-042-05",
+      "title": "Movement is deterministic — same seed produces identical positions",
+      "type": "unit",
+      "description": "initCameraMotion with the same seed and identical elapsed times produces bit-identical camera positions, confirming seeded determinism.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create two mock PerspectiveCameras",
+        "Call initCameraMotion('det-seed') and updateCamera on camera A at t=45000",
+        "Clear cache if exposed, call initCameraMotion('det-seed') and updateCamera on camera B at t=45000",
+        "Assert camera A position equals camera B position exactly"
+      ],
+      "acceptance_criteria": ["Movement is smooth and seeded"],
+      "priority": 1
+    },
+    {
+      "id": "T-042-06",
+      "title": "Different seeds produce different camera paths",
+      "type": "unit",
+      "description": "Two different seeds yield different camera positions at the same elapsed time, confirming per-session uniqueness.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create two mock PerspectiveCameras",
+        "Call initCameraMotion('seed-alpha') and updateCamera on camera A at t=30000",
+        "Call initCameraMotion('seed-beta') and updateCamera on camera B at t=30000",
+        "Assert camera A and camera B positions differ on at least one axis"
+      ],
+      "acceptance_criteria": ["Movement is smooth and seeded"],
+      "priority": 1
+    },
+    {
+      "id": "T-042-07",
+      "title": "Pointer input does not affect camera position",
+      "type": "unit",
+      "description": "updateCamera does not accept or use pointer coordinates. Camera position is identical regardless of any pointer state in the system.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Verify updateCamera function signature has no pointer parameter",
+        "Create a mock PerspectiveCamera",
+        "Call initCameraMotion and updateCamera at t=20000 with bassEnergy=0.5 and motionAmplitude=1.0",
+        "Record the resulting camera position",
+        "Call updateCamera again at the same t, bassEnergy, and motionAmplitude",
+        "Assert positions are identical (no external state leakage from pointer)"
+      ],
+      "acceptance_criteria": ["User pointer does not directly control orbit"],
+      "priority": 1
+    },
+    {
+      "id": "T-042-08",
+      "title": "Bass energy modulates camera orbit radius",
+      "type": "unit",
+      "description": "Higher bassEnergy values produce larger position offsets from the base camera position, creating a push/pull parallax effect on bass hits.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create two mock PerspectiveCameras",
+        "Call initCameraMotion with the same seed",
+        "Call updateCamera on camera A at t=30000 with bassEnergy=0.0, motionAmplitude=1.0",
+        "Call updateCamera on camera B at t=30000 with bassEnergy=1.0, motionAmplitude=1.0",
+        "Compute distance from base position (0,0,5) for each camera",
+        "Assert camera B distance >= camera A distance (bass widens orbit)"
+      ],
+      "acceptance_criteria": ["Camera position changes over time"],
+      "priority": 2
+    },
+    {
+      "id": "T-042-09",
+      "title": "motionAmplitude=0.2 produces smaller offsets than motionAmplitude=1.0",
+      "type": "unit",
+      "description": "Reduced motion preference (motionAmplitude=0.2) scales all camera displacement, resulting in subtler movement for accessibility.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create two mock PerspectiveCameras",
+        "Call initCameraMotion with the same seed",
+        "Call updateCamera on camera A at t=30000 with bassEnergy=0.5, motionAmplitude=0.2",
+        "Call updateCamera on camera B at t=30000 with bassEnergy=0.5, motionAmplitude=1.0",
+        "Compute Euclidean distance from base (0,0,5) for each",
+        "Assert camera A offset is less than or equal to camera B offset",
+        "Assert camera A offset is approximately 0.2x of camera B offset (within tolerance)"
+      ],
+      "acceptance_criteria": ["Movement is smooth and seeded"],
+      "priority": 2
+    },
+    {
+      "id": "T-042-10",
+      "title": "Camera stays within safe bounds — never drifts too far from origin",
+      "type": "unit",
+      "description": "Over a long sweep (0-300s), camera position stays within reasonable bounds so geometry remains in view.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera",
+        "Call initCameraMotion with a test seed",
+        "Sample positions every second from 0 to 300000ms",
+        "For each sample, assert |x| < 3, |y| < 3, z is between 2 and 8",
+        "This ensures geometry near origin is always visible"
+      ],
+      "acceptance_criteria": ["Camera position changes over time", "Camera movement reveals parallax across depth"],
+      "priority": 1
+    },
+    {
+      "id": "T-042-11",
+      "title": "Camera lookAt target stays near origin",
+      "type": "unit",
+      "description": "The camera always looks toward a point near the origin so the point cloud subject remains centered in view.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera that records lookAt calls",
+        "Call initCameraMotion with a test seed",
+        "Call updateCamera at several elapsed times (0, 15000, 30000, 60000)",
+        "For each call, verify lookAt was called with coordinates where |x| < 1, |y| < 1, |z| < 1"
+      ],
+      "acceptance_criteria": ["Camera movement reveals parallax across depth"],
+      "priority": 2
+    },
+    {
+      "id": "T-042-12",
+      "title": "No hard resets — scanning 0 to 120s the max frame-to-frame delta is bounded",
+      "type": "unit",
+      "description": "Sweeping through 120 seconds at 16ms steps, no single frame jump exceeds a safe threshold, confirming no discontinuities.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera",
+        "Call initCameraMotion with a test seed",
+        "Step from 0 to 120000ms in 16ms increments",
+        "Track max Euclidean distance between consecutive frame positions",
+        "Assert max delta < 0.1 per frame"
+      ],
+      "acceptance_criteria": ["Movement is smooth and seeded"],
+      "priority": 2
+    },
+    {
+      "id": "T-042-13",
+      "title": "Harmonic cache is reused for same seed",
+      "type": "unit",
+      "description": "Calling initCameraMotion with the same seed multiple times reuses cached harmonics, producing identical results without recomputing PRNG sequences.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera",
+        "Call initCameraMotion('cache-seed')",
+        "Call updateCamera at t=50000 and record position",
+        "Call initCameraMotion('cache-seed') again (should hit cache)",
+        "Call updateCamera at t=50000 and record position",
+        "Assert both positions are identical"
+      ],
+      "acceptance_criteria": ["Movement is smooth and seeded"],
+      "priority": 3
+    },
+    {
+      "id": "T-042-14",
+      "title": "No forbidden storage APIs accessed during camera motion",
+      "type": "unit",
+      "description": "Neither initCameraMotion nor updateCamera access localStorage, sessionStorage, or cookies, per privacy requirements.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Spy on Storage.prototype.getItem, Storage.prototype.setItem, and document.cookie setter",
+        "Create a mock PerspectiveCamera",
+        "Call initCameraMotion('privacy-seed')",
+        "Call updateCamera at several time values",
+        "Assert none of the storage spies were called"
+      ],
+      "acceptance_criteria": ["Movement is smooth and seeded"],
+      "priority": 2
+    },
+    {
+      "id": "T-042-15",
+      "title": "Organic non-repeating motion within 5 minutes",
+      "type": "unit",
+      "description": "Camera x-position sampled every second for 5 minutes shows no identical 30-sample subsequences, confirming incommensurate harmonic frequencies prevent visible repetition.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera",
+        "Call initCameraMotion with a test seed",
+        "Sample camera.position.x every 1000ms from 0 to 300000ms (300 samples)",
+        "Round each to 4 decimal places",
+        "Check for any repeated 30-sample subsequence",
+        "Assert no repeats found"
+      ],
+      "acceptance_criteria": ["Camera position changes over time", "Movement is smooth and seeded"],
+      "priority": 3
+    },
+    {
+      "id": "T-042-16",
+      "title": "renderLoop integrates camera motion — updateCamera called each frame",
+      "type": "integration",
+      "description": "When the render loop is running with a seed, updateCamera is invoked each frame after evolveParams and before renderer.render, applying autonomous camera motion.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Mock the cameraMotion module",
+        "Set up a minimal render loop with a seed and geometry system",
+        "Trigger several animation frames",
+        "Assert initCameraMotion was called once with the session seed",
+        "Assert updateCamera was called each frame with the camera, elapsed time, bass energy, and motionAmplitude"
+      ],
+      "acceptance_criteria": ["Camera position changes over time"],
+      "priority": 2
+    },
+    {
+      "id": "T-042-17",
+      "title": "motionAmplitude=0 results in no camera displacement",
+      "type": "unit",
+      "description": "When motionAmplitude is 0, camera position should remain at the base position with no displacement, as all offsets are scaled to zero.",
+      "file": "tests/visual/cameraMotion.test.ts",
+      "steps": [
+        "Create a mock PerspectiveCamera at base position (0,0,5)",
+        "Call initCameraMotion with a test seed",
+        "Call updateCamera at t=30000 with bassEnergy=0.5, motionAmplitude=0",
+        "Assert camera position is at or very near (0,0,5) — within epsilon 0.001"
+      ],
+      "acceptance_criteria": ["Movement is smooth and seeded"],
+      "priority": 2
+    }
+  ]
+}
