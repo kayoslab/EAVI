@@ -600,9 +600,10 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
-        "US-029",
+        "US-009",
+        "US-013",
         "US-017",
-        "US-013"
+        "US-029"
       ],
       "split_from": "US-009",
       "notes": "Keep existing mappings/seed logic; replace only the draw backend. This reduces risk and keeps privacy rules intact."
@@ -640,10 +641,10 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
-        "US-031",
+        "US-016",
         "US-018",
         "US-019",
-        "US-016"
+        "US-031"
       ],
       "split_from": "US-018",
       "notes": "Use GPU-side deformation (ShaderMaterial) so point counts can be higher without CPU bottlenecks."
@@ -662,8 +663,8 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
-        "US-032",
-        "US-012"
+        "US-012",
+        "US-032"
       ],
       "split_from": "US-012",
       "notes": "Examples: morph between two seeded shapes, slowly change noise frequency, gradually alter camera distance and field radius."
@@ -682,10 +683,10 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
-        "US-030",
-        "US-026",
         "US-018",
-        "US-019"
+        "US-019",
+        "US-026",
+        "US-030"
       ],
       "split_from": "US-026",
       "notes": "Second mode should still be ‘close to point clouds’: e.g., a 3D ribbon of points, a volumetric lattice, or a rotating shell field."
@@ -762,12 +763,165 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
+        "US-017",
         "US-030",
-        "US-031",
-        "US-017"
+        "US-031"
       ],
       "split_from": null,
       "notes": "This is for iteration speed; keep it tiny and removable."
+    },
+    {
+      "id": "US-039",
+      "title": "Enforce WebGL-only rendering backend",
+      "description": "As a system, I must render the primary visuals using WebGL so that 3D depth and GPU-based deformation are possible.",
+      "acceptanceCriteria": [
+        "Rendering uses Three.js WebGLRenderer",
+        "Canvas2D is not used as the primary rendering path",
+        "A PerspectiveCamera is present in the scene graph",
+        "Rendering fails gracefully only if WebGL is unavailable"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-029"],
+      "split_from": "US-030",
+      "notes": "Canvas2D implementations automatically fail this story."
+    },
+    {
+      "id": "US-040",
+      "title": "Create volumetric point cloud generator",
+      "description": "As a user, I want the scene to contain volumetric 3D geometry so that the visual has real spatial depth rather than a flat surface.",
+      "acceptanceCriteria": [
+        "Base geometry occupies non-zero volume in X, Y, and Z",
+        "Geometry is not constrained to a single plane",
+        "Point positions are generated in 3D space",
+        "Depth is visible through parallax when camera moves"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-039"],
+      "split_from": "US-031",
+      "notes": "Allowed base generators: sphere volume, shell, torus volume, 3D noise lattice, spiral field."
+    },
+    {
+      "id": "US-041",
+      "title": "Implement shader-based vertex displacement",
+      "description": "As a user, I want the geometry to warp fluidly in 3D space so that audio reactivity feels sculptural rather than animated in 2D.",
+      "acceptanceCriteria": [
+        "Geometry deformation occurs in a ShaderMaterial",
+        "Bass energy affects large-scale displacement in 3D",
+        "Treble energy affects fine-grain displacement or point size",
+        "Deformation evolves over time (not static modulation)"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-040", "US-017"],
+      "split_from": "US-032",
+      "notes": "CPU-based per-point loops for deformation are not acceptable for final implementation."
+    },
+    {
+      "id": "US-042",
+      "title": "Add autonomous spatial camera motion",
+      "description": "As a user, I want the camera to move subtly in 3D space so that depth and structure are perceptible.",
+      "acceptanceCriteria": [
+        "Camera position changes over time",
+        "Camera movement reveals parallax across depth",
+        "Movement is smooth and seeded",
+        "User pointer does not directly control orbit"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-040"],
+      "split_from": null,
+      "notes": "OrbitControls may be used for development but not as default interaction."
+    },
+    {
+      "id": "US-043",
+      "title": "Implement structural morph targets",
+      "description": "As a user, I want the point cloud structure to evolve into different 3D formations during a session so that the experience feels alive.",
+      "acceptanceCriteria": [
+        "At least two distinct volumetric base geometries exist",
+        "Scene can interpolate between them smoothly",
+        "Morphing does not reset point identity",
+        "Morph behavior is seeded and session-unique"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-040", "US-041"],
+      "split_from": "US-033",
+      "notes": "Morphing should occur via shader interpolation or buffer blending."
+    },
+    {
+      "id": "US-044",
+      "title": "Replace wave mode with 3D secondary mode",
+      "description": "As a user, I want multiple sculptural 3D modes rather than planar wave abstractions.",
+      "acceptanceCriteria": [
+        "Second mode is volumetric and point-based",
+        "Mode uses 3D deformation",
+        "No 2D line or flat plane geometries remain",
+        "Mode switching preserves audio pipeline"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-041"],
+      "split_from": "US-034",
+      "notes": "WaveField.ts must be deprecated."
+    },
+    {
+      "id": "US-045",
+      "title": "Correct resolution scaling without shrinking layout",
+      "description": "As a mobile user, I want the visual to fill the viewport fully while still reducing GPU cost appropriately.",
+      "acceptanceCriteria": [
+        "Renderer DOM element always matches viewport size in CSS",
+        "Quality scaling modifies renderer pixel ratio instead of DOM size",
+        "No black bars appear on iPhone or iPad",
+        "Orientation changes update renderer and camera correctly"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-039"],
+      "split_from": "US-028",
+      "notes": "renderer.setPixelRatio() should be used instead of shrinking canvas width/height."
+    },
+    {
+      "id": "US-046",
+      "title": "Introduce atmospheric depth cues",
+      "description": "As a user, I want visible depth cues so that the 3D structure feels spatial and immersive.",
+      "acceptanceCriteria": [
+        "Scene includes fog or depth-based attenuation",
+        "Point size or brightness varies with distance",
+        "Far geometry appears visually distinct from near geometry",
+        "Depth effect remains subtle and non-game-like"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-040"],
+      "split_from": null,
+      "notes": "Use THREE.Fog or shader depth-based fade."
+    },
+    {
+      "id": "US-047",
+      "title": "Adaptive point count scaling",
+      "description": "As a user on different devices, I want the point density to adapt without losing the sculptural quality.",
+      "acceptanceCriteria": [
+        "Desktop uses significantly higher point count than mobile",
+        "Mobile still maintains volumetric depth",
+        "Scaling affects geometry complexity, not dimensionality",
+        "No fallback to 2D abstraction on low tier"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-040", "US-045"],
+      "split_from": "US-036",
+      "notes": "Low tier may reduce point count but must remain 3D."
     }
   ]
 }
