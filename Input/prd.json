@@ -740,8 +740,8 @@
         "No scrollbars appear"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-028"
       ],
