@@ -85,9 +85,7 @@ geoPromise.then((geo) => {
 
   // Apply resolution scale to renderer and resize handler
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * quality.resolutionScale);
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.domElement.style.width = '100%';
-  renderer.domElement.style.height = '100%';
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
   cleanupResize();
   cleanupResize = attachResizeHandler(renderer, camera, quality.resolutionScale);
 

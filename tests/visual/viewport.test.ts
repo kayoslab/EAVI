@@ -14,11 +14,13 @@ vi.mock('three', async () => {
         this.domElement = document.createElement('canvas');
       }
 
-      setSize(w: number, h: number) {
+      setSize(w: number, h: number, updateStyle?: boolean) {
         this.domElement.width = w * this._pixelRatio;
         this.domElement.height = h * this._pixelRatio;
-        this.domElement.style.width = w + 'px';
-        this.domElement.style.height = h + 'px';
+        if (updateStyle !== false) {
+          this.domElement.style.width = w + 'px';
+          this.domElement.style.height = h + 'px';
+        }
       }
 
       setPixelRatio(ratio: number) {
@@ -49,16 +51,9 @@ describe('US-028: Canvas CSS size independence from resolutionScale', () => {
     const container = document.createElement('div');
     const { renderer } = initScene(container, { resolutionScale: 0.5 });
 
-    // CSS width/height must equal full viewport, not scaled down
-    const cssWidth = renderer.domElement.style.width;
-    const cssHeight = renderer.domElement.style.height;
-    // Canvas CSS should be 100% or match viewport px — must NOT be reduced by resolutionScale
-    expect(
-      cssWidth === '100%' || cssWidth === '375px'
-    ).toBe(true);
-    expect(
-      cssHeight === '100%' || cssHeight === '667px'
-    ).toBe(true);
+    // JS must not set inline CSS — stylesheet rule handles layout
+    expect(renderer.domElement.style.width).toBe('');
+    expect(renderer.domElement.style.height).toBe('');
   });
 
   it('T-028-01b: canvas CSS dimensions fill viewport when resolutionScale is 0.75', async () => {
@@ -66,14 +61,8 @@ describe('US-028: Canvas CSS size independence from resolutionScale', () => {
     const container = document.createElement('div');
     const { renderer } = initScene(container, { resolutionScale: 0.75 });
 
-    const cssWidth = renderer.domElement.style.width;
-    const cssHeight = renderer.domElement.style.height;
-    expect(
-      cssWidth === '100%' || cssWidth === '375px'
-    ).toBe(true);
-    expect(
-      cssHeight === '100%' || cssHeight === '667px'
-    ).toBe(true);
+    expect(renderer.domElement.style.width).toBe('');
+    expect(renderer.domElement.style.height).toBe('');
   });
 
   it('T-028-01c: canvas CSS dimensions fill viewport when resolutionScale is 1.0', async () => {
@@ -81,14 +70,8 @@ describe('US-028: Canvas CSS size independence from resolutionScale', () => {
     const container = document.createElement('div');
     const { renderer } = initScene(container, { resolutionScale: 1.0 });
 
-    const cssWidth = renderer.domElement.style.width;
-    const cssHeight = renderer.domElement.style.height;
-    expect(
-      cssWidth === '100%' || cssWidth === '375px'
-    ).toBe(true);
-    expect(
-      cssHeight === '100%' || cssHeight === '667px'
-    ).toBe(true);
+    expect(renderer.domElement.style.width).toBe('');
+    expect(renderer.domElement.style.height).toBe('');
   });
 });
 
@@ -320,7 +303,7 @@ describe('US-028: CSS size preservation on resize', () => {
   it('T-028-06: after resize with resolutionScale 0.5, canvas CSS size is still full viewport', async () => {
     const { attachResizeHandler } = await import('../../src/visual/resize');
     const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(1024, 768);
+    renderer.setSize(1024, 768, false);
     const camera = new THREE.PerspectiveCamera(60, 1024 / 768, 0.1, 100);
 
     attachResizeHandler(renderer, camera, 0.5);
@@ -329,15 +312,9 @@ describe('US-028: CSS size preservation on resize', () => {
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true });
     window.dispatchEvent(new Event('resize'));
 
-    const cssWidth = renderer.domElement.style.width;
-    const cssHeight = renderer.domElement.style.height;
-    // CSS must be 100% or match viewport pixels — not scaled down
-    expect(
-      cssWidth === '100%' || cssWidth === '375px'
-    ).toBe(true);
-    expect(
-      cssHeight === '100%' || cssHeight === '667px'
-    ).toBe(true);
+    // JS must not set inline CSS — stylesheet rule handles layout
+    expect(renderer.domElement.style.width).toBe('');
+    expect(renderer.domElement.style.height).toBe('');
   });
 });
 
@@ -377,12 +354,12 @@ describe('US-028: Scene init canvas style overrides', () => {
     Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true });
   });
 
-  it('T-028-08: initScene sets canvas style.width and style.height to 100%', async () => {
+  it('T-028-08: initScene does not set inline canvas style — CSS stylesheet owns layout', async () => {
     const { initScene } = await import('../../src/visual/scene');
     const container = document.createElement('div');
     const { renderer } = initScene(container, { resolutionScale: 0.5 });
 
-    expect(renderer.domElement.style.width).toBe('100%');
-    expect(renderer.domElement.style.height).toBe('100%');
+    expect(renderer.domElement.style.width).toBe('');
+    expect(renderer.domElement.style.height).toBe('');
   });
 });

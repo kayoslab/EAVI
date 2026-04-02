@@ -20,9 +20,7 @@ export function attachResizeHandler(
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * scale);
-    renderer.setSize(width, height);
-    renderer.domElement.style.width = '100%';
-    renderer.domElement.style.height = '100%';
+    renderer.setSize(width, height, false);
   };
 
   window.addEventListener('resize', onResize);

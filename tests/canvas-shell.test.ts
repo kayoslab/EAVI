@@ -17,7 +17,7 @@ vi.mock('three', async () => {
         this.domElement = document.createElement('canvas');
       }
 
-      setSize(w: number, h: number) {
+      setSize(w: number, h: number, _updateStyle?: boolean) {
         this._w = w;
         this._h = h;
         this.domElement.width = w;

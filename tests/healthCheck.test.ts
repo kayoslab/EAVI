@@ -16,7 +16,7 @@ vi.mock('three', async () => {
         this.domElement = document.createElement('canvas');
         this.domElement.style.display = 'block';
       }
-      setSize(w: number, h: number) {
+      setSize(w: number, h: number, _updateStyle?: boolean) {
         this.domElement.width = w * this._pixelRatio;
         this.domElement.height = h * this._pixelRatio;
       }
