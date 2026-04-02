@@ -1,0 +1,280 @@
+{
+  "ticket": "US-034",
+  "title": "Replace 2D wave mode with a 3D secondary mode",
+  "testFiles": [
+    {
+      "path": "tests/visual/systems/ribbonField.test.ts",
+      "action": "create",
+      "description": "Unit tests for the RibbonField geometry system — a 3D ribbon-of-points mode replacing the 2D WaveField",
+      "tests": [
+        {
+          "id": "T-034-01",
+          "description": "init creates points based on density and maxPoints config",
+          "body": "const scene = new THREE.Scene();\n\nconst low = createRibbonField({ maxPoints: 500 });\nlow.init(scene, 'seed-a', { ...defaultParams, density: 0.3 });\nconst lowCount = getPointCount(low);\n\nconst high = createRibbonField({ maxPoints: 500 });\nhigh.init(scene, 'seed-a', { ...defaultParams, density: 1.0 });\nconst highCount = getPointCount(high);\n\nexpect(highCount).toBeGreaterThan(lowCount);\n\nconst capped = createRibbonField({ maxPoints: 100 });\ncapped.init(scene, 'seed-a', { ...defaultParams, density: 1.0 });\nexpect(getPointCount(capped)).toBeLessThanOrEqual(100);",
+          "assertions": [
+            "Higher density produces more points",
+            "Point count does not exceed maxPoints config"
+          ]
+        },
+        {
+          "id": "T-034-02",
+          "description": "same seed produces same initial point configuration",
+          "body": "const scene = new THREE.Scene();\n\nconst a = createRibbonField();\na.init(scene, 'deterministic-seed', defaultParams);\n\nconst b = createRibbonField();\nb.init(scene, 'deterministic-seed', defaultParams);\n\nexpect(getPointPositions(a)).toEqual(getPointPositions(b));",
+          "assertions": [
+            "Identical seeds produce identical position arrays"
+          ]
+        },
+        {
+          "id": "T-034-03",
+          "description": "different seeds produce different configurations",
+          "body": "const scene = new THREE.Scene();\n\nconst a = createRibbonField();\na.init(scene, 'seed-one', defaultParams);\n\nconst b = createRibbonField();\nb.init(scene, 'seed-two', defaultParams);\n\nexpect(getPointPositions(a)).not.toEqual(getPointPositions(b));",
+          "assertions": [
+            "Different seeds produce different position arrays"
+          ]
+        },
+        {
+          "id": "T-034-04",
+          "description": "draw does not throw with valid FrameState",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'test-seed', defaultParams);\n\nexpect(() => ribbon.draw(scene, makeFrame())).not.toThrow();",
+          "assertions": [
+            "draw() completes without throwing"
+          ]
+        },
+        {
+          "id": "T-034-05",
+          "description": "draw does not throw with edge-case params (zero bass, zero treble, no pointer)",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nconst params = {\n  ...defaultParams,\n  bassEnergy: 0,\n  trebleEnergy: 0,\n  pointerDisturbance: 0,\n};\nribbon.init(scene, 'edge-seed', params);\n\nexpect(() => ribbon.draw(scene, makeFrame({\n  params,\n  pointerX: undefined,\n  pointerY: undefined,\n}))).not.toThrow();",
+          "assertions": [
+            "draw() completes without throwing with zero energy and no pointer"
+          ]
+        },
+        {
+          "id": "T-034-06",
+          "description": "draw does not throw at boundary parameter values",
+          "body": "const scene = new THREE.Scene();\n\nconst combos: Partial<VisualParams>[] = [\n  { bassEnergy: 0, trebleEnergy: 0, density: 0, motionAmplitude: 0.2 },\n  { bassEnergy: 1, trebleEnergy: 1, density: 1, motionAmplitude: 1 },\n  { curveSoftness: 0, structureComplexity: 0 },\n  { curveSoftness: 1, structureComplexity: 1 },\n];\n\nfor (const combo of combos) {\n  const params = { ...defaultParams, ...combo };\n  const ribbon = createRibbonField();\n  ribbon.init(scene, 'boundary-seed', params);\n  expect(() => ribbon.draw(scene, makeFrame({ params }))).not.toThrow();\n}",
+          "assertions": [
+            "All boundary parameter combinations complete without throwing"
+          ]
+        },
+        {
+          "id": "T-034-07",
+          "description": "init adds THREE.Points to scene (not THREE.Line or THREE.Group of Lines)",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'mesh-seed', defaultParams);\nconst pointsMeshes = scene.children.filter((c) => c instanceof THREE.Points);\nexpect(pointsMeshes.length).toBe(1);\nconst lineMeshes = scene.children.filter((c) => c instanceof THREE.Line);\nexpect(lineMeshes.length).toBe(0);",
+          "assertions": [
+            "Exactly one THREE.Points mesh is added to the scene",
+            "No THREE.Line objects are added (confirming 3D point-based mode, not 2D lines)"
+          ]
+        },
+        {
+          "id": "T-034-08",
+          "description": "points have position, color, size, aHueOffset, aRandom buffer attributes",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'attr-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geo = points.geometry as THREE.BufferGeometry;\n\nconst posAttr = geo.getAttribute('position');\nexpect(posAttr).toBeDefined();\nexpect(posAttr.itemSize).toBe(3);\n\nconst colorAttr = geo.getAttribute('color');\nexpect(colorAttr).toBeDefined();\nexpect(colorAttr.itemSize).toBe(3);\n\nconst sizeAttr = geo.getAttribute('size');\nexpect(sizeAttr).toBeDefined();\nexpect(sizeAttr.itemSize).toBe(1);\n\nconst hueOffsetAttr = geo.getAttribute('aHueOffset');\nexpect(hueOffsetAttr).toBeDefined();\nexpect(hueOffsetAttr.itemSize).toBe(1);\n\nconst randomAttr = geo.getAttribute('aRandom');\nexpect(randomAttr).toBeDefined();\nexpect(randomAttr.itemSize).toBe(3);",
+          "assertions": [
+            "position attribute exists with itemSize 3",
+            "color attribute exists with itemSize 3",
+            "size attribute exists with itemSize 1",
+            "aHueOffset attribute exists with itemSize 1",
+            "aRandom attribute exists with itemSize 3"
+          ]
+        },
+        {
+          "id": "T-034-09",
+          "description": "draw updates shader uniforms including bassEnergy and trebleEnergy",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'uniform-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\n\nribbon.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, bassEnergy: 0.7, trebleEnergy: 0.4 } }));\n\nexpect(mat.uniforms.uTime.value).toBe(100);\nexpect(mat.uniforms.uBassEnergy.value).toBe(0.7);\nexpect(mat.uniforms.uTrebleEnergy.value).toBe(0.4);",
+          "assertions": [
+            "uTime uniform is updated to current frame time",
+            "uBassEnergy uniform reflects bassEnergy param",
+            "uTrebleEnergy uniform reflects trebleEnergy param"
+          ]
+        },
+        {
+          "id": "T-034-10",
+          "description": "bass and treble are mapped to distinct uniforms (uBassEnergy vs uTrebleEnergy)",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'distinct-seed', defaultParams);\nconst mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n\nribbon.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, bassEnergy: 0, trebleEnergy: 0 } }));\nexpect(mat.uniforms.uBassEnergy.value).toBe(0);\nexpect(mat.uniforms.uTrebleEnergy.value).toBe(0);\n\nribbon.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 0 } }));\nexpect(mat.uniforms.uBassEnergy.value).toBe(1.0);\nexpect(mat.uniforms.uTrebleEnergy.value).toBe(0);\n\nribbon.draw(scene, makeFrame({ time: 100, elapsed: 100, params: { ...defaultParams, bassEnergy: 0, trebleEnergy: 1.0 } }));\nexpect(mat.uniforms.uBassEnergy.value).toBe(0);\nexpect(mat.uniforms.uTrebleEnergy.value).toBe(1.0);",
+          "assertions": [
+            "Setting only bassEnergy updates uBassEnergy but not uTrebleEnergy",
+            "Setting only trebleEnergy updates uTrebleEnergy but not uBassEnergy",
+            "Bass and treble are independently controllable"
+          ]
+        },
+        {
+          "id": "T-034-11",
+          "description": "cleanup removes mesh from scene and disposes geometry/material",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'cleanup-seed', defaultParams);\nexpect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(1);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst geoDisposeSpy = vi.spyOn(points.geometry, 'dispose');\nconst matDisposeSpy = vi.spyOn(points.material as THREE.Material, 'dispose');\nribbon.cleanup!();\nexpect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(0);\nexpect(geoDisposeSpy).toHaveBeenCalled();\nexpect(matDisposeSpy).toHaveBeenCalled();",
+          "assertions": [
+            "THREE.Points mesh is removed from scene",
+            "Geometry dispose is called",
+            "Material dispose is called"
+          ]
+        },
+        {
+          "id": "T-034-12",
+          "description": "no localStorage or cookie access during ribbon operations",
+          "body": "const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');\nconst cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');\nconst cookieGet = vi.fn().mockReturnValue('');\nObject.defineProperty(document, 'cookie', {\n  get: cookieGet,\n  configurable: true,\n});\n\nconst scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'privacy-seed', defaultParams);\nribbon.draw(scene, makeFrame());\n\nexpect(getItemSpy).not.toHaveBeenCalled();\nexpect(cookieGet).not.toHaveBeenCalled();\n\ngetItemSpy.mockRestore();\nif (cookieDescriptor) {\n  Object.defineProperty(document, 'cookie', cookieDescriptor);\n}",
+          "assertions": [
+            "Storage.getItem is never called",
+            "document.cookie getter is never called"
+          ]
+        },
+        {
+          "id": "T-034-13",
+          "description": "point positions have non-zero Z-depth confirming 3D distribution",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'depth-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;\nconst count = getPointCount(ribbon);\nlet minZ = Infinity;\nlet maxZ = -Infinity;\nfor (let i = 0; i < count; i++) {\n  const z = posArr[i * 3 + 2];\n  if (z < minZ) minZ = z;\n  if (z > maxZ) maxZ = z;\n}\nexpect(maxZ - minZ).toBeGreaterThan(1.0);",
+          "assertions": [
+            "Z values span a range greater than 1.0, confirming true 3D distribution"
+          ]
+        },
+        {
+          "id": "T-034-14",
+          "description": "mesh uses ShaderMaterial with vertex and fragment shaders",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'shader-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat).toBeInstanceOf(THREE.ShaderMaterial);\nexpect(mat.vertexShader.length).toBeGreaterThan(0);\nexpect(mat.fragmentShader.length).toBeGreaterThan(0);",
+          "assertions": [
+            "Material is ShaderMaterial",
+            "Vertex shader is non-empty",
+            "Fragment shader is non-empty"
+          ]
+        },
+        {
+          "id": "T-034-15",
+          "description": "material uses additive blending with transparency and depthWrite disabled",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'blend-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nconst mat = points.material as THREE.ShaderMaterial;\nexpect(mat.blending).toBe(THREE.AdditiveBlending);\nexpect(mat.transparent).toBe(true);\nexpect(mat.depthWrite).toBe(false);",
+          "assertions": [
+            "Blending mode is AdditiveBlending",
+            "Material is transparent",
+            "depthWrite is disabled"
+          ]
+        },
+        {
+          "id": "T-034-16",
+          "description": "mesh rotation changes over elapsed time (Y-axis drift)",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'drift-seed', defaultParams);\nconst points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\nribbon.draw(scene, makeFrame({ elapsed: 0 }));\nconst rotY0 = points.rotation.y;\nribbon.draw(scene, makeFrame({ elapsed: 5000 }));\nconst rotY1 = points.rotation.y;\nexpect(rotY1).not.toBeCloseTo(rotY0, 5);",
+          "assertions": [
+            "Y rotation changes between elapsed=0 and elapsed=5000"
+          ]
+        },
+        {
+          "id": "T-034-17",
+          "description": "colors derive from paletteHue (uPaletteHue uniform reflects param)",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'hue-seed', { ...defaultParams, paletteHue: 0 });\nconst mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n\nribbon.draw(scene, makeFrame({ params: { ...defaultParams, paletteHue: 0 } }));\nexpect(mat.uniforms.uPaletteHue.value).toBe(0);\n\nribbon.draw(scene, makeFrame({ params: { ...defaultParams, paletteHue: 180 } }));\nexpect(mat.uniforms.uPaletteHue.value).toBe(180);",
+          "assertions": [
+            "uPaletteHue uniform tracks the paletteHue visual param"
+          ]
+        },
+        {
+          "id": "T-034-18",
+          "description": "low motionAmplitude produces smaller uMotionAmplitude uniform than high",
+          "body": "const scene = new THREE.Scene();\nconst ribbon = createRibbonField();\nribbon.init(scene, 'motion-seed', defaultParams);\nconst mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n\nconst lowParams = { ...defaultParams, motionAmplitude: 0.2 };\nribbon.draw(scene, makeFrame({ elapsed: 100, params: lowParams }));\nconst lowVal = mat.uniforms.uMotionAmplitude.value;\n\nconst highParams = { ...defaultParams, motionAmplitude: 1.0 };\nribbon.draw(scene, makeFrame({ elapsed: 100, params: highParams }));\nconst highVal = mat.uniforms.uMotionAmplitude.value;\n\nexpect(highVal).toBeGreaterThan(lowVal);",
+          "assertions": [
+            "Higher motionAmplitude param produces higher uMotionAmplitude uniform value"
+          ]
+        },
+        {
+          "id": "T-034-19",
+          "description": "density parameter scales effective point count (higher density = more points)",
+          "body": "const scene = new THREE.Scene();\nconst ribbonLow = createRibbonField();\nribbonLow.init(scene, 'density-seed', { ...defaultParams, density: 0.3 });\nconst lowCount = getPointCount(ribbonLow);\n\nconst ribbonHigh = createRibbonField();\nribbonHigh.init(scene, 'density-seed', { ...defaultParams, density: 1.0 });\nconst highCount = getPointCount(ribbonHigh);\n\nexpect(highCount).toBeGreaterThan(lowCount);",
+          "assertions": [
+            "Higher density produces more points"
+          ]
+        },
+        {
+          "id": "T-034-20",
+          "description": "point count never exceeds the configured maxPoints",
+          "body": "const scene = new THREE.Scene();\nconst maxPoints = 300;\nconst ribbon = createRibbonField({ maxPoints });\nribbon.init(scene, 'cap-seed', { ...defaultParams, density: 1.0, structureComplexity: 1.0 });\nexpect(getPointCount(ribbon)).toBeLessThanOrEqual(maxPoints);",
+          "assertions": [
+            "Point count respects maxPoints cap even at maximum density and complexity"
+          ]
+        }
+      ],
+      "imports": [
+        "import { describe, it, expect, vi } from 'vitest';",
+        "import * as THREE from 'three';",
+        "import { createRibbonField, getPointCount, getPointPositions } from '../../../src/visual/systems/ribbonField';",
+        "import type { VisualParams } from '../../../src/visual/mappings';",
+        "import type { FrameState } from '../../../src/visual/types';"
+      ],
+      "setup": {
+        "defaultParams": {
+          "paletteHue": 180,
+          "paletteSaturation": 0.5,
+          "cadence": 0.7,
+          "density": 0.6,
+          "motionAmplitude": 1.0,
+          "pointerDisturbance": 0,
+          "bassEnergy": 0,
+          "trebleEnergy": 0,
+          "curveSoftness": 0.5,
+          "structureComplexity": 0.5,
+          "noiseFrequency": 1.0,
+          "radialScale": 1.0,
+          "twistStrength": 1.0,
+          "fieldSpread": 1.0
+        },
+        "makeFrame": "function makeFrame(overrides?: Partial<FrameState>): FrameState {\n  return {\n    time: 1000,\n    delta: 16,\n    elapsed: 1000,\n    width: 800,\n    height: 600,\n    params: { ...defaultParams },\n    ...overrides,\n  };\n}",
+        "describeBlock": "US-034: RibbonField geometry system"
+      }
+    },
+    {
+      "path": "tests/visual/modeManager.test.ts",
+      "action": "modify",
+      "description": "Update integration test T-026-24 to use RibbonField instead of WaveField",
+      "tests": [
+        {
+          "id": "T-026-24",
+          "description": "mode manager works with real ParticleField and RibbonField",
+          "replaces": "T-026-24: mode manager works with real ParticleField and WaveField",
+          "body": "const { createParticleField } = await import('../../src/visual/systems/particleField');\nconst { createRibbonField } = await import('../../src/visual/systems/ribbonField');\n\nconst scene = createTestScene();\nconst manager = createModeManager([\n  { name: 'particles', factory: () => createParticleField() },\n  { name: 'ribbon', factory: () => createRibbonField() },\n]);\n\nexpect(() => manager.init(scene, 'integration-seed', defaultParams)).not.toThrow();\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 0 }))).not.toThrow();\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 100_000 }))).not.toThrow();\nexpect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();",
+          "assertions": [
+            "Mode manager initializes without throwing with real ParticleField and RibbonField",
+            "Drawing at multiple elapsed times (crossing switch boundaries) does not throw"
+          ]
+        }
+      ],
+      "importChanges": {
+        "remove": "import { createWaveField } from '../../src/visual/systems/waveField';",
+        "add": "import { createRibbonField } from '../../src/visual/systems/ribbonField';",
+        "note": "Import is dynamic (await import) inside the test, so the top-level import list does not change — only the dynamic import path inside T-026-24 is updated"
+      }
+    }
+  ],
+  "filesToDelete": [
+    {
+      "path": "tests/visual/systems/waveField.test.ts",
+      "reason": "WaveField is fully replaced by RibbonField; these tests are no longer applicable"
+    }
+  ],
+  "acceptanceCoverage": {
+    "A second 3D mode is implemented (not a 2D canvas line mode)": [
+      "T-034-07: init adds THREE.Points to scene (not THREE.Line)",
+      "T-034-13: point positions have non-zero Z-depth confirming 3D distribution",
+      "T-034-14: mesh uses ShaderMaterial with vertex and fragment shaders",
+      "T-034-15: material uses additive blending with transparency"
+    ],
+    "Second mode is also audio-reactive (bass + treble mapped distinctly)": [
+      "T-034-09: draw updates shader uniforms including bassEnergy and trebleEnergy",
+      "T-034-10: bass and treble are mapped to distinct uniforms (uBassEnergy vs uTrebleEnergy)"
+    ],
+    "Mode selection and switching remain seeded": [
+      "T-034-02: same seed produces same initial point configuration",
+      "T-034-03: different seeds produce different configurations",
+      "T-026-24: mode manager works with real ParticleField and RibbonField"
+    ],
+    "Switching does not break audio playback or mute control": [
+      "T-026-24: mode manager integration test — switching between real systems does not throw",
+      "T-034-11: cleanup removes mesh from scene and disposes geometry/material"
+    ]
+  },
+  "publicInterface": {
+    "createRibbonField": {
+      "signature": "createRibbonField(config?: { maxPoints?: number; enableSparkle?: boolean }): GeometrySystem",
+      "description": "Factory function returning a GeometrySystem with init(), draw(), cleanup()"
+    },
+    "getPointCount": {
+      "signature": "getPointCount(ribbon: GeometrySystem): number",
+      "description": "Returns the number of active points in the ribbon field (for testing)"
+    },
+    "getPointPositions": {
+      "signature": "getPointPositions(ribbon: GeometrySystem): Float32Array",
+      "description": "Returns a copy of the position buffer array (for testing determinism)"
+    }
+  }
+}
