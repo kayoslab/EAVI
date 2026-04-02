@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 export function initScene(
   container: HTMLElement,
-  resolutionScale = 1.0,
+  _resolutionScale = 1.0,
 ): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera } {
   const renderer = new THREE.WebGLRenderer({
     antialias: true,

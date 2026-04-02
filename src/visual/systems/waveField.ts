@@ -24,7 +24,6 @@ export interface WaveField extends GeometrySystem {
 
 export function createWaveField(config?: WaveFieldConfig): WaveField {
   const maxWaves = config?.maxWaves ?? DEFAULT_MAX_WAVES;
-  const enableShimmer = config?.enableShimmer ?? true;
   let waves: Wave[] = [];
 
   return {
