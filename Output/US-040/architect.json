@@ -1,0 +1,71 @@
+{
+  "risk": "low",
+  "structuralChanges": {
+    "newDirectories": [
+      "src/visual/generators/"
+    ],
+    "newFiles": [
+      "src/visual/generators/volumetricPoints.ts",
+      "tests/visual/generators/volumetricPoints.test.ts"
+    ],
+    "modifiedFiles": [
+      "src/visual/systems/pointCloud.ts",
+      "tests/visual/systems/pointCloud.test.ts"
+    ],
+    "deletedFiles": [],
+    "affectedInterfaces": []
+  },
+  "analysis": {
+    "summary": "Low-risk extraction refactor. The plan moves inline point generation logic (lines 47-130 of pointCloud.ts) into a dedicated module with five shape variants. The GeometrySystem interface is unchanged, ModeManager integration is unaffected, and the existing shader pipeline remains intact. The new generators/ directory establishes a clean separation between geometry generation and system orchestration.",
+    "positives": [
+      "Clean extraction: pointCloud.ts init() currently hard-codes a 60/40 shell/interior distribution in ~80 lines; extracting to a dedicated module improves testability and opens future reuse by ribbonField or new systems",
+      "No interface changes: GeometrySystem interface (init/draw/cleanup/setOpacity) is untouched; ModeManager, renderLoop, and main.ts require zero modifications",
+      "PRNG compatibility: createPRNG from src/visual/prng.ts already supports seed suffixes and is used identically across all three systems; new generators can use it directly",
+      "Existing test assertions (Z-depth > 1.0, non-coplanar, determinism) directly validate the acceptance criteria without needing new integration test infrastructure",
+      "Post-processing preserved: lattice-snapping and softness-modulation remain as post-processing on generated positions, maintaining visual continuity"
+    ],
+    "concerns": [
+      {
+        "issue": "Shape selection determinism must use the same PRNG stream as existing generation to avoid changing visual output for existing seeds",
+        "severity": "low",
+        "mitigation": "Plan step 3 specifies seeded choice among five types; the existing shell/sphere distribution should map to one of the five generators (sphereVolume or shell) to preserve backward compatibility for current seeds"
+      },
+      {
+        "issue": "The noiseLattice generator uses 'sine-based displacement' on a 3D grid which may produce visually distinct density patterns compared to the current spherical distribution",
+        "severity": "low",
+        "mitigation": "All generators are tested for volumetric spread; visual variety is the artistic intent"
+      }
+    ],
+    "missingConsiderations": [
+      "Plan does not mention whether existing seeds should produce identical output post-refactor (backward compatibility) or if visual change is acceptable since the experience is ephemeral",
+      "No mention of re-exporting the generator module or updating barrel exports if the project uses them"
+    ]
+  },
+  "architecturalAlignment": {
+    "patternsFollowed": [
+      "Factory function pattern consistent with existing systems (createPointCloud, createRibbonField, createParticleField)",
+      "Seeded determinism via createPRNG with unique suffixes",
+      "GPU-driven rendering with static base positions and shader-based deformation",
+      "Pure function generators returning Float32Array match the buffer-update-over-object-churn guidance"
+    ],
+    "patternsViolated": [],
+    "adrConflicts": []
+  },
+  "testingAssessment": {
+    "estimatedTestCount": 30,
+    "testCountReasonable": true,
+    "coverageGaps": [
+      "No performance/benchmark tests for generators with high point counts (maxPoints=1200)",
+      "No visual regression tests, but this is consistent with the existing test strategy"
+    ]
+  },
+  "suggestions": [
+    "Consider making the current 60/40 shell/interior distribution one of the named generators (e.g., 'sphereVolume') so that seed-backward-compatibility is achievable if desired",
+    "The generator function signature should accept the PRNG function rather than a seed string, keeping PRNG creation in the caller for consistency with how pointCloud.ts already manages its PRNG instance"
+  ],
+  "approved": true,
+  "concerns": [],
+  "decision": "APPROVE",
+  "adr_entry": null,
+  "failures": []
+}
