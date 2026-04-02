@@ -50,3 +50,5 @@
 
 ## US-026: Create second visual mode
 
+## US-029: Introduce Three.js renderer bootstrap
+
