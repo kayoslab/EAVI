@@ -1,0 +1,227 @@
+{
+  "testFile": "tests/visual/quality-scaling.test.ts",
+  "testFramework": "vitest",
+  "storyId": "US-036",
+  "storyTitle": "Rework quality scaling to preserve full-screen while reducing GPU cost",
+  "tests": [
+    {
+      "id": "T-036-01",
+      "name": "QualityProfile includes shaderComplexity for all tiers",
+      "description": "Low tier has shaderComplexity='low', noiseOctaves=1, enablePointerRepulsion=false, enableSlowModulation=false",
+      "type": "unit",
+      "assertions": [
+        "computeQuality(lowSignals).shaderComplexity === 'low'",
+        "computeQuality(lowSignals).noiseOctaves === 1",
+        "computeQuality(lowSignals).enablePointerRepulsion === false",
+        "computeQuality(lowSignals).enableSlowModulation === false"
+      ],
+      "sourceFile": "src/visual/quality.ts",
+      "setup": "Use makeSignals with low-end phone values (DPR=1, cores=2, memory=1, 320x568, touch=true)",
+      "code": "it('T-036-01: low tier includes shaderComplexity=low, noiseOctaves=1, pointer/modulation disabled', () => {\n  const signals = makeSignals({\n    devicePixelRatio: 1,\n    hardwareConcurrency: 2,\n    deviceMemory: 1,\n    screenWidth: 320,\n    screenHeight: 568,\n    touchCapable: true,\n  });\n  const result = computeQuality(signals);\n  expect(result.tier).toBe('low');\n  expect(result.shaderComplexity).toBe('low');\n  expect(result.noiseOctaves).toBe(1);\n  expect(result.enablePointerRepulsion).toBe(false);\n  expect(result.enableSlowModulation).toBe(false);\n});"
+    },
+    {
+      "id": "T-036-02",
+      "name": "Medium tier has shaderComplexity='medium' with noiseOctaves=2",
+      "description": "Medium tier profile has expected shader complexity values with pointer repulsion and slow modulation enabled",
+      "type": "unit",
+      "assertions": [
+        "computeQuality(medSignals).shaderComplexity === 'medium'",
+        "computeQuality(medSignals).noiseOctaves === 2",
+        "computeQuality(medSignals).enablePointerRepulsion === true",
+        "computeQuality(medSignals).enableSlowModulation === true"
+      ],
+      "sourceFile": "src/visual/quality.ts",
+      "setup": "Use makeSignals with mid-range phone values (DPR=2, cores=4, memory=4, 390x844, touch=true)",
+      "code": "it('T-036-02: medium tier has shaderComplexity=medium, noiseOctaves=2, features enabled', () => {\n  const signals = makeSignals({\n    devicePixelRatio: 2,\n    hardwareConcurrency: 4,\n    deviceMemory: 4,\n    screenWidth: 390,\n    screenHeight: 844,\n    touchCapable: true,\n  });\n  const result = computeQuality(signals);\n  expect(result.tier).toBe('medium');\n  expect(result.shaderComplexity).toBe('medium');\n  expect(result.noiseOctaves).toBe(2);\n  expect(result.enablePointerRepulsion).toBe(true);\n  expect(result.enableSlowModulation).toBe(true);\n});"
+    },
+    {
+      "id": "T-036-03",
+      "name": "High tier has shaderComplexity='high' with noiseOctaves=3 and all features enabled",
+      "description": "High tier profile enables all shader features at maximum quality",
+      "type": "unit",
+      "assertions": [
+        "computeQuality(highSignals).shaderComplexity === 'high'",
+        "computeQuality(highSignals).noiseOctaves === 3",
+        "computeQuality(highSignals).enablePointerRepulsion === true",
+        "computeQuality(highSignals).enableSlowModulation === true"
+      ],
+      "sourceFile": "src/visual/quality.ts",
+      "setup": "Use makeSignals with high-end desktop values (DPR=2, cores=16, memory=8, 2560x1440, touch=false)",
+      "code": "it('T-036-03: high tier has shaderComplexity=high, noiseOctaves=3, all features enabled', () => {\n  const signals = makeSignals({\n    devicePixelRatio: 2,\n    hardwareConcurrency: 16,\n    deviceMemory: 8,\n    screenWidth: 2560,\n    screenHeight: 1440,\n    touchCapable: false,\n  });\n  const result = computeQuality(signals);\n  expect(result.tier).toBe('high');\n  expect(result.shaderComplexity).toBe('high');\n  expect(result.noiseOctaves).toBe(3);\n  expect(result.enablePointerRepulsion).toBe(true);\n  expect(result.enableSlowModulation).toBe(true);\n});"
+    },
+    {
+      "id": "T-036-04",
+      "name": "Canvas CSS dimensions always fill viewport regardless of quality tier",
+      "description": "For each tier, after initScene with that tier's resolutionScale, renderer.domElement.style.width === '100%' and style.height === '100%'",
+      "type": "integration",
+      "assertions": [
+        "renderer.domElement.style.width === '100%' for low tier (resolutionScale=0.5)",
+        "renderer.domElement.style.width === '100%' for medium tier (resolutionScale=0.75)",
+        "renderer.domElement.style.width === '100%' for high tier (resolutionScale=1.0)",
+        "renderer.domElement.style.height === '100%' for all tiers"
+      ],
+      "sourceFile": "src/visual/scene.ts",
+      "setup": "Call initScene with a container div and each tier's resolutionScale. Check domElement.style.width and height after init.",
+      "code": "it('T-036-04: canvas CSS dimensions always fill viewport regardless of quality tier', () => {\n  const scales = [0.5, 0.75, 1.0];\n  for (const scale of scales) {\n    const container = document.createElement('div');\n    document.body.appendChild(container);\n    const { renderer } = initScene(container, { resolutionScale: scale });\n    expect(renderer.domElement.style.width).toBe('100%');\n    expect(renderer.domElement.style.height).toBe('100%');\n    renderer.dispose();\n    document.body.removeChild(container);\n  }\n});"
+    },
+    {
+      "id": "T-036-05",
+      "name": "Low-tier renderer pixel ratio is smaller than high-tier while CSS size is identical",
+      "description": "renderer pixel ratio with low resolutionScale < renderer pixel ratio with high resolutionScale, while CSS size remains 100%",
+      "type": "integration",
+      "assertions": [
+        "low-tier effective pixel ratio < high-tier effective pixel ratio",
+        "both tiers have style.width === '100%' and style.height === '100%'"
+      ],
+      "sourceFile": "src/visual/scene.ts",
+      "setup": "Create two renderers with resolutionScale 0.5 and 1.0. Compare setPixelRatio calls. Both should have CSS 100%.",
+      "code": "it('T-036-05: low-tier renderer backing store is smaller than high-tier', () => {\n  const containerLow = document.createElement('div');\n  const containerHigh = document.createElement('div');\n  document.body.appendChild(containerLow);\n  document.body.appendChild(containerHigh);\n\n  const { renderer: rLow } = initScene(containerLow, { resolutionScale: 0.5 });\n  const { renderer: rHigh } = initScene(containerHigh, { resolutionScale: 1.0 });\n\n  // Both should fill viewport via CSS\n  expect(rLow.domElement.style.width).toBe('100%');\n  expect(rHigh.domElement.style.width).toBe('100%');\n  expect(rLow.domElement.style.height).toBe('100%');\n  expect(rHigh.domElement.style.height).toBe('100%');\n\n  // Low tier pixel ratio should be lower\n  expect(rLow.getPixelRatio()).toBeLessThan(rHigh.getPixelRatio());\n\n  rLow.dispose();\n  rHigh.dispose();\n  document.body.removeChild(containerLow);\n  document.body.removeChild(containerHigh);\n});"
+    },
+    {
+      "id": "T-036-06",
+      "name": "Shader uniforms reflect quality config for point cloud",
+      "description": "createPointCloud with noiseOctaves=1 produces material with uNoiseOctaves=1, and other shader complexity uniforms match config",
+      "type": "unit",
+      "assertions": [
+        "material.uniforms.uNoiseOctaves.value === config.noiseOctaves",
+        "material.uniforms.uEnablePointerRepulsion.value matches config",
+        "material.uniforms.uEnableSlowModulation.value matches config"
+      ],
+      "sourceFile": "src/visual/systems/pointCloud.ts",
+      "setup": "Create point cloud with explicit noiseOctaves, enablePointerRepulsion, enableSlowModulation config. Init with scene and check uniforms on the added mesh's material.",
+      "code": "it('T-036-06: shader uniforms reflect quality config for point cloud', () => {\n  const scene = new THREE.Scene();\n  const cloud = createPointCloud({\n    maxPoints: 100,\n    noiseOctaves: 1,\n    enablePointerRepulsion: false,\n    enableSlowModulation: false,\n  });\n  cloud.init(scene, 'test-seed', defaultParams);\n\n  const mesh = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  expect(mesh).toBeDefined();\n  const material = mesh.material as THREE.ShaderMaterial;\n  expect(material.uniforms.uNoiseOctaves.value).toBe(1);\n  expect(material.uniforms.uEnablePointerRepulsion.value).toBe(0.0);\n  expect(material.uniforms.uEnableSlowModulation.value).toBe(0.0);\n\n  cloud.cleanup();\n});"
+    },
+    {
+      "id": "T-036-07",
+      "name": "Shader uniforms reflect quality config for ribbon field",
+      "description": "createRibbonField with enablePointerRepulsion=false produces material with uEnablePointerRepulsion=0.0",
+      "type": "unit",
+      "assertions": [
+        "material.uniforms.uEnablePointerRepulsion.value === 0.0 when config.enablePointerRepulsion === false",
+        "material.uniforms.uNoiseOctaves.value matches config.noiseOctaves",
+        "material.uniforms.uEnableSlowModulation.value matches config"
+      ],
+      "sourceFile": "src/visual/systems/ribbonField.ts",
+      "setup": "Create ribbon field with shader complexity config. Init and inspect mesh material uniforms.",
+      "code": "it('T-036-07: shader uniforms reflect quality config for ribbon field', () => {\n  const scene = new THREE.Scene();\n  const ribbon = createRibbonField({\n    maxPoints: 100,\n    noiseOctaves: 2,\n    enablePointerRepulsion: false,\n    enableSlowModulation: true,\n  });\n  ribbon.init(scene, 'ribbon-test-seed', defaultParams);\n\n  const mesh = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  expect(mesh).toBeDefined();\n  const material = mesh.material as THREE.ShaderMaterial;\n  expect(material.uniforms.uNoiseOctaves.value).toBe(2);\n  expect(material.uniforms.uEnablePointerRepulsion.value).toBe(0.0);\n  expect(material.uniforms.uEnableSlowModulation.value).toBe(1.0);\n\n  ribbon.cleanup();\n});"
+    },
+    {
+      "id": "T-036-08",
+      "name": "Low-tier point cloud has <= maxPoints particles",
+      "description": "Re-verifies point count cap with new config shape including shader complexity fields",
+      "type": "integration",
+      "assertions": [
+        "getPointCount(cloud) <= quality.maxPoints for low tier"
+      ],
+      "sourceFile": "src/visual/systems/pointCloud.ts",
+      "setup": "Compute low-tier quality, create point cloud with full quality config including shader complexity fields, verify count.",
+      "code": "it('T-036-08: low-tier point cloud respects maxPoints with new config shape', () => {\n  const signals = makeSignals({\n    devicePixelRatio: 1,\n    hardwareConcurrency: 2,\n    deviceMemory: 1,\n    screenWidth: 320,\n    screenHeight: 568,\n    touchCapable: true,\n  });\n  const quality = computeQuality(signals);\n  expect(quality.tier).toBe('low');\n\n  const scene = new THREE.Scene();\n  const cloud = createPointCloud({\n    maxPoints: quality.maxPoints,\n    enableSparkle: quality.enableSparkle,\n    noiseOctaves: quality.noiseOctaves,\n    enablePointerRepulsion: quality.enablePointerRepulsion,\n    enableSlowModulation: quality.enableSlowModulation,\n  });\n  cloud.init(scene, 'low-tier-seed', { ...defaultParams, density: 1.0, structureComplexity: 1.0 });\n  expect(getPointCount(cloud)).toBeLessThanOrEqual(quality.maxPoints);\n  cloud.cleanup();\n});"
+    },
+    {
+      "id": "T-036-09",
+      "name": "Visual identity preserved: all tiers produce non-zero point counts",
+      "description": "For low/medium/high, pointCount > 0 and geometry has positions — ensures the scene is recognisable across tiers",
+      "type": "integration",
+      "assertions": [
+        "pointCount > 0 for each tier",
+        "positions array is non-null and non-empty for each tier"
+      ],
+      "sourceFile": "src/visual/systems/pointCloud.ts",
+      "setup": "For each tier's signal set, compute quality, create point cloud, init, and check pointCount and positions.",
+      "code": "it('T-036-09: visual identity preserved — all tiers produce non-zero point counts with positions', () => {\n  const tierSignals = [\n    makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }),\n    makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }),\n    makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }),\n  ];\n\n  for (const signals of tierSignals) {\n    const quality = computeQuality(signals);\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({\n      maxPoints: quality.maxPoints,\n      noiseOctaves: quality.noiseOctaves,\n      enablePointerRepulsion: quality.enablePointerRepulsion,\n      enableSlowModulation: quality.enableSlowModulation,\n    });\n    cloud.init(scene, 'identity-seed', defaultParams);\n    expect(cloud.pointCount).toBeGreaterThan(0);\n    expect(cloud.positions).not.toBeNull();\n    expect(cloud.positions!.length).toBeGreaterThan(0);\n    cloud.cleanup();\n  }\n});"
+    },
+    {
+      "id": "T-036-10",
+      "name": "No localStorage or cookie access during quality-scaled rendering with shader complexity config",
+      "description": "Privacy check across all tiers with new shader complexity config fields",
+      "type": "integration",
+      "assertions": [
+        "localStorage.getItem not called during quality computation, init, or draw",
+        "document.cookie not accessed during quality computation, init, or draw"
+      ],
+      "sourceFile": "src/visual/quality.ts",
+      "setup": "Spy on Storage.prototype.getItem and document.cookie. Compute quality, create point cloud and ribbon with full config, init and draw, then verify no storage access.",
+      "code": "it('T-036-10: no localStorage or cookie access during quality-scaled rendering with shader complexity', () => {\n  const lsSpy = vi.spyOn(Storage.prototype, 'getItem');\n  const cookieSpy = vi.spyOn(document, 'cookie', 'get');\n\n  const signals = makeSignals({\n    devicePixelRatio: 1,\n    hardwareConcurrency: 2,\n    deviceMemory: 1,\n    screenWidth: 320,\n    screenHeight: 568,\n    touchCapable: true,\n  });\n  const quality = computeQuality(signals);\n\n  const scene = new THREE.Scene();\n  const cloud = createPointCloud({\n    maxPoints: quality.maxPoints,\n    enableSparkle: quality.enableSparkle,\n    noiseOctaves: quality.noiseOctaves,\n    enablePointerRepulsion: quality.enablePointerRepulsion,\n    enableSlowModulation: quality.enableSlowModulation,\n  });\n  cloud.init(scene, 'privacy-seed', defaultParams);\n  cloud.draw(scene, { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 });\n\n  const ribbon = createRibbonField({\n    maxPoints: quality.maxRibbonPoints,\n    enableSparkle: quality.enableSparkle,\n    noiseOctaves: quality.noiseOctaves,\n    enablePointerRepulsion: quality.enablePointerRepulsion,\n    enableSlowModulation: quality.enableSlowModulation,\n  });\n  ribbon.init(scene, 'privacy-seed', defaultParams);\n  ribbon.draw(scene, { time: 0, delta: 16, elapsed: 0, params: defaultParams, width: 800, height: 600 });\n\n  expect(lsSpy).not.toHaveBeenCalled();\n  expect(cookieSpy).not.toHaveBeenCalled();\n\n  cloud.cleanup();\n  ribbon.cleanup();\n});"
+    }
+  ],
+  "existingTestUpdates": {
+    "file": "tests/visual/quality.test.ts",
+    "changes": [
+      {
+        "testId": "T-025-01",
+        "description": "Add assertions for new QualityProfile fields on high tier",
+        "additionalAssertions": [
+          "expect(result.shaderComplexity).toBe('high')",
+          "expect(result.noiseOctaves).toBe(3)",
+          "expect(result.enablePointerRepulsion).toBe(true)",
+          "expect(result.enableSlowModulation).toBe(true)"
+        ]
+      },
+      {
+        "testId": "T-025-02",
+        "description": "Add assertions for new QualityProfile fields on medium tier",
+        "additionalAssertions": [
+          "expect(result.shaderComplexity).toBe('medium')",
+          "expect(result.noiseOctaves).toBe(2)",
+          "expect(result.enablePointerRepulsion).toBe(true)",
+          "expect(result.enableSlowModulation).toBe(true)"
+        ]
+      },
+      {
+        "testId": "T-025-03",
+        "description": "Add assertions for new QualityProfile fields on low tier",
+        "additionalAssertions": [
+          "expect(result.shaderComplexity).toBe('low')",
+          "expect(result.noiseOctaves).toBe(1)",
+          "expect(result.enablePointerRepulsion).toBe(false)",
+          "expect(result.enableSlowModulation).toBe(false)"
+        ]
+      },
+      {
+        "testId": "T-025-08",
+        "description": "Add range checks for new fields",
+        "additionalAssertions": [
+          "expect(['low', 'medium', 'high']).toContain(result.shaderComplexity)",
+          "expect([1, 2, 3]).toContain(result.noiseOctaves)",
+          "expect(typeof result.enablePointerRepulsion).toBe('boolean')",
+          "expect(typeof result.enableSlowModulation).toBe('boolean')"
+        ]
+      },
+      {
+        "testId": "T-025-22",
+        "description": "Pass new config fields to createParticleField",
+        "note": "Add noiseOctaves, enablePointerRepulsion, enableSlowModulation to config object if particleField accepts them"
+      },
+      {
+        "testId": "T-025-23",
+        "description": "Pass new config fields to createRibbonField",
+        "note": "Add noiseOctaves, enablePointerRepulsion, enableSlowModulation to config object"
+      },
+      {
+        "testId": "T-025-24",
+        "description": "Pass new config fields to both geometry systems in privacy test",
+        "note": "Add noiseOctaves, enablePointerRepulsion, enableSlowModulation to both createParticleField and createRibbonField configs"
+      }
+    ]
+  },
+  "imports": [
+    "import { describe, it, expect, vi } from 'vitest';",
+    "import * as THREE from 'three';",
+    "import { computeQuality } from '../../src/visual/quality';",
+    "import type { BrowserSignals } from '../../src/input/signals';",
+    "import type { VisualParams } from '../../src/visual/mappings';",
+    "import { initScene } from '../../src/visual/scene';",
+    "import { createPointCloud, getPointCount } from '../../src/visual/systems/pointCloud';",
+    "import { createRibbonField } from '../../src/visual/systems/ribbonField';"
+  ],
+  "sharedSetup": {
+    "makeSignals": "function makeSignals(overrides: Partial<BrowserSignals> = {}): BrowserSignals {\n  return {\n    language: 'en',\n    timezone: 'UTC',\n    screenWidth: 1920,\n    screenHeight: 1080,\n    devicePixelRatio: 2,\n    hardwareConcurrency: 8,\n    prefersColorScheme: 'dark',\n    prefersReducedMotion: false,\n    touchCapable: false,\n    deviceMemory: 8,\n    ...overrides,\n  };\n}",
+    "defaultParams": "const defaultParams: VisualParams = {\n  paletteHue: 180,\n  paletteSaturation: 0.5,\n  cadence: 0.7,\n  density: 0.6,\n  motionAmplitude: 1.0,\n  pointerDisturbance: 0,\n  bassEnergy: 0,\n  trebleEnergy: 0,\n  curveSoftness: 0.5,\n  structureComplexity: 0.5,\n  noiseFrequency: 1.0,\n  radialScale: 1.0,\n  twistStrength: 1.0,\n  fieldSpread: 1.0,\n};"
+  },
+  "acceptanceCriteriaMapping": {
+    "Canvas/renderer still fills the viewport on low-tier devices": ["T-036-04", "T-036-05"],
+    "Quality scaling affects pixel ratio, point count, and shader complexity (not layout size)": ["T-036-01", "T-036-02", "T-036-03", "T-036-06", "T-036-07", "T-036-08"],
+    "Mobile does not crash on load": ["T-036-08", "T-036-01"],
+    "Visual identity remains recognisable across tiers": ["T-036-09"]
+  }
+}
