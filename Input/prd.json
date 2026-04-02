@@ -800,8 +800,8 @@
         "Depth is visible through parallax when camera moves"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-039"
       ],
