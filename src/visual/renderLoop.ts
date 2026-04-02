@@ -8,6 +8,7 @@ import type { PointerState } from '../input/pointer';
 import type { AnalyserPipeline } from '../audio/analyser';
 import type { GeometrySystem } from './types';
 import type { QualityProfile } from './quality';
+import { initCameraMotion, updateCamera } from './cameraMotion';
 
 export interface LoopDeps {
   seed?: string | null;
@@ -92,6 +93,7 @@ export function startLoop(
   let smoothTreble = 0;
   let smoothBass = 0;
   let smoothDisturbance = 0;
+  let cameraInitialized = false;
 
   const frame = (time: number) => {
     if (startTime < 0) startTime = time;
@@ -150,6 +152,12 @@ export function startLoop(
     smoothDisturbance = smoothDisturbance * 0.92 + params.pointerDisturbance * 0.08;
     params.pointerDisturbance = smoothDisturbance;
 
+    // Initialize camera motion on first frame with real seed
+    if (d.seed && !cameraInitialized) {
+      initCameraMotion(d.seed);
+      cameraInitialized = true;
+    }
+
     // Initialize geometry system on first frame with real deps
     if (d.geometrySystem && d.seed && !geoInitialized) {
       d.geometrySystem.init(scene, d.seed, params);
@@ -194,6 +202,11 @@ export function startLoop(
         pointerX,
         pointerY,
       });
+    }
+
+    // Autonomous camera motion
+    if (cameraInitialized) {
+      updateCamera(camera, elapsed, smoothBass, params.motionAmplitude);
     }
 
     // Render
