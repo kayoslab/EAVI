@@ -74,3 +74,5 @@
 
 ## US-038: Add minimal visual instrumentation for tuning
 
+## US-039: Enforce WebGL-only rendering backend
+
