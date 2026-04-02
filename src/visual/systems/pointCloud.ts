@@ -5,6 +5,8 @@ import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import vertexShader from '../shaders/pointWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/pointWarp.frag.glsl?raw';
+import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volumetricPoints';
+import type { VolumetricShape } from '../generators/volumetricPoints';
 
 const DEFAULT_MAX_POINTS = 1200;
 
@@ -56,7 +58,17 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         effectiveCount = 1;
       }
 
-      const positionsArr = new Float32Array(effectiveCount * 3);
+      // Select volumetric shape deterministically from seed
+      const shapeIndex = Math.floor(rng() * VOLUMETRIC_SHAPES.length) % VOLUMETRIC_SHAPES.length;
+      const shape: VolumetricShape = VOLUMETRIC_SHAPES[shapeIndex];
+
+      // Generate base volumetric positions
+      const positionsArr = generateVolumetricPoints({
+        shape,
+        pointCount: effectiveCount,
+        seed: seed + ':pointcloud',
+      });
+
       const colorsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
       const hueOffsetsArr = new Float32Array(effectiveCount);
@@ -65,27 +77,9 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const color = new THREE.Color();
 
       for (let i = 0; i < effectiveCount; i++) {
-        let x: number, y: number, z: number;
-
-        const shapeRoll = rng();
-
-        if (shapeRoll < 0.6) {
-          // Shell point — radius ~2 with perturbation
-          const theta = rng() * Math.PI * 2;
-          const phi = Math.acos(2 * rng() - 1);
-          const radius = 2 + (rng() - 0.5) * 0.6;
-          x = radius * Math.sin(phi) * Math.cos(theta);
-          y = radius * Math.sin(phi) * Math.sin(theta);
-          z = radius * Math.cos(phi);
-        } else {
-          // Interior volume point
-          const theta = rng() * Math.PI * 2;
-          const phi = Math.acos(2 * rng() - 1);
-          const radius = rng() * 1.8;
-          x = radius * Math.sin(phi) * Math.cos(theta);
-          y = radius * Math.sin(phi) * Math.sin(theta);
-          z = radius * Math.cos(phi);
-        }
+        let x = positionsArr[i * 3];
+        let y = positionsArr[i * 3 + 1];
+        let z = positionsArr[i * 3 + 2];
 
         // Lattice snapping for high structureComplexity
         if (params.structureComplexity > 0.7) {
