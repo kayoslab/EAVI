@@ -1,0 +1,118 @@
+{
+  "ticket_id": "US-030",
+  "confidence": 0.92,
+  "summary": "The plan is well-aligned with the existing architecture. The codebase already has the WebGL renderer, render loop, and geometry system interfaces in place — the migration is completing stubbed implementations rather than replacing a working Canvas 2D backend. The plan correctly identifies all files that need changes and proposes minimal, focused modifications.",
+  "architectural_impact": {
+    "scope": "moderate",
+    "reasoning": "Changes are confined to the visual subsystem (src/visual/) with no impact on audio, input, seed, UI, or server modules. The GeometrySystem interface gains an optional cleanup() method, which is additive and non-breaking. No new external dependencies are introduced — all Three.js primitives (Points, Line, BufferGeometry) are already available via the existing three dependency.",
+    "modules_affected": [
+      "src/visual/systems/particleField.ts",
+      "src/visual/systems/waveField.ts",
+      "src/visual/renderLoop.ts",
+      "src/visual/modeManager.ts",
+      "src/visual/types.ts",
+      "src/visual/scene.ts",
+      "src/visual/placeholder.ts"
+    ],
+    "modules_unchanged": [
+      "src/audio/*",
+      "src/input/*",
+      "src/seed/*",
+      "src/ui/*",
+      "api/geo.ts"
+    ]
+  },
+  "interface_changes": [
+    {
+      "file": "src/visual/types.ts",
+      "change": "Add optional cleanup() method to GeometrySystem interface",
+      "impact": "additive",
+      "risk": "low",
+      "notes": "Optional method preserves backward compatibility with existing implementations and tests"
+    },
+    {
+      "file": "src/visual/placeholder.ts",
+      "change": "Return lights alongside mesh for proper cleanup",
+      "impact": "breaking-minor",
+      "risk": "low",
+      "notes": "Return type changes from { mesh } to { mesh, ambient, directional }; only consumed in main.ts and renderLoop.ts"
+    }
+  ],
+  "risks": [
+    {
+      "category": "testing",
+      "severity": "medium",
+      "description": "Three.js objects (Points, Line, BufferGeometry) require WebGL context which jsdom does not provide. Tests will need mock strategies or simplified assertions.",
+      "mitigation": "The existing test suite already mocks Three.js Scene via vi.mock('three') — extend the same pattern for Points, Line, and BufferGeometry. Verify buffer attribute lengths and scene.add() calls rather than rendered output."
+    },
+    {
+      "category": "performance",
+      "severity": "low",
+      "description": "Per-frame buffer updates for up to 600 particles (3 floats × 600 = 1800 floats for positions) is well within WebGL budget. LineBasicMaterial with ~128 vertices per wave × 20 waves is similarly lightweight.",
+      "mitigation": "Plan already notes dirty-range optimization as future possibility. Current scale is not a concern."
+    },
+    {
+      "category": "memory",
+      "severity": "medium",
+      "description": "Mode switching requires disposing Three.js geometries and materials to avoid GPU memory leaks. If cleanup() is not called or is incomplete, leaked resources accumulate over session lifetime.",
+      "mitigation": "Step 4 correctly addresses this by adding cleanup() to GeometrySystem and calling it in modeManager before switching. Plan should ensure dispose() is called on both geometry and material objects."
+    },
+    {
+      "category": "visual-regression",
+      "severity": "low",
+      "description": "Transition from placeholder wireframe icosahedron to particle/wave systems changes the visible output significantly. No visual regression testing framework exists.",
+      "mitigation": "This is expected and desired — the whole point of the ticket. Manual verification during development is sufficient."
+    }
+  ],
+  "plan_gaps": [
+    {
+      "severity": "minor",
+      "description": "Step 3 mentions removing placeholder lights but the plan should clarify whether the ambient light added in Step 5 is added before or after placeholder removal to avoid a flash of unlit frames.",
+      "recommendation": "Add the persistent ambient light to scene.ts (Step 5) before implementing placeholder removal (Step 3), or reorder steps 5 and 3."
+    },
+    {
+      "severity": "minor",
+      "description": "The plan does not address the camera position relative to the new geometry. The camera is at z=5 looking at origin. Particle positions are currently normalized 0-1 — they need to be mapped to 3D world coordinates visible from the camera.",
+      "recommendation": "Step 1 details should specify the coordinate mapping: e.g., particles span [-aspect, aspect] in X/Y and [-1, 1] in Z, centered at origin within the camera frustum."
+    },
+    {
+      "severity": "minor",
+      "description": "Window resize handling in main.ts updates renderer and camera but does not notify geometry systems. If wave vertex positions depend on aspect ratio, they need recomputation on resize.",
+      "recommendation": "FrameState already includes width/height — wave draw() can recompute positions each frame from these values, making resize handling implicit."
+    }
+  ],
+  "dependency_analysis": {
+    "upstream_dependencies_met": true,
+    "notes": "US-029 (quality tiers), US-017 (audio analysis), US-013 (session seed) are all implemented. The geometry system stubs, quality config, audio pipeline, and render loop infrastructure are all in place.",
+    "new_dependencies_introduced": false
+  },
+  "alignment_with_project_principles": {
+    "privacy": "no_impact — no new data collection or storage, no changes to privacy-sensitive modules",
+    "performance": "positive — Three.js buffer-based rendering is more GPU-efficient than Canvas 2D for particle/wave systems; quality tier caps already in place",
+    "graceful_degradation": "maintained — render loop continues functioning with empty draw() during async init; placeholder provides visual feedback until geometry systems are ready",
+    "reduced_motion": "maintained — motionAmplitude scaling is already in FrameState.params and plan applies it to all movement"
+  },
+  "step_ordering_assessment": {
+    "is_correct": true,
+    "notes": "Steps 1-2 (implement systems) are independent and could be parallelized. Step 3 (placeholder cleanup) depends on 1-2 being complete. Step 4 (mode switch cleanup) depends on both systems having cleanup(). Step 5 (lighting) should ideally be done before step 3 to avoid unlit frames. Step 6 (verification) is correctly last.",
+    "suggested_reorder": [
+      5,
+      1,
+      2,
+      3,
+      4,
+      6
+    ]
+  },
+  "estimated_complexity": {
+    "lines_of_code_delta": "+250 to +350",
+    "files_modified": 8,
+    "files_created": 0,
+    "test_files_modified": 4
+  },
+  "approved": true,
+  "concerns": [],
+  "decision": "APPROVE",
+  "adr_entry": null,
+  "failures": []
+}
