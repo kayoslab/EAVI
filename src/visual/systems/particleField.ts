@@ -45,10 +45,15 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
   let geometry: THREE.BufferGeometry | null = null;
   let shaderMaterial: THREE.ShaderMaterial | null = null;
   let sceneRef: Scene | null = null;
+  let storedParticles: Particle[] = [];
 
   return {
     get particleCount() {
       return effectiveCount;
+    },
+
+    get particles() {
+      return storedParticles;
     },
 
     init(scene: Scene, seed: string, params: VisualParams): void {
@@ -61,19 +66,31 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
         effectiveCount = 1;
       }
 
+      storedParticles = [];
       const positionsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
       const hueOffsetsArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
 
       for (let i = 0; i < effectiveCount; i++) {
+        const px = rng();
+        const py = rng();
         // Map 0-1 particle coords to 3D space centered at origin
-        positionsArr[i * 3] = (rng() - 0.5) * 6;
-        positionsArr[i * 3 + 1] = (rng() - 0.5) * 6;
+        positionsArr[i * 3] = (px - 0.5) * 6;
+        positionsArr[i * 3 + 1] = (py - 0.5) * 6;
         positionsArr[i * 3 + 2] = (rng() - 0.5) * 4;
 
         sizesArr[i] = 0.03 + rng() * 0.04;
         hueOffsetsArr[i] = (rng() - 0.5) * 30;
+
+        storedParticles.push({
+          x: px,
+          y: py,
+          vx: 0,
+          vy: 0,
+          size: sizesArr[i],
+          hueOffset: hueOffsetsArr[i],
+        });
 
         aRandomArr[i * 3] = rng();
         aRandomArr[i * 3 + 1] = rng();
@@ -193,4 +210,10 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
 
 export function getParticleCount(field: ParticleField): number {
   return field.particleCount;
+}
+
+export function getParticlePositions(
+  field: ParticleField,
+): Array<{ x: number; y: number }> {
+  return field.particles.map((p) => ({ x: p.x, y: p.y }));
 }
