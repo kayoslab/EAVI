@@ -1,0 +1,168 @@
+{
+  "ticketId": "US-029",
+  "title": "Introduce Three.js renderer bootstrap",
+  "summary": "Replace the Canvas 2D rendering foundation with a Three.js WebGLRenderer, PerspectiveCamera, and Scene graph. Add a placeholder 3D object and wire up the animation loop and resize handling. Existing Canvas 2D geometry systems (particleField, waveField) will be temporarily bypassed — this story establishes the Three.js skeleton only.",
+  "currentState": {
+    "renderer": "Canvas 2D via scene.ts → canvas.getContext('2d')",
+    "renderLoop": "renderLoop.ts uses ctx (CanvasRenderingContext2D) for clearing and drawing",
+    "geometrySystems": "GeometrySystem interface in types.ts is coupled to CanvasRenderingContext2D",
+    "resize": "resize.ts manually sets canvas.width/height and redraws black fill",
+    "entryPoint": "main.ts calls initScene() → startLoop(canvas, ctx, deps)",
+    "threejsDependency": "Not installed — not in package.json"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "title": "Install Three.js dependency",
+      "description": "Add three as a runtime dependency and @types/three as a dev dependency.",
+      "commands": ["npm install three", "npm install -D @types/three"],
+      "files": {
+        "modify": ["package.json"]
+      },
+      "acceptanceCriteria": ["three and @types/three appear in package.json", "npm install succeeds without errors"]
+    },
+    {
+      "order": 2,
+      "title": "Rewrite scene.ts for Three.js bootstrap",
+      "description": "Replace the Canvas 2D init with Three.js WebGLRenderer, Scene, and PerspectiveCamera creation. The renderer canvas is appended to the container. Returns the renderer, scene, and camera for use by the render loop.",
+      "files": {
+        "modify": ["src/visual/scene.ts"]
+      },
+      "details": {
+        "exports": "initScene(container, resolutionScale?) → { renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera }",
+        "renderer": "WebGLRenderer with antialias, alpha:false, powerPreference:'high-performance'. Set clear color to #000000. Use setPixelRatio(Math.min(window.devicePixelRatio, 2)) and setSize(window.innerWidth, window.innerHeight).",
+        "camera": "PerspectiveCamera(60, aspect, 0.1, 100). Position at z=5 looking at origin.",
+        "scene": "new THREE.Scene() with background set to 0x000000."
+      },
+      "acceptanceCriteria": ["WebGLRenderer created and its canvas appended to container", "PerspectiveCamera configured with correct aspect ratio", "Scene has dark background"]
+    },
+    {
+      "order": 3,
+      "title": "Add placeholder 3D object",
+      "description": "Add a simple placeholder mesh (IcosahedronGeometry with MeshStandardLight wireframe material) to the scene so the camera has something to render. Add a dim ambient light and a directional light. This placeholder proves the pipeline works and will be replaced by real geometry systems in later stories.",
+      "files": {
+        "create": ["src/visual/placeholder.ts"]
+      },
+      "details": {
+        "mesh": "IcosahedronGeometry(1.2, 1) with MeshStandardMaterial({ color: 0x444466, wireframe: true })",
+        "lights": "AmbientLight(0xffffff, 0.3) + DirectionalLight(0xffffff, 0.7) at position(2, 3, 4)",
+        "export": "addPlaceholder(scene: Scene) → { mesh: Mesh } — returns the mesh so the loop can rotate it"
+      },
+      "acceptanceCriteria": ["Placeholder icosahedron visible on dark background", "Scene has adequate lighting"]
+    },
+    {
+      "order": 4,
+      "title": "Update resize handler for Three.js",
+      "description": "Rewrite resize.ts to update renderer.setSize and camera.aspect/updateProjectionMatrix on window resize, instead of manipulating canvas dimensions directly.",
+      "files": {
+        "modify": ["src/visual/resize.ts"]
+      },
+      "details": {
+        "signature": "attachResizeHandler(renderer: WebGLRenderer, camera: PerspectiveCamera) → () => void",
+        "behavior": "On resize: camera.aspect = window.innerWidth / window.innerHeight, camera.updateProjectionMatrix(), renderer.setSize(window.innerWidth, window.innerHeight)"
+      },
+      "acceptanceCriteria": ["Resize updates renderer size", "Resize updates camera aspect ratio and projection matrix", "Returns cleanup function to remove listener"]
+    },
+    {
+      "order": 5,
+      "title": "Update render loop for Three.js",
+      "description": "Modify renderLoop.ts to accept the Three.js renderer, scene, and camera instead of canvas/ctx. The loop calls renderer.render(scene, camera) each frame. The placeholder mesh gets a gentle rotation. Existing audio/signal/pointer plumbing remains intact but Canvas 2D draw calls are removed. The GeometrySystem integration is temporarily disabled (will be reconnected when systems are ported to Three.js).",
+      "files": {
+        "modify": ["src/visual/renderLoop.ts"]
+      },
+      "details": {
+        "signature": "startLoop(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera, deps?: LoopDeps) → void",
+        "frameLogic": [
+          "Audio polling and EMA smoothing remain unchanged",
+          "Visual params computation remains unchanged",
+          "Replace ctx.fillRect clear with renderer.render(scene, camera)",
+          "GeometrySystem draw calls are skipped (systems not yet ported)",
+          "Placeholder mesh rotation: mesh.rotation.y += delta * 0.0003, mesh.rotation.x += delta * 0.0001"
+        ]
+      },
+      "acceptanceCriteria": ["Animation loop runs via requestAnimationFrame without console errors", "renderer.render() called each frame", "Placeholder object rotates smoothly"]
+    },
+    {
+      "order": 6,
+      "title": "Update GeometrySystem interface (prepare for future)",
+      "description": "Update types.ts to accept THREE.Scene instead of CanvasRenderingContext2D. This makes the interface ready for Three.js-based geometry systems in later stories. The existing Canvas 2D particle/wave systems are NOT modified in this story — they will be ported separately.",
+      "files": {
+        "modify": ["src/visual/types.ts"]
+      },
+      "details": {
+        "newInterface": "GeometrySystem { init(scene: Scene, seed: string, params: VisualParams): void; draw(scene: Scene, frame: FrameState): void; }"
+      },
+      "acceptanceCriteria": ["Interface uses THREE.Scene instead of CanvasRenderingContext2D"]
+    },
+    {
+      "order": 7,
+      "title": "Update main.ts entry point",
+      "description": "Wire the new Three.js scene bootstrap into main.ts. Replace the Canvas 2D initScene call with the Three.js version. Update attachResizeHandler and startLoop calls to use the new signatures. Temporarily disable the Canvas 2D geometry systems (modeManager, particleField, waveField) since they haven't been ported yet — the placeholder object serves as visual confirmation.",
+      "files": {
+        "modify": ["src/main.ts"]
+      },
+      "details": {
+        "changes": [
+          "import { initScene } from './visual/scene' now returns { renderer, scene, camera }",
+          "import { addPlaceholder } from './visual/placeholder'",
+          "Call addPlaceholder(scene) after initScene",
+          "attachResizeHandler(renderer, camera) instead of (canvas, ctx)",
+          "startLoop(renderer, scene, camera, deps) instead of (canvas, ctx, deps)",
+          "initPointer(renderer.domElement) — pointer tracks on the WebGL canvas",
+          "Comment out modeManager/particleField/waveField imports and deps.geometrySystem assignment with a TODO note for future porting"
+        ]
+      },
+      "acceptanceCriteria": ["App boots and renders Three.js scene full-screen", "No console errors on load", "Dark background with rotating placeholder object visible"]
+    },
+    {
+      "order": 8,
+      "title": "Verify build and acceptance criteria",
+      "description": "Run npm run build to confirm TypeScript compilation and Vite bundling succeed. Manually verify in browser that all acceptance criteria are met.",
+      "commands": ["npm run build"],
+      "verification": [
+        "Build passes without errors",
+        "WebGL renderer canvas is attached to #app container",
+        "Perspective camera renders the placeholder icosahedron",
+        "Animation loop runs smoothly without console errors",
+        "Window resize updates renderer size and camera aspect correctly",
+        "No forbidden storage APIs used (cookies, localStorage, sessionStorage)",
+        "Mute toggle and info overlay still render and function (UI layer is independent)"
+      ]
+    }
+  ],
+  "outOfScope": [
+    "Porting particleField.ts and waveField.ts to Three.js (future story)",
+    "Porting modeManager.ts to Three.js (future story)",
+    "Audio-reactive visuals in Three.js (future story)",
+    "Shader materials or post-processing (future story)",
+    "Signal-to-visual mappings applied to 3D objects (future story)"
+  ],
+  "risks": [
+    {
+      "risk": "Existing Canvas 2D geometry systems become temporarily unusable",
+      "mitigation": "Placeholder object proves the Three.js pipeline works. Canvas systems are commented out with TODO markers, not deleted, so they can be ported in subsequent stories."
+    },
+    {
+      "risk": "WebGL context not available on some devices",
+      "mitigation": "Three.js provides fallback warnings. For this bootstrap story, WebGL2 is assumed available (supported by all modern browsers). Graceful degradation can be added in a later story if needed."
+    }
+  ],
+  "filesChanged": {
+    "modify": [
+      "package.json",
+      "src/visual/scene.ts",
+      "src/visual/resize.ts",
+      "src/visual/renderLoop.ts",
+      "src/visual/types.ts",
+      "src/main.ts"
+    ],
+    "create": [
+      "src/visual/placeholder.ts"
+    ],
+    "temporarilyDisabled": [
+      "src/visual/systems/particleField.ts",
+      "src/visual/systems/waveField.ts",
+      "src/visual/modeManager.ts"
+    ]
+  }
+}
