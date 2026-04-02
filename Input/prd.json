@@ -679,8 +679,8 @@
         "Switching does not break audio playback or mute control"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-030",
         "US-026",

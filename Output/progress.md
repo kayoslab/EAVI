@@ -64,3 +64,5 @@
 
 ## US-033: Increase structural variation within a session
 
+## US-034: Replace 2D wave mode with a 3D secondary mode
+
