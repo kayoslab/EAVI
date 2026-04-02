@@ -56,3 +56,5 @@
 
 ## US-028: Fix viewport fill on mobile and tablets
 
+## US-030: Migrate render loop from Canvas2D to WebGL
+

@@ -597,8 +597,8 @@
         "2D canvas systems are no longer the default visual backend"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-029",
         "US-017",
