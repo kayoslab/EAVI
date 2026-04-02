@@ -1,1 +1,1 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "369 tests passed (30 files), typecheck clean, production build succeeded (14.56 kB JS, 1.37 kB CSS)."}
+{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "All 390 tests passed (31 skipped), typecheck clean, production build succeeded."}
