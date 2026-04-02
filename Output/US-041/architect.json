@@ -1,148 +1,111 @@
 {
   "ticket": "US-041",
-  "planTitle": "Implement shader-based vertex displacement",
+  "summary": "Well-scoped, surgically targeted plan that replaces only the weakest part of the existing shader pipeline (sine-hash layeredNoise) with coherent 3D simplex noise while preserving all other displacement layers. No new VisualParams, no new dependencies, no architectural changes. The blast radius is confined to 4 existing files plus 2 new files.",
+  "architectural_impact": {
+    "scope": "local",
+    "modules_affected": [
+      "visual/shaders",
+      "visual/systems"
+    ],
+    "api_changes": false,
+    "new_dependencies": false,
+    "schema_changes": false,
+    "breaking_changes": false
+  },
+  "strengths": [
+    "Correctly identifies layeredNoise() (lines 31-40 in both shaders) as the sole replacement target — all other displacement layers (radial expansion, twist, drift, jitter, pointer repulsion, breathing) are preserved verbatim",
+    "Derives uDisplacementScale from existing motionAmplitude * structureComplexity — no VisualParams expansion needed, and prefers-reduced-motion + device capability scaling come for free",
+    "Reuses existing uCadence uniform for noise evolution speed — artistically coherent (nighttime = slower drift) with zero new plumbing",
+    "String concatenation via Vite ?raw import is the correct pattern — already used by both pointCloud.ts (line 6) and ribbonField.ts (line 6) for their vertex shaders",
+    "Pure GLSL simplex noise (no texture lookups) maintains WebGL 1 compatibility and avoids 3D texture setup complexity",
+    "Quality tier integration is automatic — existing uNoiseOctaves (1/2/3 from quality.ts) directly controls fbm3 octave count"
+  ],
+  "risks": [
+    {
+      "risk": "Simplex noise GLSL chunk (~120-150 lines) prepended to each shader increases compilation time on low-end GPUs",
+      "severity": "low",
+      "mitigation": "Only compiled once at init, not per-frame. Low-tier devices use 1 octave which exercises minimal code paths. WebGL shader compilation is cached by driver."
+    },
+    {
+      "risk": "Bass macro noise layer (step 2) adds a second radial displacement pass on top of existing radial expansion — cumulative displacement could push points outside camera frustum",
+      "severity": "medium",
+      "mitigation": "Plan scales the new layer by 0.3 factor and caps via uDisplacementScale (motionAmplitude * structureComplexity ≤ 1.0). Visual tuning in step 5/7 can further attenuate. Recommend clamping total radial displacement in the shader as a safety net."
+    },
+    {
+      "risk": "fbm3() with dynamic octave loop (int uniform) may cause branch divergence warnings on some mobile GPUs",
+      "severity": "low",
+      "mitigation": "Existing layeredNoise already uses identical branching pattern (if uNoiseOctaves >= 2/3). No regression from current behavior."
+    },
+    {
+      "risk": "No #version directive collision — current shaders omit #version, so prepending simplex3d.glsl is safe. If a future story adds #version 300 es, the concatenation order would break.",
+      "severity": "low",
+      "mitigation": "Document in the GLSL chunk that it must appear before any #version directive, or switch to Three.js onBeforeCompile injection if ES3 is needed later."
+    }
+  ],
+  "suggestions": [
+    {
+      "type": "safety",
+      "description": "Add a max displacement clamp in the vertex shader after all displacement layers: `pos = mix(position * uRadialScale, pos, clamp(length(pos - position * uRadialScale) / maxDisplacement, 0.0, 1.0))` to prevent points from escaping the frustum under extreme bass + high motionAmplitude."
+    },
+    {
+      "type": "consistency",
+      "description": "Step 2 mentions 'uNoiseFrequency' and 'uNoiseOctaves' in the fbm3 call but these are existing uniforms with established semantics (noiseFrequency controls the layeredNoise spatial scale). Ensure fbm3 uses these identically — the plan's description is consistent but verify the GLSL implementation matches."
+    }
+  ],
+  "acceptance_criteria_coverage": {
+    "Geometry deformation occurs in a ShaderMaterial": {
+      "covered": true,
+      "by_steps": [
+        2,
+        3,
+        6
+      ],
+      "notes": "Already satisfied by US-032/US-034. Steps 2-3 enhance, step 6 test #1 verifies."
+    },
+    "Bass energy affects large-scale displacement in 3D": {
+      "covered": true,
+      "by_steps": [
+        2,
+        3,
+        4,
+        6
+      ],
+      "notes": "New bass-driven simplex FBM layer displaced along radial direction. Existing radial expansion preserved as additive. Step 6 test #2 verifies."
+    },
+    "Treble energy affects fine-grain displacement or point size": {
+      "covered": true,
+      "by_steps": [
+        2,
+        3,
+        6
+      ],
+      "notes": "Existing treble jitter preserved. Slow-modulation section upgraded to simplex adds coherent fine-grain variation. Step 6 test #3 verifies."
+    },
+    "Deformation evolves over time (not static modulation)": {
+      "covered": true,
+      "by_steps": [
+        2,
+        3,
+        4,
+        6
+      ],
+      "notes": "Noise coordinates drift via uTime * 0.00005 * uCadence. Step 6 test #4 verifies different uTime values produce different noise fields."
+    }
+  },
+  "constraint_compliance": {
+    "no_cpu_per_point_loops": true,
+    "gpu_side_displacement": true,
+    "quality_tier_compatible": true,
+    "reduced_motion_graceful": true,
+    "no_new_dependencies": true,
+    "no_new_visual_params": true,
+    "preserves_existing_layers": true,
+    "mute_toggle_unaffected": true,
+    "info_overlay_unaffected": true,
+    "autoplay_fallback_unaffected": true
+  },
+  "estimated_complexity": "medium",
   "confidence": 0.92,
-  "architecturalImpact": {
-    "scope": "medium",
-    "summary": "Upgrades noise primitives in two existing ShaderMaterial systems and migrates one CPU-based system to GPU. Introduces a shared GLSL module — the first shared shader utility in the project. No new runtime dependencies, no API surface changes, no structural module reorganisation.",
-    "affectedBoundaries": [
-      "visual/shaders (new shared module + 2 new shader files + 2 modified shaders)",
-      "visual/systems (all 3 geometry systems modified)",
-      "main.ts (config passthrough expansion for particleField)"
-    ],
-    "unaffectedBoundaries": [
-      "audio pipeline",
-      "input/signals, pointer, geo",
-      "seed/sessionSeed",
-      "ui layer (infoOverlay, audioToggle)",
-      "api/geo endpoint",
-      "quality.ts tier definitions",
-      "mappings.ts, evolution.ts, renderLoop.ts, modeManager.ts"
-    ]
-  },
-  "currentStateValidation": {
-    "accurate": true,
-    "notes": [
-      "pointWarp.vert.glsl is 133 lines (plan says 134) — trivial discrepancy, no impact",
-      "particleField CPU loop confirmed at lines 113-181 with PointsMaterial at lines 100-106",
-      "layeredNoise() confirmed as sine-hash combination in both vert shaders (lines 31-40)",
-      "Uniform count of 21+ confirmed across pointCloud and ribbonField",
-      "main.ts passes only maxParticles and enableSparkle to particleField (lines ~93-96 confirmed) — plan correctly identifies the gap"
-    ]
-  },
-  "stepAnalysis": [
-    {
-      "step": 1,
-      "title": "Create shared simplex noise GLSL module",
-      "impact": "low",
-      "risk": "low",
-      "notes": "First shared GLSL utility in the project. Good architectural precedent. Self-contained, no existing code modified. The curl3() helper via finite differences is computationally heavier than snoise alone — acceptable since it's only used by particleField which has lower point counts (150-600 vs 200-1200)."
-    },
-    {
-      "step": 2,
-      "title": "Upgrade pointWarp.vert.glsl",
-      "impact": "medium",
-      "risk": "low",
-      "notes": "Replaces layeredNoise() with fbm3 — direct substitution in the deformation pipeline. The plan correctly preserves existing twist/pointer/breathing deformations and stacks FBM on top. Noise domain time drift (t * 0.00008) is slower than current slow modulation period — intentional for smoother evolution. No new uniforms needed since uNoiseOctaves already exists. String concatenation via ?raw import is the established pattern in the codebase."
-    },
-    {
-      "step": 3,
-      "title": "Upgrade ribbonWarp.vert.glsl",
-      "impact": "medium",
-      "risk": "low",
-      "notes": "Mirror of step 2. Plan correctly preserves ribbon-specific bass sway logic. Since both shaders share near-identical structure, this is low-risk parallel work."
-    },
-    {
-      "step": 4,
-      "title": "Create particleWarp shaders",
-      "impact": "medium",
-      "risk": "medium",
-      "notes": "New shader pair. Curl-noise for divergence-free flow is a sound choice to replicate the drifting character of CPU velocity. The 21+ uniform interface match ensures consistency with pointCloud/ribbonField. Fragment shader reuse from pointWarp.frag.glsl is correct — both render soft circular points."
-    },
-    {
-      "step": 5,
-      "title": "Migrate particleField to ShaderMaterial",
-      "impact": "high",
-      "risk": "medium",
-      "notes": "Largest single change — rewrites the core of particleField.ts. Eliminates ~55 lines of CPU per-frame loops and replaces with uniform-only updates. The Particle interface (x, y, vx, vy, size, hueOffset) becomes obsolete — positions are set once as buffer attributes. main.ts config expansion (adding noiseOctaves, enablePointerRepulsion, enableSlowModulation) is a straightforward passthrough from the existing quality profile. The existing particle count (150-600) is well within GPU comfort for simplex+curl noise."
-    },
-    {
-      "step": 6,
-      "title": "Verification",
-      "impact": "none",
-      "risk": "none",
-      "notes": "Checklist correctly covers all acceptance criteria, DoD items, and non-negotiable requirements. Includes reduced-motion check (uMotionAmplitude 0.2x)."
-    }
-  ],
-  "executionOrderAssessment": {
-    "valid": true,
-    "notes": "Step 1 as prerequisite is correct — all subsequent shader work depends on noise3d.glsl. Steps 2+3 are truly independent (different files, same pattern). Steps 4+5 can overlap since the shader files (step 4) and the TS migration (step 5) are separate files, though step 5's material creation references step 4's output. In practice, both can be authored in parallel and tested together."
-  },
-  "riskAssessment": {
-    "identifiedRisks": [
-      {
-        "risk": "Simplex noise ALU cost on low-tier devices",
-        "planMitigation": "Quality tier gates noiseOctaves to 1 on low tier",
-        "assessment": "adequate",
-        "notes": "Single-octave simplex is ~25-30 ALU ops vs ~15 for current sine-hash. Marginal increase, well within budget for 150-200 points on low tier."
-      },
-      {
-        "risk": "particleField migration breaks existing visual character",
-        "planMitigation": "Curl-noise produces divergence-free flow matching drifting feel",
-        "assessment": "adequate",
-        "notes": "The current CPU system uses simple sinusoidal drift — curl noise will produce smoother, more organic flow. Visual character will change but arguably improve. The lower point count (150-600) means curl noise cost is manageable."
-      },
-      {
-        "risk": "GLSL concatenation compilation errors",
-        "planMitigation": "Vite ?raw import, no #version directive in noise3d.glsl",
-        "assessment": "adequate",
-        "notes": "This is the existing pattern used by pointCloud.ts and ribbonField.ts for loading shaders. Key: noise3d.glsl must not declare #version or precision — these come from Three.js shader preamble."
-      }
-    ],
-    "unidentifiedRisks": [
-      {
-        "risk": "Particle interface and 2D position scheme becomes dead code",
-        "severity": "low",
-        "notes": "The current Particle interface (lines 14-21) uses 2D x/y positions (0-1 range). Step 5 replaces this with 3D volumetric positions as buffer attributes. Plan should ensure the Particle interface and related types are cleaned up to avoid dead code."
-      },
-      {
-        "risk": "particleField currently uses 2D positions, migration needs 3D volumetric generation",
-        "severity": "low",
-        "notes": "Plan mentions 'set basePositions once as BufferGeometry position attribute' but doesn't specify the generation strategy. Current particles are 2D (x, y in 0-1). The new shader expects 3D positions. Plan should clarify whether to reuse generateVolumetricPoints() or create a new distribution. This is a detail gap, not a blocker."
-      }
-    ]
-  },
-  "estimateAssessment": {
-    "newLines": {
-      "planned": 250,
-      "assessment": "reasonable",
-      "notes": "noise3d.glsl (~80) + particleWarp pair (~140) + new code in particleField.ts (~30) = 250. Aligns with plan."
-    },
-    "modifiedLines": {
-      "planned": 160,
-      "assessment": "slightly_low",
-      "notes": "pointWarp.vert (~35) + ribbonWarp.vert (~35) + particleField.ts (~90) = 160. The particleField rewrite may require closer to 100-120 modified lines when accounting for type changes, interface updates, and init() restructuring. Estimate of 160 total is workable but tight."
-    },
-    "totalFiles": {
-      "planned": 9,
-      "assessment": "accurate",
-      "notes": "3 new GLSL + 2 modified GLSL + 2 modified TS systems + 1 modified main.ts + (particleField.ts counted in modified) = 8-9 files. Correct."
-    }
-  },
-  "acceptanceCriteriaMapping": {
-    "allCovered": true,
-    "gaps": [],
-    "notes": "Each AC maps to concrete shader code changes. The time evolution criterion (AC4) is addressed by noise domain drift in all three shader systems. The ticket note about no CPU per-point loops is satisfied by step 5's elimination of the draw() iteration."
-  },
-  "consistencyWithADRs": {
-    "conflicts": false,
-    "notes": "No existing ADRs conflict. The plan aligns with CLAUDE.md requirements: ShaderMaterial for deformation, 3D perspective rendering, bass→macro / treble→fine mapping, no forbidden storage APIs. The shared GLSL module is a new pattern but follows the project's existing shader organisation under src/visual/shaders/."
-  },
-  "recommendations": [
-    "Clarify 3D position generation strategy for particleField migration — reuse generateVolumetricPoints() or create a simpler spherical distribution",
-    "Clean up the Particle interface (lines 14-21 of particleField.ts) and any 2D-specific logic that becomes dead code after migration",
-    "Consider extracting hsl2rgb() into noise3d.glsl (or a separate shared color.glsl) since it's duplicated across all vertex shaders — optional, not blocking"
-  ],
   "approved": true,
   "concerns": [],
   "decision": "APPROVE",
