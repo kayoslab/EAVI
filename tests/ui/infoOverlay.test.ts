@@ -2,6 +2,37 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
+vi.mock('three', async () => {
+  const actual = await vi.importActual<typeof import('three')>('three');
+  return {
+    ...actual,
+    WebGLRenderer: class MockWebGLRenderer {
+      domElement: HTMLCanvasElement;
+      private _clearColor = new actual.Color(0x000000);
+      private _pixelRatio = 1;
+      constructor() {
+        this.domElement = document.createElement('canvas');
+        this.domElement.style.display = 'block';
+      }
+      setSize(w: number, h: number) {
+        this.domElement.width = w * this._pixelRatio;
+        this.domElement.height = h * this._pixelRatio;
+      }
+      setPixelRatio(ratio: number) { this._pixelRatio = ratio; }
+      setClearColor(color: number | string | actual.Color) {
+        if (typeof color === 'number') this._clearColor.setHex(color);
+      }
+      getClearColor(target: actual.Color) { target.copy(this._clearColor); return target; }
+      render() {}
+      dispose() {}
+      getSize(target: actual.Vector2) {
+        target.set(this.domElement.width / this._pixelRatio, this.domElement.height / this._pixelRatio);
+        return target;
+      }
+    },
+  };
+});
+
 describe('US-021: Add info button shell', () => {
   describe('createInfoButton', () => {
     beforeEach(() => {

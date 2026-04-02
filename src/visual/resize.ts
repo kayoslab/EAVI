@@ -1,14 +1,18 @@
-export function attachResizeHandler(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, resolutionScale = 1.0): () => void {
-  const onResize = () => {
-    canvas.width = Math.floor(window.innerWidth * resolutionScale)
-    canvas.height = Math.floor(window.innerHeight * resolutionScale)
-    ctx.fillStyle = '#000000'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-  }
+import type { WebGLRenderer, PerspectiveCamera } from 'three';
 
-  window.addEventListener('resize', onResize)
+export function attachResizeHandler(
+  renderer: WebGLRenderer,
+  camera: PerspectiveCamera,
+): () => void {
+  const onResize = () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  };
+
+  window.addEventListener('resize', onResize);
 
   return () => {
-    window.removeEventListener('resize', onResize)
-  }
+    window.removeEventListener('resize', onResize);
+  };
 }

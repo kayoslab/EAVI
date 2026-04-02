@@ -11,12 +11,14 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@types/three": "^0.183.1",
     "jsdom": "^26.1.0",
     "typescript": "~5.9.3",
     "vite": "^8.0.1",
     "vitest": "^3.1.1"
   },
   "dependencies": {
-    "@vercel/functions": "^3.4.3"
+    "@vercel/functions": "^3.4.3",
+    "three": "^0.183.2"
   }
 }

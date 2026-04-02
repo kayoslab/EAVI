@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import * as THREE from 'three';
 import { createModeManager } from '../../src/visual/modeManager';
 import type { GeometrySystem, FrameState } from '../../src/visual/types';
 import type { VisualParams } from '../../src/visual/mappings';
@@ -16,12 +17,8 @@ const defaultParams: VisualParams = {
   structureComplexity: 0.5,
 };
 
-function createTestCanvas() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 800;
-  canvas.height = 600;
-  const ctx = canvas.getContext('2d')!;
-  return { canvas, ctx };
+function createTestScene(): THREE.Scene {
+  return new THREE.Scene();
 }
 
 function makeFrame(overrides?: Partial<FrameState>): FrameState {
@@ -54,9 +51,9 @@ describe('US-026: ModeManager', () => {
     expect(typeof manager.init).toBe('function');
     expect(typeof manager.draw).toBe('function');
 
-    const { ctx } = createTestCanvas();
-    expect(() => manager.init(ctx, 'test', defaultParams)).not.toThrow();
-    expect(() => manager.draw(ctx, makeFrame())).not.toThrow();
+    const scene = createTestScene();
+    expect(() => manager.init(scene, 'test', defaultParams)).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame())).not.toThrow();
   });
 
   it('T-026-15: initial mode is deterministic from seed', () => {
@@ -65,27 +62,27 @@ describe('US-026: ModeManager', () => {
     const mockA2 = createMockGeometrySystem();
     const mockB2 = createMockGeometrySystem();
 
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
 
     const m1 = createModeManager([
       { name: 'a', factory: () => mockA1 },
       { name: 'b', factory: () => mockB1 },
     ]);
-    m1.init(ctx, 'same-seed', defaultParams);
+    m1.init(scene, 'same-seed', defaultParams);
     const idx1 = m1.activeIndex;
 
     const m2 = createModeManager([
       { name: 'a', factory: () => mockA2 },
       { name: 'b', factory: () => mockB2 },
     ]);
-    m2.init(ctx, 'same-seed', defaultParams);
+    m2.init(scene, 'same-seed', defaultParams);
     const idx2 = m2.activeIndex;
 
     expect(idx1).toBe(idx2);
   });
 
   it('T-026-16: different seeds can produce different initial modes', () => {
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const indices = new Set<number>();
 
     for (let i = 0; i < 20; i++) {
@@ -93,7 +90,7 @@ describe('US-026: ModeManager', () => {
         { name: 'a', factory: () => createMockGeometrySystem() },
         { name: 'b', factory: () => createMockGeometrySystem() },
       ]);
-      m.init(ctx, `seed-${i}`, defaultParams);
+      m.init(scene, `seed-${i}`, defaultParams);
       indices.add(m.activeIndex);
     }
 
@@ -104,18 +101,18 @@ describe('US-026: ModeManager', () => {
     const mockA = createMockGeometrySystem();
     const mockB = createMockGeometrySystem();
 
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const manager = createModeManager([
       { name: 'a', factory: () => mockA },
       { name: 'b', factory: () => mockB },
     ]);
-    manager.init(ctx, 'switch-seed', defaultParams);
+    manager.init(scene, 'switch-seed', defaultParams);
 
     // Draw at elapsed=0
-    manager.draw(ctx, makeFrame({ elapsed: 0 }));
+    manager.draw(scene, makeFrame({ elapsed: 0 }));
 
     // Draw at elapsed=200000 (well past any 90-180s interval)
-    manager.draw(ctx, makeFrame({ elapsed: 200_000 }));
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
 
     // Both mocks should have been used
     expect(mockA.draw.mock.calls.length + mockB.draw.mock.calls.length).toBe(2);
@@ -130,15 +127,15 @@ describe('US-026: ModeManager', () => {
     const mockA = createMockGeometrySystem();
     const mockB = createMockGeometrySystem();
 
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const manager = createModeManager([
       { name: 'a', factory: () => mockA },
       { name: 'b', factory: () => mockB },
     ]);
-    manager.init(ctx, 'shared-seed', defaultParams);
+    manager.init(scene, 'shared-seed', defaultParams);
 
     // Trigger mode switch
-    manager.draw(ctx, makeFrame({ elapsed: 200_000 }));
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
 
     // Both should have been init'd with 'shared-seed'
     const aSeeds = mockA.init.mock.calls.map((c: unknown[]) => c[1]);
@@ -155,15 +152,15 @@ describe('US-026: ModeManager', () => {
     const mockA = createMockGeometrySystem();
     const mockB = createMockGeometrySystem();
 
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const manager = createModeManager([
       { name: 'a', factory: () => mockA },
       { name: 'b', factory: () => mockB },
     ]);
-    manager.init(ctx, 'params-seed', defaultParams);
+    manager.init(scene, 'params-seed', defaultParams);
 
     const frame = makeFrame({ elapsed: 0 });
-    manager.draw(ctx, frame);
+    manager.draw(scene, frame);
 
     // The active mock should have received the exact FrameState
     const activeMock = mockA.draw.mock.calls.length > 0 ? mockA : mockB;
@@ -171,32 +168,32 @@ describe('US-026: ModeManager', () => {
   });
 
   it('T-026-20: mode switch does not throw', () => {
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const manager = createModeManager([
       { name: 'a', factory: () => createMockGeometrySystem() },
       { name: 'b', factory: () => createMockGeometrySystem() },
     ]);
-    manager.init(ctx, 'safe-seed', defaultParams);
+    manager.init(scene, 'safe-seed', defaultParams);
 
-    expect(() => manager.draw(ctx, makeFrame({ elapsed: 0 }))).not.toThrow();
-    expect(() => manager.draw(ctx, makeFrame({ elapsed: 200_000 }))).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 0 }))).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();
   });
 
   it('T-026-21: mode switch does not break playback — draw continues producing output', () => {
     const mockA = createMockGeometrySystem();
     const mockB = createMockGeometrySystem();
 
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const manager = createModeManager([
       { name: 'a', factory: () => mockA },
       { name: 'b', factory: () => mockB },
     ]);
-    manager.init(ctx, 'playback-seed', defaultParams);
+    manager.init(scene, 'playback-seed', defaultParams);
 
     const totalFrames = 10;
     for (let i = 0; i < totalFrames; i++) {
       // Spread elapsed across 0-400s to ensure switch happens
-      manager.draw(ctx, makeFrame({ elapsed: i * 40_000 }));
+      manager.draw(scene, makeFrame({ elapsed: i * 40_000 }));
     }
 
     const totalDrawCalls = mockA.draw.mock.calls.length + mockB.draw.mock.calls.length;
@@ -208,18 +205,18 @@ describe('US-026: ModeManager', () => {
     const mockB = createMockGeometrySystem();
     const mockC = createMockGeometrySystem();
 
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const manager = createModeManager([
       { name: 'a', factory: () => mockA },
       { name: 'b', factory: () => mockB },
       { name: 'c', factory: () => mockC },
     ]);
-    manager.init(ctx, 'cycle-seed', defaultParams);
+    manager.init(scene, 'cycle-seed', defaultParams);
 
     // Draw at various elapsed times to cross multiple switch boundaries
-    manager.draw(ctx, makeFrame({ elapsed: 0 }));
-    manager.draw(ctx, makeFrame({ elapsed: 200_000 }));
-    manager.draw(ctx, makeFrame({ elapsed: 400_000 }));
+    manager.draw(scene, makeFrame({ elapsed: 0 }));
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+    manager.draw(scene, makeFrame({ elapsed: 400_000 }));
 
     // All 3 modes should have been drawn at least once
     expect(mockA.draw.mock.calls.length).toBeGreaterThanOrEqual(1);
@@ -228,7 +225,7 @@ describe('US-026: ModeManager', () => {
   });
 
   it('T-026-23: switch interval is seeded and varies by seed', () => {
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const switchTimes: number[] = [];
 
     for (let s = 0; s < 10; s++) {
@@ -239,14 +236,14 @@ describe('US-026: ModeManager', () => {
         { name: 'a', factory: () => mockA },
         { name: 'b', factory: () => mockB },
       ]);
-      manager.init(ctx, `interval-seed-${s}`, defaultParams);
+      manager.init(scene, `interval-seed-${s}`, defaultParams);
 
       const initialIndex = manager.activeIndex;
 
       // Probe at 1-second intervals from 89s to 181s
       let switchTime = -1;
       for (let t = 89_000; t <= 181_000; t += 1000) {
-        manager.draw(ctx, makeFrame({ elapsed: t }));
+        manager.draw(scene, makeFrame({ elapsed: t }));
         if (manager.activeIndex !== initialIndex) {
           switchTime = t;
           break;
@@ -264,16 +261,16 @@ describe('US-026: ModeManager', () => {
     const { createParticleField } = await import('../../src/visual/systems/particleField');
     const { createWaveField } = await import('../../src/visual/systems/waveField');
 
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const manager = createModeManager([
       { name: 'particles', factory: () => createParticleField() },
       { name: 'waves', factory: () => createWaveField() },
     ]);
 
-    expect(() => manager.init(ctx, 'integration-seed', defaultParams)).not.toThrow();
-    expect(() => manager.draw(ctx, makeFrame({ elapsed: 0 }))).not.toThrow();
-    expect(() => manager.draw(ctx, makeFrame({ elapsed: 100_000 }))).not.toThrow();
-    expect(() => manager.draw(ctx, makeFrame({ elapsed: 200_000 }))).not.toThrow();
+    expect(() => manager.init(scene, 'integration-seed', defaultParams)).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 0 }))).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 100_000 }))).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();
   });
 
   it('T-026-25: no localStorage or cookie access during mode management', () => {
@@ -285,14 +282,14 @@ describe('US-026: ModeManager', () => {
       configurable: true,
     });
 
-    const { ctx } = createTestCanvas();
+    const scene = createTestScene();
     const manager = createModeManager([
       { name: 'a', factory: () => createMockGeometrySystem() },
       { name: 'b', factory: () => createMockGeometrySystem() },
     ]);
-    manager.init(ctx, 'privacy-seed', defaultParams);
-    manager.draw(ctx, makeFrame({ elapsed: 0 }));
-    manager.draw(ctx, makeFrame({ elapsed: 200_000 }));
+    manager.init(scene, 'privacy-seed', defaultParams);
+    manager.draw(scene, makeFrame({ elapsed: 0 }));
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
 
     expect(getItemSpy).not.toHaveBeenCalled();
     expect(cookieGet).not.toHaveBeenCalled();

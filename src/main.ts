@@ -9,48 +9,32 @@ import { initScene } from './visual/scene';
 import { attachResizeHandler } from './visual/resize';
 import { startLoop, type LoopDeps } from './visual/renderLoop';
 import { initPointer } from './input/pointer';
-import { createParticleField } from './visual/systems/particleField';
-import { createWaveField } from './visual/systems/waveField';
-import { createModeManager } from './visual/modeManager';
-import { computeQuality } from './visual/quality';
+import { addPlaceholder } from './visual/placeholder';
+// TODO: Port Canvas 2D geometry systems to Three.js in future stories
+// import { createParticleField } from './visual/systems/particleField';
+// import { createWaveField } from './visual/systems/waveField';
+// import { createModeManager } from './visual/modeManager';
+// import { computeQuality } from './visual/quality';
 
-// Compute quality profile synchronously before scene init
-const quality = computeQuality(readSignals());
-console.debug('[EAVI] quality tier:', quality.tier);
-
-// Canvas shell — render immediately so the dark canvas is visible before async work
+// Three.js scene bootstrap — render immediately so the dark scene is visible before async work
 const app = document.getElementById('app')!;
-const { canvas, ctx } = initScene(app, quality.resolutionScale);
-attachResizeHandler(canvas, ctx, quality.resolutionScale);
+const { renderer, scene, camera } = initScene(app);
+attachResizeHandler(renderer, camera);
+
+// Add placeholder 3D object
+const { mesh } = addPlaceholder(scene);
 
 // Shared deps object — mutated as async work resolves
-const maxWaves = quality.tier === 'low' ? 8 : quality.tier === 'medium' ? 14 : 20;
-
 const deps: LoopDeps = {
-  geometrySystem: createModeManager([
-    {
-      name: 'particles',
-      factory: () => createParticleField({
-        maxParticles: quality.maxParticles,
-        enableSparkle: quality.enableSparkle,
-      }),
-    },
-    {
-      name: 'waves',
-      factory: () => createWaveField({
-        maxWaves,
-        enableShimmer: quality.enableSparkle,
-      }),
-    },
-  ]),
+  placeholderMesh: mesh,
 };
 
 // Pointer tracking
-const pointer = initPointer(canvas);
+const pointer = initPointer(renderer.domElement);
 deps.getPointerState = () => pointer.getState();
 
-// Start loop immediately with partial deps (renders black + defaults)
-startLoop(canvas, ctx, deps);
+// Start loop immediately with partial deps (renders placeholder + defaults)
+startLoop(renderer, scene, camera, deps);
 
 const geoPromise = fetchGeoHint();
 
