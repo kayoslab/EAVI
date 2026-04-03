@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import type { GeometrySystem } from '../../src/visual/types';
+import type { GeometrySystem, AttributeSpec } from '../../src/visual/types';
 import type { VisualParams } from '../../src/visual/mappings';
 import type { FrameState } from '../../src/visual/types';
 
@@ -53,5 +53,22 @@ describe('US-029: GeometrySystem interface', () => {
       draw: (_scene: THREE.Scene, _frame: any) => {},
     };
     expect(systemNoCleanup.cleanup).toBeUndefined();
+  });
+});
+
+describe('US-050: AttributeSpec type', () => {
+  it('T-050-35: AttributeSpec type can describe geometry attribute expectations with name and itemSize', () => {
+    const specs: AttributeSpec[] = [
+      { name: 'position', itemSize: 3 },
+      { name: 'color', itemSize: 3 },
+      { name: 'size', itemSize: 1 },
+      { name: 'aHueOffset', itemSize: 1 },
+      { name: 'aRandom', itemSize: 3 },
+    ];
+    expect(specs.length).toBe(5);
+    for (const spec of specs) {
+      expect(typeof spec.name).toBe('string');
+      expect(typeof spec.itemSize).toBe('number');
+    }
   });
 });

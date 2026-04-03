@@ -928,4 +928,163 @@ describe('US-029: Render loop', () => {
       expect(() => startLoop(renderer, scene, camera, {})).not.toThrow();
     });
   });
+
+  describe('US-050: Render loop geometry gate', () => {
+    it('T-050-29: does not call geometrySystem.draw() when geometrySystem.init() throws', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const mockGeo = {
+        init: vi.fn(() => { throw new Error('invalid geometry'); }),
+        draw: vi.fn(),
+      };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'fail-init-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+      const renderSpy = vi.spyOn(renderer, 'render');
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      startLoop(renderer, scene, camera, deps);
+      expect(mockGeo.init).toHaveBeenCalledOnce();
+      expect(mockGeo.draw).not.toHaveBeenCalled();
+      expect(renderSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('T-050-30: calls geometrySystem.draw() normally when init() succeeds', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const mockGeo = { init: vi.fn(), draw: vi.fn() };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'ok-init-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+      const renderSpy = vi.spyOn(renderer, 'render');
+      startLoop(renderer, scene, camera, deps);
+      expect(mockGeo.init).toHaveBeenCalledOnce();
+      expect(mockGeo.draw).toHaveBeenCalled();
+      expect(renderSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it('T-050-31: does not call draw() when initAllForValidation path throws', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const mockGeo = {
+        init: vi.fn(),
+        draw: vi.fn(),
+        initAllForValidation: vi.fn(() => { throw new Error('shader init failed'); }),
+        cleanupInactive: vi.fn(),
+      };
+      (renderer as any).compile = vi.fn();
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo as any,
+        seed: 'fail-validation-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        errorCollector: { errors: [], hasErrors: () => false } as any,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+      const renderSpy = vi.spyOn(renderer, 'render');
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      startLoop(renderer, scene, camera, deps);
+      expect(mockGeo.draw).not.toHaveBeenCalled();
+      expect(renderSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('T-050-32: logs error to console when geometry init fails', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const mockGeo = {
+        init: vi.fn(() => { throw new Error('bad buffers'); }),
+        draw: vi.fn(),
+      };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'log-error-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      startLoop(renderer, scene, camera, deps);
+      expect(consoleSpy).toHaveBeenCalled();
+      const errorMsg = consoleSpy.mock.calls.flat().join(' ');
+      expect(errorMsg).toContain('Geometry init failed');
+      consoleSpy.mockRestore();
+    });
+
+    it('T-050-33: placeholder mesh is not removed from scene when geometry init fails', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial());
+      scene.add(mesh);
+      const mockGeo = {
+        init: vi.fn(() => { throw new Error('invalid geometry'); }),
+        draw: vi.fn(),
+      };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'placeholder-keep-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+        placeholderMesh: mesh,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      startLoop(renderer, scene, camera, deps);
+      expect(scene.children).toContain(mesh);
+      consoleSpy.mockRestore();
+    });
+
+    it('T-050-34: continues camera updates and rendering even with invalid geometry', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const mockGeo = {
+        init: vi.fn(() => { throw new Error('invalid geometry'); }),
+        draw: vi.fn(),
+      };
+      const deps: LoopDeps = {
+        geometrySystem: mockGeo,
+        seed: 'camera-continues-seed',
+        signals: defaultSignals,
+        geo: defaultGeo,
+      };
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 3) cb(frameCount * 16);
+        return frameCount;
+      });
+      const renderSpy = vi.spyOn(renderer, 'render');
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      expect(() => startLoop(renderer, scene, camera, deps)).not.toThrow();
+      expect(renderSpy).toHaveBeenCalledTimes(3);
+      consoleSpy.mockRestore();
+    });
+  });
 });

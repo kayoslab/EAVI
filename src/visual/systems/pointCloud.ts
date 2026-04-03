@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
-import type { FrameState, GeometrySystem } from '../types';
+import type { FrameState, GeometrySystem, AttributeSpec } from '../types';
+import { validateGeometryAttributes } from '../geometryValidator';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/pointWarp.frag.glsl?raw';
@@ -12,6 +13,15 @@ import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volum
 import type { VolumetricShape } from '../generators/volumetricPoints';
 
 const DEFAULT_MAX_POINTS = 1200;
+
+// Must stay in sync with setAttribute calls in init()
+const REQUIRED_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'position', itemSize: 3 },
+  { name: 'color', itemSize: 3 },
+  { name: 'size', itemSize: 1 },
+  { name: 'aHueOffset', itemSize: 1 },
+  { name: 'aRandom', itemSize: 3 },
+];
 
 export interface PointCloudConfig {
   maxPoints?: number;
@@ -132,6 +142,14 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
       geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
+
+      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES);
+      if (!validation.ok) {
+        throw new Error(
+          'PointCloud geometry validation failed: ' +
+          validation.errors.map((e) => `${e.attribute}: ${e.reason}`).join('; '),
+        );
+      }
 
       const uniforms = {
         uTime: { value: 0.0 },

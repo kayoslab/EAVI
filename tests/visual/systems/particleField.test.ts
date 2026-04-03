@@ -400,3 +400,72 @@ describe('US-009: ParticleField geometry system', () => {
     });
   });
 });
+
+describe('US-050: ParticleField geometry attribute validation', () => {
+  it('T-050-19: init() succeeds with valid seed and params (geometry passes validation)', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    expect(() => field.init(scene, 'valid-seed', defaultParams)).not.toThrow();
+    const pointsMeshes = scene.children.filter((c) => c instanceof THREE.Points);
+    expect(pointsMeshes.length).toBe(1);
+  });
+
+  it('T-050-20: geometry has required attributes: position(3), size(1), aHueOffset(1), aRandom(3) — no color attribute', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'attr-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    expect(geo.getAttribute('position')).toBeDefined();
+    expect(geo.getAttribute('position').itemSize).toBe(3);
+    expect(geo.getAttribute('size')).toBeDefined();
+    expect(geo.getAttribute('size').itemSize).toBe(1);
+    expect(geo.getAttribute('aHueOffset')).toBeDefined();
+    expect(geo.getAttribute('aHueOffset').itemSize).toBe(1);
+    expect(geo.getAttribute('aRandom')).toBeDefined();
+    expect(geo.getAttribute('aRandom').itemSize).toBe(3);
+    expect(geo.getAttribute('color')).toBeFalsy();
+  });
+
+  it('T-050-21: position buffer contains only finite values after init', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'finite-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+    for (let i = 0; i < posArr.length; i++) {
+      expect(Number.isFinite(posArr[i])).toBe(true);
+    }
+  });
+
+  it('T-050-22: all buffer attributes contain only finite values after init', () => {
+    const scene = new THREE.Scene();
+    const field = createParticleField();
+    field.init(scene, 'all-finite-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    for (const name of ['size', 'aHueOffset', 'aRandom']) {
+      const arr = geo.getAttribute(name).array as Float32Array;
+      for (let i = 0; i < arr.length; i++) {
+        expect(Number.isFinite(arr[i])).toBe(true);
+      }
+    }
+  });
+
+  it('T-050-23: position buffer values are finite at boundary params', () => {
+    const scene = new THREE.Scene();
+    const boundaries = [
+      { density: 0 },
+      { density: 1 },
+    ];
+    for (const b of boundaries) {
+      const field = createParticleField();
+      field.init(scene, 'boundary-finite-seed', { ...defaultParams, ...b });
+      const points = scene.children.filter((c) => c instanceof THREE.Points).pop() as THREE.Points;
+      const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+      for (let i = 0; i < posArr.length; i++) {
+        expect(Number.isFinite(posArr[i])).toBe(true);
+      }
+    }
+  });
+});
