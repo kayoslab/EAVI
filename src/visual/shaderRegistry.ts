@@ -28,19 +28,18 @@ export const COMMON_UNIFORMS: UniformSpec[] = [
   { name: 'uEnablePointerRepulsion', type: 'float', defaultValue: 1.0 },
   { name: 'uEnableSlowModulation', type: 'float', defaultValue: 1.0 },
   { name: 'uDisplacementScale', type: 'float', defaultValue: 0.5 },
+  { name: 'uHasSizeAttr', type: 'float', defaultValue: 0.0 },
 ];
 
 export const POINTCLOUD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
   { name: 'color', itemSize: 3 },
-  { name: 'size', itemSize: 1 },
   { name: 'aHueOffset', itemSize: 1 },
   { name: 'aRandom', itemSize: 3 },
 ];
 
 export const PARTICLEFIELD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
-  { name: 'size', itemSize: 1 },
   { name: 'aHueOffset', itemSize: 1 },
   { name: 'aRandom', itemSize: 3 },
 ];
@@ -48,7 +47,18 @@ export const PARTICLEFIELD_ATTRIBUTES: AttributeSpec[] = [
 export const RIBBONFIELD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
   { name: 'color', itemSize: 3 },
-  { name: 'size', itemSize: 1 },
   { name: 'aHueOffset', itemSize: 1 },
   { name: 'aRandom', itemSize: 3 },
+];
+
+export const OPTIONAL_POINTCLOUD_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'size', itemSize: 1 },
+];
+
+export const OPTIONAL_PARTICLEFIELD_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'size', itemSize: 1 },
+];
+
+export const OPTIONAL_RIBBONFIELD_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'size', itemSize: 1 },
 ];

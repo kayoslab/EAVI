@@ -4,7 +4,7 @@ import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
-import { RIBBONFIELD_ATTRIBUTES } from '../shaderRegistry';
+import { RIBBONFIELD_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import ribbonWarpVert from '../shaders/ribbonWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/ribbonWarp.frag.glsl?raw';
@@ -164,7 +164,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
 
-      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES);
+      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES);
       if (!validation.ok) {
         throw new Error(
           'RibbonField geometry validation failed: ' +
@@ -193,6 +193,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
         uEnablePointerRepulsion: { value: enablePointerRepulsion ? 1.0 : 0.0 },
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
+        uHasSizeAttr: { value: 1.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({

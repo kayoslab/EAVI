@@ -20,6 +20,7 @@ uniform int uNoiseOctaves;
 uniform float uEnablePointerRepulsion;
 uniform float uEnableSlowModulation;
 uniform float uDisplacementScale;
+uniform float uHasSizeAttr;
 
 attribute float size;
 attribute float aHueOffset;
@@ -121,7 +122,8 @@ void main() {
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   float depth = max(0.25, -mvPosition.z);
   float trebleSparkle = 1.0 + uTrebleEnergy * 0.4;
-  float pointSize = size * uBasePointSize * (2200.0 / depth) * trebleSparkle;
+  float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
+  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle;
   gl_PointSize = clamp(pointSize, 2.5, 48.0);
 
   gl_Position = projectionMatrix * mvPosition;

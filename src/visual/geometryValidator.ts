@@ -14,6 +14,7 @@ export interface GeometryValidationResult {
 export function validateGeometryAttributes(
   geometry: BufferGeometry,
   expectedAttrs: AttributeSpec[],
+  optionalAttrs?: AttributeSpec[],
 ): GeometryValidationResult {
   const errors: GeometryValidationError[] = [];
 
@@ -42,6 +43,33 @@ export function validateGeometryAttributes(
           reason: `${kind} value at index ${i}`,
         });
         break;
+      }
+    }
+  }
+
+  if (optionalAttrs) {
+    for (const spec of optionalAttrs) {
+      const attr = geometry.getAttribute(spec.name);
+      if (!attr) continue;
+
+      if (attr.itemSize !== spec.itemSize) {
+        errors.push({
+          attribute: spec.name,
+          reason: `expected itemSize ${spec.itemSize}, got ${attr.itemSize}`,
+        });
+        continue;
+      }
+
+      const array = attr.array as Float32Array;
+      for (let i = 0; i < array.length; i++) {
+        if (!Number.isFinite(array[i])) {
+          const kind = Number.isNaN(array[i]) ? 'NaN' : 'non-finite';
+          errors.push({
+            attribute: spec.name,
+            reason: `${kind} value at index ${i}`,
+          });
+          break;
+        }
       }
     }
   }
