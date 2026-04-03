@@ -1,0 +1,60 @@
+{
+  "plan_id": "US-051",
+  "summary": "Plan is architecturally sound — the mix(1.0, size, uHasSizeAttr) approach is robust and the uniform-guarded fallback correctly addresses all four acceptance criteria. Three issues need fixing before execution.",
+  "issues": [
+    {
+      "severity": "must_fix",
+      "location": "step 1 — shaderRegistry.ts",
+      "description": "Plan says to move `size` from CRYSTALFIELD_ATTRIBUTES to a new optional array, but no CRYSTALFIELD_ATTRIBUTES constant exists in shaderRegistry.ts. Only POINTCLOUD_ATTRIBUTES, PARTICLEFIELD_ATTRIBUTES, and RIBBONFIELD_ATTRIBUTES are defined.",
+      "suggestion": "Create CRYSTALFIELD_ATTRIBUTES (required) and OPTIONAL_CRYSTALFIELD_ATTRIBUTES (with size) in the same step. Alternatively, add crystal to an existing pattern — but the registry gap must be closed first."
+    },
+    {
+      "severity": "must_fix",
+      "location": "step 3 — crystalField.ts",
+      "description": "Plan assumes crystalField.ts already calls validateGeometryAttributes with a spec and references a required attributes array. In reality, crystalField.ts imports the validator but never calls it — there is no validation call to update.",
+      "suggestion": "Step 3 for crystalField.ts should add the validation call (passing the new required + optional arrays) in addition to adding the uHasSizeAttr uniform. This aligns crystalField with the other three systems."
+    },
+    {
+      "severity": "should_fix",
+      "location": "step 6 — shaderIntegrity.test.ts",
+      "description": "The existing SHADER_SYSTEMS test array in shaderIntegrity.test.ts does not include crystalField. If step 6 only updates existing entries, crystal shaders remain untested for the new uniform and attribute changes.",
+      "suggestion": "Add crystalField to the SHADER_SYSTEMS array in shaderIntegrity.test.ts as part of step 6, using the newly created CRYSTALFIELD_ATTRIBUTES and OPTIONAL_CRYSTALFIELD_ATTRIBUTES."
+    }
+  ],
+  "strengths": [
+    "mix(1.0, size, uHasSizeAttr) is mathematically correct for both bound (uHasSizeAttr=1.0) and unbound (uHasSizeAttr=0.0) cases — even when WebGL provides 0.0 for unbound attributes, mix(1.0, 0.0, 0.0) = 1.0",
+    "Adding uHasSizeAttr to COMMON_UNIFORMS with default 0.0 means the safe path is the default — systems must opt in to per-vertex sizing",
+    "Separating required vs optional attribute arrays in the registry is a clean pattern that extends well to future optional attributes",
+    "Test coverage is comprehensive — 7 test cases spanning GLSL source, runtime uniforms, validator behavior, and registry structure"
+  ],
+  "risks_assessment": "All three identified risks are valid and mitigations are adequate. The GLSL mix() fallback risk is particularly well-analyzed.",
+  "estimated_complexity": "moderate",
+  "approved": true,
+  "concerns": [
+    "{\"severity\":\"must_fix\",\"location\":\"step 1 — shaderRegistry.ts\",\"description\":\"Plan says to move `size` from CRYSTALFIELD_ATTRIBUTES to a new optional array, but no CRYSTALFIELD_ATTRIBUTES constant exists in shaderRegistry.ts. Only POINTCLOUD_ATTRIBUTES, PARTICLEFIELD_ATTRIBUTES, and RIBBONFIELD_ATTRIBUTES are defined.\",\"suggestion\":\"Create CRYSTALFIELD_ATTRIBUTES (required) and OPTIONAL_CRYSTALFIELD_ATTRIBUTES (with size) in the same step. Alternatively, add crystal to an existing pattern — but the registry gap must be closed first.\"}",
+    "{\"severity\":\"must_fix\",\"location\":\"step 3 — crystalField.ts\",\"description\":\"Plan assumes crystalField.ts already calls validateGeometryAttributes with a spec and references a required attributes array. In reality, crystalField.ts imports the validator but never calls it — there is no validation call to update.\",\"suggestion\":\"Step 3 for crystalField.ts should add the validation call (passing the new required + optional arrays) in addition to adding the uHasSizeAttr uniform. This aligns crystalField with the other three systems.\"}",
+    "{\"severity\":\"should_fix\",\"location\":\"step 6 — shaderIntegrity.test.ts\",\"description\":\"The existing SHADER_SYSTEMS test array in shaderIntegrity.test.ts does not include crystalField. If step 6 only updates existing entries, crystal shaders remain untested for the new uniform and attribute changes.\",\"suggestion\":\"Add crystalField to the SHADER_SYSTEMS array in shaderIntegrity.test.ts as part of step 6, using the newly created CRYSTALFIELD_ATTRIBUTES and OPTIONAL_CRYSTALFIELD_ATTRIBUTES.\"}"
+  ],
+  "decision": "APPROVE_WITH_CHANGES",
+  "failures": [
+    {
+      "severity": "must_fix",
+      "location": "step 1 — shaderRegistry.ts",
+      "description": "Plan says to move `size` from CRYSTALFIELD_ATTRIBUTES to a new optional array, but no CRYSTALFIELD_ATTRIBUTES constant exists in shaderRegistry.ts. Only POINTCLOUD_ATTRIBUTES, PARTICLEFIELD_ATTRIBUTES, and RIBBONFIELD_ATTRIBUTES are defined.",
+      "suggestion": "Create CRYSTALFIELD_ATTRIBUTES (required) and OPTIONAL_CRYSTALFIELD_ATTRIBUTES (with size) in the same step. Alternatively, add crystal to an existing pattern — but the registry gap must be closed first."
+    },
+    {
+      "severity": "must_fix",
+      "location": "step 3 — crystalField.ts",
+      "description": "Plan assumes crystalField.ts already calls validateGeometryAttributes with a spec and references a required attributes array. In reality, crystalField.ts imports the validator but never calls it — there is no validation call to update.",
+      "suggestion": "Step 3 for crystalField.ts should add the validation call (passing the new required + optional arrays) in addition to adding the uHasSizeAttr uniform. This aligns crystalField with the other three systems."
+    },
+    {
+      "severity": "should_fix",
+      "location": "step 6 — shaderIntegrity.test.ts",
+      "description": "The existing SHADER_SYSTEMS test array in shaderIntegrity.test.ts does not include crystalField. If step 6 only updates existing entries, crystal shaders remain untested for the new uniform and attribute changes.",
+      "suggestion": "Add crystalField to the SHADER_SYSTEMS array in shaderIntegrity.test.ts as part of step 6, using the newly created CRYSTALFIELD_ATTRIBUTES and OPTIONAL_CRYSTALFIELD_ATTRIBUTES."
+    }
+  ],
+  "adr_entry": null
+}
