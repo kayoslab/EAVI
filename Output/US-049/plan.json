@@ -1,0 +1,183 @@
+{
+  "ticket": "US-049",
+  "title": "Enforce shader attribute and uniform integrity",
+  "summary": "Add static GLSL parsing utilities and comprehensive tests that cross-reference every attribute and uniform declared in shader source against runtime BufferGeometry attributes and ShaderMaterial uniforms, ensuring no undeclared identifiers can silently break rendering.",
+  "currentState": {
+    "shaderFiles": [
+      "src/visual/shaders/noise3d.glsl",
+      "src/visual/shaders/pointWarp.vert.glsl",
+      "src/visual/shaders/pointWarp.frag.glsl",
+      "src/visual/shaders/particleWarp.vert.glsl",
+      "src/visual/shaders/particleWarp.frag.glsl",
+      "src/visual/shaders/ribbonWarp.vert.glsl",
+      "src/visual/shaders/ribbonWarp.frag.glsl"
+    ],
+    "geometrySystems": [
+      "src/visual/systems/pointCloud.ts",
+      "src/visual/systems/particleField.ts",
+      "src/visual/systems/ribbonField.ts"
+    ],
+    "existingValidation": {
+      "geometryValidator.ts": "Runtime check that BufferGeometry has required attributes with correct itemSize and finite values",
+      "shaderErrorCollector.ts": "Collects WebGL shader compilation errors at runtime",
+      "shaderValidation.ts": "Calls renderer.compile() and throws if ShaderErrorCollector has errors"
+    },
+    "gaps": [
+      "No static GLSL source parsing to extract declared attributes/uniforms/varyings",
+      "No cross-reference validation between GLSL declarations and TypeScript runtime bindings",
+      "No test that programmatically verifies every GLSL identifier is declared",
+      "No shared canonical list of shader variables that both GLSL and TS reference",
+      "REQUIRED_ATTRIBUTES constants are duplicated across 3 geometry system files"
+    ]
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Create GLSL source parser utility",
+      "file": "src/visual/shaderIntegrity.ts",
+      "action": "create",
+      "description": "Build a utility module that parses GLSL source strings to extract declared symbols. Functions: parseGlslAttributes(source) returns attribute names and types, parseGlslUniforms(source) returns uniform names and types, parseGlslVaryings(source) returns varying names. Uses regex matching against 'attribute <type> <name>;', 'uniform <type> <name>;', 'varying <type> <name>;' patterns. Also export a function extractIdentifiers(source) that finds all identifiers used in expressions (excluding GLSL builtins, keywords, and function names from noise3d.glsl) to detect undeclared references.",
+      "details": {
+        "exports": [
+          "parseGlslAttributes(source: string): Array<{name: string, type: string}>",
+          "parseGlslUniforms(source: string): Array<{name: string, type: string}>",
+          "parseGlslVaryings(source: string): Array<{name: string, type: string}>",
+          "GLSL_TYPE_TO_ITEM_SIZE: Record<string, number> (float->1, vec2->2, vec3->3, vec4->4, int->1, mat3->9, mat4->16)"
+        ],
+        "notes": "Regex-based parsing is sufficient for the project's simple flat GLSL declarations. No need for a full parser."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Create shared shader variable registry",
+      "file": "src/visual/shaderRegistry.ts",
+      "action": "create",
+      "description": "Define canonical lists of custom uniforms and per-system attribute specs as typed constants. This becomes the single source of truth that both geometry systems and tests reference. Export COMMON_UNIFORMS (the 20 uniforms), POINTCLOUD_ATTRIBUTES, PARTICLEFIELD_ATTRIBUTES, RIBBONFIELD_ATTRIBUTES. Each system's REQUIRED_ATTRIBUTES will be replaced with an import from this registry.",
+      "details": {
+        "exports": [
+          "COMMON_UNIFORMS: Array<{name: string, type: string, defaultValue: any}>",
+          "POINTCLOUD_ATTRIBUTES: AttributeSpec[]",
+          "PARTICLEFIELD_ATTRIBUTES: AttributeSpec[]",
+          "RIBBONFIELD_ATTRIBUTES: AttributeSpec[]"
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "title": "Refactor geometry systems to use shared registry",
+      "files": [
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/particleField.ts",
+        "src/visual/systems/ribbonField.ts"
+      ],
+      "action": "modify",
+      "description": "Replace each system's local REQUIRED_ATTRIBUTES constant with an import from shaderRegistry.ts. This eliminates duplication and ensures all systems reference the canonical attribute specs. No behavioral change — pure refactor."
+    },
+    {
+      "id": 4,
+      "title": "Write shader integrity tests",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "action": "create",
+      "description": "Comprehensive test suite covering all four acceptance criteria. Tests import raw GLSL shader source and the registry, then use the parser to cross-reference declarations against runtime bindings.",
+      "testCases": [
+        {
+          "id": "T-049-01",
+          "criterion": "Every custom attribute referenced in GLSL is explicitly declared in the shader",
+          "approach": "For each vertex shader, parse declared attributes. Then scan the shader body for any use of known attribute names and verify each is in the declared set."
+        },
+        {
+          "id": "T-049-02",
+          "criterion": "Every custom attribute referenced in GLSL is attached to the BufferGeometry at runtime",
+          "approach": "For each geometry system, parse its vertex shader's declared attributes. Verify every declared custom attribute (excluding Three.js builtins like position/normal/uv) has a matching entry in the system's REQUIRED_ATTRIBUTES with correct itemSize derived from GLSL type."
+        },
+        {
+          "id": "T-049-03",
+          "criterion": "Every custom uniform referenced in GLSL is declared and initialized before first render",
+          "approach": "For each shader pair (vert+frag), parse all uniform declarations. Verify every custom uniform appears in COMMON_UNIFORMS with a matching type. Then instantiate each geometry system and verify the material's uniforms object contains all declared uniforms with non-undefined initial values."
+        },
+        {
+          "id": "T-049-04",
+          "criterion": "No undeclared identifiers remain in vertex or fragment shaders",
+          "approach": "For each shader, collect all declared symbols (attributes, uniforms, varyings, locals, function params, GLSL builtins). Scan shader expressions for identifiers not in the declared set. Fail if any undeclared identifier is found."
+        },
+        {
+          "id": "T-049-05",
+          "criterion": "GLSL attribute types match BufferAttribute itemSize",
+          "approach": "Parse attribute types from GLSL (float->1, vec2->2, vec3->3, vec4->4). Verify each matches the itemSize in the corresponding REQUIRED_ATTRIBUTES entry."
+        },
+        {
+          "id": "T-049-06",
+          "criterion": "Uniform declarations are consistent across all vertex shaders",
+          "approach": "Parse uniforms from all three vertex shaders. Verify the sets are identical (same names and types), ensuring no shader has a stale or missing uniform."
+        },
+        {
+          "id": "T-049-07",
+          "criterion": "Fragment shader uniforms are subset of vertex shader uniforms plus their own declarations",
+          "approach": "Parse fragment shader uniforms. Verify each is either declared in the corresponding vertex shader's uniform set or is a fragment-only uniform (like uOpacity)."
+        },
+        {
+          "id": "T-049-08",
+          "criterion": "Varyings are consistent between vertex and fragment shaders",
+          "approach": "For each shader pair, parse varyings from both. Verify the vertex shader declares at least every varying the fragment shader reads."
+        },
+        {
+          "id": "T-049-09",
+          "criterion": "Runtime geometry validation catches missing attributes",
+          "approach": "Create a BufferGeometry with a deliberately missing attribute. Call validateGeometryAttributes and verify it returns ok: false with a descriptive error."
+        },
+        {
+          "id": "T-049-10",
+          "criterion": "No forbidden storage APIs in shader integrity module",
+          "approach": "Standard EAVI compliance check on the new modules."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Add build-time integrity check to scene initialization",
+      "file": "src/visual/scene.ts",
+      "action": "modify",
+      "description": "After geometry system init and before first render, call a new validateShaderIntegrity() function that uses the GLSL parser to cross-check the assembled vertex/fragment shader source against the runtime uniforms and attributes. This catches drift at startup rather than silently rendering a broken scene. On failure, log errors and throw (consistent with existing validateShaderCompilation pattern).",
+      "details": {
+        "newFunction": "validateShaderIntegrity(material: THREE.ShaderMaterial, geometry: THREE.BufferGeometry, systemName: string): void",
+        "location": "src/visual/shaderIntegrity.ts (extend the module from step 1)",
+        "behavior": "Parse material.vertexShader and material.fragmentShader. Verify all declared uniforms exist in material.uniforms. Verify all declared custom attributes exist in geometry.attributes with matching itemSize. Throw with descriptive message on mismatch."
+      }
+    },
+    {
+      "id": 6,
+      "title": "Verify build and run full test suite",
+      "action": "verify",
+      "description": "Run npm run build to confirm no compilation errors. Run the full test suite to confirm all new tests pass alongside existing tests. Verify no console errors on dev server load. Check that the three geometry systems still render correctly with the refactored registry imports."
+    }
+  ],
+  "acceptanceCriteriaMapping": {
+    "Every custom attribute referenced in GLSL is explicitly declared in the shader": ["T-049-01", "T-049-04"],
+    "Every custom attribute referenced in GLSL is attached to the BufferGeometry at runtime": ["T-049-02", "T-049-05", "T-049-09"],
+    "Every custom uniform referenced in GLSL is declared and initialized before first render": ["T-049-03", "T-049-06", "T-049-07"],
+    "No undeclared identifiers remain in vertex or fragment shaders": ["T-049-04", "T-049-08"]
+  },
+  "risks": [
+    {
+      "risk": "GLSL regex parser may miss edge cases (e.g., commented-out declarations, preprocessor directives)",
+      "mitigation": "The project's GLSL is straightforward with no #ifdef blocks. Regex handles flat declarations reliably. Parser skips single-line and multi-line comments before matching."
+    },
+    {
+      "risk": "Three.js injects built-in uniforms/attributes (modelViewMatrix, projectionMatrix, position, etc.) that are not explicitly declared in custom GLSL",
+      "mitigation": "Maintain a THREEJS_BUILTINS set in the parser to exclude from undeclared-identifier checks."
+    }
+  ],
+  "filesCreated": [
+    "src/visual/shaderIntegrity.ts",
+    "src/visual/shaderRegistry.ts",
+    "tests/visual/shaderIntegrity.test.ts"
+  ],
+  "filesModified": [
+    "src/visual/systems/pointCloud.ts",
+    "src/visual/systems/particleField.ts",
+    "src/visual/systems/ribbonField.ts",
+    "src/visual/scene.ts"
+  ],
+  "dependsOn": ["US-041"],
+  "estimatedTestCount": 10
+}
