@@ -1,0 +1,280 @@
+{
+  "ticket": "US-052",
+  "title": "Add render startup health gate",
+  "testFiles": [
+    {
+      "path": "tests/visual/healthGate.test.ts",
+      "description": "Unit tests for the health gate module that orchestrates shader and geometry validation into a single pass/fail checkpoint.",
+      "tests": [
+        {
+          "id": "T-052-01",
+          "name": "gate passes when shaders compile cleanly and all geometry attributes are valid",
+          "type": "unit",
+          "description": "Create a mock renderer, scene, camera, and geometry systems with valid attributes. ShaderErrorCollector has no errors after compile. Verify runStartupHealthGate returns { passed: true, shaderErrors: [], geometryErrors: [] }.",
+          "assertions": [
+            "result.passed === true",
+            "result.shaderErrors.length === 0",
+            "result.geometryErrors.length === 0"
+          ],
+          "mocks": ["WebGLRenderer with compile() spy", "ShaderErrorCollector with no errors", "BufferGeometry with all REQUIRED_ATTRIBUTES valid per system"]
+        },
+        {
+          "id": "T-052-02",
+          "name": "gate fails and returns structured shader errors when compilation produces errors",
+          "type": "unit",
+          "description": "Configure ShaderErrorCollector to report errors after renderer.compile(). Verify gate returns passed: false with shaderErrors populated with shaderType and message fields.",
+          "assertions": [
+            "result.passed === false",
+            "result.shaderErrors.length > 0",
+            "each shaderError has shaderType ('VERTEX' or 'FRAGMENT') and message string"
+          ],
+          "mocks": ["WebGLRenderer with compile()", "ShaderErrorCollector seeded with VERTEX shader error"]
+        },
+        {
+          "id": "T-052-03",
+          "name": "gate fails and returns structured geometry errors when attributes are missing",
+          "type": "unit",
+          "description": "Provide geometry systems where one system's BufferGeometry is missing a required attribute (e.g., 'position'). Verify gate returns passed: false with geometryErrors listing the missing attribute and a descriptive reason.",
+          "assertions": [
+            "result.passed === false",
+            "result.geometryErrors.length > 0",
+            "geometryErrors includes entry with attribute: 'position' and reason containing 'missing'"
+          ],
+          "mocks": ["BufferGeometry missing 'position' attribute", "ShaderErrorCollector with no errors"]
+        },
+        {
+          "id": "T-052-04",
+          "name": "gate fails when geometry attribute has wrong itemSize",
+          "type": "unit",
+          "description": "Provide geometry with 'position' attribute having itemSize 2 instead of 3. Verify gate detects the mismatch.",
+          "assertions": [
+            "result.passed === false",
+            "geometryErrors includes entry with attribute: 'position' and reason containing 'itemSize'"
+          ],
+          "mocks": ["BufferGeometry with position itemSize=2"]
+        },
+        {
+          "id": "T-052-05",
+          "name": "gate fails when geometry attribute contains NaN values",
+          "type": "unit",
+          "description": "Provide geometry with valid attributes but inject NaN into the position array. Verify gate detects non-finite values.",
+          "assertions": [
+            "result.passed === false",
+            "geometryErrors includes entry with reason containing 'NaN'"
+          ],
+          "mocks": ["BufferGeometry with NaN-contaminated position array"]
+        },
+        {
+          "id": "T-052-06",
+          "name": "gate fails and aggregates both shader and geometry errors when both are present",
+          "type": "unit",
+          "description": "Configure both shader compilation errors and geometry validation errors. Verify the result contains errors from both categories.",
+          "assertions": [
+            "result.passed === false",
+            "result.shaderErrors.length > 0",
+            "result.geometryErrors.length > 0"
+          ],
+          "mocks": ["ShaderErrorCollector with FRAGMENT error", "BufferGeometry missing 'color' attribute"]
+        },
+        {
+          "id": "T-052-07",
+          "name": "gate logs structured failure with [EAVI health-gate] prefix on shader error",
+          "type": "unit",
+          "description": "Spy on console.error. Trigger a shader compilation failure. Verify console.error is called with a message containing '[EAVI health-gate]' and the shader error details.",
+          "assertions": [
+            "console.error called at least once",
+            "console.error message includes '[EAVI health-gate]'",
+            "console.error message includes shader type information"
+          ],
+          "mocks": ["console.error spy", "ShaderErrorCollector with errors"]
+        },
+        {
+          "id": "T-052-08",
+          "name": "gate logs structured failure with [EAVI health-gate] prefix on geometry error",
+          "type": "unit",
+          "description": "Spy on console.error. Trigger a geometry validation failure. Verify console.error is called with a message containing '[EAVI health-gate]' and the geometry error details.",
+          "assertions": [
+            "console.error called at least once",
+            "console.error message includes '[EAVI health-gate]'",
+            "console.error message includes attribute name and reason"
+          ],
+          "mocks": ["console.error spy", "BufferGeometry with missing attribute"]
+        },
+        {
+          "id": "T-052-09",
+          "name": "gate does not log to console.error when all checks pass",
+          "type": "unit",
+          "description": "Spy on console.error. Run gate with all valid inputs. Verify console.error is not called.",
+          "assertions": [
+            "console.error not called"
+          ],
+          "mocks": ["console.error spy", "valid renderer/geometry"]
+        },
+        {
+          "id": "T-052-10",
+          "name": "gate calls renderer.compile(scene, camera) to force synchronous shader compilation",
+          "type": "unit",
+          "description": "Verify that runStartupHealthGate calls renderer.compile with the provided scene and camera arguments.",
+          "assertions": [
+            "renderer.compile called once",
+            "renderer.compile called with (scene, camera)"
+          ],
+          "mocks": ["WebGLRenderer with compile spy"]
+        },
+        {
+          "id": "T-052-11",
+          "name": "gate validates all geometry systems from ModeManager, not just the active one",
+          "type": "unit",
+          "description": "Provide a ModeManager-like object with multiple geometry systems (PointCloud, ParticleField, RibbonField). Make one non-active system have invalid geometry. Verify the gate catches the error even though it's not the active system.",
+          "assertions": [
+            "result.passed === false",
+            "geometryErrors references the failing system"
+          ],
+          "mocks": ["Multiple geometry systems, one with invalid attributes"]
+        },
+        {
+          "id": "T-052-12",
+          "name": "gate includes systemName in geometry errors when available",
+          "type": "unit",
+          "description": "Verify that geometry errors include an optional systemName field to identify which geometry system failed.",
+          "assertions": [
+            "geometryErrors entry has systemName field identifying the failing system"
+          ],
+          "mocks": ["Named geometry systems with one failing"]
+        },
+        {
+          "id": "T-052-13",
+          "name": "gate does not throw — returns result object on failure",
+          "type": "unit",
+          "description": "Trigger both shader and geometry failures. Verify the function returns normally (no throw) with a result object. This is critical: the gate must be non-throwing so the render loop can stay alive showing the placeholder.",
+          "assertions": [
+            "function does not throw",
+            "returns HealthGateResult object with passed: false"
+          ],
+          "mocks": ["ShaderErrorCollector with errors", "invalid geometry"]
+        },
+        {
+          "id": "T-052-14",
+          "name": "HealthGateResult type has correct shape",
+          "type": "unit",
+          "description": "Verify the returned result conforms to the HealthGateResult interface: { passed: boolean, shaderErrors: Array<{ shaderType: string; message: string }>, geometryErrors: Array<{ attribute: string; reason: string; systemName?: string }> }.",
+          "assertions": [
+            "result has 'passed' boolean field",
+            "result has 'shaderErrors' array field",
+            "result has 'geometryErrors' array field",
+            "shaderErrors entries have shaderType and message",
+            "geometryErrors entries have attribute and reason"
+          ],
+          "mocks": ["Various valid and invalid inputs"]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/healthGate-integration.test.ts",
+      "description": "Integration tests verifying the render loop respects the health gate result, blocking steady-state entry on failure and proceeding on success.",
+      "tests": [
+        {
+          "id": "T-052-15",
+          "name": "render loop enters steady-state and removes placeholder when health gate passes",
+          "type": "integration",
+          "description": "Set up a full render loop with valid geometry systems and no shader errors. Run several frames. Verify placeholder mesh is removed from scene and geometry system's draw() is called.",
+          "assertions": [
+            "placeholder mesh removed from scene",
+            "geometry system draw() called on subsequent frames",
+            "renderer.render() called each frame"
+          ],
+          "mocks": ["WebGLRenderer", "requestAnimationFrame spy", "valid geometry system with initAllForValidation"]
+        },
+        {
+          "id": "T-052-16",
+          "name": "render loop stays on placeholder and does not enter steady-state when health gate fails due to shader errors",
+          "type": "integration",
+          "description": "Set up render loop with a ShaderErrorCollector that reports errors after compile. Run several frames. Verify placeholder mesh remains in scene and geometry system's draw() is never called.",
+          "assertions": [
+            "placeholder mesh stays in scene",
+            "geometry system draw() never called",
+            "renderer.render() still called (loop stays alive)",
+            "placeholder continues rotating"
+          ],
+          "mocks": ["WebGLRenderer", "ShaderErrorCollector with errors", "requestAnimationFrame spy"]
+        },
+        {
+          "id": "T-052-17",
+          "name": "render loop stays on placeholder when health gate fails due to geometry errors",
+          "type": "integration",
+          "description": "Set up render loop with geometry systems that have invalid attributes. Run several frames. Verify placeholder persists and draw() is not invoked.",
+          "assertions": [
+            "placeholder mesh stays in scene",
+            "geometry system draw() never called",
+            "loop continues running (rAF still scheduled)"
+          ],
+          "mocks": ["WebGLRenderer", "geometry system producing invalid attributes", "requestAnimationFrame spy"]
+        },
+        {
+          "id": "T-052-18",
+          "name": "console.error is called with structured failure info when gate blocks steady-state",
+          "type": "integration",
+          "description": "Set up render loop where health gate will fail. Spy on console.error. Run frames. Verify console.error was called with [EAVI health-gate] prefix and error details during the initialization phase.",
+          "assertions": [
+            "console.error called with message containing '[EAVI health-gate]'",
+            "error details include specific failure reason"
+          ],
+          "mocks": ["console.error spy", "failing shader compilation"]
+        },
+        {
+          "id": "T-052-19",
+          "name": "render loop does not throw when health gate fails — loop stays alive for debugging",
+          "type": "integration",
+          "description": "Previously, validateShaderCompilation() threw on failure. Verify the new health gate integration does NOT throw, keeping the render loop alive so developers can read the console. The loop should continue scheduling rAF callbacks.",
+          "assertions": [
+            "no uncaught error thrown",
+            "requestAnimationFrame continues to be called after gate failure",
+            "renderer.render() continues to be called"
+          ],
+          "mocks": ["WebGLRenderer", "ShaderErrorCollector with errors", "requestAnimationFrame spy"]
+        },
+        {
+          "id": "T-052-20",
+          "name": "health gate is invoked before first geometry draw call",
+          "type": "integration",
+          "description": "Instrument the order of calls: health gate check must happen before any geometry system draw(). Even on a passing gate, verify the temporal ordering is correct.",
+          "assertions": [
+            "health gate validation completes before first draw() call",
+            "renderer.compile() called before geometry draw()"
+          ],
+          "mocks": ["Call-order tracking spies on compile, validate, draw"]
+        },
+        {
+          "id": "T-052-21",
+          "name": "health gate replaces the old throwing validateShaderCompilation behavior",
+          "type": "integration",
+          "description": "Verify that the render loop no longer calls validateShaderCompilation() directly (which throws). Instead it should use the health gate which is non-throwing. This confirms the migration from the old pattern.",
+          "assertions": [
+            "validateShaderCompilation is not called directly by render loop",
+            "runStartupHealthGate is called instead",
+            "shader errors result in gate failure, not thrown exception"
+          ],
+          "mocks": ["Module import spies"]
+        }
+      ]
+    }
+  ],
+  "testStrategy": {
+    "approach": "Unit tests for healthGate.ts mock the WebGL renderer, ShaderErrorCollector, and BufferGeometry to simulate all pass/fail combinations. Integration tests for the render loop verify that the gate result controls the steady-state transition. Existing tests for shaderValidation.ts and geometryValidator.ts remain unchanged — healthGate composes them.",
+    "mockingPattern": "Follow existing test conventions: THREE.WebGLRenderer as mocked class, vi.spyOn(window, 'requestAnimationFrame') for frame simulation, vi.fn() for geometry system methods, real ShaderErrorCollector instances with mocked GL/shader objects.",
+    "coverageGoals": [
+      "All four acceptance criteria mapped to specific tests",
+      "Both shader-only and geometry-only failure paths",
+      "Combined failure path",
+      "Non-throwing behavior (critical behavioral change from old pattern)",
+      "Console logging format and prefix",
+      "Render loop lifecycle integration"
+    ]
+  },
+  "acceptanceCriteriaMapping": {
+    "Startup verifies shader compilation status before entering steady-state rendering": ["T-052-02", "T-052-07", "T-052-10", "T-052-15", "T-052-16", "T-052-20"],
+    "Startup verifies required geometry attributes before first frame": ["T-052-03", "T-052-04", "T-052-05", "T-052-11", "T-052-15", "T-052-17", "T-052-20"],
+    "Startup logs a clear failure reason for shader or geometry errors": ["T-052-07", "T-052-08", "T-052-09", "T-052-18"],
+    "Stories touching rendering are not complete if startup health checks fail": ["T-052-13", "T-052-16", "T-052-17", "T-052-19", "T-052-21"]
+  }
+}
