@@ -1,0 +1,78 @@
+{
+  "ticket": "US-048",
+  "plan_title": "Validate shader compilation before scene activation",
+  "evaluation": {
+    "impact_level": "low",
+    "adr_required": false,
+    "approved": true,
+    "summary": "The plan adds a validation layer (2 new files, 4 modified) that intercepts shader compilation errors at startup. It uses existing Three.js APIs (renderer.debug.onShaderError, renderer.compile) and threads an error collector through the existing dependency chain. The architectural footprint is small: one new interface method on ModeManager, one new optional field on LoopDeps, and a widened return type on initScene. No new external dependencies, no changes to the rendering pipeline itself, and no impact on runtime performance after the one-time startup validation.",
+    "architectural_analysis": {
+      "new_abstractions": {
+        "count": 2,
+        "description": "ShaderErrorCollector class and validateShaderCompilation utility. Both are narrowly scoped and don't introduce new patterns foreign to the codebase.",
+        "justified": true
+      },
+      "interface_changes": {
+        "initScene_return_type": "Widened to include errorCollector — backward-compatible addition",
+        "ModeManager_interface": "Two new methods (initAllForValidation, cleanupInactive) — extends existing interface without breaking it",
+        "LoopDeps": "One new optional field (errorCollector) — non-breaking",
+        "GeometrySystem": "No changes — good"
+      },
+      "dependency_flow": "scene.ts creates collector → main.ts passes it to LoopDeps → renderLoop.ts passes it to validation utility. Clean unidirectional flow, no circular dependencies.",
+      "coupling_assessment": "Low. The validation layer reads from a shared collector but does not modify renderer behavior. The onShaderError callback is append-only. The duck-type check in renderLoop for initAllForValidation avoids hard-coupling to ModeManager."
+    },
+    "technical_risks": [
+      {
+        "risk": "renderer.debug.onShaderError availability in Three.js r183",
+        "severity": "low",
+        "notes": "renderer.debug.onShaderError was introduced in r149 and is stable through r183. The plan correctly identifies this API."
+      },
+      {
+        "risk": "renderer.compile() triggering onShaderError synchronously",
+        "severity": "low",
+        "notes": "renderer.compile() forces synchronous program compilation in Three.js. The onShaderError callback fires during WebGLProgram creation, which happens synchronously within compile(). This is well-documented behavior."
+      },
+      {
+        "risk": "initAllForValidation temporarily adding all systems to scene",
+        "severity": "low",
+        "notes": "Plan correctly sets opacity 0 on non-active systems and cleans up after validation. Validation happens before first visible render frame (the loop is already running but only rendering the placeholder at this point)."
+      },
+      {
+        "risk": "cleanup() disposing geometry that mode transitions need to re-create",
+        "severity": "low",
+        "notes": "Mode transitions already call init() on incoming systems (modeManager.ts:103), which fully re-creates geometry. This is the existing contract."
+      }
+    ],
+    "concerns": [
+      {
+        "area": "Timing in renderLoop.ts",
+        "detail": "The validation call is placed in the per-frame callback (lines 162-164), gated by the one-time init check. This means renderer.compile() and validation run synchronously during a rAF frame, which could cause a single long frame. This is acceptable since it happens exactly once, but the plan should note this.",
+        "severity": "informational",
+        "blocking": false
+      },
+      {
+        "area": "Error handling on validation failure",
+        "detail": "The plan throws an Error on shader compilation failure. In the current code, this throw would happen inside the rAF callback, which means it becomes an uncaught promise rejection / unhandled error. The plan should consider whether to catch this in renderLoop or let it propagate. Given this is a dev-time gate (definition-of-done), throwing is appropriate — it will show in the console as a fatal error.",
+        "severity": "informational",
+        "blocking": false
+      },
+      {
+        "area": "ModeManager factory pattern",
+        "detail": "createModeManager in main.ts receives pre-created system instances wrapped in factory functions that just return them (e.g., factory: () => particles). The systems array in modeManager.ts calls m.factory() once at creation. So initAllForValidation calling init() on all systems is correct — the system objects already exist.",
+        "severity": "informational",
+        "blocking": false
+      }
+    ],
+    "compatibility": {
+      "existing_tests": "modeManager.test.ts exists and will need updates for the new methods. No conflicts with existing test patterns.",
+      "build_system": "No changes to Vite config or build pipeline.",
+      "runtime_behavior": "No observable changes when shaders compile successfully. Only adds a startup gate that throws on failure.",
+      "three_js_version": "All APIs used (renderer.debug.onShaderError, renderer.compile) are available in Three.js r183."
+    }
+  },
+  "concerns": [],
+  "decision": "Plan is architecturally sound. Low impact, well-scoped, uses stable Three.js APIs, and follows existing codebase patterns. No ADR required. Approved for implementation.",
+  "adr_entry": null,
+  "approved": false,
+  "failures": []
+}
