@@ -1,40 +1,43 @@
 {
-  "ticket": "US-018",
-  "planStatus": "approved",
-  "criteriaReview": [
+  "confidence": 0.9,
+  "summary": "Plan accurately reflects the implemented state. Bass-to-macro-motion is fully wired across camera, mesh rotation, and shader deformation. The remaining work (unskipping 3 tests) is correctly scoped and low-risk.",
+  "strengths": [
+    "All implementation claims verified against actual code — EMA factors, power curve exponent, shader uniforms, camera scaling, synthetic fallback all match",
+    "Correct identification that no production code changes are likely needed",
+    "Acceptance criteria mapping is thorough and each criterion has concrete evidence",
+    "Dependencies (US-009, US-017) are confirmed complete"
+  ],
+  "concerns": [
     {
-      "criterion": "Bass band influences at least one large-scale motion property",
-      "status": "pass",
-      "evidence": "bassToMacro() in mappings.ts (line 178) with pow(n, 0.7) curve confirmed. particleField.ts (line 56) applies bassBoost = 1 + bassEnergy * 2."
+      "severity": "low",
+      "issue": "Skipped tests already use Three.js APIs (createParticleField, getParticlePositions, THREE.Scene), not Canvas2D. The risk 'stale assertions referencing Canvas2D-era APIs' is inaccurate — the skip comment is misleading.",
+      "suggestion": "Update risk description. The actual risk is that the test helpers (getParticlePositions, field.draw) may not match the current geometry system's API signatures, not that they reference Canvas2D."
     },
     {
-      "criterion": "Response is smoothed to avoid jitter",
-      "status": "pass",
-      "evidence": "EMA smoothing in renderLoop.ts (line 107): smoothBass = smoothBass * 0.88 + rawBass * 0.12. Test T-018-02 validates jitter reduction."
+      "severity": "low",
+      "issue": "computeBassAvg lives in renderLoop.ts (line 68), not analyser.ts. analyser.ts only provides AnalyserNode setup and pipeline buffer allocation.",
+      "suggestion": "Clarify in currentState.audioExtraction that the function is in renderLoop.ts. analyser.ts is still validly in scope but for pipeline infrastructure, not bass computation."
     },
     {
-      "criterion": "Effect remains visible when audio is unmuted or muted",
-      "status": "pass",
-      "evidence": "Synthetic fallback in renderLoop.ts (lines 102-104): when rawBass < 5, generates 30 + 25 * sin(elapsed * 0.001). Test T-018-03 covers this."
+      "severity": "low",
+      "issue": "T-018-04 checks positions remain within 0-1 bounds, but shader deformations operate in world-space coordinates (radial expansion multiplies position by 1.25x). The test's bound expectation may be wrong rather than the shader being unsafe.",
+      "suggestion": "Step 2 should anticipate that the 0-1 bounds assertion may need updating to reflect actual world-space ranges, not just clamping the shader output."
     },
     {
-      "criterion": "No clipping or visual instability occurs",
-      "status": "pass",
-      "evidence": "Toroidal wrapping in particleField.ts (lines 86-94). bassToMacro clamps to 0-1. Test T-018-04 verifies bounds at max bass."
+      "severity": "info",
+      "issue": "particleWarp.vert.glsl has fewer deformation effects (only curl noise + radial expansion, no twist or drift) compared to the other two shaders.",
+      "suggestion": "Not a problem — just noting the plan's summary of 'four bass-driven effects' applies to pointWarp and ribbonWarp but not particleWarp. This is fine as-is."
     }
   ],
-  "buildVerification": {
-    "build": "pass",
-    "tests": "348 passed, 0 failed",
-    "testFiles": "27 passed",
-    "consoleErrors": "none"
+  "missingSteps": [],
+  "filesInScopeAccuracy": {
+    "correct": true,
+    "notes": "All listed files exist and are relevant. analyser.ts provides pipeline infrastructure rather than bass computation, but is still validly in scope."
   },
-  "risks": [],
-  "blockers": [],
-  "recommendation": "Ship. All acceptance criteria satisfied, tests pass, no discrepancies between plan and implementation.",
-  "concerns": [],
-  "decision": "All claims verified against codebase. Implementation is complete and correct.",
+  "estimatedComplexityAgreement": true,
+  "recommendation": "Proceed. The three test unskips are the critical path. Pay attention to T-018-04's bound assertions — they likely need world-space-aware thresholds rather than 0-1 normalized bounds.",
+  "approved": true,
+  "decision": "approve",
   "adr_entry": null,
-  "approved": false,
   "failures": []
 }
