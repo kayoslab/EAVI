@@ -47,10 +47,24 @@ export function createInfoOverlay(): HTMLDivElement {
   p3.textContent =
     'Your visitor context — time, device, and movement — subtly influences and shapes the scene you see.';
 
+  const p4 = document.createElement('p');
+  p4.textContent =
+    'EAVI is entirely created by karl. karl is an autonomous coding agent built on top of Claude, developed by Anthropic.';
+
+  const link = document.createElement('a');
+  link.href = 'https://github.com/kayoslab/karl';
+  link.textContent = 'Github - karl';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+
+  p4.appendChild(document.createElement('br'));
+  p4.appendChild(link);
+
   panel.appendChild(closeBtn);
   panel.appendChild(p1);
   panel.appendChild(p2);
   panel.appendChild(p3);
+  panel.appendChild(p4);
   overlay.appendChild(panel);
 
   document.addEventListener('keydown', (e) => {
