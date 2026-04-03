@@ -140,6 +140,21 @@ geoPromise.then((geo) => {
   ];
   deps.getModeName = () => modes[modeManager.activeIndex]?.name ?? 'unknown';
   deps.getPointCount = () => modes[modeManager.activeIndex]?.maxPoints ?? 0;
+  deps.getShaderStatus = () => errorCollector.hasErrors() ? 'fail' : 'pass';
+  deps.getQualityTier = () => quality.tier;
+  deps.getOptionalAttrs = () => {
+    const optNames = new Set<string>();
+    const knownOptional = ['size'];
+    scene.traverse((obj) => {
+      const child = obj as unknown as { geometry?: import('three').BufferGeometry };
+      if (child.geometry && (child.geometry as unknown as { isBufferGeometry?: boolean }).isBufferGeometry) {
+        for (const attr of knownOptional) {
+          if (child.geometry.getAttribute(attr)) optNames.add(attr);
+        }
+      }
+    });
+    return Array.from(optNames);
+  };
 });
 
 // Info button + overlay — append immediately, no async dependency

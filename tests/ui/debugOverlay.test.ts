@@ -44,7 +44,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('displays FPS value after update', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).toMatch(/fps/i);
       expect(text).toContain('60');
@@ -53,7 +53,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('displays mode name after update', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).toContain('pointcloud');
     });
@@ -61,7 +61,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('displays point count after update', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).toContain('1200');
     });
@@ -69,7 +69,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('displays bass value after update', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).toMatch(/bass/i);
       expect(text).toContain('142');
@@ -78,7 +78,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('displays treble value after update', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).toMatch(/treble/i);
       expect(text).toContain('38');
@@ -87,7 +87,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('rounds FPS to integer', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 59.874, modeName: 'pointcloud', pointCount: 1200, bass: 100, treble: 50 });
+      overlay.update({ fps: 59.874, modeName: 'pointcloud', pointCount: 1200, bass: 100, treble: 50, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).not.toContain('59.874');
       expect(text).toContain('60');
@@ -96,7 +96,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('rounds bass and treble to integers', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142.7, treble: 38.3 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142.7, treble: 38.3, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).not.toContain('142.7');
       expect(text).not.toContain('38.3');
@@ -107,10 +107,10 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('updates text content when called with different values', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text1 = overlay.element.textContent || '';
 
-      overlay.update({ fps: 30, modeName: 'ribbon', pointCount: 800, bass: 50, treble: 100 });
+      overlay.update({ fps: 30, modeName: 'ribbon', pointCount: 800, bass: 50, treble: 100, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text2 = overlay.element.textContent || '';
 
       expect(text2).not.toBe(text1);
@@ -131,19 +131,19 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
       const overlay = createDebugOverlay();
 
       // First call should always apply
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1000, bass: 100, treble: 50 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1000, bass: 100, treble: 50, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text1 = overlay.element.textContent || '';
       expect(text1).toContain('1000');
 
       // Rapid second call within throttle window should be skipped
-      overlay.update({ fps: 30, modeName: 'ribbon', pointCount: 2000, bass: 200, treble: 100 });
+      overlay.update({ fps: 30, modeName: 'ribbon', pointCount: 2000, bass: 200, treble: 100, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text2 = overlay.element.textContent || '';
       // Should still show original values (throttled)
       expect(text2).toContain('1000');
 
       // After throttle interval, update should apply
       vi.advanceTimersByTime(300);
-      overlay.update({ fps: 45, modeName: 'wave', pointCount: 3000, bass: 150, treble: 75 });
+      overlay.update({ fps: 45, modeName: 'wave', pointCount: 3000, bass: 150, treble: 75, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text3 = overlay.element.textContent || '';
       expect(text3).toContain('3000');
 
@@ -160,7 +160,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('overlay does not display IP addresses', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).not.toMatch(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
     });
@@ -168,7 +168,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('overlay does not display user agent strings', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).not.toMatch(/mozilla/i);
       expect(text).not.toMatch(/user.?agent/i);
@@ -177,7 +177,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('overlay does not display seed values', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).not.toMatch(/seed/i);
     });
@@ -185,7 +185,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
     it('overlay does not display geo location labels', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text).not.toMatch(/country/i);
       expect(text).not.toMatch(/region/i);
@@ -204,7 +204,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
       document.body.appendChild(overlay.element);
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       expect(getItemSpy).not.toHaveBeenCalled();
       expect(setItemSpy).not.toHaveBeenCalled();
     });
@@ -213,7 +213,7 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
       const cookieSpy = vi.spyOn(document, 'cookie', 'set');
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38 });
+      overlay.update({ fps: 60, modeName: 'pointcloud', pointCount: 1200, bass: 142, treble: 38, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' });
       expect(cookieSpy).not.toHaveBeenCalled();
     });
   });
@@ -503,14 +503,14 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
       expect(() =>
-        overlay.update({ fps: 0, modeName: '', pointCount: 0, bass: 0, treble: 0 })
+        overlay.update({ fps: 0, modeName: '', pointCount: 0, bass: 0, treble: 0, shaderStatus: 'pending', optionalAttrs: [], qualityTier: 'unknown' })
       ).not.toThrow();
     });
 
     it('handles zero values gracefully', async () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
-      overlay.update({ fps: 0, modeName: '', pointCount: 0, bass: 0, treble: 0 });
+      overlay.update({ fps: 0, modeName: '', pointCount: 0, bass: 0, treble: 0, shaderStatus: 'pending', optionalAttrs: [], qualityTier: 'unknown' });
       const text = overlay.element.textContent || '';
       expect(text.length).toBeGreaterThan(0);
     });
@@ -519,10 +519,237 @@ describe('US-038: Add minimal visual instrumentation for tuning', () => {
       const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
       const overlay = createDebugOverlay();
       expect(() =>
-        overlay.update({ fps: 144, modeName: 'longModeName', pointCount: 100000, bass: 255, treble: 255 })
+        overlay.update({ fps: 144, modeName: 'longModeName', pointCount: 100000, bass: 255, treble: 255, shaderStatus: 'pass', optionalAttrs: [], qualityTier: 'unknown' })
       ).not.toThrow();
       const text = overlay.element.textContent || '';
       expect(text).toContain('100000');
     });
+  });
+});
+
+describe('US-053: Debug overlay shows shader and geometry state', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    document.body.innerHTML = '<div id="app"></div>';
+  });
+
+  const baseData = {
+    fps: 60,
+    modeName: 'pointcloud',
+    pointCount: 1200,
+    bass: 142,
+    treble: 38,
+    shaderStatus: 'pass' as const,
+    optionalAttrs: ['size'],
+    qualityTier: 'high',
+  };
+
+  it('DebugFrameData interface includes shaderStatus field', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    expect(() => overlay.update({ ...baseData, shaderStatus: 'pass' })).not.toThrow();
+    expect(() => overlay.update({ ...baseData, shaderStatus: 'fail' })).not.toThrow();
+    expect(() => overlay.update({ ...baseData, shaderStatus: 'pending' })).not.toThrow();
+  });
+
+  it('DebugFrameData interface includes optionalAttrs field', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    expect(() => overlay.update({ ...baseData, optionalAttrs: ['size'] })).not.toThrow();
+    expect(() => overlay.update({ ...baseData, optionalAttrs: [] })).not.toThrow();
+  });
+
+  it('DebugFrameData interface includes qualityTier field', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    expect(() => overlay.update({ ...baseData, qualityTier: 'high' })).not.toThrow();
+  });
+
+  it('Overlay displays shader status pass', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update({ ...baseData, shaderStatus: 'pass' });
+    const text = overlay.element.textContent || '';
+    expect(text).toMatch(/shader/i);
+    expect(text).toContain('pass');
+  });
+
+  it('Overlay displays shader status fail distinctly', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update({ ...baseData, shaderStatus: 'fail' });
+    const text = overlay.element.textContent || '';
+    expect(text).toMatch(/fail/i);
+  });
+
+  it('Overlay displays optional attribute names when present', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update({ ...baseData, optionalAttrs: ['size'] });
+    const text = overlay.element.textContent || '';
+    expect(text).toContain('size');
+  });
+
+  it('Overlay displays none when no optional attributes present', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update({ ...baseData, optionalAttrs: [] });
+    const text = overlay.element.textContent || '';
+    expect(text).toMatch(/none/i);
+  });
+
+  it('Overlay displays multiple optional attributes comma-separated', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update({ ...baseData, optionalAttrs: ['size', 'color'] });
+    const text = overlay.element.textContent || '';
+    expect(text).toContain('size');
+    expect(text).toContain('color');
+  });
+
+  it('Overlay displays quality tier', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update({ ...baseData, qualityTier: 'high' });
+    const text = overlay.element.textContent || '';
+    expect(text).toContain('high');
+  });
+
+  it('Overlay still displays existing fields after extension', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update(baseData);
+    const text = overlay.element.textContent || '';
+    expect(text).toContain('60');
+    expect(text).toContain('pointcloud');
+    expect(text).toContain('1200');
+    expect(text).toContain('142');
+    expect(text).toContain('38');
+  });
+
+  it('New fields do not expose visitor identifiers', async () => {
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update(baseData);
+    const text = overlay.element.textContent || '';
+    expect(text).not.toMatch(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
+    expect(text).not.toMatch(/mozilla/i);
+    expect(text).not.toMatch(/user.?agent/i);
+    expect(text).not.toMatch(/seed/i);
+    expect(text).not.toMatch(/country/i);
+    expect(text).not.toMatch(/region/i);
+  });
+
+  it('DebugFrameData new fields are non-identifying developer diagnostics only', async () => {
+    const src = await import('../../src/ui/debugOverlay');
+    // shaderStatus is constrained to 'pass'|'fail'|'pending' — not visitor data
+    // optionalAttrs is string[] of geometry attribute names — not user data
+    // qualityTier is a device capability tier string — not a raw fingerprint
+    const overlay = src.createDebugOverlay();
+    overlay.update(baseData);
+    const text = overlay.element.textContent || '';
+    // Only contains technical diagnostics
+    expect(text).toMatch(/shader/i);
+    expect(text).toMatch(/attr/i);
+    expect(text).toMatch(/tier/i);
+  });
+});
+
+describe('US-053: Debug overlay disabled by default', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    document.body.innerHTML = '<div id="app"></div>';
+  });
+
+  it('Overlay is only created when ?debug query param is present', () => {
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, search: '' },
+      writable: true,
+    });
+    expect(new URLSearchParams(window.location.search).has('debug')).toBe(false);
+    expect(document.querySelector('.eavi-debug-overlay')).toBeNull();
+  });
+
+  it('Extended overlay fields are not computed when debug is disabled', async () => {
+    vi.mock('three', async () => {
+      const actual = await vi.importActual<typeof import('three')>('three');
+      return {
+        ...actual,
+        WebGLRenderer: class MockWebGLRenderer {
+          domElement: HTMLCanvasElement;
+          constructor() { this.domElement = document.createElement('canvas'); this.domElement.width = 800; this.domElement.height = 600; }
+          setSize() {}
+          setPixelRatio() {}
+          render() {}
+          dispose() {}
+          getContext() { return {}; }
+          setClearColor() {}
+        },
+      };
+    });
+
+    const { startLoop } = await import('../../src/visual/renderLoop');
+    const three = await import('three');
+    const renderer = new three.WebGLRenderer() as unknown as import('three').WebGLRenderer;
+    const scene = new three.Scene();
+    const camera = new three.PerspectiveCamera();
+
+    const shaderSpy = vi.fn(() => 'pass' as const);
+    const attrsSpy = vi.fn(() => ['size']);
+    const tierSpy = vi.fn(() => 'high');
+
+    let frameCount = 0;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      frameCount++;
+      if (frameCount <= 3) cb(frameCount * 16);
+      return frameCount;
+    });
+
+    startLoop(renderer, scene, camera, {
+      getShaderStatus: shaderSpy,
+      getOptionalAttrs: attrsSpy,
+      getQualityTier: tierSpy,
+      // No onDebugFrame — should short-circuit
+    });
+
+    expect(shaderSpy).not.toHaveBeenCalled();
+    expect(attrsSpy).not.toHaveBeenCalled();
+    expect(tierSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('US-053: Debug overlay no forbidden storage with new fields', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    document.body.innerHTML = '<div id="app"></div>';
+  });
+
+  const fullData = {
+    fps: 60,
+    modeName: 'pointcloud',
+    pointCount: 1200,
+    bass: 142,
+    treble: 38,
+    shaderStatus: 'pass' as const,
+    optionalAttrs: ['size'],
+    qualityTier: 'high',
+  };
+
+  it('Extended debugOverlay does not access localStorage', async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update(fullData);
+    expect(getItemSpy).not.toHaveBeenCalled();
+    expect(setItemSpy).not.toHaveBeenCalled();
+  });
+
+  it('Extended debugOverlay does not set cookies', async () => {
+    const cookieSpy = vi.spyOn(document, 'cookie', 'set');
+    const { createDebugOverlay } = await import('../../src/ui/debugOverlay');
+    const overlay = createDebugOverlay();
+    overlay.update(fullData);
+    expect(cookieSpy).not.toHaveBeenCalled();
   });
 });
