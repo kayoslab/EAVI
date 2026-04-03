@@ -977,8 +977,8 @@
         "No undeclared identifiers remain in vertex or fragment shaders"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-041"
       ],

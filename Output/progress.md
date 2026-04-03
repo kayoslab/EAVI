@@ -94,3 +94,5 @@
 
 ## US-043: Implement structural morph targets
 
+## US-049: Enforce shader attribute and uniform integrity
+
