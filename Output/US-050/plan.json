@@ -1,0 +1,136 @@
+{
+  "id": "US-050",
+  "title": "Add geometry attribute sanity checks",
+  "overview": "Introduce a validation layer that inspects BufferGeometry attributes before the renderer enters the main loop. A shared utility validates position, size, hue offset, seed, and random attributes for existence, correct item size, and finite values. Each geometry system calls validation after setAttribute, and the render loop gates on a valid-geometry flag.",
+  "files_to_create": [
+    {
+      "path": "src/visual/geometryValidator.ts",
+      "purpose": "Pure validation utility: validateGeometryAttributes() checks that required attributes exist with correct item sizes and contain only finite values. Returns a result object with ok/errors for caller to act on.",
+      "exports": [
+        "validateGeometryAttributes",
+        "GeometryValidationResult",
+        "GeometryValidationError"
+      ]
+    },
+    {
+      "path": "tests/visual/geometryValidator.test.ts",
+      "purpose": "Unit tests for the validation utility covering: missing attributes, wrong item sizes, NaN values, Infinity values, valid geometry, and edge cases (empty geometry, single point)."
+    }
+  ],
+  "files_to_modify": [
+    {
+      "path": "src/visual/systems/pointCloud.ts",
+      "changes": "After geometry.setAttribute calls in init(), call validateGeometryAttributes() and throw if validation fails. Define the expected attribute schema (position:3, color:3, size:1, aHueOffset:1, aRandom:3) as a constant."
+    },
+    {
+      "path": "src/visual/systems/particleField.ts",
+      "changes": "Same validation call after setAttribute block in init(). Same expected attribute schema."
+    },
+    {
+      "path": "src/visual/systems/ribbonField.ts",
+      "changes": "Same validation call after setAttribute block in init(). Same expected attribute schema."
+    },
+    {
+      "path": "src/visual/renderLoop.ts",
+      "changes": "After geometry system init (line ~165-176), check that geometry is valid before proceeding. If validation failed (init threw), skip entering the draw loop and log an error. Add a geometryValid flag that gates the draw call."
+    },
+    {
+      "path": "src/visual/types.ts",
+      "changes": "Add an AttributeSpec type describing expected attribute name and item size, for use by the validator and geometry systems."
+    },
+    {
+      "path": "tests/visual/systems/pointCloud.test.ts",
+      "changes": "Add test cases verifying that init() throws on corrupted geometry (e.g., NaN-injected position buffer) and succeeds with valid data."
+    },
+    {
+      "path": "tests/visual/systems/particleField.test.ts",
+      "changes": "Same validation-related test additions."
+    },
+    {
+      "path": "tests/visual/systems/ribbonField.test.ts",
+      "changes": "Same validation-related test additions."
+    }
+  ],
+  "steps": [
+    {
+      "number": 1,
+      "title": "Define AttributeSpec type and validation result types",
+      "file": "src/visual/types.ts",
+      "description": "Add an AttributeSpec interface { name: string; itemSize: number } and export it. This keeps the expected-schema definition co-located with the GeometrySystem interface.",
+      "acceptance": "TypeScript compiles with the new type exported."
+    },
+    {
+      "number": 2,
+      "title": "Implement geometryValidator utility",
+      "file": "src/visual/geometryValidator.ts",
+      "description": "Create validateGeometryAttributes(geometry: BufferGeometry, expectedAttrs: AttributeSpec[]): GeometryValidationResult. For each expected attribute: (1) check it exists on the geometry, (2) check its itemSize matches, (3) iterate the typed array and reject if any value is NaN or non-finite. Return { ok: boolean, errors: GeometryValidationError[] } where each error has { attribute: string, reason: string }. Keep iteration early-exit on first bad value per attribute for performance.",
+      "acceptance": "Function returns ok:true for valid geometry, ok:false with descriptive errors for each failure mode."
+    },
+    {
+      "number": 3,
+      "title": "Unit test the validator",
+      "file": "tests/visual/geometryValidator.test.ts",
+      "description": "Test cases: (a) valid geometry with all attributes passes, (b) missing attribute detected, (c) wrong itemSize detected, (d) NaN in position array detected, (e) Infinity in size array detected, (f) empty Float32Array (0 points) passes, (g) single-point geometry passes. Use Three.js BufferGeometry and BufferAttribute directly.",
+      "acceptance": "All test cases pass via vitest run."
+    },
+    {
+      "number": 4,
+      "title": "Add validation to pointCloud.ts init()",
+      "file": "src/visual/systems/pointCloud.ts",
+      "description": "Define REQUIRED_ATTRIBUTES constant: [{name:'position',itemSize:3},{name:'color',itemSize:3},{name:'size',itemSize:1},{name:'aHueOffset',itemSize:1},{name:'aRandom',itemSize:3}]. After all setAttribute calls, invoke validateGeometryAttributes(). If not ok, throw an Error with the joined error messages. This prevents the ShaderMaterial from being assigned to invalid geometry.",
+      "acceptance": "init() throws descriptive error if any attribute is missing, wrong size, or contains NaN/Infinity."
+    },
+    {
+      "number": 5,
+      "title": "Add validation to particleField.ts and ribbonField.ts",
+      "file": "src/visual/systems/particleField.ts, src/visual/systems/ribbonField.ts",
+      "description": "Same pattern as step 4. Each system defines its own REQUIRED_ATTRIBUTES constant (may differ slightly if attribute sets diverge in future) and validates after setAttribute calls.",
+      "acceptance": "Both systems throw on invalid geometry, pass on valid geometry."
+    },
+    {
+      "number": 6,
+      "title": "Gate render loop on valid geometry",
+      "file": "src/visual/renderLoop.ts",
+      "description": "Wrap the geometry system init call in a try/catch. On catch, set a geometryValid=false flag and log the error. In the frame function, skip the d.geometrySystem.draw() call if geometryValid is false. This ensures the renderer never enters the main draw loop with invalid geometry state. The placeholder mesh remains visible as a fallback.",
+      "acceptance": "If geometry init fails, the render loop continues running (camera, audio still tick) but draw() is never called. No crash, no broken sprites."
+    },
+    {
+      "number": 7,
+      "title": "Add integration tests for geometry systems",
+      "files": "tests/visual/systems/pointCloud.test.ts, particleField.test.ts, ribbonField.test.ts",
+      "description": "Add test cases to each system's existing test file: (a) init() with valid seed and params succeeds without throwing, (b) verify geometry has all required attributes after init, (c) verify no NaN values in position buffer after init. These tests confirm the validation is wired in correctly.",
+      "acceptance": "All new and existing tests pass."
+    },
+    {
+      "number": 8,
+      "title": "Build and verify",
+      "description": "Run npm run build to confirm no TypeScript errors. Run npm run test to confirm all tests pass. Manual verification: load the app and confirm the scene renders normally with no console errors.",
+      "acceptance": "Build passes, all tests pass, no console errors on load."
+    }
+  ],
+  "testing_strategy": {
+    "unit_tests": "geometryValidator.test.ts covers the pure validation function with all failure modes (missing attrs, wrong itemSize, NaN, Infinity) and success cases.",
+    "integration_tests": "Existing system test files (pointCloud.test.ts, particleField.test.ts, ribbonField.test.ts) get new cases that verify validation is wired into init() and that valid geometry passes through.",
+    "manual_verification": "Load the app in browser, confirm scene renders, confirm no console errors. Optionally inject NaN into a buffer via devtools to verify the gate works."
+  },
+  "risks": [
+    {
+      "risk": "Iterating large Float32Arrays for finiteness check adds CPU cost during init",
+      "mitigation": "Early-exit on first bad value per attribute. Validation only runs once at init time, not per frame. Typical point counts (1k-50k) make this negligible."
+    },
+    {
+      "risk": "Future attributes added to shaders but not to REQUIRED_ATTRIBUTES constant",
+      "mitigation": "Co-locate the constant with the system file. Add a comment noting it must stay in sync with setAttribute calls."
+    }
+  ],
+  "definition_of_done": [
+    "Position attribute exists and matches expected item size (3) in all geometry systems",
+    "All required custom attributes (color, size, aHueOffset, aRandom) exist before material assignment",
+    "Geometry initialization rejects NaN or non-finite values in critical buffers",
+    "Renderer does not enter the main draw loop with invalid geometry state",
+    "Build passes (npm run build)",
+    "All tests pass (npm run test)",
+    "No console errors on normal load"
+  ],
+  "reviewer_corrections": "{\"step\":4,\"issue\":\"Plan states all systems share the same REQUIRED_ATTRIBUTES including color:3. particleField.ts does NOT set a color attribute — colors are computed GPU-side in the shader.\",\"fix\":\"Each system must define its own REQUIRED_ATTRIBUTES. pointCloud and ribbonField include {name:'color',itemSize:3}; particleField omits it. The plan already mentions 'may differ slightly' but step 4 applies a single schema to all. Make this explicit.\"}; {\"step\":5,\"issue\":\"particleField.ts description says 'Same expected attribute schema' — this is incorrect per the color attribute difference.\",\"fix\":\"particleField REQUIRED_ATTRIBUTES should be [{name:'position',itemSize:3},{name:'size',itemSize:1},{name:'aHueOffset',itemSize:1},{name:'aRandom',itemSize:3}] (4 attributes, no color).\"}; {\"step\":6,\"issue\":\"renderLoop.ts already has a branching init path: one branch uses initAllForValidation + validateShaderCompilation (US-048/US-049), the other calls d.geometrySystem.init() directly. The plan says 'wrap the geometry system init call in try/catch' but does not acknowledge both branches.\",\"fix\":\"The try/catch and geometryValid flag must wrap both branches of the existing if/else at lines 165-177. Describe this explicitly so the implementer does not accidentally lose the initAllForValidation path.\"}"
+}

@@ -1,0 +1,64 @@
+{
+  "id": "US-050",
+  "summary": "Plan is structurally sound and well-sequenced. Two corrections needed: particleField has a different attribute set (no color), and the renderLoop init path has an existing initAllForValidation branch that step 6 must account for.",
+  "changes_required": [
+    {
+      "step": 4,
+      "issue": "Plan states all systems share the same REQUIRED_ATTRIBUTES including color:3. particleField.ts does NOT set a color attribute — colors are computed GPU-side in the shader.",
+      "fix": "Each system must define its own REQUIRED_ATTRIBUTES. pointCloud and ribbonField include {name:'color',itemSize:3}; particleField omits it. The plan already mentions 'may differ slightly' but step 4 applies a single schema to all. Make this explicit."
+    },
+    {
+      "step": 5,
+      "issue": "particleField.ts description says 'Same expected attribute schema' — this is incorrect per the color attribute difference.",
+      "fix": "particleField REQUIRED_ATTRIBUTES should be [{name:'position',itemSize:3},{name:'size',itemSize:1},{name:'aHueOffset',itemSize:1},{name:'aRandom',itemSize:3}] (4 attributes, no color)."
+    },
+    {
+      "step": 6,
+      "issue": "renderLoop.ts already has a branching init path: one branch uses initAllForValidation + validateShaderCompilation (US-048/US-049), the other calls d.geometrySystem.init() directly. The plan says 'wrap the geometry system init call in try/catch' but does not acknowledge both branches.",
+      "fix": "The try/catch and geometryValid flag must wrap both branches of the existing if/else at lines 165-177. Describe this explicitly so the implementer does not accidentally lose the initAllForValidation path."
+    }
+  ],
+  "optional_suggestions": [
+    {
+      "area": "validator API",
+      "suggestion": "Consider also validating that all attribute arrays have the same count (i.e., position.count === size.count === aRandom.count). A mismatch would produce subtle rendering bugs that are hard to diagnose."
+    },
+    {
+      "area": "step 7 test specificity",
+      "suggestion": "For the particleField integration test, explicitly assert that color attribute is NOT present (to confirm the system's shader-side color approach and that the validator schema matches)."
+    }
+  ],
+  "files_validated": {
+    "src/visual/systems/pointCloud.ts": "exists — attributes: position(3), color(3), size(1), aHueOffset(1), aRandom(3)",
+    "src/visual/systems/particleField.ts": "exists — attributes: position(3), size(1), aHueOffset(1), aRandom(3) — NO color attribute",
+    "src/visual/systems/ribbonField.ts": "exists — attributes: position(3), color(3), size(1), aHueOffset(1), aRandom(3)",
+    "src/visual/renderLoop.ts": "exists — init has two branches (initAllForValidation vs plain init)",
+    "src/visual/types.ts": "exists — has GeometrySystem and FrameState interfaces, no AttributeSpec yet",
+    "src/visual/geometryValidator.ts": "does not exist — correct to create",
+    "tests/visual/systems/pointCloud.test.ts": "exists — 20+ tests",
+    "tests/visual/systems/particleField.test.ts": "exists — 30+ tests",
+    "tests/visual/systems/ribbonField.test.ts": "exists — 20+ tests"
+  },
+  "risk_assessment": "low — validation runs once at init, no per-frame cost. Main risk is the particleField schema mismatch if not corrected.",
+  "approved": true,
+  "concerns": [
+    {
+      "step": 4,
+      "issue": "Plan states all systems share the same REQUIRED_ATTRIBUTES including color:3. particleField.ts does NOT set a color attribute — colors are computed GPU-side in the shader.",
+      "fix": "Each system must define its own REQUIRED_ATTRIBUTES. pointCloud and ribbonField include {name:'color',itemSize:3}; particleField omits it. The plan already mentions 'may differ slightly' but step 4 applies a single schema to all. Make this explicit."
+    },
+    {
+      "step": 5,
+      "issue": "particleField.ts description says 'Same expected attribute schema' — this is incorrect per the color attribute difference.",
+      "fix": "particleField REQUIRED_ATTRIBUTES should be [{name:'position',itemSize:3},{name:'size',itemSize:1},{name:'aHueOffset',itemSize:1},{name:'aRandom',itemSize:3}] (4 attributes, no color)."
+    },
+    {
+      "step": 6,
+      "issue": "renderLoop.ts already has a branching init path: one branch uses initAllForValidation + validateShaderCompilation (US-048/US-049), the other calls d.geometrySystem.init() directly. The plan says 'wrap the geometry system init call in try/catch' but does not acknowledge both branches.",
+      "fix": "The try/catch and geometryValid flag must wrap both branches of the existing if/else at lines 165-177. Describe this explicitly so the implementer does not accidentally lose the initAllForValidation path."
+    }
+  ],
+  "decision": "approve_with_changes",
+  "adr_entry": null,
+  "failures": []
+}
