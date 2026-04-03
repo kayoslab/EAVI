@@ -958,8 +958,8 @@
         "A ticket involving ShaderMaterial is not complete if any shader compilation error is present"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-041"
       ],

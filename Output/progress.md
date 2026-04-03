@@ -88,3 +88,5 @@
 
 ## US-041: Implement shader-based vertex displacement
 
+## US-048: Validate shader compilation before scene activation
+
