@@ -98,3 +98,5 @@
 
 ## US-050: Add geometry attribute sanity checks
 
+## US-052: Add render startup health gate
+
