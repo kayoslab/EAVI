@@ -100,3 +100,5 @@
 
 ## US-052: Add render startup health gate
 
+## US-049: Enforce shader attribute and uniform integrity
+
