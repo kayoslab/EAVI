@@ -822,8 +822,8 @@
       "passes": false,
       "status": "available",
       "depends_on": [
-        "US-040",
-        "US-017"
+        "US-017",
+        "US-040"
       ],
       "split_from": "US-032",
       "notes": "CPU-based per-point loops for deformation are not acceptable for final implementation."
@@ -842,6 +842,7 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
+        "US-007",
         "US-040"
       ],
       "split_from": null,
@@ -861,6 +862,7 @@
       "passes": false,
       "status": "available",
       "depends_on": [
+        "US-007",
         "US-040",
         "US-041"
       ],
@@ -881,6 +883,7 @@
       "passes": false,
       "status": "available",
       "depends_on": [
+        "US-026",
         "US-041"
       ],
       "split_from": "US-034",
@@ -957,7 +960,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-041"],
+      "depends_on": [
+        "US-041"
+      ],
       "split_from": null,
       "notes": "Definition-of-done gate for all custom shader work."
     },
@@ -974,7 +979,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-041"],
+      "depends_on": [
+        "US-041"
+      ],
       "split_from": null,
       "notes": "Example failure to prevent: referencing `size` in GLSL without declaring `attribute float aSize;` or a local `float size`."
     },
@@ -991,7 +998,10 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-040", "US-049"],
+      "depends_on": [
+        "US-040",
+        "US-049"
+      ],
       "split_from": null,
       "notes": "Critical attributes may include position, size, hue offset, seed, or morph target data."
     },
@@ -1008,7 +1018,10 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-049", "US-050"],
+      "depends_on": [
+        "US-049",
+        "US-050"
+      ],
       "split_from": null,
       "notes": "Prefer a guaranteed-safe baseline over clever but brittle shader paths."
     },
@@ -1025,7 +1038,10 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-048", "US-050"],
+      "depends_on": [
+        "US-048",
+        "US-050"
+      ],
       "split_from": "US-027",
       "notes": "This is a hard stop quality gate, not a debugging convenience."
     },
@@ -1042,7 +1058,10 @@
       "priority": 3,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-048", "US-050"],
+      "depends_on": [
+        "US-048",
+        "US-050"
+      ],
       "split_from": "US-038",
       "notes": "Keep it tiny and removable."
     }
