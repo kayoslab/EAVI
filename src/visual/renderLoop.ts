@@ -9,7 +9,8 @@ import type { AnalyserPipeline } from '../audio/analyser';
 import type { GeometrySystem } from './types';
 import type { QualityProfile } from './quality';
 import type { ShaderErrorCollector } from './shaderErrorCollector';
-import { validateShaderCompilation } from './shaderValidation';
+import { runStartupHealthGate } from './healthGate';
+import type { GeometrySystemInfo } from './types';
 import { initCameraMotion, updateCamera } from './cameraMotion';
 
 export interface LoopDeps {
@@ -164,23 +165,51 @@ export function startLoop(
 
     // Initialize geometry system on first frame with real deps
     if (d.geometrySystem && d.seed && !geoInitialized) {
+      // US-052: Health gate — init all systems, then validate shaders + geometry
+      const gs = d.geometrySystem as unknown as Record<string, unknown>;
+      const useValidationPath =
+        typeof gs.initAllForValidation === 'function' &&
+        d.errorCollector &&
+        typeof renderer.compile === 'function';
+
       try {
-        // US-048: If the geometry system supports initAllForValidation, use it
-        // to compile all shaders upfront and validate before first render
-        const gs = d.geometrySystem as unknown as Record<string, unknown>;
-        if (typeof gs.initAllForValidation === 'function' && d.errorCollector && typeof renderer.compile === 'function') {
+        if (useValidationPath) {
           (gs.initAllForValidation as (s: typeof scene, seed: string, p: typeof params) => void)(scene, d.seed, params);
-          validateShaderCompilation(renderer, scene, camera, d.errorCollector);
-          (gs.cleanupInactive as () => void)();
         } else {
           d.geometrySystem.init(scene, d.seed, params);
         }
-        geometryValid = true;
       } catch (err) {
-        console.error('Geometry init failed:', err);
+        console.error('[EAVI health-gate] Geometry init failed:', err);
         geometryValid = false;
+        geoInitialized = true;
       }
-      geoInitialized = true;
+
+      if (!geoInitialized) {
+        if (useValidationPath && d.errorCollector) {
+          // Collect scene geometries for validation
+          const geoEntries: GeometrySystemInfo[] = [];
+          scene.traverse((obj) => {
+            const child = obj as unknown as { geometry?: import('three').BufferGeometry; name?: string; type?: string };
+            if (child.geometry && (child.geometry as unknown as { isBufferGeometry?: boolean }).isBufferGeometry) {
+              geoEntries.push({
+                name: child.name || child.type || 'unknown',
+                geometry: child.geometry,
+                requiredAttrs: [{ name: 'position', itemSize: 3 }],
+              });
+            }
+          });
+
+          const gateResult = runStartupHealthGate(renderer, scene, camera, d.errorCollector, geoEntries);
+          geometryValid = gateResult.passed;
+
+          if (geometryValid) {
+            (gs.cleanupInactive as () => void)();
+          }
+        } else {
+          geometryValid = true;
+        }
+        geoInitialized = true;
+      }
 
       // Remove placeholder mesh and its lights now that geometry systems are active
       if (d.placeholderMesh && geometryValid) {
@@ -193,11 +222,11 @@ export function startLoop(
         }
         d.placeholderMesh = null;
       }
-      if (d.placeholderAmbient) {
+      if (d.placeholderAmbient && geometryValid) {
         scene.remove(d.placeholderAmbient);
         d.placeholderAmbient = null;
       }
-      if (d.placeholderDirectional) {
+      if (d.placeholderDirectional && geometryValid) {
         scene.remove(d.placeholderDirectional);
         d.placeholderDirectional = null;
       }
