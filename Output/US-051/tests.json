@@ -1,0 +1,102 @@
+{
+  "tests": {
+    "file": "tests/visual/fallbackPointSize.test.ts",
+    "cases": [
+      {
+        "id": "T-051-01",
+        "title": "All vertex shaders declare uHasSizeAttr uniform",
+        "description": "Each of the four vertex shaders (pointWarp, particleWarp, ribbonWarp, crystalWarp) must declare 'uniform float uHasSizeAttr'",
+        "type": "unit",
+        "acceptance_criteria": "Shader supports a valid default point-size path without optional custom size attributes"
+      },
+      {
+        "id": "T-051-02",
+        "title": "All vertex shaders use mix() fallback for point size instead of raw size attribute",
+        "description": "Each vertex shader must compute sizeMultiplier via mix(1.0, size, uHasSizeAttr) and use sizeMultiplier in the pointSize calculation instead of raw 'size'",
+        "type": "unit",
+        "acceptance_criteria": "Shader supports a valid default point-size path without optional custom size attributes"
+      },
+      {
+        "id": "T-051-03",
+        "title": "uHasSizeAttr defaults to 0.0 in COMMON_UNIFORMS",
+        "description": "The shader registry COMMON_UNIFORMS array must include uHasSizeAttr with type 'float' and defaultValue 0.0",
+        "type": "unit",
+        "acceptance_criteria": "Scene renders with a uniform base point size when per-point size data is unavailable"
+      },
+      {
+        "id": "T-051-04",
+        "title": "Required attribute arrays no longer include size",
+        "description": "POINTCLOUD_ATTRIBUTES, PARTICLEFIELD_ATTRIBUTES, and RIBBONFIELD_ATTRIBUTES must not contain an entry with name 'size'",
+        "type": "unit",
+        "acceptance_criteria": "Optional size modulation can be enabled only when corresponding attributes are present"
+      },
+      {
+        "id": "T-051-05",
+        "title": "Optional attribute arrays contain size with itemSize 1",
+        "description": "New exported arrays OPTIONAL_POINTCLOUD_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES, and OPTIONAL_RIBBONFIELD_ATTRIBUTES must each contain { name: 'size', itemSize: 1 }",
+        "type": "unit",
+        "acceptance_criteria": "Optional size modulation can be enabled only when corresponding attributes are present"
+      },
+      {
+        "id": "T-051-06",
+        "title": "Geometry validator passes when optional size attribute is absent",
+        "description": "validateGeometryAttributes called with required-only attributes (no size) on geometry without size attribute must return ok: true",
+        "type": "unit",
+        "acceptance_criteria": "Missing optional size attributes do not break shader compilation"
+      },
+      {
+        "id": "T-051-07",
+        "title": "Geometry validator validates present optional attributes correctly",
+        "description": "When optional size attribute IS present, validateGeometryAttributes must validate its itemSize and finite values. Wrong itemSize or NaN values should produce errors.",
+        "type": "unit",
+        "acceptance_criteria": "Optional size modulation can be enabled only when corresponding attributes are present"
+      },
+      {
+        "id": "T-051-08",
+        "title": "Geometry validator catches NaN in optional size attribute when present",
+        "description": "If the optional size attribute exists but contains NaN, the validator should report an error for that attribute",
+        "type": "unit",
+        "acceptance_criteria": "Missing optional size attributes do not break shader compilation"
+      },
+      {
+        "id": "T-051-09",
+        "title": "Geometry validator catches wrong itemSize on optional size attribute when present",
+        "description": "If the optional size attribute exists but has wrong itemSize (e.g. 3 instead of 1), the validator should report an itemSize error",
+        "type": "unit",
+        "acceptance_criteria": "Optional size modulation can be enabled only when corresponding attributes are present"
+      },
+      {
+        "id": "T-051-10",
+        "title": "mix(1.0, size, 0.0) yields safe baseline of 1.0",
+        "description": "Verify mathematically that the GLSL mix(1.0, size, 0.0) pattern yields 1.0 regardless of size value, confirming the safe fallback",
+        "type": "unit",
+        "acceptance_criteria": "Scene renders with a uniform base point size when per-point size data is unavailable"
+      },
+      {
+        "id": "T-051-11",
+        "title": "mix(1.0, size, 1.0) yields per-vertex size when enabled",
+        "description": "Verify mathematically that mix(1.0, size, 1.0) yields the size value, confirming per-vertex modulation works when uHasSizeAttr = 1.0",
+        "type": "unit",
+        "acceptance_criteria": "Optional size modulation can be enabled only when corresponding attributes are present"
+      },
+      {
+        "id": "T-051-12",
+        "title": "All GLSL uniforms including uHasSizeAttr are registered in COMMON_UNIFORMS",
+        "description": "Parse each vertex shader for uniform declarations and verify every uniform (including uHasSizeAttr) exists in COMMON_UNIFORMS with matching type",
+        "type": "integration",
+        "acceptance_criteria": "Missing optional size attributes do not break shader compilation"
+      },
+      {
+        "id": "T-051-13",
+        "title": "No undeclared identifiers in shaders after adding uHasSizeAttr and sizeMultiplier",
+        "description": "After the shader changes, the T-049-04 identifier resolution test must still pass — sizeMultiplier must be a declared local and uHasSizeAttr must be a declared uniform",
+        "type": "integration",
+        "acceptance_criteria": "Missing optional size attributes do not break shader compilation"
+      }
+    ]
+  },
+  "source": {
+    "file": "tests/visual/fallbackPointSize.test.ts",
+    "content": "import { describe, it, expect } from 'vitest';\nimport * as fs from 'fs';\nimport * as path from 'path';\nimport * as THREE from 'three';\nimport {\n  parseGlslAttributes,\n  parseGlslUniforms,\n  parseGlslVaryings,\n} from '../../src/visual/shaderIntegrity';\nimport {\n  COMMON_UNIFORMS,\n  POINTCLOUD_ATTRIBUTES,\n  PARTICLEFIELD_ATTRIBUTES,\n  RIBBONFIELD_ATTRIBUTES,\n} from '../../src/visual/shaderRegistry';\nimport { validateGeometryAttributes } from '../../src/visual/geometryValidator';\nimport type { AttributeSpec } from '../../src/visual/types';\n\n// Read raw shader sources\nconst shadersDir = path.resolve(__dirname, '../../src/visual/shaders');\nconst pointWarpVert = fs.readFileSync(path.join(shadersDir, 'pointWarp.vert.glsl'), 'utf-8');\nconst particleWarpVert = fs.readFileSync(path.join(shadersDir, 'particleWarp.vert.glsl'), 'utf-8');\nconst ribbonWarpVert = fs.readFileSync(path.join(shadersDir, 'ribbonWarp.vert.glsl'), 'utf-8');\nconst crystalWarpVert = fs.readFileSync(path.join(shadersDir, 'crystalWarp.vert.glsl'), 'utf-8');\n\nconst ALL_VERT_SHADERS = [\n  { name: 'pointWarp', source: pointWarpVert },\n  { name: 'particleWarp', source: particleWarpVert },\n  { name: 'ribbonWarp', source: ribbonWarpVert },\n  { name: 'crystalWarp', source: crystalWarpVert },\n];\n\n// GLSL mix(a, b, t) = a * (1 - t) + b * t\nfunction glslMix(a: number, b: number, t: number): number {\n  return a * (1 - t) + b * t;\n}\n\ndescribe('US-051: Fallback point-size path', () => {\n  describe('T-051-01: All vertex shaders declare uHasSizeAttr uniform', () => {\n    for (const shader of ALL_VERT_SHADERS) {\n      it(`${shader.name}: declares uniform float uHasSizeAttr`, () => {\n        const uniforms = parseGlslUniforms(shader.source);\n        const hasSizeAttr = uniforms.find((u) => u.name === 'uHasSizeAttr');\n        expect(hasSizeAttr).toBeDefined();\n        expect(hasSizeAttr!.type).toBe('float');\n      });\n    }\n  });\n\n  describe('T-051-02: All vertex shaders use mix() fallback for point size', () => {\n    for (const shader of ALL_VERT_SHADERS) {\n      it(`${shader.name}: uses sizeMultiplier via mix(1.0, size, uHasSizeAttr)`, () => {\n        // Must contain the mix fallback pattern\n        expect(shader.source).toMatch(/mix\\s*\\(\\s*1\\.0\\s*,\\s*size\\s*,\\s*uHasSizeAttr\\s*\\)/);\n      });\n\n      it(`${shader.name}: declares sizeMultiplier local variable`, () => {\n        expect(shader.source).toMatch(/float\\s+sizeMultiplier/);\n      });\n\n      it(`${shader.name}: uses sizeMultiplier (not raw size) in pointSize calculation`, () => {\n        // The pointSize line should reference sizeMultiplier, not raw 'size *'\n        const pointSizeLines = shader.source\n          .split('\\n')\n          .filter((line) => line.includes('float pointSize') && line.includes('uBasePointSize'));\n        expect(pointSizeLines.length).toBe(1);\n        expect(pointSizeLines[0]).toContain('sizeMultiplier');\n        // Should NOT use raw 'size *' in the pointSize line\n        expect(pointSizeLines[0]).not.toMatch(/\\bsize\\s*\\*/);\n      });\n    }\n  });\n\n  describe('T-051-03: uHasSizeAttr defaults to 0.0 in COMMON_UNIFORMS', () => {\n    it('COMMON_UNIFORMS contains uHasSizeAttr with float type and 0.0 default', () => {\n      const spec = COMMON_UNIFORMS.find((u) => u.name === 'uHasSizeAttr');\n      expect(spec).toBeDefined();\n      expect(spec!.type).toBe('float');\n      expect(spec!.defaultValue).toBe(0.0);\n    });\n  });\n\n  describe('T-051-04: Required attribute arrays no longer include size', () => {\n    it('POINTCLOUD_ATTRIBUTES does not contain size', () => {\n      expect(POINTCLOUD_ATTRIBUTES.find((a) => a.name === 'size')).toBeUndefined();\n    });\n\n    it('PARTICLEFIELD_ATTRIBUTES does not contain size', () => {\n      expect(PARTICLEFIELD_ATTRIBUTES.find((a) => a.name === 'size')).toBeUndefined();\n    });\n\n    it('RIBBONFIELD_ATTRIBUTES does not contain size', () => {\n      expect(RIBBONFIELD_ATTRIBUTES.find((a) => a.name === 'size')).toBeUndefined();\n    });\n  });\n\n  describe('T-051-05: Optional attribute arrays contain size', () => {\n    let OPTIONAL_POINTCLOUD_ATTRIBUTES: AttributeSpec[];\n    let OPTIONAL_PARTICLEFIELD_ATTRIBUTES: AttributeSpec[];\n    let OPTIONAL_RIBBONFIELD_ATTRIBUTES: AttributeSpec[];\n\n    beforeAll(async () => {\n      const registry = await import('../../src/visual/shaderRegistry');\n      OPTIONAL_POINTCLOUD_ATTRIBUTES = registry.OPTIONAL_POINTCLOUD_ATTRIBUTES;\n      OPTIONAL_PARTICLEFIELD_ATTRIBUTES = registry.OPTIONAL_PARTICLEFIELD_ATTRIBUTES;\n      OPTIONAL_RIBBONFIELD_ATTRIBUTES = registry.OPTIONAL_RIBBONFIELD_ATTRIBUTES;\n    });\n\n    it('OPTIONAL_POINTCLOUD_ATTRIBUTES contains size with itemSize 1', () => {\n      const sizeSpec = OPTIONAL_POINTCLOUD_ATTRIBUTES.find((a) => a.name === 'size');\n      expect(sizeSpec).toBeDefined();\n      expect(sizeSpec!.itemSize).toBe(1);\n    });\n\n    it('OPTIONAL_PARTICLEFIELD_ATTRIBUTES contains size with itemSize 1', () => {\n      const sizeSpec = OPTIONAL_PARTICLEFIELD_ATTRIBUTES.find((a) => a.name === 'size');\n      expect(sizeSpec).toBeDefined();\n      expect(sizeSpec!.itemSize).toBe(1);\n    });\n\n    it('OPTIONAL_RIBBONFIELD_ATTRIBUTES contains size with itemSize 1', () => {\n      const sizeSpec = OPTIONAL_RIBBONFIELD_ATTRIBUTES.find((a) => a.name === 'size');\n      expect(sizeSpec).toBeDefined();\n      expect(sizeSpec!.itemSize).toBe(1);\n    });\n  });\n\n  describe('T-051-06: Geometry validator passes when optional size attribute is absent', () => {\n    it('validates ok when geometry has all required attrs but no optional size', () => {\n      const geo = new THREE.BufferGeometry();\n      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));\n      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));\n      geo.setAttribute('aHueOffset', new THREE.BufferAttribute(new Float32Array([0.1]), 1));\n      geo.setAttribute('aRandom', new THREE.BufferAttribute(new Float32Array([0.1, 0.2, 0.3]), 3));\n\n      // Validate against required-only attrs (size excluded)\n      const result = validateGeometryAttributes(geo, POINTCLOUD_ATTRIBUTES);\n      expect(result.ok).toBe(true);\n      expect(result.errors.length).toBe(0);\n    });\n  });\n\n  describe('T-051-07: Geometry validator validates present optional attributes', () => {\n    it('passes when optional size attribute is present with correct itemSize and finite values', () => {\n      const geo = new THREE.BufferGeometry();\n      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));\n      geo.setAttribute('size', new THREE.BufferAttribute(new Float32Array([0.05]), 1));\n\n      const optionalAttrs: AttributeSpec[] = [{ name: 'size', itemSize: 1 }];\n      const result = validateGeometryAttributes(geo, [], optionalAttrs);\n      expect(result.ok).toBe(true);\n    });\n  });\n\n  describe('T-051-08: Geometry validator catches NaN in optional size attribute', () => {\n    it('reports error when optional size attribute contains NaN', () => {\n      const geo = new THREE.BufferGeometry();\n      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));\n      const sizeArr = new Float32Array([NaN]);\n      geo.setAttribute('size', new THREE.BufferAttribute(sizeArr, 1));\n\n      const optionalAttrs: AttributeSpec[] = [{ name: 'size', itemSize: 1 }];\n      const result = validateGeometryAttributes(geo, [], optionalAttrs);\n      expect(result.ok).toBe(false);\n      expect(result.errors.some((e) => e.attribute === 'size' && e.reason.includes('NaN'))).toBe(true);\n    });\n  });\n\n  describe('T-051-09: Geometry validator catches wrong itemSize on optional size attribute', () => {\n    it('reports error when optional size attribute has wrong itemSize', () => {\n      const geo = new THREE.BufferGeometry();\n      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));\n      geo.setAttribute('size', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3)); // wrong itemSize\n\n      const optionalAttrs: AttributeSpec[] = [{ name: 'size', itemSize: 1 }];\n      const result = validateGeometryAttributes(geo, [], optionalAttrs);\n      expect(result.ok).toBe(false);\n      expect(result.errors.some((e) => e.attribute === 'size' && e.reason.includes('itemSize'))).toBe(true);\n    });\n  });\n\n  describe('T-051-10: mix(1.0, size, 0.0) yields safe baseline of 1.0', () => {\n    it('fallback produces multiplier of 1.0 regardless of size value', () => {\n      // When uHasSizeAttr = 0.0, mix(1.0, size, 0.0) should always be 1.0\n      for (const sizeVal of [0.0, 0.03, 0.07, 1.0, 100.0, -1.0]) {\n        expect(glslMix(1.0, sizeVal, 0.0)).toBe(1.0);\n      }\n    });\n  });\n\n  describe('T-051-11: mix(1.0, size, 1.0) yields per-vertex size when enabled', () => {\n    it('enabled path produces the per-vertex size value', () => {\n      // When uHasSizeAttr = 1.0, mix(1.0, size, 1.0) should yield size\n      for (const sizeVal of [0.03, 0.05, 0.07, 1.0]) {\n        expect(glslMix(1.0, sizeVal, 1.0)).toBeCloseTo(sizeVal, 10);\n      }\n    });\n  });\n\n  describe('T-051-12: All GLSL uniforms including uHasSizeAttr are registered', () => {\n    const registryMap = new Map(COMMON_UNIFORMS.map((u) => [u.name, u.type]));\n\n    for (const shader of ALL_VERT_SHADERS) {\n      it(`${shader.name}: every uniform is in COMMON_UNIFORMS with correct type`, () => {\n        const uniforms = parseGlslUniforms(shader.source);\n        for (const u of uniforms) {\n          expect(registryMap.has(u.name)).toBe(true);\n          expect(registryMap.get(u.name)).toBe(u.type);\n        }\n      });\n    }\n  });\n\n  describe('T-051-13: Shader identifier resolution still passes with new symbols', () => {\n    for (const shader of ALL_VERT_SHADERS) {\n      it(`${shader.name}: sizeMultiplier is a declared local variable`, () => {\n        // sizeMultiplier should be declared as a local float\n        expect(shader.source).toMatch(/float\\s+sizeMultiplier\\s*=/);\n      });\n\n      it(`${shader.name}: uHasSizeAttr is a declared uniform`, () => {\n        expect(shader.source).toMatch(/uniform\\s+float\\s+uHasSizeAttr/);\n      });\n    }\n  });\n});\n"
+  }
+}
