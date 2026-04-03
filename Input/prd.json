@@ -819,8 +819,8 @@
         "Deformation evolves over time (not static modulation)"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-017",
         "US-040"

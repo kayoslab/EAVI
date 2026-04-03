@@ -86,3 +86,5 @@
 
 ## US-041: Implement shader-based vertex displacement
 
+## US-041: Implement shader-based vertex displacement
+
