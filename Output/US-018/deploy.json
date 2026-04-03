@@ -1,1 +1,1 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "27 test files, 348 tests all passing. TypeScript typecheck clean. Production build succeeds (13.61 kB JS, 1.37 kB CSS)."}
+{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "All 726 tests pass (7 skipped are in unrelated files: reducedMotion.test.ts, scene-integration.test.ts). TypeScript typecheck clean. Production build succeeds. No US-018 tests skipped."}
