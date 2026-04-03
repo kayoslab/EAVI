@@ -104,3 +104,5 @@
 
 ## US-044: Replace wave mode with 3D secondary mode
 
+## US-051: Create safe fallback point-size path
+
