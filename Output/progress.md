@@ -106,3 +106,5 @@
 
 ## US-051: Create safe fallback point-size path
 
+## US-053: Add optional debug overlay for shader and geometry state
+
