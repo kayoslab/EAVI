@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
-import type { FrameState, GeometrySystem, AttributeSpec } from '../types';
+import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
+import { RIBBONFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import ribbonWarpVert from '../shaders/ribbonWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/ribbonWarp.frag.glsl?raw';
@@ -12,14 +13,7 @@ const vertexShader = noise3dGlsl + '\n' + ribbonWarpVert;
 
 const DEFAULT_MAX_POINTS = 1000;
 
-// Must stay in sync with setAttribute calls in init()
-const REQUIRED_ATTRIBUTES: AttributeSpec[] = [
-  { name: 'position', itemSize: 3 },
-  { name: 'color', itemSize: 3 },
-  { name: 'size', itemSize: 1 },
-  { name: 'aHueOffset', itemSize: 1 },
-  { name: 'aRandom', itemSize: 3 },
-];
+const REQUIRED_ATTRIBUTES = RIBBONFIELD_ATTRIBUTES;
 
 export interface RibbonFieldConfig {
   maxPoints?: number;
