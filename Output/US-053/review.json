@@ -1,0 +1,14 @@
+{
+  "rationale": "Plan correctly extends the existing debug overlay infrastructure without creating new files. Steps are well-ordered: interface first, then render, then wiring, then verification. The approach of using optional getters on LoopDeps that short-circuit via the existing onDebugFrame optional chain is clean and avoids per-frame cost when debug is off. No visitor identifiers are exposed. Risks identified are valid and already mitigated by the design.",
+  "changes": [],
+  "missing_steps": [],
+  "warnings": [
+    "Step 4 references 'OPTIONAL_POINTCLOUD_ATTRIBUTES' and 'shaderRegistry' — verify these exports exist before implementation. If they don't, derive the attribute list from the geometry directly rather than a registry constant.",
+    "Step 4 mentions 'errorCollector.hasErrors()' — confirm ShaderErrorCollector exposes this method or adapt to the actual API (e.g., getErrors().length > 0)."
+  ],
+  "approved": true,
+  "concerns": [],
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}
