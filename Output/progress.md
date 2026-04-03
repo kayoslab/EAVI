@@ -90,3 +90,5 @@
 
 ## US-048: Validate shader compilation before scene activation
 
+## US-018: Map bass response to macro motion
+
