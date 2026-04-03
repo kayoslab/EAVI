@@ -996,8 +996,8 @@
         "Renderer does not enter the main loop with invalid geometry state"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-040",
         "US-049"

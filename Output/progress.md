@@ -96,3 +96,5 @@
 
 ## US-049: Enforce shader attribute and uniform integrity
 
+## US-050: Add geometry attribute sanity checks
+
