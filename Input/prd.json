@@ -920,12 +920,13 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-040"
       ],
       "split_from": null,
-      "notes": "Use THREE.Fog or shader depth-based fade."
+      "notes": "Use THREE.Fog or shader depth-based fade.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-047",
