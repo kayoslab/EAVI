@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ShaderErrorCollector } from './shaderErrorCollector';
 
 export class WebGLUnavailableError extends Error {
   constructor(message = 'WebGL is not available in your browser.') {
@@ -24,7 +25,7 @@ export interface SceneOptions {
 export function initScene(
   container: HTMLElement,
   options?: SceneOptions,
-): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; cleanupContextHandlers: () => void } {
+): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; cleanupContextHandlers: () => void; errorCollector: ShaderErrorCollector } {
   if (!detectWebGL()) {
     throw new WebGLUnavailableError();
   }
@@ -38,6 +39,21 @@ export function initScene(
     alpha: false,
     powerPreference: 'high-performance',
   });
+
+  // US-048: Shader error capture — single registration point
+  const errorCollector = new ShaderErrorCollector();
+  if (renderer.debug) {
+    renderer.debug.onShaderError = (gl, _program, glVertexShader, glFragmentShader) => {
+      const vtxLog = gl.getShaderInfoLog(glVertexShader);
+      if (vtxLog) {
+        errorCollector.collect(gl, glVertexShader, 'VERTEX', vtxLog);
+      }
+      const fragLog = gl.getShaderInfoLog(glFragmentShader);
+      if (fragLog) {
+        errorCollector.collect(gl, glFragmentShader, 'FRAGMENT', fragLog);
+      }
+    };
+  }
 
   renderer.setClearColor(0x000000);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * resolutionScale);
@@ -74,5 +90,5 @@ export function initScene(
     canvas.removeEventListener('webglcontextrestored', onContextRestored);
   };
 
-  return { renderer, scene, camera, cleanupContextHandlers };
+  return { renderer, scene, camera, cleanupContextHandlers, errorCollector };
 }

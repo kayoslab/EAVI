@@ -43,7 +43,7 @@ try {
   throw err;
 }
 
-const { renderer, scene, camera } = sceneResult;
+const { renderer, scene, camera, errorCollector } = sceneResult;
 let cleanupResize = attachResizeHandler(renderer, camera);
 
 // Add placeholder 3D object
@@ -54,6 +54,7 @@ const deps: LoopDeps = {
   placeholderMesh: mesh,
   placeholderAmbient: ambient,
   placeholderDirectional: directional,
+  errorCollector,
 };
 
 // Debug overlay — enabled only via ?debug query param
