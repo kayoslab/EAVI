@@ -1,0 +1,151 @@
+{
+  "ticket": "US-048",
+  "title": "Validate shader compilation before scene activation",
+  "overview": "Add a shader error collection and validation layer that catches WebGL shader compile errors at init time. Register a single onShaderError callback on the renderer in scene.ts, create a validation utility that force-compiles shaders and checks for collected errors, and integrate validation in renderLoop.ts immediately after geometry system initialization. All three geometry systems must be validated at startup, not just the active one.",
+  "steps": [
+    {
+      "id": 1,
+      "title": "Add shader error collector and onShaderError callback in scene.ts",
+      "description": "Create a ShaderErrorCollector class and register renderer.debug.onShaderError as the single callback during renderer creation in scene.ts. This is the sole registration point for shader error capture — no other module sets onShaderError.",
+      "files": [
+        {
+          "path": "src/visual/shaderErrorCollector.ts",
+          "action": "create",
+          "details": "New module exporting a ShaderErrorCollector class. It stores an array of error records (each containing the GL error string, shader type, and shader source snippet). Provides methods: collect(gl, shader, shaderType, message) to push an error, hasErrors() boolean check, getErrors() to retrieve all, and clear() to reset. Each error record should also store a formatted summary string for easy console output."
+        },
+        {
+          "path": "src/visual/scene.ts",
+          "action": "modify",
+          "details": "Import ShaderErrorCollector. Instantiate one collector instance. After renderer creation (after line 40), set renderer.debug.onShaderError = (gl, program, glVertexShader, glFragmentShader) => { ... } that extracts shader info logs via gl.getShaderInfoLog() and calls collector.collect() for each shader that has errors. Return the collector from initScene() alongside renderer, scene, camera, and cleanupContextHandlers."
+        }
+      ],
+      "technicalNotes": "Three.js r149+ exposes renderer.debug.onShaderError. This callback fires synchronously during shader compilation, before the first render frame completes. Using a dedicated collector class keeps error state decoupled from the renderer and testable independently. The callback extracts error info using gl.getShaderInfoLog(glVertexShader) and gl.getShaderInfoLog(glFragmentShader).",
+      "acceptanceCriteria": [
+        "renderer.debug.onShaderError is set exactly once, in scene.ts",
+        "ShaderErrorCollector accumulates errors from the callback",
+        "initScene return type includes the error collector",
+        "No other module registers its own onShaderError"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Create shader validation utility",
+      "description": "Create a validation function that force-compiles all shaders in the scene and checks the error collector for failures. This utility reads from the collector populated by the onShaderError callback registered in step 1.",
+      "files": [
+        {
+          "path": "src/visual/shaderValidation.ts",
+          "action": "create",
+          "details": "Export function validateShaderCompilation(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera, errorCollector: ShaderErrorCollector): void. Implementation: (1) call renderer.compile(scene, camera) to force synchronous compilation of all ShaderMaterials in the scene, (2) check errorCollector.hasErrors(), (3) if errors exist, log each error's formatted summary to console.error, then throw an Error with a message listing all shader compilation failures. The error message should include which shader type (vertex/fragment) failed and a truncated extract of the problematic source."
+        }
+      ],
+      "technicalNotes": "renderer.compile(scene, camera) is a Three.js method that forces compilation of all programs without rendering. The onShaderError callback fires synchronously during this call, so the collector will be populated by the time compile() returns. This avoids needing to do a test render.",
+      "acceptanceCriteria": [
+        "renderer.compile() is called to force shader compilation",
+        "Validation reads from the shared error collector (does not register its own onShaderError)",
+        "Throws a descriptive Error if any shader failed to compile",
+        "Logs individual error details to console.error before throwing",
+        "Returns silently when all shaders compile successfully"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Add initAllForValidation to ModeManager and integrate in renderLoop.ts",
+      "description": "Add a method to ModeManager that initializes ALL geometry systems (not just the active one) so their ShaderMaterials exist in the scene for validation. Then integrate the validation call in renderLoop.ts immediately after geometry init, and clean up non-active systems afterward.",
+      "files": [
+        {
+          "path": "src/visual/modeManager.ts",
+          "action": "modify",
+          "details": "Add initAllForValidation(scene, seed, params) method to the ModeManager interface and implementation. This method: (1) calls selectInitialMode(seed), (2) calls init() on EVERY system in the systems array, (3) sets opacity to 0 on all non-active systems, (4) sets initialized = true. Also add cleanupInactive() method that calls cleanup() on all non-active systems, removing their meshes from the scene but keeping the system objects alive for later re-init during mode transitions. Update the ModeManager interface in the same file to include both new methods."
+        },
+        {
+          "path": "src/visual/renderLoop.ts",
+          "action": "modify",
+          "details": "Import validateShaderCompilation and ShaderErrorCollector type. Add errorCollector and renderer to the function signature (or pass via LoopDeps). In the geometry init block (lines 162-164), replace d.geometrySystem.init(scene, d.seed, params) with: (1) check if geometrySystem has initAllForValidation (duck-type or type guard), (2) if yes, call initAllForValidation(scene, d.seed, params), then validateShaderCompilation(renderer, scene, camera, errorCollector), then cleanupInactive(), (3) if no (plain GeometrySystem), call init() as before. The LoopDeps interface needs a new optional errorCollector field."
+        },
+        {
+          "path": "src/main.ts",
+          "action": "modify",
+          "details": "Pass the errorCollector from initScene() result into deps.errorCollector so renderLoop can access it for validation."
+        }
+      ],
+      "technicalNotes": "The mode manager currently only inits the active system at line 64. By adding initAllForValidation(), all three ShaderMaterials are compiled and present in the scene graph when renderer.compile() runs. After validation, cleanupInactive() removes non-active system meshes — these will be re-initialized during mode transitions (line 103 already handles this). The existing init() method remains unchanged for backward compatibility. The duck-type check for initAllForValidation avoids coupling renderLoop to ModeManager specifically — a plain GeometrySystem still works.",
+      "acceptanceCriteria": [
+        "All three geometry systems (particleField, ribbonField, pointCloud) have their shaders compiled and validated at startup",
+        "Non-active systems are cleaned up after validation, preserving the lazy-init contract for mode transitions",
+        "Validation happens in renderLoop.ts immediately after geometry init, not in main.ts",
+        "Existing init() flow is preserved as fallback for non-ModeManager GeometrySystem implementations",
+        "The error collector from scene.ts is threaded through to the validation call site"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Add unit tests for validation logic (mocked GL context)",
+      "description": "Add unit tests that verify the shader error collector and validation utility behave correctly. These tests use mocked WebGL contexts since jsdom cannot do real GPU shader compilation.",
+      "files": [
+        {
+          "path": "tests/visual/shaderErrorCollector.test.ts",
+          "action": "create",
+          "details": "Test ShaderErrorCollector in isolation: (1) starts with no errors, (2) collect() adds errors, (3) hasErrors() returns true after collecting, (4) getErrors() returns all collected errors with correct fields, (5) clear() resets state, (6) formatted summary includes shader type and source snippet."
+        },
+        {
+          "path": "tests/visual/shaderValidation.test.ts",
+          "action": "create",
+          "details": "Test validateShaderCompilation with mocked renderer and collector: (1) when collector has no errors, function returns without throwing, (2) when collector has errors (pre-populated), function throws an Error with descriptive message, (3) error message includes shader type info, (4) console.error is called for each error before throwing. Mock renderer.compile as a no-op. These tests verify the validation LOGIC, not actual GPU compilation."
+        },
+        {
+          "path": "tests/visual/modeManager.test.ts",
+          "action": "modify",
+          "details": "Add tests for initAllForValidation: (1) all systems receive init() calls, (2) non-active systems have setOpacity(0) called, (3) cleanupInactive() calls cleanup() on non-active systems only, (4) active system is not cleaned up."
+        }
+      ],
+      "technicalNotes": "jsdom has no real WebGL context, so these tests verify the plumbing and logic of error collection and validation flow, NOT actual shader compilation. Real shader compilation testing requires a browser environment. The existing test pattern in this codebase mocks THREE.WebGLRenderer, and these tests follow the same approach.",
+      "acceptanceCriteria": [
+        "ShaderErrorCollector unit tests cover collect, hasErrors, getErrors, clear, and formatting",
+        "Validation utility tests verify throw-on-error and pass-on-clean behavior with mocked dependencies",
+        "ModeManager tests verify initAllForValidation inits all systems and cleanupInactive works correctly",
+        "All tests run in jsdom (CI-compatible) with mocked GL — no real GPU required"
+      ],
+      "integrationTestNotes": "The following scenarios CANNOT be verified in unit tests and must be manually verified in a real browser: (1) All three geometry systems' actual GLSL shaders compile without errors, (2) No WebGLProgram VALIDATE_STATUS errors appear during startup, (3) renderer.compile() triggers onShaderError for intentionally broken shaders. These can be verified by running `npm run dev` and checking the browser console."
+    }
+  ],
+  "testStrategy": {
+    "unit": "Mocked GL tests for error collector logic, validation throw/pass behavior, and ModeManager initAllForValidation plumbing. All run in jsdom via vitest.",
+    "integration": "Manual browser verification: run dev server, check console for zero shader errors on load, verify all three modes render correctly during transitions. Optionally introduce a deliberate GLSL error to confirm the validation catches it and throws before scene activation.",
+    "ciGate": "npm run build must pass. Unit tests must pass. No new console errors on normal load (verified manually or via a future Playwright smoke test)."
+  },
+  "affectedFiles": [
+    { "path": "src/visual/shaderErrorCollector.ts", "action": "create" },
+    { "path": "src/visual/shaderValidation.ts", "action": "create" },
+    { "path": "src/visual/scene.ts", "action": "modify" },
+    { "path": "src/visual/modeManager.ts", "action": "modify" },
+    { "path": "src/visual/renderLoop.ts", "action": "modify" },
+    { "path": "src/main.ts", "action": "modify" },
+    { "path": "tests/visual/shaderErrorCollector.test.ts", "action": "create" },
+    { "path": "tests/visual/shaderValidation.test.ts", "action": "create" },
+    { "path": "tests/visual/modeManager.test.ts", "action": "modify" }
+  ],
+  "risks": [
+    {
+      "description": "renderer.compile() may not trigger onShaderError in all Three.js versions",
+      "mitigation": "Verify against the Three.js version in package.json. If renderer.compile() doesn't trigger the callback, fall back to doing a single test render (renderer.render) and checking errors after.",
+      "severity": "medium"
+    },
+    {
+      "description": "initAllForValidation adds all three systems' meshes to the scene temporarily, which could cause a brief visual flash",
+      "mitigation": "Non-active systems are set to opacity 0 before compilation and cleaned up immediately after. The validation happens before the first visible render frame.",
+      "severity": "low"
+    },
+    {
+      "description": "cleanup() on non-active systems may dispose BufferGeometry, requiring full re-creation during mode transitions",
+      "mitigation": "Mode transitions already call init() on the incoming system (modeManager.ts line 103), which re-creates geometry. This is the existing contract and requires no change.",
+      "severity": "low"
+    }
+  ],
+  "reviewerFeedbackAddressed": {
+    "feedback1_init_location": "Validation happens in renderLoop.ts after line 163 geometry init, not in main.ts. Preserves the existing deferred-init flow.",
+    "feedback2_all_systems": "ModeManager.initAllForValidation() inits all three systems before validation. cleanupInactive() restores the lazy-init contract afterward.",
+    "feedback3_test_split": "Tests are split into unit tests (mocked GL, CI-compatible) and documented integration scenarios (real browser, manual verification). No tests claim to verify real GPU compilation in jsdom.",
+    "feedback4_commit_to_approach": "onShaderError is the sole approach. renderer.info.programs iteration is not used.",
+    "feedback5_single_registration": "onShaderError is registered exactly once in scene.ts. The validation utility reads from the shared error collector — it does not register its own handler."
+  }
+}

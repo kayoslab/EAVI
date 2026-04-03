@@ -1,0 +1,117 @@
+{
+  "plan_id": "US-048",
+  "revisionScope": "minor",
+  "summary": "Solid architecture — single onShaderError registration, dedicated collector, renderer.compile() for eager validation. Four targeted issues need addressing before implementation: unhandled throw inside rAF kills the loop, interface vs duck-typing inconsistency, missing error-recovery UX, and a minor gap in optional cleanup handling.",
+  "strengths": [
+    "Single onShaderError registration point in scene.ts avoids callback conflicts",
+    "ShaderErrorCollector as a standalone class is clean, testable, and decoupled from the renderer",
+    "renderer.compile() for synchronous ahead-of-render validation is the correct Three.js API (available since r152, project uses 0.183.2)",
+    "initAllForValidation/cleanupInactive pattern correctly validates ALL shader programs without permanently inflating the scene graph",
+    "Test strategy honestly separates unit-testable logic (collector, validation plumbing) from GPU-dependent integration that requires a real browser",
+    "Risks section correctly identifies the re-init contract and acknowledges that mode transitions already handle lazy init at modeManager.ts:103"
+  ],
+  "issues": [
+    {
+      "severity": "high",
+      "location": "Step 3 — renderLoop.ts integration",
+      "title": "Unhandled throw inside requestAnimationFrame kills the render loop",
+      "detail": "validateShaderCompilation throws on error (Step 2). This throw propagates out of the rAF callback at renderLoop.ts:98, which means no further requestAnimationFrame(frame) call is made — the entire render loop dies silently. The user sees a frozen black screen with no indication of what happened.",
+      "recommendation": "Wrap the validation call in a try/catch inside the frame callback. On catch: log the error, optionally surface a visible 'shader error' indicator (e.g., a DOM element similar to the WebGL-unavailable fallback in main.ts:34-40), and either continue the loop with whatever systems DID compile, or gracefully stop. Do NOT let an uncaught throw escape the rAF callback."
+    },
+    {
+      "severity": "medium",
+      "location": "Step 3 — ModeManager interface vs duck-typing",
+      "title": "Plan simultaneously adds methods to ModeManager interface AND duck-types in renderLoop",
+      "detail": "Step 3 says to add initAllForValidation and cleanupInactive to the ModeManager interface AND to duck-type check for initAllForValidation in renderLoop.ts. These are contradictory: if it's on the interface, duck-typing is unnecessary; if duck-typed, it shouldn't be on the interface. Since LoopDeps.geometrySystem is typed as GeometrySystem (not ModeManager), the duck-type approach is the correct one — but then the ModeManager interface section should say 'add to the implementation only' not 'update the ModeManager interface'.",
+      "recommendation": "Keep initAllForValidation and cleanupInactive as implementation-only methods on the object returned by createModeManager. In renderLoop.ts, use a type guard like `'initAllForValidation' in d.geometrySystem` to detect ModeManager. Do not add these methods to the ModeManager interface exported from modeManager.ts — they are validation-specific internals, not part of the GeometrySystem contract."
+    },
+    {
+      "severity": "medium",
+      "location": "Step 3 — cleanupInactive",
+      "title": "cleanup() is optional on GeometrySystem — cleanupInactive must handle missing cleanup",
+      "detail": "GeometrySystem.cleanup is optional (types.ts:22). The plan's cleanupInactive() description says 'calls cleanup() on all non-active systems' without guarding for the optional. While current systems likely all implement it, the contract doesn't guarantee it.",
+      "recommendation": "Use optional chaining: `systems[i].cleanup?.()` in cleanupInactive, consistent with how modeManager.ts:77 already does it."
+    },
+    {
+      "severity": "low",
+      "location": "Step 2 — validateShaderCompilation",
+      "title": "Collector should be cleared before renderer.compile() call",
+      "detail": "If validateShaderCompilation is ever called more than once (e.g., after a WebGL context restore), stale errors from a previous compilation would cause a false failure. The plan doesn't mention clearing the collector before compile.",
+      "recommendation": "Call errorCollector.clear() at the start of validateShaderCompilation, before renderer.compile()."
+    }
+  ],
+  "suggestions": [
+    {
+      "location": "Step 1 — scene.ts return type",
+      "detail": "Consider exporting a named interface for the initScene return type (e.g., SceneResult) rather than an anonymous object type. This makes it easier for main.ts and tests to reference without ReturnType<typeof initScene>."
+    },
+    {
+      "location": "Step 3 — main.ts threading",
+      "detail": "Since the errorCollector is created in initScene but validation happens inside the rAF callback (which fires long after initScene returns), consider whether the collector should also be accessible for context-restore scenarios. The existing onContextRestored handler in scene.ts:64-68 could re-validate after restore."
+    },
+    {
+      "location": "Step 4 — test for error recovery path",
+      "detail": "Add a test case that verifies the renderLoop does NOT crash when validateShaderCompilation encounters errors (once the high-severity try/catch fix is applied). This is the most important behavioral contract to test."
+    }
+  ],
+  "filesAssessment": {
+    "correct": [
+      "src/visual/shaderErrorCollector.ts (create)",
+      "src/visual/shaderValidation.ts (create)",
+      "src/visual/scene.ts (modify)",
+      "src/visual/modeManager.ts (modify)",
+      "src/visual/renderLoop.ts (modify)",
+      "src/main.ts (modify)",
+      "tests/visual/shaderErrorCollector.test.ts (create)",
+      "tests/visual/shaderValidation.test.ts (create)",
+      "tests/visual/modeManager.test.ts (modify)"
+    ],
+    "missing": [],
+    "unnecessary": []
+  },
+  "stepsAssessment": {
+    "step1": "approved",
+    "step2": "revise — add errorCollector.clear() before compile, and document that the function should not throw in rAF context",
+    "step3": "revise — resolve interface vs duck-type conflict, add try/catch around validation in renderLoop, guard optional cleanup",
+    "step4": "approved — add one test for error-recovery behavior once step 3 is fixed"
+  },
+  "concerns": [
+    "{\"severity\":\"high\",\"location\":\"Step 3 — renderLoop.ts integration\",\"title\":\"Unhandled throw inside requestAnimationFrame kills the render loop\",\"detail\":\"validateShaderCompilation throws on error (Step 2). This throw propagates out of the rAF callback at renderLoop.ts:98, which means no further requestAnimationFrame(frame) call is made — the entire render loop dies silently. The user sees a frozen black screen with no indication of what happened.\",\"recommendation\":\"Wrap the validation call in a try/catch inside the frame callback. On catch: log the error, optionally surface a visible 'shader error' indicator (e.g., a DOM element similar to the WebGL-unavailable fallback in main.ts:34-40), and either continue the loop with whatever systems DID compile, or gracefully stop. Do NOT let an uncaught throw escape the rAF callback.\"}",
+    "{\"severity\":\"medium\",\"location\":\"Step 3 — ModeManager interface vs duck-typing\",\"title\":\"Plan simultaneously adds methods to ModeManager interface AND duck-types in renderLoop\",\"detail\":\"Step 3 says to add initAllForValidation and cleanupInactive to the ModeManager interface AND to duck-type check for initAllForValidation in renderLoop.ts. These are contradictory: if it's on the interface, duck-typing is unnecessary; if duck-typed, it shouldn't be on the interface. Since LoopDeps.geometrySystem is typed as GeometrySystem (not ModeManager), the duck-type approach is the correct one — but then the ModeManager interface section should say 'add to the implementation only' not 'update the ModeManager interface'.\",\"recommendation\":\"Keep initAllForValidation and cleanupInactive as implementation-only methods on the object returned by createModeManager. In renderLoop.ts, use a type guard like `'initAllForValidation' in d.geometrySystem` to detect ModeManager. Do not add these methods to the ModeManager interface exported from modeManager.ts — they are validation-specific internals, not part of the GeometrySystem contract.\"}",
+    "{\"severity\":\"medium\",\"location\":\"Step 3 — cleanupInactive\",\"title\":\"cleanup() is optional on GeometrySystem — cleanupInactive must handle missing cleanup\",\"detail\":\"GeometrySystem.cleanup is optional (types.ts:22). The plan's cleanupInactive() description says 'calls cleanup() on all non-active systems' without guarding for the optional. While current systems likely all implement it, the contract doesn't guarantee it.\",\"recommendation\":\"Use optional chaining: `systems[i].cleanup?.()` in cleanupInactive, consistent with how modeManager.ts:77 already does it.\"}",
+    "{\"severity\":\"low\",\"location\":\"Step 2 — validateShaderCompilation\",\"title\":\"Collector should be cleared before renderer.compile() call\",\"detail\":\"If validateShaderCompilation is ever called more than once (e.g., after a WebGL context restore), stale errors from a previous compilation would cause a false failure. The plan doesn't mention clearing the collector before compile.\",\"recommendation\":\"Call errorCollector.clear() at the start of validateShaderCompilation, before renderer.compile().\"}"
+  ],
+  "decision": "revise",
+  "failures": [
+    {
+      "severity": "high",
+      "location": "Step 3 — renderLoop.ts integration",
+      "title": "Unhandled throw inside requestAnimationFrame kills the render loop",
+      "detail": "validateShaderCompilation throws on error (Step 2). This throw propagates out of the rAF callback at renderLoop.ts:98, which means no further requestAnimationFrame(frame) call is made — the entire render loop dies silently. The user sees a frozen black screen with no indication of what happened.",
+      "recommendation": "Wrap the validation call in a try/catch inside the frame callback. On catch: log the error, optionally surface a visible 'shader error' indicator (e.g., a DOM element similar to the WebGL-unavailable fallback in main.ts:34-40), and either continue the loop with whatever systems DID compile, or gracefully stop. Do NOT let an uncaught throw escape the rAF callback."
+    },
+    {
+      "severity": "medium",
+      "location": "Step 3 — ModeManager interface vs duck-typing",
+      "title": "Plan simultaneously adds methods to ModeManager interface AND duck-types in renderLoop",
+      "detail": "Step 3 says to add initAllForValidation and cleanupInactive to the ModeManager interface AND to duck-type check for initAllForValidation in renderLoop.ts. These are contradictory: if it's on the interface, duck-typing is unnecessary; if duck-typed, it shouldn't be on the interface. Since LoopDeps.geometrySystem is typed as GeometrySystem (not ModeManager), the duck-type approach is the correct one — but then the ModeManager interface section should say 'add to the implementation only' not 'update the ModeManager interface'.",
+      "recommendation": "Keep initAllForValidation and cleanupInactive as implementation-only methods on the object returned by createModeManager. In renderLoop.ts, use a type guard like `'initAllForValidation' in d.geometrySystem` to detect ModeManager. Do not add these methods to the ModeManager interface exported from modeManager.ts — they are validation-specific internals, not part of the GeometrySystem contract."
+    },
+    {
+      "severity": "medium",
+      "location": "Step 3 — cleanupInactive",
+      "title": "cleanup() is optional on GeometrySystem — cleanupInactive must handle missing cleanup",
+      "detail": "GeometrySystem.cleanup is optional (types.ts:22). The plan's cleanupInactive() description says 'calls cleanup() on all non-active systems' without guarding for the optional. While current systems likely all implement it, the contract doesn't guarantee it.",
+      "recommendation": "Use optional chaining: `systems[i].cleanup?.()` in cleanupInactive, consistent with how modeManager.ts:77 already does it."
+    },
+    {
+      "severity": "low",
+      "location": "Step 2 — validateShaderCompilation",
+      "title": "Collector should be cleared before renderer.compile() call",
+      "detail": "If validateShaderCompilation is ever called more than once (e.g., after a WebGL context restore), stale errors from a previous compilation would cause a false failure. The plan doesn't mention clearing the collector before compile.",
+      "recommendation": "Call errorCollector.clear() at the start of validateShaderCompilation, before renderer.compile()."
+    }
+  ],
+  "adr_entry": null,
+  "approved": false
+}
