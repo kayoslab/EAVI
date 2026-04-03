@@ -102,3 +102,5 @@
 
 ## US-049: Enforce shader attribute and uniform integrity
 
+## US-044: Replace wave mode with 3D secondary mode
+
