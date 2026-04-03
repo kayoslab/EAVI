@@ -1,47 +1,114 @@
 {
-  "ticket": "US-044",
-  "plan_version": 1,
-  "comments": [
+  "reasoning": "The plan's situation assessment is outdated — it proposes creating tests and writing code that already exists. The crystal field system, shaders, generators, mode registration, and comprehensive test suite are all fully implemented. The plan needs to be revised to reflect that the remaining work is verification-only.",
+  "issues": [
     {
-      "step_id": 5,
+      "step": 3,
+      "severity": "high",
+      "issue": "Step proposes creating tests/visual/systems/crystalField.test.ts, but the file already exists (425 lines, 26+ test cases T-044-19 through T-044-46). It is listed in git status as untracked, meaning it was generated but not yet committed. The plan's test IDs (T-044-10 through T-044-22) conflict with the existing IDs.",
+      "fix": "Replace step 3 with a verification step: review existing crystalField.test.ts for coverage completeness and run the tests."
+    },
+    {
+      "step": 4,
+      "severity": "high",
+      "issue": "Step proposes writing integration tests that likely already exist in the 425-line test file. The test file includes integration-level checks for volumetric generators and mode behavior.",
+      "fix": "Replace step 4 with verification that existing integration tests cover mode-switching and audio pipeline preservation. Add only missing tests if any gaps are found."
+    },
+    {
+      "step": 5,
+      "severity": "medium",
+      "issue": "Plan states 'ribbonField uses THREE.Mesh + BufferGeometry with 3D helical vertex shader' but ribbonField actually uses THREE.Points, not THREE.Mesh. The check list is factually incorrect.",
+      "fix": "Correct to: 'ribbonField uses THREE.Points + BufferGeometry with 3D helical vertex shader'."
+    },
+    {
+      "step": 2,
       "severity": "low",
-      "comment": "Plan proposes adding maxCrystalPoints to QualityProfile, but the actual implementation uses Math.round(quality.maxPoints * 0.8) inline in main.ts. This is simpler and avoids an interface change. The step can be dropped — no quality.ts modification is needed."
+      "issue": "Plan states 'All 17 uniforms are initialized' but crystalField.ts actually defines 20 uniforms (includes uDisplacementScale, uBreathScale, uBasePointSize that are not in the count).",
+      "fix": "Update uniform count from 17 to 20."
     },
     {
-      "step_id": 3,
-      "severity": "info",
-      "comment": "volumetricPoints.ts already contains crystalCluster and geode shapes in the VOLUMETRIC_SHAPES array. The modification is in progress (file shows as modified in git status)."
-    },
-    {
-      "step_id": 6,
-      "severity": "info",
-      "comment": "Crystal mode is already registered in main.ts at line 113-125 with factory, debug entry, and quality config wiring. No further main.ts changes required."
-    },
-    {
-      "step_id": 7,
-      "severity": "info",
-      "comment": "No WaveField.ts exists in the codebase. The verification step is still valuable as a gate but will pass immediately."
+      "step": "metadata",
+      "severity": "medium",
+      "issue": "files_to_create lists tests/visual/systems/crystalField.test.ts but the file already exists. estimated_test_count is 17 but 44+ tests already exist across both test files.",
+      "fix": "Move the file to files_to_modify (or remove entirely if no changes needed). Update estimated_test_count to reflect actual count."
     }
   ],
-  "files_to_create": [
-    "src/visual/shaders/crystalWarp.vert.glsl",
-    "src/visual/shaders/crystalWarp.frag.glsl",
-    "src/visual/systems/crystalField.ts"
+  "suggested_steps": [
+    {
+      "id": 1,
+      "title": "Verify no WaveField or 2D wave remnants exist",
+      "effort": "trivial",
+      "status": "verified-clean",
+      "note": "Already confirmed — no changes needed"
+    },
+    {
+      "id": 2,
+      "title": "Validate crystal field shader compilation via build",
+      "effort": "small",
+      "note": "Run npm run build and check for shader/WebGL errors. Correct uniform count to 20."
+    },
+    {
+      "id": 3,
+      "title": "Review and run existing crystal field tests",
+      "effort": "small",
+      "note": "crystalField.test.ts already exists with 26+ tests. Run the suite, verify coverage, add tests only if gaps are found."
+    },
+    {
+      "id": 4,
+      "title": "Verify all four modes are volumetric 3D (all use THREE.Points)",
+      "effort": "small",
+      "note": "All four systems confirmed using THREE.Points — just needs formal sign-off."
+    },
+    {
+      "id": 5,
+      "title": "Run full build and test suite",
+      "effort": "small",
+      "note": "npm run build && npm run test — final gate."
+    }
   ],
-  "files_to_modify": [
-    "src/visual/generators/volumetricPoints.ts"
-  ],
+  "files_to_create": [],
+  "files_to_modify": [],
   "files_to_delete": [],
-  "risks_assessment": "Risks are well-identified. Shader compile errors are the primary concern; the existing US-048 validation gate and incremental development approach mitigate this. The 0.8x point count scaling for crystal mode is a reasonable performance hedge.",
-  "acceptance_criteria_coverage": {
-    "Second mode is volumetric and point-based": "covered",
-    "Mode uses 3D deformation": "covered",
-    "No 2D line or flat plane geometries remain": "covered",
-    "Mode switching preserves audio pipeline": "covered"
-  },
-  "approved": true,
-  "concerns": [],
-  "decision": "approve",
+  "estimated_test_count": 44,
+  "concerns": [
+    "{\"step\":3,\"severity\":\"high\",\"issue\":\"Step proposes creating tests/visual/systems/crystalField.test.ts, but the file already exists (425 lines, 26+ test cases T-044-19 through T-044-46). It is listed in git status as untracked, meaning it was generated but not yet committed. The plan's test IDs (T-044-10 through T-044-22) conflict with the existing IDs.\",\"fix\":\"Replace step 3 with a verification step: review existing crystalField.test.ts for coverage completeness and run the tests.\"}",
+    "{\"step\":4,\"severity\":\"high\",\"issue\":\"Step proposes writing integration tests that likely already exist in the 425-line test file. The test file includes integration-level checks for volumetric generators and mode behavior.\",\"fix\":\"Replace step 4 with verification that existing integration tests cover mode-switching and audio pipeline preservation. Add only missing tests if any gaps are found.\"}",
+    "{\"step\":5,\"severity\":\"medium\",\"issue\":\"Plan states 'ribbonField uses THREE.Mesh + BufferGeometry with 3D helical vertex shader' but ribbonField actually uses THREE.Points, not THREE.Mesh. The check list is factually incorrect.\",\"fix\":\"Correct to: 'ribbonField uses THREE.Points + BufferGeometry with 3D helical vertex shader'.\"}",
+    "{\"step\":2,\"severity\":\"low\",\"issue\":\"Plan states 'All 17 uniforms are initialized' but crystalField.ts actually defines 20 uniforms (includes uDisplacementScale, uBreathScale, uBasePointSize that are not in the count).\",\"fix\":\"Update uniform count from 17 to 20.\"}",
+    "{\"step\":\"metadata\",\"severity\":\"medium\",\"issue\":\"files_to_create lists tests/visual/systems/crystalField.test.ts but the file already exists. estimated_test_count is 17 but 44+ tests already exist across both test files.\",\"fix\":\"Move the file to files_to_modify (or remove entirely if no changes needed). Update estimated_test_count to reflect actual count.\"}"
+  ],
+  "decision": "revise",
+  "failures": [
+    {
+      "step": 3,
+      "severity": "high",
+      "issue": "Step proposes creating tests/visual/systems/crystalField.test.ts, but the file already exists (425 lines, 26+ test cases T-044-19 through T-044-46). It is listed in git status as untracked, meaning it was generated but not yet committed. The plan's test IDs (T-044-10 through T-044-22) conflict with the existing IDs.",
+      "fix": "Replace step 3 with a verification step: review existing crystalField.test.ts for coverage completeness and run the tests."
+    },
+    {
+      "step": 4,
+      "severity": "high",
+      "issue": "Step proposes writing integration tests that likely already exist in the 425-line test file. The test file includes integration-level checks for volumetric generators and mode behavior.",
+      "fix": "Replace step 4 with verification that existing integration tests cover mode-switching and audio pipeline preservation. Add only missing tests if any gaps are found."
+    },
+    {
+      "step": 5,
+      "severity": "medium",
+      "issue": "Plan states 'ribbonField uses THREE.Mesh + BufferGeometry with 3D helical vertex shader' but ribbonField actually uses THREE.Points, not THREE.Mesh. The check list is factually incorrect.",
+      "fix": "Correct to: 'ribbonField uses THREE.Points + BufferGeometry with 3D helical vertex shader'."
+    },
+    {
+      "step": 2,
+      "severity": "low",
+      "issue": "Plan states 'All 17 uniforms are initialized' but crystalField.ts actually defines 20 uniforms (includes uDisplacementScale, uBreathScale, uBasePointSize that are not in the count).",
+      "fix": "Update uniform count from 17 to 20."
+    },
+    {
+      "step": "metadata",
+      "severity": "medium",
+      "issue": "files_to_create lists tests/visual/systems/crystalField.test.ts but the file already exists. estimated_test_count is 17 but 44+ tests already exist across both test files.",
+      "fix": "Move the file to files_to_modify (or remove entirely if no changes needed). Update estimated_test_count to reflect actual count."
+    }
+  ],
   "adr_entry": null,
-  "failures": []
+  "approved": false
 }
