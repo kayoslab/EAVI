@@ -17,6 +17,18 @@ export interface FrameState {
   pointerY?: number;
 }
 
+export interface HealthGateResult {
+  passed: boolean;
+  shaderErrors: Array<{ shaderType: string; message: string }>;
+  geometryErrors: Array<{ attribute: string; reason: string; systemName?: string }>;
+}
+
+export interface GeometrySystemInfo {
+  name: string;
+  geometry: import('three').BufferGeometry;
+  requiredAttrs: AttributeSpec[];
+}
+
 export interface GeometrySystem {
   init(
     scene: Scene,
