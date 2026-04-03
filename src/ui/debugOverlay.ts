@@ -4,6 +4,9 @@ export interface DebugFrameData {
   pointCount: number;
   bass: number;
   treble: number;
+  shaderStatus: 'pass' | 'fail' | 'pending';
+  optionalAttrs: string[];
+  qualityTier: string;
 }
 
 export function createDebugOverlay(): {
@@ -24,9 +27,12 @@ export function createDebugOverlay(): {
     const bass = Math.round(data.bass);
     const treble = Math.round(data.treble);
 
+    const attrs = data.optionalAttrs.length > 0 ? data.optionalAttrs.join(', ') : 'none';
+
     el.textContent =
-      `FPS: ${fps} | mode: ${data.modeName}\n` +
-      `points: ${data.pointCount} | bass: ${bass} | treble: ${treble}`;
+      `FPS: ${fps} | mode: ${data.modeName} | tier: ${data.qualityTier}\n` +
+      `points: ${data.pointCount} | bass: ${bass} | treble: ${treble}\n` +
+      `shader: ${data.shaderStatus} | opt-attrs: ${attrs}`;
   };
 
   return { element: el, update };

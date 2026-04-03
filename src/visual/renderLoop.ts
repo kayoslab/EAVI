@@ -25,9 +25,12 @@ export interface LoopDeps {
   placeholderDirectional?: DirectionalLight | null;
   quality?: QualityProfile | null;
   errorCollector?: ShaderErrorCollector | null;
-  onDebugFrame?: ((data: { fps: number; modeName: string; pointCount: number; bass: number; treble: number }) => void) | null;
+  onDebugFrame?: ((data: { fps: number; modeName: string; pointCount: number; bass: number; treble: number; shaderStatus: 'pass' | 'fail' | 'pending'; optionalAttrs: string[]; qualityTier: string }) => void) | null;
   getModeName?: (() => string) | null;
   getPointCount?: (() => number) | null;
+  getShaderStatus?: (() => 'pass' | 'fail' | 'pending') | null;
+  getOptionalAttrs?: (() => string[]) | null;
+  getQualityTier?: (() => string) | null;
 }
 
 const defaultPointer: PointerState = {
@@ -267,6 +270,9 @@ export function startLoop(
       pointCount: d.getPointCount?.() ?? 0,
       bass,
       treble,
+      shaderStatus: d.getShaderStatus?.() ?? 'pending',
+      optionalAttrs: d.getOptionalAttrs?.() ?? [],
+      qualityTier: d.getQualityTier?.() ?? 'unknown',
     });
 
     requestAnimationFrame(frame);

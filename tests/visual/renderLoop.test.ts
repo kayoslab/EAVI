@@ -929,6 +929,145 @@ describe('US-029: Render loop', () => {
     });
   });
 
+  describe('US-053: Render loop wires new debug getters', () => {
+    it('LoopDeps accepts getShaderStatus getter', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      expect(() => startLoop(renderer, scene, camera, { getShaderStatus: () => 'pass' })).not.toThrow();
+    });
+
+    it('LoopDeps accepts getOptionalAttrs getter', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      expect(() => startLoop(renderer, scene, camera, { getOptionalAttrs: () => ['size'] })).not.toThrow();
+    });
+
+    it('LoopDeps accepts getQualityTier getter', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      expect(() => startLoop(renderer, scene, camera, { getQualityTier: () => 'high' })).not.toThrow();
+    });
+
+    it('onDebugFrame callback receives shaderStatus from getShaderStatus getter', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const debugCallback = vi.fn();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      startLoop(renderer, scene, camera, {
+        onDebugFrame: debugCallback,
+        getShaderStatus: () => 'pass',
+      });
+      expect(debugCallback).toHaveBeenCalled();
+      expect(debugCallback.mock.calls[0][0].shaderStatus).toBe('pass');
+    });
+
+    it('onDebugFrame callback receives optionalAttrs from getOptionalAttrs getter', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const debugCallback = vi.fn();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      startLoop(renderer, scene, camera, {
+        onDebugFrame: debugCallback,
+        getOptionalAttrs: () => ['size', 'color'],
+      });
+      expect(debugCallback).toHaveBeenCalled();
+      expect(debugCallback.mock.calls[0][0].optionalAttrs).toEqual(['size', 'color']);
+    });
+
+    it('onDebugFrame callback receives qualityTier from getQualityTier getter', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const debugCallback = vi.fn();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      startLoop(renderer, scene, camera, {
+        onDebugFrame: debugCallback,
+        getQualityTier: () => 'medium',
+      });
+      expect(debugCallback).toHaveBeenCalled();
+      expect(debugCallback.mock.calls[0][0].qualityTier).toBe('medium');
+    });
+
+    it('shaderStatus defaults to pending when getShaderStatus is not provided', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const debugCallback = vi.fn();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      startLoop(renderer, scene, camera, { onDebugFrame: debugCallback });
+      expect(debugCallback).toHaveBeenCalled();
+      expect(debugCallback.mock.calls[0][0].shaderStatus).toBe('pending');
+    });
+
+    it('optionalAttrs defaults to empty array when getOptionalAttrs is not provided', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const debugCallback = vi.fn();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      startLoop(renderer, scene, camera, { onDebugFrame: debugCallback });
+      expect(debugCallback).toHaveBeenCalled();
+      expect(debugCallback.mock.calls[0][0].optionalAttrs).toEqual([]);
+    });
+
+    it('qualityTier defaults to unknown when getQualityTier is not provided', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      const debugCallback = vi.fn();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      startLoop(renderer, scene, camera, { onDebugFrame: debugCallback });
+      expect(debugCallback).toHaveBeenCalled();
+      expect(debugCallback.mock.calls[0][0].qualityTier).toBe('unknown');
+    });
+
+    it('Render loop still works without new getters (backwards compatible)', () => {
+      const { renderer, scene, camera } = createTestRenderer();
+      let frameCount = 0;
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+        frameCount++;
+        if (frameCount <= 2) cb(frameCount * 16);
+        return frameCount;
+      });
+      expect(() => startLoop(renderer, scene, camera, {})).not.toThrow();
+    });
+  });
+
   describe('US-050: Render loop geometry gate', () => {
     it('T-050-29: does not call geometrySystem.draw() when geometrySystem.init() throws', () => {
       const { renderer, scene, camera } = createTestRenderer();
