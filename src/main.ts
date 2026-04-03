@@ -14,6 +14,7 @@ import { addPlaceholder } from './visual/placeholder';
 import { createParticleField } from './visual/systems/particleField';
 import { createRibbonField } from './visual/systems/ribbonField';
 import { createPointCloud } from './visual/systems/pointCloud';
+import { createCrystalField } from './visual/systems/crystalField';
 import { createModeManager } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 
@@ -109,10 +110,18 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
   });
+  const crystal = createCrystalField({
+    maxPoints: Math.round(quality.maxPoints * 0.8),
+    enableSparkle: quality.enableSparkle,
+    noiseOctaves: quality.noiseOctaves,
+    enablePointerRepulsion: quality.enablePointerRepulsion,
+    enableSlowModulation: quality.enableSlowModulation,
+  });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },
     { name: 'ribbon', factory: () => ribbon },
     { name: 'pointcloud', factory: () => pointCloud },
+    { name: 'crystal', factory: () => crystal },
   ]);
 
   // Enrich loop deps — geometry will init on next frame
@@ -127,6 +136,7 @@ geoPromise.then((geo) => {
     { name: 'particles', maxPoints: quality.maxParticles },
     { name: 'ribbon', maxPoints: quality.maxRibbonPoints },
     { name: 'pointcloud', maxPoints: quality.maxPoints },
+    { name: 'crystal', maxPoints: Math.round(quality.maxPoints * 0.8) },
   ];
   deps.getModeName = () => modes[modeManager.activeIndex]?.name ?? 'unknown';
   deps.getPointCount = () => modes[modeManager.activeIndex]?.maxPoints ?? 0;

@@ -5,7 +5,9 @@ export type VolumetricShape =
   | 'shell'
   | 'torusVolume'
   | 'noiseLattice'
-  | 'spiralField';
+  | 'spiralField'
+  | 'crystalCluster'
+  | 'geode';
 
 export interface VolumetricConfig {
   shape: VolumetricShape;
@@ -19,6 +21,8 @@ export const VOLUMETRIC_SHAPES: readonly VolumetricShape[] = [
   'torusVolume',
   'noiseLattice',
   'spiralField',
+  'crystalCluster',
+  'geode',
 ];
 
 export function generateVolumetricPoints(config: VolumetricConfig): Float32Array {
@@ -43,6 +47,12 @@ export function generateVolumetricPoints(config: VolumetricConfig): Float32Array
       break;
     case 'spiralField':
       fillSpiralField(rng, positions, pointCount);
+      break;
+    case 'crystalCluster':
+      fillCrystalCluster(rng, positions, pointCount);
+      break;
+    case 'geode':
+      fillGeode(rng, positions, pointCount);
       break;
   }
 
@@ -128,5 +138,64 @@ function fillSpiralField(rng: () => number, out: Float32Array, count: number): v
     out[i * 3] = radius * Math.cos(angle) + (rng() - 0.5) * 0.3;
     out[i * 3 + 1] = height;
     out[i * 3 + 2] = radius * Math.sin(angle) + (rng() - 0.5) * 0.3;
+  }
+}
+
+function fillCrystalCluster(rng: () => number, out: Float32Array, count: number): void {
+  const numClusters = 5 + Math.floor(rng() * 4); // 5-8 clusters
+  const totalSpread = 2.5;
+
+  // Generate cluster centers
+  const centers: { x: number; y: number; z: number; radius: number }[] = [];
+  for (let c = 0; c < numClusters; c++) {
+    const theta = rng() * Math.PI * 2;
+    const phi = Math.acos(2 * rng() - 1);
+    const r = totalSpread * Math.cbrt(rng());
+    centers.push({
+      x: r * Math.sin(phi) * Math.cos(theta),
+      y: r * Math.sin(phi) * Math.sin(theta),
+      z: r * Math.cos(phi),
+      radius: 0.3 + rng() * 0.5,
+    });
+  }
+
+  for (let i = 0; i < count; i++) {
+    const cluster = centers[i % numClusters];
+    // Tight angular arrangement around cluster center
+    const theta = rng() * Math.PI * 2;
+    const phi = Math.acos(2 * rng() - 1);
+    const r = cluster.radius * Math.cbrt(rng());
+    out[i * 3] = cluster.x + r * Math.sin(phi) * Math.cos(theta);
+    out[i * 3 + 1] = cluster.y + r * Math.sin(phi) * Math.sin(theta);
+    out[i * 3 + 2] = cluster.z + r * Math.cos(phi);
+  }
+}
+
+function fillGeode(rng: () => number, out: Float32Array, count: number): void {
+  const shellRadius = 2.0;
+  const shellThickness = 0.15;
+  const innerFraction = 0.3;
+  const shellCount = Math.max(1, Math.round(count * (1 - innerFraction)));
+  const innerCount = count - shellCount;
+
+  // Outer faceted shell
+  for (let i = 0; i < shellCount; i++) {
+    const theta = rng() * Math.PI * 2;
+    const phi = Math.acos(2 * rng() - 1);
+    const r = shellRadius + (rng() - 0.5) * shellThickness * 2;
+    out[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    out[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    out[i * 3 + 2] = r * Math.cos(phi);
+  }
+
+  // Interior scatter
+  for (let i = 0; i < innerCount; i++) {
+    const idx = shellCount + i;
+    const theta = rng() * Math.PI * 2;
+    const phi = Math.acos(2 * rng() - 1);
+    const r = 0.3 + rng() * 1.2; // 0.3-1.5 radius
+    out[idx * 3] = r * Math.sin(phi) * Math.cos(theta);
+    out[idx * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    out[idx * 3 + 2] = r * Math.cos(phi);
   }
 }

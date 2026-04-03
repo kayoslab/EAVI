@@ -1,147 +1,110 @@
 {
-  "id": "US-044",
+  "ticket": "US-044",
   "title": "Replace wave mode with 3D secondary mode",
-  "overview": "Add a fourth 3D mode ('crystal') to the mode rotation. The crystal mode renders a volumetric point cloud using faceted/crystalline deformation via a custom shader. No WaveField.ts file exists to delete — the ticket's intent is to ensure all modes are volumetric 3D, which the existing three already are; this adds a fourth sculptural variant. The mode manager, debug overlay, and audio pipeline are preserved.",
+  "summary": "Add a new volumetric 3D geometry system (CrystalField) as a fourth mode, ensuring no 2D/flat geometries exist. WaveField.ts is noted for deprecation but does not exist in the codebase, so the work is purely additive: create a new sculptural point-based mode, register it in the mode manager, wire quality scaling, and verify all modes are volumetric.",
   "depends_on": ["US-026", "US-041"],
   "steps": [
     {
-      "step": 1,
-      "title": "Add crystal volumetric shapes to volumetricPoints.ts",
-      "description": "Add two new VolumetricShape variants ('crystalCluster' and 'geode') to the generator. crystalCluster distributes points in clustered icosahedral groupings with angular offsets. geode creates a hollow faceted shell with interior scatter. Both use the existing PRNG-seeded pattern.",
-      "files": ["src/visual/generators/volumetricPoints.ts"],
-      "details": [
-        "Add 'crystalCluster' | 'geode' to the VolumetricShape union type",
-        "Add both to the VOLUMETRIC_SHAPES array",
-        "Implement fillCrystalCluster: 5-8 cluster centers (seeded), each with points distributed in a tight angular arrangement around the center, radius 0.3-0.8 per cluster, total spread ~2.5",
-        "Implement fillGeode: outer faceted shell (radius 2.0, thickness 0.15) with ~30% of points scattered inside at smaller radii (0.3-1.5), giving a hollow-crystal-interior feel",
-        "Follow existing patterns: rng-based, write directly to Float32Array output"
-      ]
+      "id": 1,
+      "title": "Create crystalWarp vertex shader",
+      "file": "src/visual/shaders/crystalWarp.vert.glsl",
+      "action": "create",
+      "description": "Write a new vertex shader for the crystal/lattice mode. Follow the same uniform interface as pointWarp.vert.glsl (uTime, uBassEnergy, uTrebleEnergy, uMotionAmplitude, uPointerDisturbance, uPointerPos, uPaletteHue, uPaletteSaturation, uCadence, uBreathScale, uBasePointSize, uNoiseFrequency, uRadialScale, uTwistStrength, uFieldSpread, uNoiseOctaves, uEnablePointerRepulsion, uEnableSlowModulation, uDisplacementScale). Use the same attributes (size, aHueOffset, aRandom). Prepend noise3d.glsl at import time. Differentiate from pointCloud by using: (1) crystalline faceted displacement — snapping positions toward lattice planes via quantization + softness blend, (2) bass-driven shattering — points fracture outward along lattice normals when bass spikes, (3) treble-driven facet shimmer — high-frequency angular jitter on lattice edges, (4) slow rotation of the entire lattice basis vectors over time. Include hsl2rgb and the same color pipeline. Keep gl_PointSize clamped identically.",
+      "details": "The visual identity should feel like a slowly rotating crystalline structure that shatters and reforms with the music. Bass drives macro fracture/expansion, treble drives sparkle on facet edges. The lattice basis can be derived from seed via aRandom offsets."
     },
     {
-      "step": 2,
-      "title": "Create crystal shader pair",
-      "description": "Create crystalWarp.vert.glsl and crystalWarp.frag.glsl. The vertex shader reuses the same uniform/attribute interface as pointWarp but applies faceted deformation: quantized noise displacement that snaps to angular increments, giving a crystalline/geometric feel distinct from the organic pointCloud mode.",
-      "files": [
-        "src/visual/shaders/crystalWarp.vert.glsl",
-        "src/visual/shaders/crystalWarp.frag.glsl"
-      ],
-      "details": [
-        "Vertex shader: prepend noise3d.glsl (same pattern as pointWarp.vert.glsl)",
-        "Same 18 uniforms as pointWarp: uTime, uBassEnergy, uTrebleEnergy, uOpacity, uMotionAmplitude, uPointerDisturbance, uPointerPos, uPaletteHue, uPaletteSaturation, uCadence, uBreathScale, uBasePointSize, uNoiseFrequency, uRadialScale, uTwistStrength, uFieldSpread, uNoiseOctaves, uEnablePointerRepulsion, uEnableSlowModulation, uDisplacementScale",
-        "Same 4 attributes: position(3), size(1), aHueOffset(1), aRandom(3)",
-        "Key difference: displacement is quantized — fbm3 output is floored to discrete steps (e.g. floor(noise * 4.0) / 4.0) before applying, creating faceted/angular movement",
-        "Bass drives macro displacement scale (multiply displacement by 1.0 + uBassEnergy * 0.6)",
-        "Treble drives point size variation: gl_PointSize multiplied by (1.0 + uTrebleEnergy * 0.4) for sparkle effect",
-        "Rotation uses two-axis (Y + X tilt) for more sculptural tumbling, controlled by uCadence",
-        "Fragment shader: similar to pointWarp.frag.glsl but with sharper falloff (step edge blend instead of smooth circle) for faceted point appearance, still respects uOpacity and vertex color"
-      ]
+      "id": 2,
+      "title": "Create crystalWarp fragment shader",
+      "file": "src/visual/shaders/crystalWarp.frag.glsl",
+      "action": "create",
+      "description": "Create fragment shader for crystal mode. Can reuse the same circular-point-with-softness pattern from pointWarp.frag.glsl (discard outside radius 0.5, smoothstep edge falloff, vColor with uOpacity). Optionally add a subtle angular facet pattern to the alpha falloff to reinforce the crystalline aesthetic (e.g., modulate alpha by an angular step function of gl_PointCoord).",
+      "details": "Keep it simple — the vertex shader does the heavy lifting. Fragment just needs circular discard, soft edge, opacity uniform, and vColor varying."
     },
     {
-      "step": 3,
-      "title": "Create crystalField.ts geometry system",
-      "description": "Implement the crystal mode as a GeometrySystem following the exact same pattern as pointCloud.ts. Uses the crystal shapes and crystal shaders.",
-      "files": ["src/visual/systems/crystalField.ts"],
-      "details": [
-        "Export CrystalFieldConfig interface matching PointCloudConfig shape: maxPoints, enableSparkle, noiseOctaves, enablePointerRepulsion, enableSlowModulation",
-        "Export createCrystalField(config?) returning GeometrySystem",
-        "init(): use createPRNG(seed + ':crystal'), select shape from ['crystalCluster', 'geode'] only, compute effectiveCount from density * maxPoints (cap at maxPoints), generate positions via generateVolumetricPoints, create geometry with same 5 attributes (position, color, size, aHueOffset, aRandom), create ShaderMaterial with crystal shaders and same 18 uniforms",
-        "draw(): update all uniforms from frame.params (same as pointCloud.draw), apply two-axis rotation (Y from drift + bass, X from cadence-driven tilt), apply z-breathing",
-        "setOpacity(): set uOpacity uniform",
-        "cleanup(): remove mesh, dispose geometry + material, null refs",
-        "Use 0.8x maxPoints scaling: effectiveCount capped at Math.round(maxPoints * 0.8) to keep crystal mode slightly less dense for visual clarity"
-      ]
+      "id": 3,
+      "title": "Add crystal shape generator to volumetricPoints.ts",
+      "file": "src/visual/generators/volumetricPoints.ts",
+      "action": "modify",
+      "description": "Add a new volumetric shape generator function (e.g., crystalLattice) that produces points arranged in a 3D lattice/crystal structure. Options: (a) BCC or FCC lattice with jitter, (b) Voronoi cell centers in a bounded volume, (c) recursive subdivision of a tetrahedron/octahedron. Add it to the VOLUMETRIC_SHAPES array. The generator should accept count and seed parameters matching the existing signature, return Float32Array of xyz positions filling a unit-scale volume.",
+      "details": "A simple approach: generate points on a 3D grid (cbrt(count) per axis) within [-1,1]^3, then apply small seeded jitter to each point. This creates a lattice that the shader can then deform. Also consider an icosahedral shell variant for variety."
     },
     {
-      "step": 4,
+      "id": 4,
+      "title": "Create CrystalField geometry system",
+      "file": "src/visual/systems/crystalField.ts",
+      "action": "create",
+      "description": "Create a new GeometrySystem following the exact pattern of pointCloud.ts. Export CrystalFieldConfig interface (maxPoints, enableSparkle, noiseOctaves, enablePointerRepulsion, enableSlowModulation) and CrystalField interface (extends GeometrySystem with pointCount and positions getters). Export createCrystalField factory function. Implementation: (1) init() — use createPRNG(seed+':crystal') to select shape from volumetricPoints (preferring the new crystal shapes), generate positions, create BufferGeometry with position/size/aHueOffset/aRandom attributes, create ShaderMaterial with crystalWarp shaders (prepend noise3d.glsl), create THREE.Points mesh with AdditiveBlending, add to scene. (2) draw() — update all uniforms from frame.params each frame (same uniform update logic as pointCloud). (3) setOpacity(v) — update uOpacity uniform. (4) cleanup() — remove mesh from scene, dispose geometry and material.",
+      "details": "Follow pointCloud.ts line-for-line for structure. The only differences are: shader imports (crystalWarp instead of pointWarp), shape selection bias (prefer crystal lattice shapes), and the module name. Reuse the same uniform names so the mapping pipeline works unchanged."
+    },
+    {
+      "id": 5,
+      "title": "Add maxCrystalPoints to QualityProfile",
+      "file": "src/visual/quality.ts",
+      "action": "modify",
+      "description": "Add maxCrystalPoints field to QualityProfile interface. Set tier values: low=200, medium=600, high=1200 (matching pointCloud scaling). This keeps the crystal mode quality-responsive.",
+      "details": "Add the field to the interface and to each of the three return statements in computeQuality()."
+    },
+    {
+      "id": 6,
+      "title": "Register CrystalField in main.ts mode manager",
+      "file": "src/main.ts",
+      "action": "modify",
+      "description": "Import createCrystalField. Create crystal instance with quality config (maxPoints: quality.maxCrystalPoints, enableSparkle, noiseOctaves, enablePointerRepulsion, enableSlowModulation). Add { name: 'crystal', factory: () => crystal } to the createModeManager array. Add { name: 'crystal', maxPoints: quality.maxCrystalPoints } to the debug modes array.",
+      "details": "Insert after the pointCloud creation block (~line 111). The mode manager handles all switching logic automatically — no changes needed to modeManager.ts."
+    },
+    {
+      "id": 7,
       "title": "Verify no 2D/flat geometries remain",
-      "description": "Audit all mode files to confirm every geometry system uses 3D volumetric points with perspective depth. No 2D line geometries, flat plane geometries, or Canvas2D rendering should exist.",
-      "files": [
-        "src/visual/systems/pointCloud.ts",
-        "src/visual/systems/ribbonField.ts",
-        "src/visual/systems/particleField.ts",
-        "src/visual/systems/crystalField.ts"
-      ],
-      "details": [
-        "Confirm all four systems use THREE.Points + BufferGeometry with 3-component position attributes",
-        "Confirm all use ShaderMaterial with 3D displacement in vertex shaders",
-        "Confirm no THREE.Line, THREE.LineSegments, THREE.PlaneGeometry, or Canvas2D usage exists",
-        "No code changes expected — this is a verification step"
-      ]
+      "file": null,
+      "action": "verify",
+      "description": "Search the codebase for any WaveField references, Canvas2D rendering paths, flat plane geometries (THREE.PlaneGeometry, THREE.PlaneBufferGeometry), or 2D line geometries (THREE.Line, THREE.LineSegments used as primary visual). Confirm all four modes (particles, ribbon, pointcloud, crystal) use perspective camera + volumetric point-based geometry. Remove any WaveField.ts if it exists.",
+      "details": "Acceptance criteria: 'No 2D line or flat plane geometries remain'. Grep for PlaneGeometry, Line, LineSegments, Canvas2D, WaveField, wave references."
     },
     {
-      "step": 5,
-      "title": "Register crystal mode in main.ts",
-      "description": "Wire the crystal mode into the mode manager and update the debug modes array so the debug overlay correctly reports mode name and point count when crystal is active.",
-      "files": ["src/main.ts"],
-      "details": [
-        "Import createCrystalField from './visual/systems/crystalField'",
-        "After pointCloud creation (~line 111), add: const crystal = createCrystalField({ maxPoints: Math.round(quality.maxPoints * 0.8), enableSparkle: quality.enableSparkle, noiseOctaves: quality.noiseOctaves, enablePointerRepulsion: quality.enablePointerRepulsion, enableSlowModulation: quality.enableSlowModulation })",
-        "Add crystal to modeManager array: { name: 'crystal', factory: () => crystal } as 4th entry",
-        "Add crystal to debug modes array (~line 130): { name: 'crystal', maxPoints: Math.round(quality.maxPoints * 0.8) } so getModeName and getPointCount work correctly for the crystal mode"
-      ]
-    },
-    {
-      "step": 6,
-      "title": "Build verification and console check",
-      "description": "Run npm run build and verify no errors. Start dev server and check browser console for shader compile errors, WebGL validation errors, or runtime exceptions.",
-      "files": [],
-      "details": [
-        "npm run build must succeed with no TypeScript errors",
-        "No console errors on load (shader compile, WebGL validate, runtime)",
-        "Crystal mode must render visible 3D points with depth/parallax",
-        "Mode transitions must work smoothly between all four modes",
-        "Audio pipeline must remain connected — bass/treble reactivity visible in crystal mode",
-        "Mute toggle and info overlay must still function"
-      ]
+      "id": 8,
+      "title": "Build and runtime verification",
+      "file": null,
+      "action": "verify",
+      "description": "Run npm run build to verify clean compilation. Check for: (1) no TypeScript errors, (2) shader imports resolve correctly via ?raw, (3) no console errors on load, (4) crystal mode renders with visible 3D depth/parallax, (5) bass drives macro deformation, treble drives shimmer, (6) mode switching transitions work with 4 modes, (7) audio pipeline preserved across all mode transitions.",
+      "details": "Test with ?debug query param to observe mode name cycling through all four modes. Verify the crystal mode name appears in debug overlay."
     }
   ],
-  "testing": [
-    {
-      "id": "US-044-T01",
-      "description": "Crystal mode renders 3D volumetric points with perspective depth",
-      "verify": "When crystal mode is active, scene shows a volumetric point cloud with visible parallax on camera drift. Points are not flat/coplanar."
-    },
-    {
-      "id": "US-044-T02",
-      "description": "Crystal shader compiles without errors",
-      "verify": "No WebGL shader compile errors, VALIDATE_STATUS errors, or 'invalid program' errors in console when crystal mode initializes."
-    },
-    {
-      "id": "US-044-T03",
-      "description": "Crystal mode uses 3D deformation",
-      "verify": "Points visibly displace in 3D space over time with faceted/angular character distinct from the smooth organic pointCloud mode."
-    },
-    {
-      "id": "US-044-T04",
-      "description": "No 2D line or flat plane geometries remain",
-      "verify": "Grep codebase for THREE.Line, THREE.LineSegments, THREE.PlaneGeometry, Canvas2D — none found in visual systems."
-    },
-    {
-      "id": "US-044-T05",
-      "description": "Mode switching preserves audio pipeline",
-      "verify": "Transition from any mode to crystal and back: audio continues playing, bass drives macro motion in crystal mode, treble drives point sparkle. No audio graph teardown on switch."
-    },
-    {
-      "id": "US-044-T06",
-      "description": "Mode transitions are smooth",
-      "verify": "Crossfade between modes shows both rendering simultaneously with opacity blending over 2-4 seconds. No flash or gap."
-    },
-    {
-      "id": "US-044-T07",
-      "description": "Debug overlay shows correct crystal mode info",
-      "verify": "When crystal mode is active, debug overlay shows 'crystal' as mode name and correct point count (0.8x maxPoints tier value)."
-    },
-    {
-      "id": "US-044-T08",
-      "description": "Build passes with no errors",
-      "verify": "npm run build completes successfully with zero TypeScript or bundler errors."
-    }
+  "files_to_create": [
+    "src/visual/shaders/crystalWarp.vert.glsl",
+    "src/visual/shaders/crystalWarp.frag.glsl",
+    "src/visual/systems/crystalField.ts"
   ],
+  "files_to_modify": [
+    "src/visual/generators/volumetricPoints.ts",
+    "src/visual/quality.ts",
+    "src/main.ts"
+  ],
+  "files_to_delete": [],
   "architectural_notes": [
-    "Crystal uses the same uniform interface as all other modes — no new quality.ts fields needed",
-    "0.8x point count scaling keeps crystal visually distinct (sparser, more defined structure) while staying within the quality tier budget",
-    "Two new volumetric shapes (crystalCluster, geode) are added to the shared generator — they are also available to pointCloud mode via random selection, which enriches that mode as well",
-    "Crystal's two-axis rotation (Y + X tilt) creates a more sculptural tumbling motion compared to the single-axis Y rotation used by pointCloud and ribbon",
-    "The faceted shader (quantized noise displacement + step-edge fragment) gives crystal a visually distinct character without requiring new uniforms or attributes"
-  ]
+    "All four modes share the same GeometrySystem interface — no changes to modeManager.ts, renderLoop.ts, or the audio pipeline are needed.",
+    "The crystal mode reuses the same uniform interface as existing modes, so mappings.ts and evolution.ts work unchanged.",
+    "Quality scaling follows the established pattern: QualityProfile drives point counts and feature toggles per tier.",
+    "Shader compilation validation (US-048) will automatically cover the new shaders since modeManager.initAllForValidation() iterates all registered modes.",
+    "Mode switching with 4 modes still uses round-robin cycling with seeded timing — no logic changes needed."
+  ],
+  "risks": [
+    {
+      "risk": "New shader compile errors breaking the entire scene",
+      "mitigation": "US-048 shader validation gate catches compile errors before first render. Test shaders incrementally — start with a minimal vertex shader that compiles, then add deformation layers."
+    },
+    {
+      "risk": "4 modes increasing pre-compilation time on low-end devices",
+      "mitigation": "cleanupInactive() disposes non-active modes after validation, so runtime cost stays the same. Only startup adds one more shader compile pass."
+    },
+    {
+      "risk": "Crystal lattice points clustering in screen space causing z-fighting or overdraw",
+      "mitigation": "Use fieldSpread uniform and radialScale to ensure adequate spatial distribution. AdditiveBlending mitigates z-fighting naturally."
+    }
+  ],
+  "acceptance_criteria_mapping": {
+    "Second mode is volumetric and point-based": "Steps 1-4: CrystalField uses THREE.Points + BufferGeometry with 3D lattice positions and perspective camera rendering",
+    "Mode uses 3D deformation": "Step 1: crystalWarp vertex shader applies bass-driven fracture, treble shimmer, FBM noise displacement, and twist — all in 3D",
+    "No 2D line or flat plane geometries remain": "Step 7: explicit verification sweep for any 2D/flat geometry remnants",
+    "Mode switching preserves audio pipeline": "Step 6: CrystalField registers in modeManager which handles transitions; audio pipeline in renderLoop.ts is mode-agnostic"
+  }
 }
