@@ -13,6 +13,9 @@ import {
   POINTCLOUD_ATTRIBUTES,
   PARTICLEFIELD_ATTRIBUTES,
   RIBBONFIELD_ATTRIBUTES,
+  OPTIONAL_POINTCLOUD_ATTRIBUTES,
+  OPTIONAL_PARTICLEFIELD_ATTRIBUTES,
+  OPTIONAL_RIBBONFIELD_ATTRIBUTES,
 } from '../../src/visual/shaderRegistry';
 import { validateGeometryAttributes } from '../../src/visual/geometryValidator';
 
@@ -36,18 +39,21 @@ const SHADER_SYSTEMS = [
     vertSource: pointWarpVert,
     fragSource: pointWarpFrag,
     requiredAttributes: POINTCLOUD_ATTRIBUTES,
+    optionalAttributes: OPTIONAL_POINTCLOUD_ATTRIBUTES,
   },
   {
     name: 'particleField',
     vertSource: particleWarpVert,
     fragSource: particleWarpFrag,
     requiredAttributes: PARTICLEFIELD_ATTRIBUTES,
+    optionalAttributes: OPTIONAL_PARTICLEFIELD_ATTRIBUTES,
   },
   {
     name: 'ribbonField',
     vertSource: ribbonWarpVert,
     fragSource: ribbonWarpFrag,
     requiredAttributes: RIBBONFIELD_ATTRIBUTES,
+    optionalAttributes: OPTIONAL_RIBBONFIELD_ATTRIBUTES,
   },
 ];
 
@@ -184,13 +190,14 @@ describe('T-049-01: Every custom attribute referenced in GLSL vertex shaders is 
 
 describe('T-049-02: Every GLSL-declared custom attribute has a matching BufferGeometry binding', () => {
   for (const sys of SHADER_SYSTEMS) {
-    it(`${sys.name}: every declared custom attribute exists in REQUIRED_ATTRIBUTES`, () => {
+    it(`${sys.name}: every declared custom attribute exists in required or optional attributes`, () => {
       const declaredAttrs = parseGlslAttributes(sys.vertSource);
-      const reqMap = new Map(sys.requiredAttributes.map((a) => [a.name, a.itemSize]));
+      const allAttrs = [...sys.requiredAttributes, ...sys.optionalAttributes];
+      const attrMap = new Map(allAttrs.map((a) => [a.name, a.itemSize]));
 
       for (const attr of declaredAttrs) {
         if (THREEJS_BUILTIN_ATTRS.has(attr.name)) continue;
-        expect(reqMap.has(attr.name)).toBe(true);
+        expect(attrMap.has(attr.name)).toBe(true);
       }
     });
   }
@@ -276,13 +283,14 @@ describe('T-049-05: GLSL attribute types match BufferAttribute itemSize', () => 
   for (const sys of SHADER_SYSTEMS) {
     it(`${sys.name}: attribute type → itemSize mapping is correct`, () => {
       const declaredAttrs = parseGlslAttributes(sys.vertSource);
-      const reqMap = new Map(sys.requiredAttributes.map((a) => [a.name, a.itemSize]));
+      const allAttrs = [...sys.requiredAttributes, ...sys.optionalAttributes];
+      const attrMap = new Map(allAttrs.map((a) => [a.name, a.itemSize]));
 
       for (const attr of declaredAttrs) {
         if (THREEJS_BUILTIN_ATTRS.has(attr.name)) continue;
         const expectedSize = GLSL_TYPE_TO_ITEM_SIZE[attr.type];
         expect(expectedSize).toBeDefined();
-        expect(reqMap.get(attr.name)).toBe(expectedSize);
+        expect(attrMap.get(attr.name)).toBe(expectedSize);
       }
     });
   }
@@ -368,7 +376,7 @@ describe('T-049-09: Runtime geometry validation catches missing attributes', () 
     geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(new Float32Array([0]), 1));
     geometry.setAttribute('aRandom', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
 
-    const result = validateGeometryAttributes(geometry, POINTCLOUD_ATTRIBUTES);
+    const result = validateGeometryAttributes(geometry, POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES);
     expect(result.ok).toBe(false);
     expect(result.errors.some((e) => e.attribute === 'size' && e.reason.includes('itemSize'))).toBe(true);
   });

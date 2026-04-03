@@ -4,7 +4,7 @@ import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
-import { POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
+import { POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/pointWarp.frag.glsl?raw';
@@ -137,7 +137,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
 
-      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES);
+      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES);
       if (!validation.ok) {
         throw new Error(
           'PointCloud geometry validation failed: ' +
@@ -166,6 +166,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uEnablePointerRepulsion: { value: enablePointerRepulsion ? 1.0 : 0.0 },
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
+        uHasSizeAttr: { value: 1.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({

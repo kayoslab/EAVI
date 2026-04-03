@@ -4,7 +4,7 @@ import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
-import { PARTICLEFIELD_ATTRIBUTES } from '../shaderRegistry';
+import { PARTICLEFIELD_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import particleWarpVert from '../shaders/particleWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/particleWarp.frag.glsl?raw';
@@ -111,7 +111,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
 
-      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES);
+      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES);
       if (!validation.ok) {
         throw new Error(
           'ParticleField geometry validation failed: ' +
@@ -140,6 +140,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
         uEnablePointerRepulsion: { value: enablePointerRepulsion ? 1.0 : 0.0 },
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
+        uHasSizeAttr: { value: 1.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
