@@ -1,1 +1,264 @@
-{"tests_added": ["tests/visual/shaderIntegrity.test.ts"], "tests_modified": [], "test_results": "pass", "failures": [], "failure_source": null}
+{
+  "tests": [
+    {
+      "id": "T-049-01",
+      "name": "Every custom attribute referenced in GLSL vertex shaders is explicitly declared",
+      "description": "For each vertex shader, parse declared attributes and verify that every custom attribute name used in shader body expressions appears in the declared set.",
+      "criterion": "Every custom attribute referenced in GLSL is explicitly declared in the shader",
+      "approach": "Read raw GLSL source for all three vertex shaders (pointWarp, particleWarp, ribbonWarp). Parse 'attribute <type> <name>;' declarations using regex. Scan shader body (after declarations) for uses of known custom attribute names (size, aHueOffset, aRandom). Verify every reference is backed by a declaration. Also verify Three.js auto-injected attributes (position) are used but not expected to be declared in custom GLSL.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl"
+      ]
+    },
+    {
+      "id": "T-049-02",
+      "name": "Every GLSL-declared custom attribute has a matching BufferGeometry binding with correct itemSize",
+      "description": "For each geometry system, parse its vertex shader's declared attributes and verify every custom attribute (excluding Three.js builtins like position) has a matching entry in the system's REQUIRED_ATTRIBUTES with the correct itemSize derived from the GLSL type (float→1, vec2→2, vec3→3, vec4→4).",
+      "criterion": "Every custom attribute referenced in GLSL is attached to the BufferGeometry at runtime",
+      "approach": "Parse attribute declarations from each vertex shader. Map GLSL types to expected itemSize. Compare against the REQUIRED_ATTRIBUTES constant in each geometry system file (pointCloud, particleField, ribbonField). Fail if any declared custom attribute is missing from REQUIRED_ATTRIBUTES or has wrong itemSize.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl",
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/particleField.ts",
+        "src/visual/systems/ribbonField.ts"
+      ]
+    },
+    {
+      "id": "T-049-03",
+      "name": "Every custom uniform referenced in GLSL is declared and initialized in material uniforms",
+      "description": "For each shader pair (vert+frag), parse all uniform declarations. Verify every custom uniform is present in the runtime uniforms object created by the geometry system with a non-undefined initial value.",
+      "criterion": "Every custom uniform referenced in GLSL is declared and initialized before first render",
+      "approach": "Parse uniform declarations from all vertex and fragment shaders. Collect the combined set of uniforms per system. Instantiate each geometry system with default params and verify the ShaderMaterial's uniforms object contains every declared uniform with a defined initial value.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/pointWarp.frag.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.frag.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.frag.glsl",
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/particleField.ts",
+        "src/visual/systems/ribbonField.ts"
+      ]
+    },
+    {
+      "id": "T-049-04",
+      "name": "No undeclared identifiers remain in vertex or fragment shaders",
+      "description": "For each shader, collect all declared symbols (attributes, uniforms, varyings, local variables, function parameters, constants, GLSL builtins, Three.js builtins, noise3d.glsl exports). Scan expressions for identifiers not in the declared set. Fail if any undeclared identifier is found.",
+      "criterion": "No undeclared identifiers remain in vertex or fragment shaders",
+      "approach": "Build a comprehensive allowlist: GLSL keywords/builtins (gl_Position, gl_PointSize, gl_PointCoord, gl_FragColor, position, modelViewMatrix, projectionMatrix, etc.), Three.js injected names, noise3d.glsl functions (snoise, fbm3, curl3, mod289, permute, taylorInvSqrt), declared attributes/uniforms/varyings, local variables (from type declarations in main()), function parameters, and constants. Parse all identifiers used in expressions and verify each is in the allowlist.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaders/noise3d.glsl",
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/pointWarp.frag.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.frag.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.frag.glsl"
+      ]
+    },
+    {
+      "id": "T-049-05",
+      "name": "GLSL attribute types match BufferAttribute itemSize for all systems",
+      "description": "Parse attribute type declarations from GLSL (float→1, vec2→2, vec3→3, vec4→4). Verify each matches the itemSize in the corresponding system's REQUIRED_ATTRIBUTES entry.",
+      "criterion": "Every custom attribute referenced in GLSL is attached to the BufferGeometry at runtime",
+      "approach": "For each shader-system pair, extract the GLSL type of each attribute declaration. Convert type to expected itemSize using a mapping table. Compare against the runtime REQUIRED_ATTRIBUTES. Report any mismatches.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl",
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/particleField.ts",
+        "src/visual/systems/ribbonField.ts"
+      ]
+    },
+    {
+      "id": "T-049-06",
+      "name": "Uniform declarations are consistent across all vertex shaders",
+      "description": "Parse uniforms from all three vertex shaders and verify the sets are identical (same names and types). This ensures no shader has a stale or missing uniform that would silently fail.",
+      "criterion": "Every custom uniform referenced in GLSL is declared and initialized before first render",
+      "approach": "Parse uniform declarations (name + type) from pointWarp.vert.glsl, particleWarp.vert.glsl, and ribbonWarp.vert.glsl. Sort by name and compare. Fail if any shader has a different set.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl"
+      ]
+    },
+    {
+      "id": "T-049-07",
+      "name": "Fragment shader uniforms are a subset of vertex shader uniforms plus fragment-only declarations",
+      "description": "Parse fragment shader uniforms. Verify each is either declared in the corresponding vertex shader's uniform set or is a known fragment-only uniform (like uOpacity).",
+      "criterion": "Every custom uniform referenced in GLSL is declared and initialized before first render",
+      "approach": "For each shader pair, parse uniforms from both vertex and fragment shaders. Verify every fragment uniform exists in the vertex uniform set OR is a recognized fragment-only uniform. Also verify fragment-only uniforms are still present in the runtime uniforms object.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/pointWarp.frag.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.frag.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.frag.glsl"
+      ]
+    },
+    {
+      "id": "T-049-08",
+      "name": "Varyings are consistent between vertex and fragment shaders",
+      "description": "For each shader pair, parse varying declarations from both vertex and fragment shaders. Verify the vertex shader declares at least every varying the fragment shader reads.",
+      "criterion": "No undeclared identifiers remain in vertex or fragment shaders",
+      "approach": "Parse 'varying <type> <name>;' from each vertex and fragment shader. For each pair, check that every varying in the fragment shader also appears in the vertex shader with the same type. Fail if any fragment varying is missing from the vertex shader.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/pointWarp.frag.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.frag.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.frag.glsl"
+      ]
+    },
+    {
+      "id": "T-049-09",
+      "name": "Runtime geometry validation catches missing attributes",
+      "description": "Create a BufferGeometry with a deliberately missing attribute. Call validateGeometryAttributes and verify it returns ok: false with a descriptive error mentioning the missing attribute.",
+      "criterion": "Every custom attribute referenced in GLSL is attached to the BufferGeometry at runtime",
+      "approach": "Create a BufferGeometry with position, size, and aRandom but omit aHueOffset. Call validateGeometryAttributes with the full REQUIRED_ATTRIBUTES schema. Verify ok is false and the error references 'aHueOffset' and 'missing'.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/geometryValidator.ts"
+      ]
+    },
+    {
+      "id": "T-049-10",
+      "name": "No forbidden storage APIs in shader integrity modules",
+      "description": "Standard EAVI compliance check: verify that the new shader integrity and shader registry modules do not reference localStorage, sessionStorage, document.cookie, or IndexedDB.",
+      "criterion": "EAVI privacy compliance",
+      "approach": "Read the source of shaderIntegrity.ts and shaderRegistry.ts (once created). Scan for forbidden API strings: 'localStorage', 'sessionStorage', 'document.cookie', 'indexedDB', 'openDatabase'. Fail if any are found.",
+      "file": "tests/visual/shaderIntegrity.test.ts",
+      "dependencies": [
+        "src/visual/shaderIntegrity.ts",
+        "src/visual/shaderRegistry.ts"
+      ]
+    }
+  ],
+  "testFile": "tests/visual/shaderIntegrity.test.ts",
+  "testCount": 10,
+  "coverageMapping": {
+    "Every custom attribute referenced in GLSL is explicitly declared in the shader": ["T-049-01", "T-049-04"],
+    "Every custom attribute referenced in GLSL is attached to the BufferGeometry at runtime": ["T-049-02", "T-049-05", "T-049-09"],
+    "Every custom uniform referenced in GLSL is declared and initialized before first render": ["T-049-03", "T-049-06", "T-049-07"],
+    "No undeclared identifiers remain in vertex or fragment shaders": ["T-049-04", "T-049-08"]
+  },
+  "shaderSystems": [
+    {
+      "name": "pointCloud",
+      "vertexShader": "src/visual/shaders/pointWarp.vert.glsl",
+      "fragmentShader": "src/visual/shaders/pointWarp.frag.glsl",
+      "geometrySystem": "src/visual/systems/pointCloud.ts",
+      "customAttributes": [
+        { "name": "size", "glslType": "float", "itemSize": 1 },
+        { "name": "aHueOffset", "glslType": "float", "itemSize": 1 },
+        { "name": "aRandom", "glslType": "vec3", "itemSize": 3 }
+      ],
+      "requiredAttributes": [
+        { "name": "position", "itemSize": 3 },
+        { "name": "color", "itemSize": 3 },
+        { "name": "size", "itemSize": 1 },
+        { "name": "aHueOffset", "itemSize": 1 },
+        { "name": "aRandom", "itemSize": 3 }
+      ]
+    },
+    {
+      "name": "particleField",
+      "vertexShader": "src/visual/shaders/particleWarp.vert.glsl",
+      "fragmentShader": "src/visual/shaders/particleWarp.frag.glsl",
+      "geometrySystem": "src/visual/systems/particleField.ts",
+      "customAttributes": [
+        { "name": "size", "glslType": "float", "itemSize": 1 },
+        { "name": "aHueOffset", "glslType": "float", "itemSize": 1 },
+        { "name": "aRandom", "glslType": "vec3", "itemSize": 3 }
+      ],
+      "requiredAttributes": [
+        { "name": "position", "itemSize": 3 },
+        { "name": "size", "itemSize": 1 },
+        { "name": "aHueOffset", "itemSize": 1 },
+        { "name": "aRandom", "itemSize": 3 }
+      ]
+    },
+    {
+      "name": "ribbonField",
+      "vertexShader": "src/visual/shaders/ribbonWarp.vert.glsl",
+      "fragmentShader": "src/visual/shaders/ribbonWarp.frag.glsl",
+      "geometrySystem": "src/visual/systems/ribbonField.ts",
+      "customAttributes": [
+        { "name": "size", "glslType": "float", "itemSize": 1 },
+        { "name": "aHueOffset", "glslType": "float", "itemSize": 1 },
+        { "name": "aRandom", "glslType": "vec3", "itemSize": 3 }
+      ],
+      "requiredAttributes": [
+        { "name": "position", "itemSize": 3 },
+        { "name": "color", "itemSize": 3 },
+        { "name": "size", "itemSize": 1 },
+        { "name": "aHueOffset", "itemSize": 1 },
+        { "name": "aRandom", "itemSize": 3 }
+      ]
+    }
+  ],
+  "uniformsExpected": [
+    { "name": "uTime", "type": "float" },
+    { "name": "uBassEnergy", "type": "float" },
+    { "name": "uTrebleEnergy", "type": "float" },
+    { "name": "uMotionAmplitude", "type": "float" },
+    { "name": "uPointerDisturbance", "type": "float" },
+    { "name": "uPointerPos", "type": "vec2" },
+    { "name": "uPaletteHue", "type": "float" },
+    { "name": "uPaletteSaturation", "type": "float" },
+    { "name": "uCadence", "type": "float" },
+    { "name": "uBreathScale", "type": "float" },
+    { "name": "uBasePointSize", "type": "float" },
+    { "name": "uNoiseFrequency", "type": "float" },
+    { "name": "uRadialScale", "type": "float" },
+    { "name": "uTwistStrength", "type": "float" },
+    { "name": "uFieldSpread", "type": "float" },
+    { "name": "uNoiseOctaves", "type": "int" },
+    { "name": "uEnablePointerRepulsion", "type": "float" },
+    { "name": "uEnableSlowModulation", "type": "float" },
+    { "name": "uDisplacementScale", "type": "float" },
+    { "name": "uOpacity", "type": "float" }
+  ],
+  "varyingsExpected": [
+    { "name": "vColor", "type": "vec3" }
+  ],
+  "glslBuiltins": [
+    "gl_Position", "gl_PointSize", "gl_PointCoord", "gl_FragColor",
+    "position", "modelViewMatrix", "projectionMatrix",
+    "sin", "cos", "abs", "floor", "mod", "max", "min", "clamp",
+    "dot", "length", "normalize", "smoothstep", "step", "sqrt",
+    "vec2", "vec3", "vec4", "float", "int", "bool", "mat3", "mat4",
+    "discard", "if", "else", "for", "return", "void", "const", "break",
+    "true", "false"
+  ],
+  "noise3dExports": ["snoise", "fbm3", "curl3", "mod289", "permute", "taylorInvSqrt"],
+  "helperNotes": {
+    "glslTypeToItemSize": {
+      "float": 1,
+      "vec2": 2,
+      "vec3": 3,
+      "vec4": 4,
+      "int": 1,
+      "mat3": 9,
+      "mat4": 16
+    },
+    "threeJsAutoInjectedAttributes": ["position", "normal", "uv"],
+    "threeJsAutoInjectedUniforms": ["modelViewMatrix", "projectionMatrix", "modelMatrix", "viewMatrix", "normalMatrix", "cameraPosition"]
+  }
+}
