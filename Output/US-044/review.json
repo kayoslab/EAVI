@@ -1,0 +1,111 @@
+{
+  "plan_id": "US-044",
+  "summary": "Structurally sound plan that correctly extends the existing mode system. A few inaccuracies need correction before implementation.",
+  "issues": [
+    {
+      "severity": "must_fix",
+      "step": 2,
+      "description": "Step 2 claims '4 attributes' but the actual pointWarp.vert.glsl has 3 custom attributes (size, aHueOffset, aRandom) plus the built-in position, and pointCloud.ts creates 5 buffer attributes (position, color, size, aHueOffset, aRandom). Step 3 correctly lists 5. Step 2 must list all 5 to avoid a missing 'color' attribute at shader/geometry binding time.",
+      "fix": "Change step 2 attribute list to: 'Same 5 attributes as pointCloud: position(3), color(3), size(1), aHueOffset(1), aRandom(3)'. Note that color is set on the geometry buffer in JS, and consumed as the default vec3 attribute by Three.js — it does not need an explicit GLSL attribute declaration but MUST be present in BufferGeometry."
+    },
+    {
+      "severity": "must_fix",
+      "step": 2,
+      "description": "Step 2 says '18 uniforms' but then lists 20 (including uOpacity and uDisplacementScale). The actual pointWarp.vert.glsl has 19 uniforms (no uOpacity in vertex shader — uOpacity is only in pointWarp.frag.glsl). The ShaderMaterial uniform object in pointCloud.ts has 20 entries (19 vertex + uOpacity for fragment).",
+      "fix": "Say '20 uniforms matching pointCloud's ShaderMaterial' or just remove the count and say 'same uniform set as pointCloud'. The listed names are correct."
+    },
+    {
+      "severity": "should_fix",
+      "step": 1,
+      "description": "Adding 'crystalCluster' and 'geode' to the shared VOLUMETRIC_SHAPES array means pointCloud and ribbonField will also randomly select these shapes. The architectural notes acknowledge this ('enriches that mode') but it is an uncontrolled side effect that changes existing mode behavior and could affect visual regression for US-026/US-041.",
+      "fix": "Either (a) keep crystalCluster/geode in a separate CRYSTAL_SHAPES array not merged into VOLUMETRIC_SHAPES, passing it to generateVolumetricPoints via config, or (b) accept the side effect but document it as intentional in the commit message. Option (a) is safer."
+    },
+    {
+      "severity": "should_fix",
+      "step": 3,
+      "description": "crystalField.ts must export a readonly pointCount property (as PointCloud interface does) for the debug overlay's getPointCount to work. The plan's CrystalFieldConfig interface mentions maxPoints but does not mention exposing the actual computed point count.",
+      "fix": "Add 'readonly pointCount: number' to the returned object, set after effectiveCount is computed in init()."
+    },
+    {
+      "severity": "should_fix",
+      "step": 5,
+      "description": "main.ts line references are approximate. The actual modeManager is at lines 112-116 and debug modes at lines 126-130. More importantly, the plan should specify the insertion order — crystal as 4th entry means it appears last in rotation. Confirm this is the desired artistic sequencing.",
+      "fix": "Specify crystal as 4th entry (index 3) in the rotation: particles → ribbon → pointcloud → crystal. This gives variety before looping back."
+    },
+    {
+      "severity": "nit",
+      "step": 5,
+      "description": "quality.ts has no maxCrystalPoints field. Using Math.round(quality.maxPoints * 0.8) inline is fine for now but duplicates the 0.8 factor in two places (modeManager creation and debug modes array).",
+      "fix": "Compute const maxCrystalPoints = Math.round(quality.maxPoints * 0.8) once and reference it in both places."
+    }
+  ],
+  "missing_steps": [],
+  "testing_gaps": [],
+  "risks": [
+    {
+      "risk": "Shader compile failure from quantized noise",
+      "mitigation": "The quantized displacement approach (floor(noise * 4.0) / 4.0) is standard GLSL and should compile fine. However, test early — step 6 correctly gates on this.",
+      "likelihood": "low"
+    },
+    {
+      "risk": "Visual similarity to pointCloud mode",
+      "mitigation": "The faceted quantization + step-edge fragment + two-axis rotation should differentiate, but if the shapes overlap (especially if crystalCluster/geode leak into pointCloud per the shared array issue), modes may look too similar.",
+      "likelihood": "medium"
+    }
+  ],
+  "alignment_with_ticket": {
+    "second_mode_is_volumetric_and_point_based": "PASS — crystal uses THREE.Points + BufferGeometry with 3D positions",
+    "mode_uses_3d_deformation": "PASS — quantized fbm3 displacement in vertex shader",
+    "no_2d_line_or_flat_plane_geometries_remain": "PASS — step 4 explicitly audits for this; no such geometries exist in current codebase",
+    "mode_switching_preserves_audio_pipeline": "PASS — crystal reuses same uniform interface; modeManager handles transitions without touching audio graph"
+  },
+  "approved": true,
+  "concerns": [
+    "{\"severity\":\"must_fix\",\"step\":2,\"description\":\"Step 2 claims '4 attributes' but the actual pointWarp.vert.glsl has 3 custom attributes (size, aHueOffset, aRandom) plus the built-in position, and pointCloud.ts creates 5 buffer attributes (position, color, size, aHueOffset, aRandom). Step 3 correctly lists 5. Step 2 must list all 5 to avoid a missing 'color' attribute at shader/geometry binding time.\",\"fix\":\"Change step 2 attribute list to: 'Same 5 attributes as pointCloud: position(3), color(3), size(1), aHueOffset(1), aRandom(3)'. Note that color is set on the geometry buffer in JS, and consumed as the default vec3 attribute by Three.js — it does not need an explicit GLSL attribute declaration but MUST be present in BufferGeometry.\"}",
+    "{\"severity\":\"must_fix\",\"step\":2,\"description\":\"Step 2 says '18 uniforms' but then lists 20 (including uOpacity and uDisplacementScale). The actual pointWarp.vert.glsl has 19 uniforms (no uOpacity in vertex shader — uOpacity is only in pointWarp.frag.glsl). The ShaderMaterial uniform object in pointCloud.ts has 20 entries (19 vertex + uOpacity for fragment).\",\"fix\":\"Say '20 uniforms matching pointCloud's ShaderMaterial' or just remove the count and say 'same uniform set as pointCloud'. The listed names are correct.\"}",
+    "{\"severity\":\"should_fix\",\"step\":1,\"description\":\"Adding 'crystalCluster' and 'geode' to the shared VOLUMETRIC_SHAPES array means pointCloud and ribbonField will also randomly select these shapes. The architectural notes acknowledge this ('enriches that mode') but it is an uncontrolled side effect that changes existing mode behavior and could affect visual regression for US-026/US-041.\",\"fix\":\"Either (a) keep crystalCluster/geode in a separate CRYSTAL_SHAPES array not merged into VOLUMETRIC_SHAPES, passing it to generateVolumetricPoints via config, or (b) accept the side effect but document it as intentional in the commit message. Option (a) is safer.\"}",
+    "{\"severity\":\"should_fix\",\"step\":3,\"description\":\"crystalField.ts must export a readonly pointCount property (as PointCloud interface does) for the debug overlay's getPointCount to work. The plan's CrystalFieldConfig interface mentions maxPoints but does not mention exposing the actual computed point count.\",\"fix\":\"Add 'readonly pointCount: number' to the returned object, set after effectiveCount is computed in init().\"}",
+    "{\"severity\":\"should_fix\",\"step\":5,\"description\":\"main.ts line references are approximate. The actual modeManager is at lines 112-116 and debug modes at lines 126-130. More importantly, the plan should specify the insertion order — crystal as 4th entry means it appears last in rotation. Confirm this is the desired artistic sequencing.\",\"fix\":\"Specify crystal as 4th entry (index 3) in the rotation: particles → ribbon → pointcloud → crystal. This gives variety before looping back.\"}",
+    "{\"severity\":\"nit\",\"step\":5,\"description\":\"quality.ts has no maxCrystalPoints field. Using Math.round(quality.maxPoints * 0.8) inline is fine for now but duplicates the 0.8 factor in two places (modeManager creation and debug modes array).\",\"fix\":\"Compute const maxCrystalPoints = Math.round(quality.maxPoints * 0.8) once and reference it in both places.\"}"
+  ],
+  "decision": "APPROVE_WITH_CHANGES",
+  "failures": [
+    {
+      "severity": "must_fix",
+      "step": 2,
+      "description": "Step 2 claims '4 attributes' but the actual pointWarp.vert.glsl has 3 custom attributes (size, aHueOffset, aRandom) plus the built-in position, and pointCloud.ts creates 5 buffer attributes (position, color, size, aHueOffset, aRandom). Step 3 correctly lists 5. Step 2 must list all 5 to avoid a missing 'color' attribute at shader/geometry binding time.",
+      "fix": "Change step 2 attribute list to: 'Same 5 attributes as pointCloud: position(3), color(3), size(1), aHueOffset(1), aRandom(3)'. Note that color is set on the geometry buffer in JS, and consumed as the default vec3 attribute by Three.js — it does not need an explicit GLSL attribute declaration but MUST be present in BufferGeometry."
+    },
+    {
+      "severity": "must_fix",
+      "step": 2,
+      "description": "Step 2 says '18 uniforms' but then lists 20 (including uOpacity and uDisplacementScale). The actual pointWarp.vert.glsl has 19 uniforms (no uOpacity in vertex shader — uOpacity is only in pointWarp.frag.glsl). The ShaderMaterial uniform object in pointCloud.ts has 20 entries (19 vertex + uOpacity for fragment).",
+      "fix": "Say '20 uniforms matching pointCloud's ShaderMaterial' or just remove the count and say 'same uniform set as pointCloud'. The listed names are correct."
+    },
+    {
+      "severity": "should_fix",
+      "step": 1,
+      "description": "Adding 'crystalCluster' and 'geode' to the shared VOLUMETRIC_SHAPES array means pointCloud and ribbonField will also randomly select these shapes. The architectural notes acknowledge this ('enriches that mode') but it is an uncontrolled side effect that changes existing mode behavior and could affect visual regression for US-026/US-041.",
+      "fix": "Either (a) keep crystalCluster/geode in a separate CRYSTAL_SHAPES array not merged into VOLUMETRIC_SHAPES, passing it to generateVolumetricPoints via config, or (b) accept the side effect but document it as intentional in the commit message. Option (a) is safer."
+    },
+    {
+      "severity": "should_fix",
+      "step": 3,
+      "description": "crystalField.ts must export a readonly pointCount property (as PointCloud interface does) for the debug overlay's getPointCount to work. The plan's CrystalFieldConfig interface mentions maxPoints but does not mention exposing the actual computed point count.",
+      "fix": "Add 'readonly pointCount: number' to the returned object, set after effectiveCount is computed in init()."
+    },
+    {
+      "severity": "should_fix",
+      "step": 5,
+      "description": "main.ts line references are approximate. The actual modeManager is at lines 112-116 and debug modes at lines 126-130. More importantly, the plan should specify the insertion order — crystal as 4th entry means it appears last in rotation. Confirm this is the desired artistic sequencing.",
+      "fix": "Specify crystal as 4th entry (index 3) in the rotation: particles → ribbon → pointcloud → crystal. This gives variety before looping back."
+    },
+    {
+      "severity": "nit",
+      "step": 5,
+      "description": "quality.ts has no maxCrystalPoints field. Using Math.round(quality.maxPoints * 0.8) inline is fine for now but duplicates the 0.8 factor in two places (modeManager creation and debug modes array).",
+      "fix": "Compute const maxCrystalPoints = Math.round(quality.maxPoints * 0.8) once and reference it in both places."
+    }
+  ],
+  "adr_entry": null
+}
