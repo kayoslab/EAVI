@@ -1,6 +1,11 @@
 import type { Scene } from 'three';
 import type { VisualParams } from './mappings';
 
+export interface AttributeSpec {
+  name: string;
+  itemSize: number;
+}
+
 export interface FrameState {
   time: number;
   delta: number;

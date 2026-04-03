@@ -97,6 +97,7 @@ export function startLoop(
   let smoothBass = 0;
   let smoothDisturbance = 0;
   let cameraInitialized = false;
+  let geometryValid = false;
 
   const frame = (time: number) => {
     if (startTime < 0) startTime = time;
@@ -163,20 +164,26 @@ export function startLoop(
 
     // Initialize geometry system on first frame with real deps
     if (d.geometrySystem && d.seed && !geoInitialized) {
-      // US-048: If the geometry system supports initAllForValidation, use it
-      // to compile all shaders upfront and validate before first render
-      const gs = d.geometrySystem as unknown as Record<string, unknown>;
-      if (typeof gs.initAllForValidation === 'function' && d.errorCollector && typeof renderer.compile === 'function') {
-        (gs.initAllForValidation as (s: typeof scene, seed: string, p: typeof params) => void)(scene, d.seed, params);
-        validateShaderCompilation(renderer, scene, camera, d.errorCollector);
-        (gs.cleanupInactive as () => void)();
-      } else {
-        d.geometrySystem.init(scene, d.seed, params);
+      try {
+        // US-048: If the geometry system supports initAllForValidation, use it
+        // to compile all shaders upfront and validate before first render
+        const gs = d.geometrySystem as unknown as Record<string, unknown>;
+        if (typeof gs.initAllForValidation === 'function' && d.errorCollector && typeof renderer.compile === 'function') {
+          (gs.initAllForValidation as (s: typeof scene, seed: string, p: typeof params) => void)(scene, d.seed, params);
+          validateShaderCompilation(renderer, scene, camera, d.errorCollector);
+          (gs.cleanupInactive as () => void)();
+        } else {
+          d.geometrySystem.init(scene, d.seed, params);
+        }
+        geometryValid = true;
+      } catch (err) {
+        console.error('Geometry init failed:', err);
+        geometryValid = false;
       }
       geoInitialized = true;
 
       // Remove placeholder mesh and its lights now that geometry systems are active
-      if (d.placeholderMesh) {
+      if (d.placeholderMesh && geometryValid) {
         scene.remove(d.placeholderMesh);
         if (d.placeholderMesh.geometry) d.placeholderMesh.geometry.dispose();
         if (d.placeholderMesh.material) {
@@ -202,8 +209,8 @@ export function startLoop(
       d.placeholderMesh.rotation.x += delta * 0.0001;
     }
 
-    // Draw geometry
-    if (d.geometrySystem && geoInitialized) {
+    // Draw geometry — only if init succeeded
+    if (d.geometrySystem && geoInitialized && geometryValid) {
       d.geometrySystem.draw(scene, {
         time,
         delta,
