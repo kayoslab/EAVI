@@ -1,0 +1,486 @@
+{
+  "ticket": "US-050",
+  "title": "Add geometry attribute sanity checks",
+  "testFiles": [
+    {
+      "path": "tests/visual/geometryValidator.test.ts",
+      "purpose": "Unit tests for the pure validation utility that checks BufferGeometry attributes for existence, correct item sizes, and finite values",
+      "tests": [
+        {
+          "id": "T-050-01",
+          "description": "validateGeometryAttributes returns ok:true for geometry with all required attributes at correct item sizes and finite values",
+          "type": "unit",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size", "All required custom attributes exist before material assignment"],
+          "setup": "Create BufferGeometry with position(3), color(3), size(1), aHueOffset(1), aRandom(3) — all filled with valid finite Float32Array values",
+          "assertions": [
+            "result.ok === true",
+            "result.errors.length === 0"
+          ]
+        },
+        {
+          "id": "T-050-02",
+          "description": "validateGeometryAttributes detects missing attribute and returns descriptive error",
+          "type": "unit",
+          "acceptance_criteria": ["All required custom attributes exist before material assignment"],
+          "setup": "Create BufferGeometry with position(3) only, expected schema requires position(3) and size(1)",
+          "assertions": [
+            "result.ok === false",
+            "result.errors has entry with attribute:'size'",
+            "error reason includes 'missing' or similar descriptor"
+          ]
+        },
+        {
+          "id": "T-050-03",
+          "description": "validateGeometryAttributes detects wrong itemSize for position attribute",
+          "type": "unit",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size"],
+          "setup": "Create BufferGeometry with position attribute set to itemSize=2 instead of expected 3",
+          "assertions": [
+            "result.ok === false",
+            "result.errors has entry with attribute:'position'",
+            "error reason mentions expected itemSize 3 vs actual 2"
+          ]
+        },
+        {
+          "id": "T-050-04",
+          "description": "validateGeometryAttributes detects NaN values in position buffer",
+          "type": "unit",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create valid BufferGeometry, inject NaN at positionsArr[3] (second point x-coordinate)",
+          "assertions": [
+            "result.ok === false",
+            "result.errors has entry with attribute:'position'",
+            "error reason mentions NaN or non-finite"
+          ]
+        },
+        {
+          "id": "T-050-05",
+          "description": "validateGeometryAttributes detects Infinity values in size buffer",
+          "type": "unit",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create valid BufferGeometry with size attribute, inject Infinity at sizesArr[0]",
+          "assertions": [
+            "result.ok === false",
+            "result.errors has entry with attribute:'size'",
+            "error reason mentions Infinity or non-finite"
+          ]
+        },
+        {
+          "id": "T-050-06",
+          "description": "validateGeometryAttributes detects negative Infinity in aRandom buffer",
+          "type": "unit",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create valid BufferGeometry with aRandom(3) attribute, inject -Infinity at index 0",
+          "assertions": [
+            "result.ok === false",
+            "result.errors has entry with attribute:'aRandom'"
+          ]
+        },
+        {
+          "id": "T-050-07",
+          "description": "validateGeometryAttributes passes for empty geometry (0-length Float32Arrays)",
+          "type": "unit",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size"],
+          "setup": "Create BufferGeometry with all required attributes using new Float32Array(0) — zero points is a valid edge case",
+          "assertions": [
+            "result.ok === true",
+            "result.errors.length === 0"
+          ]
+        },
+        {
+          "id": "T-050-08",
+          "description": "validateGeometryAttributes passes for single-point geometry with valid values",
+          "type": "unit",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size", "All required custom attributes exist before material assignment"],
+          "setup": "Create BufferGeometry with 1 point: position=[1,2,3], color=[0.5,0.5,0.5], size=[0.04], aHueOffset=[10], aRandom=[0.1,0.2,0.3]",
+          "assertions": [
+            "result.ok === true",
+            "result.errors.length === 0"
+          ]
+        },
+        {
+          "id": "T-050-09",
+          "description": "validateGeometryAttributes reports multiple errors when multiple attributes are invalid",
+          "type": "unit",
+          "acceptance_criteria": ["All required custom attributes exist before material assignment", "Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create BufferGeometry missing 'color' and with NaN in 'size' buffer",
+          "assertions": [
+            "result.ok === false",
+            "result.errors.length >= 2",
+            "errors include one for 'color' (missing) and one for 'size' (non-finite)"
+          ]
+        },
+        {
+          "id": "T-050-10",
+          "description": "validateGeometryAttributes with no expected attributes passes any geometry",
+          "type": "unit",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size"],
+          "setup": "Create empty BufferGeometry and call validateGeometryAttributes with empty expectedAttrs array",
+          "assertions": [
+            "result.ok === true",
+            "result.errors.length === 0"
+          ]
+        },
+        {
+          "id": "T-050-11",
+          "description": "validateGeometryAttributes detects wrong itemSize on custom attribute (aRandom expects 3, given 1)",
+          "type": "unit",
+          "acceptance_criteria": ["All required custom attributes exist before material assignment"],
+          "setup": "Create BufferGeometry with aRandom set to itemSize=1 instead of expected 3",
+          "assertions": [
+            "result.ok === false",
+            "result.errors has entry with attribute:'aRandom' mentioning itemSize mismatch"
+          ]
+        },
+        {
+          "id": "T-050-12",
+          "description": "validateGeometryAttributes accepts negative finite values (valid for positions)",
+          "type": "unit",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create BufferGeometry with position values like [-5.0, -3.2, -1.0] — all negative but finite",
+          "assertions": [
+            "result.ok === true"
+          ]
+        },
+        {
+          "id": "T-050-13",
+          "description": "validateGeometryAttributes accepts zero values in all buffers (valid edge case)",
+          "type": "unit",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create BufferGeometry where all Float32Array values are 0.0",
+          "assertions": [
+            "result.ok === true"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/systems/pointCloud.test.ts",
+      "purpose": "Integration tests verifying that pointCloud.init() validates geometry attributes and rejects invalid state",
+      "existingFile": true,
+      "describeBlock": "US-050: PointCloud geometry attribute validation",
+      "tests": [
+        {
+          "id": "T-050-14",
+          "description": "pointCloud init() succeeds with valid seed and params (geometry passes validation)",
+          "type": "integration",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size", "All required custom attributes exist before material assignment"],
+          "setup": "createPointCloud() with default config, init with valid seed and defaultParams",
+          "assertions": [
+            "init() does not throw",
+            "scene has a THREE.Points mesh"
+          ]
+        },
+        {
+          "id": "T-050-15",
+          "description": "pointCloud geometry has all required attributes after init: position(3), color(3), size(1), aHueOffset(1), aRandom(3)",
+          "type": "integration",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size", "All required custom attributes exist before material assignment"],
+          "setup": "createPointCloud(), init with valid params, get geometry from Points mesh",
+          "assertions": [
+            "geometry.getAttribute('position') exists with itemSize === 3",
+            "geometry.getAttribute('color') exists with itemSize === 3",
+            "geometry.getAttribute('size') exists with itemSize === 1",
+            "geometry.getAttribute('aHueOffset') exists with itemSize === 1",
+            "geometry.getAttribute('aRandom') exists with itemSize === 3"
+          ]
+        },
+        {
+          "id": "T-050-16",
+          "description": "pointCloud position buffer contains only finite values after init (no NaN or Infinity)",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "createPointCloud(), init with valid params, read position attribute array",
+          "assertions": [
+            "Every value in position Float32Array passes Number.isFinite()",
+            "No value is NaN"
+          ]
+        },
+        {
+          "id": "T-050-17",
+          "description": "pointCloud all buffer attributes contain only finite values after init",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "createPointCloud(), init with valid params, read all attribute arrays",
+          "assertions": [
+            "Every value in color array passes Number.isFinite()",
+            "Every value in size array passes Number.isFinite()",
+            "Every value in aHueOffset array passes Number.isFinite()",
+            "Every value in aRandom array passes Number.isFinite()"
+          ]
+        },
+        {
+          "id": "T-050-18",
+          "description": "pointCloud position buffer values are finite at boundary params (density=0, density=1, structureComplexity=1)",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create pointCloud for each boundary param combo, verify position arrays after init",
+          "assertions": [
+            "All position values finite for density=0",
+            "All position values finite for density=1, structureComplexity=1"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/systems/particleField.test.ts",
+      "purpose": "Integration tests verifying that particleField.init() validates geometry attributes and rejects invalid state",
+      "existingFile": true,
+      "describeBlock": "US-050: ParticleField geometry attribute validation",
+      "tests": [
+        {
+          "id": "T-050-19",
+          "description": "particleField init() succeeds with valid seed and params (geometry passes validation)",
+          "type": "integration",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size", "All required custom attributes exist before material assignment"],
+          "setup": "createParticleField() with default config, init with valid seed and defaultParams",
+          "assertions": [
+            "init() does not throw",
+            "scene has a THREE.Points mesh"
+          ]
+        },
+        {
+          "id": "T-050-20",
+          "description": "particleField geometry has all required attributes after init: position(3), size(1), aHueOffset(1), aRandom(3) — no color attribute",
+          "type": "integration",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size", "All required custom attributes exist before material assignment"],
+          "setup": "createParticleField(), init with valid params, get geometry from Points mesh",
+          "assertions": [
+            "geometry.getAttribute('position') exists with itemSize === 3",
+            "geometry.getAttribute('size') exists with itemSize === 1",
+            "geometry.getAttribute('aHueOffset') exists with itemSize === 1",
+            "geometry.getAttribute('aRandom') exists with itemSize === 3",
+            "geometry.getAttribute('color') is falsy (particleField does not set color attribute)"
+          ]
+        },
+        {
+          "id": "T-050-21",
+          "description": "particleField position buffer contains only finite values after init",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "createParticleField(), init with valid params, read position attribute array",
+          "assertions": [
+            "Every value in position Float32Array passes Number.isFinite()"
+          ]
+        },
+        {
+          "id": "T-050-22",
+          "description": "particleField all buffer attributes contain only finite values after init",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "createParticleField(), init with valid params, read all attribute arrays",
+          "assertions": [
+            "Every value in size array passes Number.isFinite()",
+            "Every value in aHueOffset array passes Number.isFinite()",
+            "Every value in aRandom array passes Number.isFinite()"
+          ]
+        },
+        {
+          "id": "T-050-23",
+          "description": "particleField position buffer values are finite at boundary params (density=0, density=1)",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create particleField for density=0 and density=1 boundary cases, verify position arrays after init",
+          "assertions": [
+            "All position values finite for density=0",
+            "All position values finite for density=1"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/systems/ribbonField.test.ts",
+      "purpose": "Integration tests verifying that ribbonField.init() validates geometry attributes and rejects invalid state",
+      "existingFile": true,
+      "describeBlock": "US-050: RibbonField geometry attribute validation",
+      "tests": [
+        {
+          "id": "T-050-24",
+          "description": "ribbonField init() succeeds with valid seed and params (geometry passes validation)",
+          "type": "integration",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size", "All required custom attributes exist before material assignment"],
+          "setup": "createRibbonField() with default config, init with valid seed and defaultParams",
+          "assertions": [
+            "init() does not throw",
+            "scene has a THREE.Points mesh"
+          ]
+        },
+        {
+          "id": "T-050-25",
+          "description": "ribbonField geometry has all required attributes after init: position(3), color(3), size(1), aHueOffset(1), aRandom(3)",
+          "type": "integration",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size", "All required custom attributes exist before material assignment"],
+          "setup": "createRibbonField(), init with valid params, get geometry from Points mesh",
+          "assertions": [
+            "geometry.getAttribute('position') exists with itemSize === 3",
+            "geometry.getAttribute('color') exists with itemSize === 3",
+            "geometry.getAttribute('size') exists with itemSize === 1",
+            "geometry.getAttribute('aHueOffset') exists with itemSize === 1",
+            "geometry.getAttribute('aRandom') exists with itemSize === 3"
+          ]
+        },
+        {
+          "id": "T-050-26",
+          "description": "ribbonField position buffer contains only finite values after init",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "createRibbonField(), init with valid params, read position attribute array",
+          "assertions": [
+            "Every value in position Float32Array passes Number.isFinite()"
+          ]
+        },
+        {
+          "id": "T-050-27",
+          "description": "ribbonField all buffer attributes contain only finite values after init",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "createRibbonField(), init with valid params, read all attribute arrays",
+          "assertions": [
+            "Every value in color array passes Number.isFinite()",
+            "Every value in size array passes Number.isFinite()",
+            "Every value in aHueOffset array passes Number.isFinite()",
+            "Every value in aRandom array passes Number.isFinite()"
+          ]
+        },
+        {
+          "id": "T-050-28",
+          "description": "ribbonField position buffer values are finite at boundary params (density=0, structureComplexity=1, curveSoftness=0)",
+          "type": "integration",
+          "acceptance_criteria": ["Geometry initialization rejects NaN or non-finite values in critical buffers"],
+          "setup": "Create ribbonField for boundary param combos, verify position arrays after init",
+          "assertions": [
+            "All position values finite for density=0",
+            "All position values finite for density=1, structureComplexity=1, curveSoftness=0"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/renderLoop.test.ts",
+      "purpose": "Tests verifying that the render loop gates on valid geometry state and does not call draw() when geometry init fails",
+      "existingFile": true,
+      "describeBlock": "US-050: Render loop geometry gate",
+      "tests": [
+        {
+          "id": "T-050-29",
+          "description": "render loop does not call geometrySystem.draw() when geometrySystem.init() throws",
+          "type": "integration",
+          "acceptance_criteria": ["Renderer does not enter the main loop with invalid geometry state"],
+          "setup": "Create a mock geometrySystem where init() throws Error('invalid geometry'). Provide seed and signals so init path is triggered. Run 3 frames via mocked requestAnimationFrame.",
+          "assertions": [
+            "geometrySystem.init was called once",
+            "geometrySystem.draw was never called",
+            "renderer.render was still called (loop continues for camera/placeholder)"
+          ]
+        },
+        {
+          "id": "T-050-30",
+          "description": "render loop calls geometrySystem.draw() normally when init() succeeds",
+          "type": "integration",
+          "acceptance_criteria": ["Renderer does not enter the main loop with invalid geometry state"],
+          "setup": "Create a mock geometrySystem where init() succeeds (no throw). Provide seed and signals. Run 3 frames.",
+          "assertions": [
+            "geometrySystem.init was called once",
+            "geometrySystem.draw was called on subsequent frames",
+            "renderer.render was called each frame"
+          ]
+        },
+        {
+          "id": "T-050-31",
+          "description": "render loop does not call draw() when initAllForValidation path throws",
+          "type": "integration",
+          "acceptance_criteria": ["Renderer does not enter the main loop with invalid geometry state"],
+          "setup": "Create a mock geometrySystem with initAllForValidation method that throws. Provide errorCollector and renderer with compile method. Run 3 frames.",
+          "assertions": [
+            "geometrySystem.draw was never called",
+            "renderer.render was still called (loop does not crash)"
+          ]
+        },
+        {
+          "id": "T-050-32",
+          "description": "render loop logs error to console when geometry init fails",
+          "type": "integration",
+          "acceptance_criteria": ["Renderer does not enter the main loop with invalid geometry state"],
+          "setup": "Create mock geometrySystem with init() that throws. Spy on console.error. Run frames.",
+          "assertions": [
+            "console.error was called with a message containing the init error"
+          ]
+        },
+        {
+          "id": "T-050-33",
+          "description": "render loop still removes placeholder mesh even when geometry init fails",
+          "type": "integration",
+          "acceptance_criteria": ["Renderer does not enter the main loop with invalid geometry state"],
+          "setup": "Create mock geometrySystem with init() that throws. Provide placeholderMesh. Run frames.",
+          "assertions": [
+            "placeholderMesh is not removed from scene (stays as fallback since geometry failed)",
+            "OR placeholderMesh is removed depending on implementation — key point is no crash"
+          ]
+        },
+        {
+          "id": "T-050-34",
+          "description": "render loop continues camera updates and rendering even with invalid geometry",
+          "type": "integration",
+          "acceptance_criteria": ["Renderer does not enter the main loop with invalid geometry state"],
+          "setup": "Create mock geometrySystem with init() that throws. Provide seed for camera init. Run 3 frames.",
+          "assertions": [
+            "renderer.render is called each frame",
+            "No uncaught exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "tests/visual/types.test.ts",
+      "purpose": "Tests verifying the AttributeSpec type is properly exported and usable",
+      "existingFile": true,
+      "describeBlock": "US-050: AttributeSpec type",
+      "tests": [
+        {
+          "id": "T-050-35",
+          "description": "AttributeSpec type can describe geometry attribute expectations with name and itemSize",
+          "type": "unit",
+          "acceptance_criteria": ["Position attribute exists and matches expected item size"],
+          "setup": "Import AttributeSpec from types.ts, create an array of AttributeSpec objects matching pointCloud schema",
+          "assertions": [
+            "Array of AttributeSpec objects compiles and has correct shape",
+            "Each entry has string name and number itemSize"
+          ]
+        }
+      ]
+    }
+  ],
+  "testUtilities": {
+    "sharedFixtures": {
+      "defaultParams": {
+        "location": "Each test file defines its own defaultParams (existing pattern)",
+        "shape": "VisualParams with paletteHue:180, paletteSaturation:0.5, cadence:0.7, density:0.6, motionAmplitude:1.0, etc."
+      },
+      "validGeometryFactory": {
+        "purpose": "Helper to create a valid BufferGeometry with all standard attributes for validator unit tests",
+        "location": "tests/visual/geometryValidator.test.ts (local helper)",
+        "attributes": [
+          { "name": "position", "itemSize": 3 },
+          { "name": "color", "itemSize": 3 },
+          { "name": "size", "itemSize": 1 },
+          { "name": "aHueOffset", "itemSize": 1 },
+          { "name": "aRandom", "itemSize": 3 }
+        ]
+      }
+    }
+  },
+  "coverageNotes": {
+    "acceptance_criteria_mapping": {
+      "Position attribute exists and matches expected item size": ["T-050-01", "T-050-03", "T-050-07", "T-050-08", "T-050-15", "T-050-20", "T-050-25", "T-050-35"],
+      "All required custom attributes exist before material assignment": ["T-050-01", "T-050-02", "T-050-08", "T-050-09", "T-050-11", "T-050-15", "T-050-20", "T-050-25"],
+      "Geometry initialization rejects NaN or non-finite values in critical buffers": ["T-050-04", "T-050-05", "T-050-06", "T-050-09", "T-050-12", "T-050-13", "T-050-16", "T-050-17", "T-050-18", "T-050-21", "T-050-22", "T-050-23", "T-050-26", "T-050-27", "T-050-28"],
+      "Renderer does not enter the main loop with invalid geometry state": ["T-050-29", "T-050-30", "T-050-31", "T-050-32", "T-050-33", "T-050-34"]
+    },
+    "systemSpecificNotes": {
+      "particleField": "Does NOT have a 'color' buffer attribute — colors are computed GPU-side. Its REQUIRED_ATTRIBUTES should be position(3), size(1), aHueOffset(1), aRandom(3). Test T-050-20 explicitly verifies color is absent.",
+      "pointCloud": "Has all 5 attributes including color(3).",
+      "ribbonField": "Has all 5 attributes including color(3).",
+      "renderLoop": "Has two init paths: direct init() and initAllForValidation+validateShaderCompilation. Both paths must be wrapped in try/catch with geometryValid flag. Tests T-050-29 and T-050-31 cover both branches."
+    }
+  }
+}
