@@ -594,3 +594,144 @@ describe('US-035: Smooth visual transitions between 3D modes', () => {
     expect(() => manager.draw(scene, makeFrame({ elapsed: 205_000 }))).not.toThrow();
   });
 });
+
+describe('US-048: Shader validation — ModeManager integration', () => {
+  it('T-048-11: initAllForValidation calls init() on ALL geometry systems', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+    const mockC = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+      { name: 'c', factory: () => mockC },
+    ]);
+    manager.initAllForValidation(scene, 'val-seed', defaultParams);
+
+    expect(mockA.init).toHaveBeenCalledTimes(1);
+    expect(mockB.init).toHaveBeenCalledTimes(1);
+    expect(mockC.init).toHaveBeenCalledTimes(1);
+
+    // All receive same seed and params
+    expect(mockA.init).toHaveBeenCalledWith(scene, 'val-seed', defaultParams);
+    expect(mockB.init).toHaveBeenCalledWith(scene, 'val-seed', defaultParams);
+    expect(mockC.init).toHaveBeenCalledWith(scene, 'val-seed', defaultParams);
+  });
+
+  it('T-048-12: initAllForValidation sets opacity to 0 on non-active systems', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+    const mockC = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+      { name: 'c', factory: () => mockC },
+    ]);
+    manager.initAllForValidation(scene, 'opacity-val-seed', defaultParams);
+
+    const mocks = [mockA, mockB, mockC];
+    const active = manager.activeIndex;
+
+    for (let i = 0; i < mocks.length; i++) {
+      if (i !== active) {
+        expect(mocks[i].setOpacity).toHaveBeenCalledWith(0);
+      } else {
+        // Active system should NOT have setOpacity(0) called
+        const zeroCall = mocks[i].setOpacity.mock.calls.find((c: number[]) => c[0] === 0);
+        expect(zeroCall).toBeUndefined();
+      }
+    }
+  });
+
+  it('T-048-13: cleanupInactive calls cleanup() only on non-active systems', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+    const mockC = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+      { name: 'c', factory: () => mockC },
+    ]);
+    manager.initAllForValidation(scene, 'cleanup-val-seed', defaultParams);
+
+    const active = manager.activeIndex;
+    manager.cleanupInactive();
+
+    const mocks = [mockA, mockB, mockC];
+    for (let i = 0; i < mocks.length; i++) {
+      if (i !== active) {
+        expect(mocks[i].cleanup).toHaveBeenCalled();
+      } else {
+        expect(mocks[i].cleanup).not.toHaveBeenCalled();
+      }
+    }
+  });
+
+  it('T-048-14: cleanupInactive does not throw when cleanup is undefined', () => {
+    const mockA = createMockGeometrySystem(); // no cleanup defined
+    const mockB = createMockGeometrySystemWithOpacity();
+    const mockC = createMockGeometrySystem(); // no cleanup defined
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+      { name: 'c', factory: () => mockC },
+    ]);
+    manager.initAllForValidation(scene, 'no-cleanup-val-seed', defaultParams);
+
+    expect(() => manager.cleanupInactive()).not.toThrow();
+  });
+
+  it('T-048-15: after initAllForValidation + cleanupInactive, draw() still works for active system', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+    const mockC = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+      { name: 'c', factory: () => mockC },
+    ]);
+    manager.initAllForValidation(scene, 'draw-val-seed', defaultParams);
+    manager.cleanupInactive();
+
+    const mocks = [mockA, mockB, mockC];
+    const active = manager.activeIndex;
+
+    expect(() => manager.draw(scene, makeFrame())).not.toThrow();
+    expect(mocks[active].draw).toHaveBeenCalled();
+  });
+
+  it('T-048-17: initAllForValidation sets initialized flag — draw works without extra init', () => {
+    const mockA = createMockGeometrySystemWithOpacity();
+    const mockB = createMockGeometrySystemWithOpacity();
+
+    const scene = createTestScene();
+    const manager = createModeManager([
+      { name: 'a', factory: () => mockA },
+      { name: 'b', factory: () => mockB },
+    ]);
+    manager.initAllForValidation(scene, 'init-flag-seed', defaultParams);
+
+    // Clear init call histories
+    mockA.init.mockClear();
+    mockB.init.mockClear();
+
+    manager.draw(scene, makeFrame());
+
+    const mocks = [mockA, mockB];
+    const active = manager.activeIndex;
+    expect(mocks[active].draw).toHaveBeenCalled();
+
+    // No extra init calls
+    expect(mockA.init).not.toHaveBeenCalled();
+    expect(mockB.init).not.toHaveBeenCalled();
+  });
+});

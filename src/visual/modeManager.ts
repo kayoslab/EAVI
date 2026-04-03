@@ -11,6 +11,8 @@ export interface ModeEntry {
 export interface ModeManager extends GeometrySystem {
   readonly activeIndex: number;
   readonly transitioning: boolean;
+  initAllForValidation(scene: Scene, seed: string, params: VisualParams): void;
+  cleanupInactive(): void;
 }
 
 function smoothstep(t: number): number {
@@ -63,6 +65,30 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
       selectInitialMode(seed);
       systems[activeIndex].init(scene, seed, params);
       initialized = true;
+    },
+
+    initAllForValidation(
+      scene: Scene,
+      s: string,
+      params: VisualParams,
+    ): void {
+      seed = s;
+      selectInitialMode(seed);
+      for (let i = 0; i < systems.length; i++) {
+        systems[i].init(scene, seed, params);
+        if (i !== activeIndex) {
+          systems[i].setOpacity?.(0);
+        }
+      }
+      initialized = true;
+    },
+
+    cleanupInactive(): void {
+      for (let i = 0; i < systems.length; i++) {
+        if (i !== activeIndex) {
+          systems[i].cleanup?.();
+        }
+      }
     },
 
     draw(scene: Scene, frame: FrameState): void {

@@ -8,6 +8,8 @@ import type { PointerState } from '../input/pointer';
 import type { AnalyserPipeline } from '../audio/analyser';
 import type { GeometrySystem } from './types';
 import type { QualityProfile } from './quality';
+import type { ShaderErrorCollector } from './shaderErrorCollector';
+import { validateShaderCompilation } from './shaderValidation';
 import { initCameraMotion, updateCamera } from './cameraMotion';
 
 export interface LoopDeps {
@@ -21,6 +23,7 @@ export interface LoopDeps {
   placeholderAmbient?: AmbientLight | null;
   placeholderDirectional?: DirectionalLight | null;
   quality?: QualityProfile | null;
+  errorCollector?: ShaderErrorCollector | null;
   onDebugFrame?: ((data: { fps: number; modeName: string; pointCount: number; bass: number; treble: number }) => void) | null;
   getModeName?: (() => string) | null;
   getPointCount?: (() => number) | null;
@@ -160,7 +163,16 @@ export function startLoop(
 
     // Initialize geometry system on first frame with real deps
     if (d.geometrySystem && d.seed && !geoInitialized) {
-      d.geometrySystem.init(scene, d.seed, params);
+      // US-048: If the geometry system supports initAllForValidation, use it
+      // to compile all shaders upfront and validate before first render
+      const gs = d.geometrySystem as unknown as Record<string, unknown>;
+      if (typeof gs.initAllForValidation === 'function' && d.errorCollector && typeof renderer.compile === 'function') {
+        (gs.initAllForValidation as (s: typeof scene, seed: string, p: typeof params) => void)(scene, d.seed, params);
+        validateShaderCompilation(renderer, scene, camera, d.errorCollector);
+        (gs.cleanupInactive as () => void)();
+      } else {
+        d.geometrySystem.init(scene, d.seed, params);
+      }
       geoInitialized = true;
 
       // Remove placeholder mesh and its lights now that geometry systems are active
