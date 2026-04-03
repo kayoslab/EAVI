@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
-import type { FrameState, GeometrySystem, AttributeSpec } from '../types';
+import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
+import { PARTICLEFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import particleWarpVert from '../shaders/particleWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/particleWarp.frag.glsl?raw';
@@ -16,13 +17,7 @@ const vertexShader =
 
 const DEFAULT_MAX_PARTICLES = 600;
 
-// Must stay in sync with setAttribute calls in init() — no color attribute (GPU-computed)
-const REQUIRED_ATTRIBUTES: AttributeSpec[] = [
-  { name: 'position', itemSize: 3 },
-  { name: 'size', itemSize: 1 },
-  { name: 'aHueOffset', itemSize: 1 },
-  { name: 'aRandom', itemSize: 3 },
-];
+const REQUIRED_ATTRIBUTES = PARTICLEFIELD_ATTRIBUTES;
 
 export interface ParticleFieldConfig {
   maxParticles?: number;

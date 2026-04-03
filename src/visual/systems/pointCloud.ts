@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
-import type { FrameState, GeometrySystem, AttributeSpec } from '../types';
+import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
+import { POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/pointWarp.frag.glsl?raw';
@@ -14,14 +15,7 @@ import type { VolumetricShape } from '../generators/volumetricPoints';
 
 const DEFAULT_MAX_POINTS = 1200;
 
-// Must stay in sync with setAttribute calls in init()
-const REQUIRED_ATTRIBUTES: AttributeSpec[] = [
-  { name: 'position', itemSize: 3 },
-  { name: 'color', itemSize: 3 },
-  { name: 'size', itemSize: 1 },
-  { name: 'aHueOffset', itemSize: 1 },
-  { name: 'aRandom', itemSize: 3 },
-];
+const REQUIRED_ATTRIBUTES = POINTCLOUD_ATTRIBUTES;
 
 export interface PointCloudConfig {
   maxPoints?: number;
