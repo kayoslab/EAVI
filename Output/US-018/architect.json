@@ -1,34 +1,57 @@
 {
   "ticket": "US-018",
-  "risk": "low",
-  "reason": "Plan is already fully implemented and tested. All four acceptance criteria are satisfied with dedicated test coverage. The architecture follows the established signal-to-visual pipeline pattern (analyser → render loop → mappings → geometry system) without introducing new abstractions or cross-cutting concerns. Changes are scoped to five files in the existing module hierarchy with no new dependencies, no storage API violations, and no API surface changes.",
-  "architectural_impact": {
-    "new_interfaces": [
-      "VisualParams.bassEnergy field (additive, non-breaking)"
+  "planTitle": "Map bass response to macro motion",
+  "architecturalImpact": "none",
+  "riskLevel": "low",
+  "summary": "Plan involves no architectural changes. All bass-to-macro-motion infrastructure (audio extraction, mapping, camera motion, mesh rotation, shader deformation, synthetic fallback) is already implemented across existing modules. Work is limited to unskipping three tests, fixing stale test assertions from the Canvas2D→Three.js migration, and verifying acceptance criteria. Production code changes are unlikely unless T-018-04 reveals a clamping gap in vertex shaders.",
+  "structuralChanges": {
+    "newModules": [],
+    "modifiedModules": [
+      "tests/visual/bassMotion.test.ts"
     ],
-    "modified_modules": [
-      "src/visual/mappings.ts — added bassToMacro() and bassEnergy to VisualParams",
-      "src/visual/renderLoop.ts — added computeBassAvg(), EMA smoothing, synthetic fallback",
-      "src/visual/systems/particleField.ts — consumes bassEnergy as velocity multiplier",
-      "src/visual/types.ts — VisualParams re-export includes bassEnergy"
+    "potentiallyModifiedModules": [
+      "src/visual/shaders/pointWarp.vert.glsl",
+      "src/visual/shaders/ribbonWarp.vert.glsl",
+      "src/visual/shaders/particleWarp.vert.glsl"
     ],
-    "new_modules": [],
-    "dependency_graph_changes": "None. particleField already consumed VisualParams; renderLoop already polled AnalyserPipeline. No new import edges.",
-    "cross_cutting_concerns": "None. Bass processing is contained within the existing per-frame data flow.",
-    "public_api_changes": "None. No new endpoints, exports, or user-facing contracts."
+    "removedModules": [],
+    "newDependencies": [],
+    "newEndpoints": [],
+    "newPublicAPIs": []
   },
-  "conformance": {
-    "privacy_model": "pass — no storage APIs, no raw identifiers, bass data stays in memory",
-    "audio_pipeline": "pass — analysis continues while muted via AnalyserNode-before-GainNode routing; synthetic fallback covers silent/blocked states",
-    "accessibility": "pass — prefers-reduced-motion scales motionAmplitude to 0.2, tested in T-018-05",
-    "performance": "pass — buffer reuse via pre-allocated Uint8Array, no per-frame object creation, toroidal wrap avoids particle respawn cost",
-    "definition_of_done": "pass — build succeeds, no console errors, no forbidden storage, works with/without autoplay, mute toggle and info overlay unaffected"
+  "concerns": [
+    {
+      "area": "test-infrastructure",
+      "severity": "low",
+      "detail": "Skipped tests may reference Canvas2D-era APIs and require updates to work with Three.js BufferGeometry. This is test maintenance, not architectural risk."
+    },
+    {
+      "area": "shader-bounds",
+      "severity": "low",
+      "detail": "Stacked shader deformations (radial expansion × noise × twist × drift) at max bass could push vertices outside frustum. Existing per-effect caps mitigate this, but T-018-04 will confirm. If clamping is needed, it is a localized shader fix, not an architectural change."
+    },
+    {
+      "area": "headless-gl",
+      "severity": "low",
+      "detail": "Verifying GPU-side displacement in tests may require headless GL context or CPU-side approximation. This is a test tooling concern, not architectural."
+    }
+  ],
+  "moduleCoherence": "high",
+  "crossCuttingImpact": "none",
+  "signalFlowIntegrity": "preserved",
+  "privacyModelImpact": "none",
+  "performanceImpact": "none",
+  "adrConflicts": [],
+  "claudeMdCompliance": {
+    "3dRequirement": "satisfied — plan preserves existing Three.js perspective camera + volumetric point cloud",
+    "shaderIntegrity": "satisfied — plan includes verification of shader compilation and WebGL validation",
+    "audioReactivity": "satisfied — bass drives macro deformation, synthetic fallback ensures muted operation",
+    "renderCompletionGate": "satisfied — step 5 verifies clean shaders, no WebGL errors, stable first frame",
+    "definitionOfDone": "addressed — build, console errors, storage APIs, autoplay, and UI checks covered in steps 4-5"
   },
-  "risks": [],
-  "recommendations": [],
+  "recommendation": "approve",
+  "rationale": "Zero architectural footprint. The plan correctly identifies that all production infrastructure is in place and scopes work to test verification only. The conditional shader clamping fix (if needed) is a bounded, localized change. No new modules, dependencies, APIs, or cross-cutting concerns are introduced.",
   "approved": true,
-  "concerns": [],
-  "decision": "approve",
   "adr_entry": null,
   "failures": []
 }
