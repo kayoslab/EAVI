@@ -21,6 +21,7 @@ uniform float uEnablePointerRepulsion;
 uniform float uEnableSlowModulation;
 uniform float uDisplacementScale;
 
+attribute float size;
 attribute float aHueOffset;
 attribute vec3 aRandom;
 
@@ -99,8 +100,14 @@ void main() {
 
   // --- Point size with treble sparkle modulation ---
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-  float trebleSparkle = 1.0 + uTrebleEnergy * 0.3 * snoise(pos * 3.0 + vec3(t * 0.005));
-  gl_PointSize = size * uBasePointSize * (300.0 / -mvPosition.z) * trebleSparkle;
+
+  float depth = max(0.25, -mvPosition.z);
+  float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
+  float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.35;
+
+  float pointSize = size * uBasePointSize * (2200.0 / depth) * trebleSparkle;
+  gl_PointSize = clamp(pointSize, 2.5, 48.0);
+
   gl_Position = projectionMatrix * mvPosition;
 
   // --- Color computation ---
