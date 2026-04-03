@@ -880,8 +880,8 @@
         "Mode switching preserves audio pipeline"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-026",
         "US-041"
