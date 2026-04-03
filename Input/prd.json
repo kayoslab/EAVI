@@ -859,8 +859,8 @@
         "Morph behavior is seeded and session-unique"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-007",
         "US-040",

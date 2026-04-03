@@ -92,3 +92,5 @@
 
 ## US-018: Map bass response to macro motion
 
+## US-043: Implement structural morph targets
+
