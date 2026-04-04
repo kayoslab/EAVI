@@ -1064,6 +1064,231 @@
       ],
       "split_from": "US-038",
       "notes": "Keep it tiny and removable."
+    },
+    {
+      "id": "US-054",
+      "title": "Add wireframe polyhedra geometry system",
+      "description": "As a user, I want to see geometric solids rendered as wireframe edge structures so that the visual vocabulary extends beyond point clouds into architectural, skeletal forms.",
+      "acceptanceCriteria": [
+        "A new GeometrySystem renders 3D polyhedra as LineSegments (not points)",
+        "At least 4 base shapes are supported: icosahedron, octahedron, dodecahedron, tetrahedron",
+        "Shape selection is seeded per session",
+        "Wireframe edges are displaced by the same audio-reactive uniforms as point systems (bass macro, treble micro)",
+        "Shader compiles cleanly with no WebGL errors",
+        "System integrates with modeManager rotation",
+        "Depth fog applies to line geometry consistently with point systems"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-041",
+        "US-035"
+      ],
+      "split_from": null,
+      "notes": "Use Three.js EdgesGeometry or manual edge arrays for clean wireframe lines. Vertex shader should apply noise-based displacement to edge vertices. This is the foundation for line-based visual modes."
+    },
+    {
+      "id": "US-055",
+      "title": "Add constellation connection lines between points",
+      "description": "As a user, I want nearby points in the cloud to be connected by lines so that the visual gains structure and web-like constellation effects.",
+      "acceptanceCriteria": [
+        "A connection-line layer can be composited over any point-based geometry system",
+        "Lines connect points within a configurable proximity threshold",
+        "Connection distance threshold is modulated by bass energy (bass expands/contracts the web)",
+        "Line opacity fades with distance between connected points",
+        "Connection count is bounded to avoid GPU overload",
+        "Lines render as Three.js LineSegments with depth fog",
+        "System degrades gracefully on low-tier devices (fewer connections or disabled)"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-040",
+        "US-047"
+      ],
+      "split_from": null,
+      "notes": "Inspired by nw_wrld's LowEarthPoint bezier connections. Use a spatial proximity search on the CPU, write results to a line buffer each mode init. Optionally use curved line segments (quadratic bezier tessellated into 3-5 segments) for organic feel."
+    },
+    {
+      "id": "US-056",
+      "title": "Add instanced micro-geometry system",
+      "description": "As a user, I want the scene to contain many small 3D geometric primitives instead of only points so that the visual texture is richer and more architecturally complex.",
+      "acceptanceCriteria": [
+        "A new GeometrySystem renders many small 3D shapes using Three.js InstancedMesh",
+        "At least 3 primitive types are supported: cubes, tetrahedra, octahedra",
+        "Primitive type is seeded per session",
+        "Per-instance transforms (position, rotation, scale) are audio-reactive",
+        "Bass drives macro position displacement across instances",
+        "Treble drives per-instance rotation jitter or scale pulse",
+        "Instance count adapts to quality tier",
+        "Shader compiles cleanly with no WebGL errors"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-041",
+        "US-047"
+      ],
+      "split_from": null,
+      "notes": "Use InstancedMesh with a custom ShaderMaterial. Instance matrices are updated per frame from a Float32Array. Wireframe overlay on instances (EdgesGeometry) is a bonus but not required for this ticket."
+    },
+    {
+      "id": "US-057",
+      "title": "Add fractal recursive geometry generator",
+      "description": "As a user, I want to see fractal-like recursive structures so that the visual can produce complex organic or crystalline growths from simple rules.",
+      "acceptanceCriteria": [
+        "A new volumetric shape generator produces recursive subdivision geometry",
+        "Recursion depth is seeded (3-6 levels) and adapts to quality tier",
+        "At least 2 recursive strategies exist: face subdivision and branching growth",
+        "Output is a set of 3D points and/or edge pairs compatible with existing geometry systems",
+        "Generated structures are visually distinct from existing volumetric shapes",
+        "No stack overflow or excessive allocation for max recursion depth"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-040"
+      ],
+      "split_from": null,
+      "notes": "Inspired by nw_wrld's CubeGrowth recursive subdivision. Seeded RNG ensures each session produces a unique fractal. Output can feed into pointCloud system (points at vertices) or wireframe system (edge pairs)."
+    },
+    {
+      "id": "US-058",
+      "title": "Add voronoi cellular fragment shader",
+      "description": "As a user, I want a fundamentally different visual texture where points render as faceted cellular regions rather than soft circles so that the shader palette feels broader.",
+      "acceptanceCriteria": [
+        "A new fragment shader renders points/geometry with voronoi cell patterns",
+        "Cell boundaries shift with audio energy (bass stretches cells, treble cracks edges)",
+        "Color mapping respects the existing palette system (paletteHue, paletteSaturation)",
+        "Shader compiles cleanly with no WebGL errors",
+        "Can be assigned to at least one existing geometry system as an alternative fragment shader",
+        "Depth fog still applies"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-041",
+        "US-048"
+      ],
+      "split_from": null,
+      "notes": "Voronoi distance field computed in fragment shader using gl_PointCoord or screen-space coordinates. Creates a stained-glass or cracked-ice look vs the current uniform soft-circle aesthetic."
+    },
+    {
+      "id": "US-059",
+      "title": "Add chromatic dispersion fragment shader",
+      "description": "As a user, I want a prismatic visual effect where RGB channels separate based on audio intensity so that the scene can feel electric and alive during intense audio passages.",
+      "acceptanceCriteria": [
+        "A new fragment shader applies per-channel color offset (chromatic aberration)",
+        "Dispersion amount is driven by combined bass+treble energy",
+        "Effect is subtle at low energy and pronounced at high energy",
+        "Color mapping respects the existing palette system",
+        "Shader compiles cleanly with no WebGL errors",
+        "Can be applied to point-based and line-based geometry systems"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-041",
+        "US-048"
+      ],
+      "split_from": null,
+      "notes": "Shift R/G/B channels in screen-space or along the point radius using gl_PointCoord offsets. Keep the default state clean; dispersion should only become visible during audio peaks."
+    },
+    {
+      "id": "US-060",
+      "title": "Add electric arc line shader",
+      "description": "As a user, I want line-based geometry to have animated electrical discharge effects so that wireframe and constellation modes feel energized by audio.",
+      "acceptanceCriteria": [
+        "A vertex shader for LineSegments applies noise-based lateral displacement along line length",
+        "Displacement intensity is driven by treble energy (higher treble = more jagged arcs)",
+        "Bass energy modulates line brightness or thickness",
+        "Arc animation evolves over time (not static noise)",
+        "Shader compiles cleanly with no WebGL errors",
+        "Works with wireframe polyhedra and constellation line systems"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-054",
+        "US-048"
+      ],
+      "split_from": null,
+      "notes": "Apply high-frequency simplex noise perpendicular to edge direction in the vertex shader. Use the existing noise3d.glsl library. Creates a Tesla coil / electric discharge aesthetic on wireframe edges."
+    },
+    {
+      "id": "US-061",
+      "title": "Add compound mode composition",
+      "description": "As a user, I want to see layered visual compositions where multiple geometry systems render simultaneously so that scenes feel richer and more varied across visits.",
+      "acceptanceCriteria": [
+        "ModeManager supports compound modes that layer 2 systems (e.g., pointCloud + constellation, wireframe + particles)",
+        "At least 3 compound mode combinations are defined",
+        "Compound combinations are seeded per session",
+        "Each layer respects its own opacity and quality scaling",
+        "Transitions between compound modes use the existing crossfade system",
+        "Total GPU cost of compound modes stays within quality tier budget",
+        "Mode rotation includes both single and compound modes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-035",
+        "US-054",
+        "US-055"
+      ],
+      "split_from": null,
+      "notes": "Compound modes are what make nw_wrld feel rich — points + wireframes + connections layered together. Budget-aware: on low tier, compound modes may fall back to single mode."
+    },
+    {
+      "id": "US-062",
+      "title": "Add geodesic and platonic solid generators",
+      "description": "As a user, I want the wireframe system to include geodesic sphere subdivisions and nested platonic solids so that the geometric vocabulary is architecturally rich.",
+      "acceptanceCriteria": [
+        "Geodesic sphere generator with configurable subdivision level (1-4)",
+        "Nested solid generator places scaled copies of the same polyhedron inside each other (2-4 layers)",
+        "Dual polyhedra generator creates a shape and its geometric dual overlaid",
+        "Output is edge-pair arrays compatible with the wireframe geometry system",
+        "Subdivision level adapts to quality tier",
+        "Generated edge count stays within performance budget"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-054"
+      ],
+      "split_from": null,
+      "notes": "Geodesic subdivision of icosahedron is the classic approach. Nested solids (e.g., 3 concentric icosahedra at different scales and rotations) create visually striking depth. Dual overlay (e.g., cube + octahedron) adds geometric complexity."
+    },
+    {
+      "id": "US-063",
+      "title": "Add flow-field ribbon shader variant",
+      "description": "As a user, I want a shader that creates flowing, tendril-like motion with elongated streaks so that the visual palette includes organic fluid dynamics alongside the current sculptural displacement.",
+      "acceptanceCriteria": [
+        "A new vertex shader displaces points along curl noise flow-field lines",
+        "Points are rendered as elongated sprites aligned to their velocity direction",
+        "Flow speed is modulated by bass energy",
+        "Flow turbulence is modulated by treble energy",
+        "Shader compiles cleanly with no WebGL errors",
+        "Can be assigned to particleField or pointCloud systems",
+        "Visual character is distinctly different from existing warp shaders"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-041",
+        "US-048"
+      ],
+      "split_from": null,
+      "notes": "Use curl3 from noise3d.glsl for divergence-free flow. Elongated sprites can be achieved via gl_PointSize modulation along the velocity axis or by rendering short line segments instead of points. Creates a smoke/aurora/tendril aesthetic."
     }
   ]
 }
