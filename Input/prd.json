@@ -1148,8 +1148,8 @@
         "No stack overflow or excessive allocation for max recursion depth"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-040"
       ],
