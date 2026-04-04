@@ -1,1 +1,0 @@
-{"tests_added": ["tests/visual/shaderErrorCollector.test.ts", "tests/visual/shaderValidation.test.ts"], "tests_modified": ["tests/visual/modeManager.test.ts"], "test_results": "pass", "failures": [], "failure_source": null}

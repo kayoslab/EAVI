@@ -1,1 +1,0 @@
-{"decision":"pass","gates_checked":["tests","typecheck","build"],"failures":[],"notes":"All 18 US-020 audioToggle tests pass. TypeScript typecheck passes with no errors. Production build succeeds. The 18 failing tests are pre-existing from other tickets (US-001 canvas-shell, US-002 scaffold.dom, US-021 infoOverlay) and unrelated to this ticket's changes."}

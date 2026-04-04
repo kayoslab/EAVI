@@ -1,5 +1,0 @@
-{
-  "approved": true,
-  "changes": [],
-  "notes": "Plan is well-structured and covers all acceptance criteria. The risks around jsdom canvas/DPR limitations are correctly identified. Proceed as written."
-}

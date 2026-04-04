@@ -1,1 +1,0 @@
-{"files_changed": [], "summary": "US-004 was already fully implemented in src/input/signals.ts with tests in tests/signals.test.ts. Verification confirms all 21 tests pass, build succeeds, and no forbidden storage APIs are used. No code changes needed."}

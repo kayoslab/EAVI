@@ -1,7 +1,0 @@
-{
-  "verdict": "approve",
-  "risk": "low",
-  "rationale": "Pure copy change to an existing UI component. No new files, no new dependencies, no structural changes. The overlay shell and toggle from US-021 are untouched. Only two files modified: the overlay source and its test file.",
-  "architectural_concerns": [],
-  "suggestions": []
-}
