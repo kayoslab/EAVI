@@ -919,14 +919,13 @@
         "Depth effect remains subtle and non-game-like"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-040"
       ],
       "split_from": null,
-      "notes": "Use THREE.Fog or shader depth-based fade.",
-      "claimed_by": "worker-3"
+      "notes": "Use THREE.Fog or shader depth-based fade."
     },
     {
       "id": "US-047",
