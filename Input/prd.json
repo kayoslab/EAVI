@@ -940,13 +940,14 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-040",
         "US-045"
       ],
       "split_from": "US-036",
-      "notes": "Low tier may reduce point count but must remain 3D."
+      "notes": "Low tier may reduce point count but must remain 3D.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-048",
