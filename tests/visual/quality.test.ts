@@ -309,4 +309,31 @@ describe('US-025: Quality integration tests', () => {
     expect(result.tier).toBe('medium');
     expect(result.maxPolyhedra).toBe(6);
   });
+
+  it('T-057-28: QualityProfile includes maxFractalDepth field', () => {
+    const signals = makeSignals();
+    const result = computeQuality(signals);
+    expect(result).toHaveProperty('maxFractalDepth');
+    expect(typeof result.maxFractalDepth).toBe('number');
+    expect(result.maxFractalDepth).toBeGreaterThan(0);
+  });
+
+  it('T-057-29: maxFractalDepth per tier: low=3, medium=4, high=6', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.maxFractalDepth).toBe(3);
+    expect(medium.maxFractalDepth).toBe(4);
+    expect(high.maxFractalDepth).toBe(6);
+  });
+
+  it('T-057-30: maxFractalDepth scales with tier (low < medium < high)', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.maxFractalDepth).toBeLessThan(medium.maxFractalDepth);
+    expect(medium.maxFractalDepth).toBeLessThan(high.maxFractalDepth);
+  });
 });
