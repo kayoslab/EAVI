@@ -134,6 +134,7 @@ geoPromise.then((geo) => {
     enableSlowModulation: quality.enableSlowModulation,
     enableElectricArc: quality.enableElectricArc,
     arcSubdivisions: quality.arcSubdivisions,
+    maxEdgesPerShape: quality.maxEdgesPerShape,
   });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },
