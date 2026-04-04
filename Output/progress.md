@@ -122,3 +122,5 @@
 
 ## US-060: Add electric arc line shader
 
+## US-058: Add voronoi cellular fragment shader
+
