@@ -1,123 +1,62 @@
 {
+  "verdict": "APPROVED_WITH_NOTES",
   "ticket": "US-055",
-  "verdict": "APPROVED_WITH_CHANGES",
-  "summary": "Plan is architecturally sound and well-structured. The callback-based ConstellationOverlay design, spatial hash approach, and quality-tier gating are all correct. A few issues need fixing before implementation: per-frame findPairs is unnecessarily expensive, the type-unsafe cast in renderLoop should be avoided, and ParticleField's 2D particle model needs careful handling.",
-  "issues": [
-    {
-      "severity": "high",
-      "step": 4,
-      "title": "Per-frame spatialHash.findPairs is expensive — pre-compute pairs at maxThreshold on rebuild instead",
-      "detail": "The plan calls `spatialHash.findPairs(effectiveThreshold, maxLines)` every frame with a bass-modulated threshold. For 2000 points (high tier) traversing 27 neighbor cells each, this is a significant per-frame CPU cost. Instead: during `rebuild()`, call `findPairs(maxThreshold, maxLines)` once and cache all pairs with their distances. In `draw()`, just filter the cached pairs by `dist <= effectiveThreshold` and write the survivors to the line buffer. This turns per-frame work from O(N * 27 cells) spatial hash traversal into a simple O(maxLines) linear filter.",
-      "fix": "In `rebuild()`: `this.cachedPairs = spatialHash.findPairs(config.maxThreshold, config.maxLines);`. In `draw()`: `const threshold = lerp(baseThreshold, maxThreshold, bassEnergy); const activePairs = this.cachedPairs.filter(p => p.dist <= threshold);` then write activePairs to the line buffer."
-    },
-    {
-      "severity": "high",
-      "step": 8,
-      "title": "Avoid `(d.geometrySystem as any).activeIndex` cast — pass activeIndex and transitioning via LoopDeps",
-      "detail": "The plan proposes casting `d.geometrySystem as any` to read `activeIndex` and `transitioning` in renderLoop.ts. This bypasses type safety and creates a fragile coupling. Since the plan already adds `constellationOverlay` to LoopDeps, also add two small callback fields.",
-      "fix": "Add `getActiveIndex?: (() => number) | null` and `getTransitioning?: (() => boolean) | null` to LoopDeps. In main.ts: `deps.getActiveIndex = () => modeManager.activeIndex; deps.getTransitioning = () => modeManager.transitioning;`. Use these in renderLoop instead of the any-cast."
-    },
+  "reviewer_notes": [
     {
       "severity": "medium",
-      "step": 6,
-      "title": "ParticleField uses 2D particles — positions getter must return the 3D BufferGeometry attribute, not reconstruct from Particle[]",
-      "detail": "ParticleField's `Particle` type has `{ x, y, vx, vy, ... }` — a 2D model. But the Three.js Points mesh has a 3D `position` BufferAttribute (z values exist in the GPU buffer even if they're 0 or small random offsets). The getter should return the actual Float32Array from the BufferGeometry attribute, not try to reconstruct from the 2D Particle array. This ensures constellation gets the same positions the GPU is rendering.",
-      "fix": "Instead of storing a separate `basePositions` reference, do: `get positions() { const attr = pointsMesh?.geometry?.getAttribute('position'); return attr ? new Float32Array((attr as THREE.BufferAttribute).array) : null; }`. This matches what the GPU sees."
-    },
-    {
-      "severity": "medium",
-      "step": 2,
-      "title": "SpatialHash cellSize must equal maxThreshold for correctness across varying query thresholds",
-      "detail": "The SpatialHash constructor takes a `cellSize`. If pairs are pre-computed at `maxThreshold` per the fix above, `cellSize` should be set to `maxThreshold` (or slightly larger) at construction time. If cellSize < query threshold, pairs in non-adjacent cells would be missed. The plan doesn't specify how cellSize relates to threshold.",
-      "fix": "Document in SpatialHash that cellSize must be >= the largest threshold that will be queried. In `createConstellationOverlay`, construct SpatialHash with `cellSize = config.maxThreshold`."
+      "area": "architecture_decisions",
+      "note": "ParticleField exposes positions as 2D (x, y) via getParticlePositions(), and MicroGeometry uses InstancedMesh without a positions getter. The overlay must handle these edge cases: skip constellation for systems that return null/incompatible positions, or only overlay systems with 3D Float32Array positions (pointCloud, ribbonField, crystalField)."
     },
     {
       "severity": "low",
-      "step": 7,
-      "title": "Systems array reference in main.ts — verify accessibility",
-      "detail": "The plan references `systems[modeManager.activeIndex]` in the getActivePositions callback in main.ts. But systems are passed to modeManager via factory objects, not stored in a top-level array. The plan needs to create this array explicitly.",
-      "fix": "Before the callback, declare: `const systems = [particles, ribbon, pointCloud, crystal];` in main.ts scope (matching the factory order in createModeManager). The plan's pseudocode already implies this but it should be explicit."
+      "area": "implementation_steps.step2",
+      "note": "Replicating the full pointWarp.vert.glsl warp (radial scale, bass expansion, fbm3 displacement, twist, drift, treble jitter, slow modulation, pointer repulsion, field spread, breathing) is significant complexity. Consider extracting the warp logic into a shared GLSL include (warp.glsl) used by both pointWarp.vert.glsl and constellation.vert.glsl, rather than duplicating ~80 lines of warp code. This would prevent drift between the two shaders."
     },
     {
       "severity": "low",
-      "step": 4,
-      "title": "uColor source not specified — needs palette integration",
-      "detail": "The plan mentions `uColor from palette` in the draw method but doesn't specify how palette color is obtained. The constellation overlay doesn't receive palette information through its config or callbacks.",
-      "fix": "Either: (a) add a `getBaseColor?: () => THREE.Color` callback to the factory params, or (b) use a fixed constellation color (e.g., `vec3(0.6, 0.7, 0.9)` — cool blue-white) as a hardcoded uniform, which is simpler and visually appropriate for constellation lines. Option (b) is recommended to keep the API minimal."
+      "area": "implementation_steps.step3",
+      "note": "The plan says bass 'modulates effective threshold conceptually' but since topology is static, bass only scales alpha/visibility. This is a reasonable simplification but should be documented clearly — the acceptance criteria says 'bass expands/contracts the web' which implies spatial modulation. Consider whether the visual effect of alpha-only modulation is sufficient or if a periodic topology rebuild (e.g. every 5-10 seconds) is needed for the 'expanding web' feel."
     },
     {
-      "severity": "low",
-      "step": 3,
-      "title": "Verify GLSL import convention matches existing pattern",
-      "detail": "Existing shaders are `.glsl` files likely imported via Vite's `?raw` suffix. The plan should note that the new shader files follow the same import convention.",
-      "fix": "In constellationOverlay.ts, import as: `import vertexShader from '../shaders/constellationLine.vert.glsl?raw';` matching the pattern used in pointCloud.ts, ribbonField.ts, etc."
+      "severity": "info",
+      "area": "constellation_config",
+      "note": "defaultProximityThreshold of 0.8 should be validated against actual point spread. Existing systems use uRadialScale (seeded 0.7-1.3) and uFieldSpread (seeded 0.8-1.2), so effective spread varies. The threshold may need to be relative to the system's bounding radius rather than absolute."
+    },
+    {
+      "severity": "info",
+      "area": "files_to_modify",
+      "note": "The plan correctly identifies all files needing modification. The existing positions getter pattern (Float32Array.from(basePositions)) creates a copy each call — for constellation init this is fine (called once), but the interface should document that it returns a snapshot, not a live reference."
     }
   ],
-  "confirmations": [
-    "Quality tier extension (step 1) correctly places fields after enableSlowModulation — verified field exists in all 3 tiers",
-    "Fog convention in step 3 matches existing shaders: smoothstep(uFogNear, uFogFar, vDepth) with desaturation tint — verified across all 4 fragment shaders",
-    "GeometrySystem interface in types.ts has optional methods pattern (cleanup?, setOpacity?) — adding getMesh?() is consistent (step 5)",
-    "ModeManager exposes activeIndex and transitioning as readonly — verified in interface definition",
-    "pointCloud, ribbonField, and crystalField all have `get positions(): Float32Array | null` — verified, pattern is consistent",
-    "Callback-based architecture (step 4/7) correctly avoids expanding LoopDeps with system-specific knowledge",
-    "Hiding constellation during transitions (opacity 0) prevents visual discontinuity between point sets",
-    "constellation/ directory does not yet exist — all files_created paths are new",
-    "depthWrite: false + transparent: true + additive blending is correct for overlay lines composited over points"
-  ],
-  "step_order_ok": true,
-  "estimated_files_accurate": true,
-  "missing_steps": [],
-  "notes": "The plan is well-designed overall. The callback pattern for getActivePositions/getActiveMesh keeps the constellation overlay decoupled from specific geometry systems. The main performance concern (per-frame spatial hash query) is straightforward to fix by caching pairs at rebuild time. After addressing the high-severity items, this plan is ready for implementation.",
   "approved": true,
+  "estimated_complexity": "medium-high",
+  "confidence": 0.9,
+  "recommendation": "Proceed with implementation. The plan is well-structured and aligns with codebase conventions. Address the ParticleField/MicroGeometry edge cases in step 1 (types) and consider the shared warp include refactor in step 2 to reduce shader duplication risk.",
   "concerns": [
     {
-      "severity": "high",
-      "step": 4,
-      "title": "Per-frame spatialHash.findPairs is expensive — pre-compute pairs at maxThreshold on rebuild instead",
-      "detail": "The plan calls `spatialHash.findPairs(effectiveThreshold, maxLines)` every frame with a bass-modulated threshold. For 2000 points (high tier) traversing 27 neighbor cells each, this is a significant per-frame CPU cost. Instead: during `rebuild()`, call `findPairs(maxThreshold, maxLines)` once and cache all pairs with their distances. In `draw()`, just filter the cached pairs by `dist <= effectiveThreshold` and write the survivors to the line buffer. This turns per-frame work from O(N * 27 cells) spatial hash traversal into a simple O(maxLines) linear filter.",
-      "fix": "In `rebuild()`: `this.cachedPairs = spatialHash.findPairs(config.maxThreshold, config.maxLines);`. In `draw()`: `const threshold = lerp(baseThreshold, maxThreshold, bassEnergy); const activePairs = this.cachedPairs.filter(p => p.dist <= threshold);` then write activePairs to the line buffer."
-    },
-    {
-      "severity": "high",
-      "step": 8,
-      "title": "Avoid `(d.geometrySystem as any).activeIndex` cast — pass activeIndex and transitioning via LoopDeps",
-      "detail": "The plan proposes casting `d.geometrySystem as any` to read `activeIndex` and `transitioning` in renderLoop.ts. This bypasses type safety and creates a fragile coupling. Since the plan already adds `constellationOverlay` to LoopDeps, also add two small callback fields.",
-      "fix": "Add `getActiveIndex?: (() => number) | null` and `getTransitioning?: (() => boolean) | null` to LoopDeps. In main.ts: `deps.getActiveIndex = () => modeManager.activeIndex; deps.getTransitioning = () => modeManager.transitioning;`. Use these in renderLoop instead of the any-cast."
-    },
-    {
       "severity": "medium",
-      "step": 6,
-      "title": "ParticleField uses 2D particles — positions getter must return the 3D BufferGeometry attribute, not reconstruct from Particle[]",
-      "detail": "ParticleField's `Particle` type has `{ x, y, vx, vy, ... }` — a 2D model. But the Three.js Points mesh has a 3D `position` BufferAttribute (z values exist in the GPU buffer even if they're 0 or small random offsets). The getter should return the actual Float32Array from the BufferGeometry attribute, not try to reconstruct from the 2D Particle array. This ensures constellation gets the same positions the GPU is rendering.",
-      "fix": "Instead of storing a separate `basePositions` reference, do: `get positions() { const attr = pointsMesh?.geometry?.getAttribute('position'); return attr ? new Float32Array((attr as THREE.BufferAttribute).array) : null; }`. This matches what the GPU sees."
-    },
-    {
-      "severity": "medium",
-      "step": 2,
-      "title": "SpatialHash cellSize must equal maxThreshold for correctness across varying query thresholds",
-      "detail": "The SpatialHash constructor takes a `cellSize`. If pairs are pre-computed at `maxThreshold` per the fix above, `cellSize` should be set to `maxThreshold` (or slightly larger) at construction time. If cellSize < query threshold, pairs in non-adjacent cells would be missed. The plan doesn't specify how cellSize relates to threshold.",
-      "fix": "Document in SpatialHash that cellSize must be >= the largest threshold that will be queried. In `createConstellationOverlay`, construct SpatialHash with `cellSize = config.maxThreshold`."
+      "area": "architecture_decisions",
+      "note": "ParticleField exposes positions as 2D (x, y) via getParticlePositions(), and MicroGeometry uses InstancedMesh without a positions getter. The overlay must handle these edge cases: skip constellation for systems that return null/incompatible positions, or only overlay systems with 3D Float32Array positions (pointCloud, ribbonField, crystalField)."
     },
     {
       "severity": "low",
-      "step": 7,
-      "title": "Systems array reference in main.ts — verify accessibility",
-      "detail": "The plan references `systems[modeManager.activeIndex]` in the getActivePositions callback in main.ts. But systems are passed to modeManager via factory objects, not stored in a top-level array. The plan needs to create this array explicitly.",
-      "fix": "Before the callback, declare: `const systems = [particles, ribbon, pointCloud, crystal];` in main.ts scope (matching the factory order in createModeManager). The plan's pseudocode already implies this but it should be explicit."
+      "area": "implementation_steps.step2",
+      "note": "Replicating the full pointWarp.vert.glsl warp (radial scale, bass expansion, fbm3 displacement, twist, drift, treble jitter, slow modulation, pointer repulsion, field spread, breathing) is significant complexity. Consider extracting the warp logic into a shared GLSL include (warp.glsl) used by both pointWarp.vert.glsl and constellation.vert.glsl, rather than duplicating ~80 lines of warp code. This would prevent drift between the two shaders."
     },
     {
       "severity": "low",
-      "step": 4,
-      "title": "uColor source not specified — needs palette integration",
-      "detail": "The plan mentions `uColor from palette` in the draw method but doesn't specify how palette color is obtained. The constellation overlay doesn't receive palette information through its config or callbacks.",
-      "fix": "Either: (a) add a `getBaseColor?: () => THREE.Color` callback to the factory params, or (b) use a fixed constellation color (e.g., `vec3(0.6, 0.7, 0.9)` — cool blue-white) as a hardcoded uniform, which is simpler and visually appropriate for constellation lines. Option (b) is recommended to keep the API minimal."
+      "area": "implementation_steps.step3",
+      "note": "The plan says bass 'modulates effective threshold conceptually' but since topology is static, bass only scales alpha/visibility. This is a reasonable simplification but should be documented clearly — the acceptance criteria says 'bass expands/contracts the web' which implies spatial modulation. Consider whether the visual effect of alpha-only modulation is sufficient or if a periodic topology rebuild (e.g. every 5-10 seconds) is needed for the 'expanding web' feel."
     },
     {
-      "severity": "low",
-      "step": 3,
-      "title": "Verify GLSL import convention matches existing pattern",
-      "detail": "Existing shaders are `.glsl` files likely imported via Vite's `?raw` suffix. The plan should note that the new shader files follow the same import convention.",
-      "fix": "In constellationOverlay.ts, import as: `import vertexShader from '../shaders/constellationLine.vert.glsl?raw';` matching the pattern used in pointCloud.ts, ribbonField.ts, etc."
+      "severity": "info",
+      "area": "constellation_config",
+      "note": "defaultProximityThreshold of 0.8 should be validated against actual point spread. Existing systems use uRadialScale (seeded 0.7-1.3) and uFieldSpread (seeded 0.8-1.2), so effective spread varies. The threshold may need to be relative to the system's bounding radius rather than absolute."
+    },
+    {
+      "severity": "info",
+      "area": "files_to_modify",
+      "note": "The plan correctly identifies all files needing modification. The existing positions getter pattern (Float32Array.from(basePositions)) creates a copy each call — for constellation init this is fine (called once), but the interface should document that it returns a snapshot, not a live reference."
     }
   ]
 }
