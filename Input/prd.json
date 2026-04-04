@@ -1126,8 +1126,8 @@
         "Shader compiles cleanly with no WebGL errors"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-041",
         "US-047"
