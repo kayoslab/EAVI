@@ -60,7 +60,7 @@ export function computeQuality(signals: BrowserSignals): QualityProfile {
     return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false };
   }
   if (score > 0.65) {
-    return { tier: 'high', maxParticles: 600, maxPoints: 1200, maxRibbonPoints: 1000, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true };
+    return { tier: 'high', maxParticles: 1000, maxPoints: 2000, maxRibbonPoints: 1600, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true };
   }
-  return { tier: 'medium', maxParticles: 350, maxPoints: 500, maxRibbonPoints: 500, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true };
+  return { tier: 'medium', maxParticles: 550, maxPoints: 800, maxRibbonPoints: 700, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true };
 }
