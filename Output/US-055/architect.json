@@ -1,174 +1,95 @@
 {
   "ticket": "US-055",
-  "architectural_impact": "moderate",
-  "rationale": "US-055 adds a new compositable overlay system that sits alongside (not inside) the existing GeometrySystem carousel. It introduces a new spatial-indexing utility, two new shaders, and extends three existing interfaces (LoopDeps, QualityProfile, GeometrySystem). The overlay pattern is novel for this codebase — all current visual systems are GeometrySystem implementations managed by ModeManager — but the plan's callback-based design keeps coupling low. No existing rendering contracts are broken.",
-  "files_modified": [
+  "verdict": "APPROVE_WITH_CONDITIONS",
+  "summary": "The plan is architecturally sound and well-aligned with the existing codebase. The overlay-based approach correctly avoids polluting the ModeManager's mode rotation. Position data is already exposed by 4/5 systems, making the constellation layer's data access straightforward. Three conditions must be addressed before implementation.",
+  "conditions": [
     {
-      "path": "src/visual/quality.ts",
-      "change": "Add maxConstellationLines field to QualityProfile interface and all three tier return values",
-      "risk": "low",
-      "reason": "Additive field — existing consumers unaffected"
+      "id": "C1",
+      "severity": "must_fix",
+      "title": "Shader warp divergence across five systems is underspecified",
+      "description": "The plan states the constellation vertex shader 'must apply the identical warp transform as the parent point system's vertex shader' and acknowledges different systems use different transforms (pointWarp uses FBM, particleWarp uses curl3, ribbonWarp adds sway, crystalWarp uses quantized noise, microGeometry is CPU-driven). The mitigation — 'a uniform flag can switch warp profiles per system type if needed' — is too vague for what is the plan's single highest-risk item. A constellation shader that replicates all five warp pipelines would be fragile and violate DRY. Recommend one of: (A) extract a shared warp function into a GLSL include and refactor existing shaders to use it, then constellation uses the same include; (B) accept that constellation lines use only the pointWarp transform as a 'common approximation' and document the visual drift on curl3/crystal/ribbon modes as acceptable; (C) rebuild line topology each frame from the GPU-deformed positions via transform feedback or readback (expensive, likely not worth it). The plan must commit to one strategy and document the tradeoff.",
+      "affected_files": [
+        "src/visual/shaders/constellation.vert.glsl"
+      ]
     },
     {
-      "path": "src/visual/types.ts",
-      "change": "Add optional getMesh?() method to GeometrySystem interface",
-      "risk": "low",
-      "reason": "Optional method — no existing implementations need to change, though systems that want constellation lines must implement it"
+      "id": "C2",
+      "severity": "must_fix",
+      "title": "MicroGeometry position access is CPU-driven and incompatible with the proposed pattern",
+      "description": "The plan proposes a PositionProvider interface returning Float32Array. Four systems (particleField, ribbonField, pointCloud, crystalField) already expose a `positions` getter returning Float32Array|null. However, MicroGeometry applies deformation on the CPU each frame via instance matrices — its basePositions are pre-deformation and the shader is entirely different (instanced mesh, not Points). The constellation vertex shader cannot apply instanceMatrix transforms to line endpoints. The plan must either: (A) exclude MicroGeometry from constellation overlay and document this as intentional, or (B) describe a separate line rendering path for instanced systems. Option A is strongly recommended given the architectural mismatch.",
+      "affected_files": [
+        "src/visual/systems/constellationLines.ts",
+        "src/visual/types.ts"
+      ]
     },
     {
-      "path": "src/visual/renderLoop.ts",
-      "change": "Add constellationOverlay, getActiveIndex, getTransitioning to LoopDeps; add per-frame constellation draw call after geometry draw; pass bass energy and transition state to overlay",
-      "risk": "medium",
-      "reason": "renderLoop is the critical frame path. Adding a second draw call introduces a new performance-sensitive code path. The LoopDeps interface grows by 3 optional fields."
-    },
-    {
-      "path": "src/main.ts",
-      "change": "Import and instantiate ConstellationOverlay, wire getActivePositions/getActiveMesh callbacks, create systems array reference, assign new LoopDeps fields",
-      "risk": "medium",
-      "reason": "main.ts is already the largest orchestration file. Adding constellation wiring increases its complexity. The systems array must match modeManager factory order — a subtle ordering contract."
-    },
-    {
-      "path": "src/visual/systems/pointCloud.ts",
-      "change": "Add positions getter (Float32Array of base positions) and getMesh() returning the Points mesh",
-      "risk": "low",
-      "reason": "Read-only accessors on existing data structures"
-    },
-    {
-      "path": "src/visual/systems/ribbonField.ts",
-      "change": "Add positions getter and getMesh()",
-      "risk": "low",
-      "reason": "Same pattern as pointCloud"
-    },
-    {
-      "path": "src/visual/systems/crystalField.ts",
-      "change": "Add positions getter and getMesh()",
-      "risk": "low",
-      "reason": "Same pattern as pointCloud"
-    },
-    {
-      "path": "src/visual/systems/particleField.ts",
-      "change": "Add positions getter from BufferGeometry attribute (not from 2D Particle model) and getMesh()",
-      "risk": "medium",
-      "reason": "ParticleField uses a 2D Particle model internally. The getter must read from the GPU BufferAttribute to get correct 3D positions, which is a non-obvious indirection"
-    },
-    {
-      "path": "src/visual/systems/microGeometry.ts",
-      "change": "Add positions getter and getMesh()",
-      "risk": "low",
-      "reason": "Same pattern as pointCloud"
+      "id": "C3",
+      "severity": "should_fix",
+      "title": "ParticleField position format mismatch",
+      "description": "ParticleField exposes positions via `getParticlePositions()` returning `Array<{x,y}>` (2D, 0-1 normalized), not a Float32Array of 3D world-space positions. The constellation system needs world-space vec3 data. The plan's PositionProvider interface assumes uniform Float32Array access. Either ParticleField needs a `positions: Float32Array|null` getter added (returning world-space 3D coords from the BufferGeometry's position attribute), or the constellation system needs a ParticleField-specific adapter. Since the BufferGeometry already has a `position` attribute with world-space coords, reading directly from `geometry.getAttribute('position').array` is the cleanest path — but this means the PositionProvider should document that it returns base (pre-shader) world-space positions.",
+      "affected_files": [
+        "src/visual/types.ts",
+        "src/visual/systems/constellationLines.ts"
+      ]
     }
   ],
-  "files_created": [
-    {
-      "path": "src/visual/constellation/spatialHash.ts",
-      "purpose": "Grid-based spatial index for efficient proximity pair discovery. cellSize must equal maxThreshold.",
-      "risk": "medium",
-      "reason": "New algorithmic code — correctness of cell traversal (27-neighbor search) directly affects visual output and CPU cost"
+  "architectural_analysis": {
+    "interface_impact": {
+      "severity": "low",
+      "detail": "Adding an optional `positions` accessor to GeometrySystem is a backward-compatible extension. Three systems (ribbonField, pointCloud, crystalField) already implement it. ParticleField and MicroGeometry need adaptation (see C2, C3). The proposed PositionProvider interface is unnecessary — extending GeometrySystem directly is cleaner and avoids a parallel interface hierarchy."
     },
-    {
-      "path": "src/visual/constellation/constellationOverlay.ts",
-      "purpose": "Factory creating the overlay: LineSegments mesh, rebuild() for pair computation, draw() for per-frame buffer updates",
-      "risk": "high",
-      "reason": "Most complex new file. Manages its own BufferGeometry lifecycle, caches pairs at rebuild, filters by bass-modulated threshold per frame, and must handle mode transitions (opacity 0 during crossfade). Incorrect lifecycle management could leak GPU resources."
+    "mode_manager_impact": {
+      "severity": "medium",
+      "detail": "Adding overlay support to ModeManager is a meaningful extension to a core orchestration component (59 existing tests). The plan's approach — attachOverlay() that hooks into mode switches — is reasonable. Key concern: overlay must participate in the crossfade lifecycle (opacity tracking during transitions) without breaking the existing state machine. Recommend the overlay's draw() receive the active system's current opacity rather than managing its own transition state."
     },
-    {
-      "path": "src/visual/shaders/constellationLine.vert.glsl",
-      "purpose": "Vertex shader passing depth to fragment for fog calculation",
-      "risk": "low",
-      "reason": "Simple pass-through shader — minimal logic"
+    "shader_system_impact": {
+      "severity": "medium",
+      "detail": "Two new GLSL files plus a new entry in shaderRegistry is consistent with existing patterns. The constellation shaders must import noise3d.glsl via string concatenation (established pattern). ShaderErrorCollector will automatically capture compilation errors. The healthGate system should validate constellation attributes alongside existing systems — add the constellation system to initAllForValidation() or validate separately."
     },
-    {
-      "path": "src/visual/shaders/constellationLine.frag.glsl",
-      "purpose": "Fragment shader with distance-based opacity fade and depth fog matching existing fog convention",
-      "risk": "low",
-      "reason": "Fog pattern already validated across 4 existing fragment shaders"
+    "quality_system_impact": {
+      "severity": "low",
+      "detail": "Adding enableConstellationLines and maxConstellationSegments to QualityProfile follows the established pattern (cf. enableSparkle, enablePointerRepulsion). The tier thresholds (0/1500/3000) are reasonable given existing maxPoints caps (200/800/2000). No structural changes needed."
+    },
+    "performance_impact": {
+      "severity": "low",
+      "detail": "O(n²) proximity at init for ≤2000 points is ~2M comparisons, acceptable. 3000 LineSegments = 6000 vertices is lightweight for modern GPUs. Static topology with uniform-only updates per frame adds negligible draw call overhead. The plan correctly caps connections both per-point and globally."
+    },
+    "test_impact": {
+      "severity": "low",
+      "detail": "New test file for constellation system is self-contained. ModeManager tests (59 existing) should be extended to cover overlay attachment/detachment and mode-switch rebuild. HealthGate integration tests should include constellation system validation."
     }
-  ],
-  "interfaces_changed": [
-    {
-      "interface": "QualityProfile",
-      "file": "src/visual/quality.ts",
-      "change": "Add maxConstellationLines: number",
-      "breaking": false
-    },
-    {
-      "interface": "LoopDeps",
-      "file": "src/visual/renderLoop.ts",
-      "change": "Add constellationOverlay?, getActiveIndex?, getTransitioning?",
-      "breaking": false
-    },
-    {
-      "interface": "GeometrySystem",
-      "file": "src/visual/types.ts",
-      "change": "Add getMesh?(): THREE.Object3D | null",
-      "breaking": false
-    }
-  ],
-  "new_patterns_introduced": [
-    {
-      "pattern": "Overlay system composited over GeometrySystem carousel",
-      "description": "ConstellationOverlay is the first visual element that is NOT a GeometrySystem managed by ModeManager. It runs parallel to the carousel, reading positions from the active system via callbacks. This establishes a precedent for future overlay-style effects.",
-      "concern": "If more overlays follow this pattern, renderLoop will accumulate ad-hoc draw calls. Consider a composable overlay registry if a third overlay is ever needed."
-    },
-    {
-      "pattern": "Callback-based cross-system data access",
-      "description": "getActivePositions() and getActiveMesh() callbacks in main.ts bridge the constellation overlay to the active geometry system without the overlay knowing which system is active.",
-      "concern": "The systems array in main.ts must maintain order parity with the modeManager factories list — an implicit contract that could break silently if modes are reordered."
-    },
-    {
-      "pattern": "CPU-side spatial indexing with cached pairs",
-      "description": "SpatialHash pre-computes all pairs at maxThreshold during rebuild(), then filters per-frame by effective threshold. This is a new CPU-side computation pattern not present in the existing per-frame GPU-only pipeline.",
-      "concern": "rebuild() is called on every mode transition. For 2000 points with 27-cell neighbor search, this is O(N * 27 * avg_cell_occupancy). Should complete in <5ms but is worth profiling."
-    }
-  ],
-  "performance_considerations": [
-    {
-      "area": "Per-frame line buffer writes",
-      "impact": "Each frame filters cached pairs and writes surviving endpoints to a Float32Array + opacity array. For high tier (up to ~500 lines = 3000 floats), this is a modest CPU cost plus a bufferSubData upload.",
-      "mitigation": "Quality tier caps maxConstellationLines. Low tier should disable entirely or cap at ~30 lines."
-    },
-    {
-      "area": "Draw call count",
-      "impact": "Adds one additional draw call per frame (LineSegments). Current pipeline has 1-2 draw calls (active system + optional transitioning system).",
-      "mitigation": "Single draw call via LineSegments with drawRange — negligible GPU overhead for line primitives."
-    },
-    {
-      "area": "rebuild() on mode transition",
-      "impact": "Spatial hash construction + pair finding runs synchronously when the active mode changes (~every 90-180s). Could cause a frame spike.",
-      "mitigation": "Could defer rebuild to next idle frame or spread across 2 frames if profiling shows >8ms. Unlikely to be noticeable at transition frequency."
-    }
-  ],
-  "quality_tier_impact": {
-    "low": "Constellation lines should be disabled entirely (maxConstellationLines: 0). Low-tier devices already run at 200 points — spatial hash overhead is minimal but the extra draw call and buffer writes are unnecessary.",
-    "medium": "Cap at ~100-150 lines. Provides visible constellation effect without significant GPU/CPU cost.",
-    "high": "Cap at ~300-500 lines. Full constellation effect with bass-modulated threshold range."
-  },
-  "dependency_chain_validation": {
-    "US-017": "Point cloud system — provides positions getter. Required for constellation to read point positions.",
-    "US-040": "Mode manager — provides activeIndex and transitioning state. Required for constellation to track which system's positions to use and when to hide during transitions.",
-    "US-046": "Quality tier system — provides QualityProfile. Required for maxConstellationLines config.",
-    "US-047": "Shader infrastructure — provides shader import conventions and error collection. Required for new GLSL files.",
-    "all_satisfied": true
   },
   "risks": [
     {
-      "severity": "high",
-      "description": "GPU resource leak if constellation overlay is not properly cleaned up on mode transitions. The overlay creates its own BufferGeometry and ShaderMaterial that persist across the ModeManager lifecycle — they are not managed by ModeManager's cleanup path.",
-      "mitigation": "ConstellationOverlay must have explicit dispose() called on page unload. Since it persists across mode transitions (only rebuilding its line buffer), this is less of a leak risk than it first appears — but the geometry/material must still be disposable."
+      "risk": "Line-point visual drift during audio-reactive deformation",
+      "likelihood": "high",
+      "impact": "medium",
+      "detail": "If the constellation vertex shader does not perfectly replicate each system's unique deformation pipeline, lines will visibly detach from their anchor points during bass spikes. This is especially problematic for curl3-based (particleField) and quantized (crystalField) deformations where the warp character is fundamentally different from pointWarp.",
+      "mitigation": "See condition C1. Recommend accepting pointWarp-only approximation with documented visual drift."
     },
     {
-      "severity": "medium",
-      "description": "Position data staleness: constellation reads base positions from the active system, but GPU-side vertex shaders apply bass deformation, twist, and jitter. The constellation lines connect CPU-side positions that don't match the visually deformed GPU positions.",
-      "mitigation": "This is an acceptable artistic compromise noted in the plan. Lines will approximately connect points but won't track per-frame GPU deformation. The visual effect still reads as constellation-like because the base topology is correct."
-    },
-    {
-      "severity": "medium",
-      "description": "Systems array ordering contract: main.ts must maintain a systems[] array whose indices match the modeManager factory registration order. This is an implicit, undocumented coupling.",
-      "mitigation": "Add a comment in main.ts documenting the ordering contract. Alternatively, expose a getActiveSystem() method on ModeManager to eliminate the need for index-based lookup entirely."
+      "risk": "Mode switch causes visible pop in constellation topology",
+      "likelihood": "medium",
+      "impact": "low",
+      "detail": "When mode switches, constellation topology rebuilds from new positions. During crossfade, both old and new topologies should be visible with matching opacity. The plan's current description ('rebuilds on mode switch') suggests an instant swap rather than a crossfade of line topologies.",
+      "mitigation": "During transition, fade out old constellation topology with outgoing system opacity, rebuild from incoming system positions, fade in with incoming opacity. May require two active line meshes during transition."
     }
   ],
-  "verdict": "APPROVED",
-  "verdict_rationale": "The plan is architecturally sound. It introduces a well-scoped overlay pattern that composes cleanly with the existing GeometrySystem carousel without modifying the core rendering contract. All interface changes are additive (optional fields/methods). The review.json corrections (cached pairs, type-safe LoopDeps, BufferAttribute positions) address the main implementation risks. The two medium-severity risks (position staleness, ordering contract) are acceptable trade-offs. No existing tests or contracts are broken.",
-  "approved": true,
+  "plan_quality": {
+    "strengths": [
+      "Correct identification of overlay vs mode pattern — compositing over existing systems is the right architectural choice",
+      "Static topology with dynamic uniforms is an excellent performance decision that avoids per-frame CPU geometry rebuilds",
+      "Connection count bounding (per-point + global cap) prevents GPU budget overruns",
+      "Quality tier integration follows established patterns precisely",
+      "Shader material choice (LineSegments + custom ShaderMaterial) is the most efficient Three.js line primitive"
+    ],
+    "weaknesses": [
+      "Shader warp replication strategy is the plan's weakest point — acknowledges the problem but defers the solution",
+      "MicroGeometry compatibility is not addressed despite its fundamentally different rendering pipeline",
+      "Mode transition handling for constellation topology is underspecified",
+      "No mention of how healthGate validation will cover the new constellation system"
+    ]
+  },
+  "approved": false,
   "adr_entry": null
 }
