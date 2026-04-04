@@ -29,6 +29,8 @@ export const COMMON_UNIFORMS: UniformSpec[] = [
   { name: 'uEnableSlowModulation', type: 'float', defaultValue: 1.0 },
   { name: 'uDisplacementScale', type: 'float', defaultValue: 0.5 },
   { name: 'uHasSizeAttr', type: 'float', defaultValue: 0.0 },
+  { name: 'uFogNear', type: 'float', defaultValue: 3.0 },
+  { name: 'uFogFar', type: 'float', defaultValue: 8.0 },
 ];
 
 export const POINTCLOUD_ATTRIBUTES: AttributeSpec[] = [
