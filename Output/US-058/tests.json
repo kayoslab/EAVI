@@ -1,0 +1,104 @@
+{
+  "tests": [
+    {
+      "id": "T-058-10",
+      "description": "createPointCloud({ useVoronoiShader: true }) initialises without error and adds Points to scene",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-11",
+      "description": "Voronoi-enabled ShaderMaterial has uVoronoiGridSize uniform with numeric value",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-12",
+      "description": "draw() updates uVoronoiGridSize to a value reflecting structureComplexity (range 3.0–6.0)",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-13",
+      "description": "draw() with high trebleEnergy does not throw (treble consumed in shader only)",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-14",
+      "description": "createPointCloud({ useVoronoiShader: false }) does NOT have uVoronoiGridSize uniform",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-15",
+      "description": "setOpacity works on voronoi-configured point cloud",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-20",
+      "description": "Voronoi ShaderMaterial fragmentShader contains uVoronoiGridSize, gl_PointCoord, and F2 (voronoi second-distance)",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-21",
+      "description": "Voronoi fragment shader does NOT contain noise3d patterns (snoise/fbm3) — self-contained",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-22",
+      "description": "QualityProfile for low tier has enableVoronoiCells === false",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-23",
+      "description": "QualityProfile for high tier has enableVoronoiCells === true",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-24",
+      "description": "Voronoi fragment shader contains fog uniforms (uFogNear, uFogFar) and vDepth varying for depth fog",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-25",
+      "description": "Voronoi fragment shader contains uBassEnergy and uTrebleEnergy uniforms for audio reactivity",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-26",
+      "description": "Voronoi fragment shader uses vColor varying for palette-derived coloring",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-27",
+      "description": "Voronoi-enabled point cloud cleanup disposes geometry and material",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-28",
+      "description": "All uniform values remain finite after draw with extreme audio params on voronoi point cloud",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    },
+    {
+      "id": "T-058-29",
+      "description": "No localStorage or cookie access with voronoi shader enabled",
+      "file": "tests/visual/systems/voronoiPointCloud.test.ts",
+      "type": "unit"
+    }
+  ],
+  "testFile": {
+    "path": "tests/visual/systems/voronoiPointCloud.test.ts",
+    "content": "import { describe, it, expect, vi } from 'vitest';\nimport * as THREE from 'three';\nimport { createPointCloud } from '../../../src/visual/systems/pointCloud';\nimport { computeQuality } from '../../../src/visual/quality';\nimport type { VisualParams } from '../../../src/visual/mappings';\nimport type { FrameState } from '../../../src/visual/types';\n\nconst defaultParams: VisualParams = {\n  paletteHue: 180,\n  paletteSaturation: 0.5,\n  cadence: 0.7,\n  density: 0.6,\n  motionAmplitude: 1.0,\n  pointerDisturbance: 0,\n  bassEnergy: 0,\n  trebleEnergy: 0,\n  curveSoftness: 0.5,\n  structureComplexity: 0.5,\n  noiseFrequency: 1.0,\n  radialScale: 1.0,\n  twistStrength: 1.0,\n  fieldSpread: 1.0,\n};\n\nfunction makeFrame(overrides?: Partial<FrameState & { params: Partial<VisualParams> }>): FrameState {\n  return {\n    time: 1000,\n    delta: 16,\n    elapsed: 1000,\n    width: 800,\n    height: 600,\n    params: { ...defaultParams, ...(overrides?.params ?? {}) },\n    ...Object.fromEntries(Object.entries(overrides ?? {}).filter(([k]) => k !== 'params')),\n  } as FrameState;\n}\n\ndescribe('US-058: Voronoi cellular fragment shader — point cloud wiring', () => {\n  it('T-058-10: createPointCloud({ useVoronoiShader: true }) initialises without error', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    expect(points).toBeDefined();\n  });\n\n  it('T-058-11: voronoi-enabled ShaderMaterial has uVoronoiGridSize uniform', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-uniform-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    expect(mat.uniforms.uVoronoiGridSize).toBeDefined();\n    expect(typeof mat.uniforms.uVoronoiGridSize.value).toBe('number');\n  });\n\n  it('T-058-12: draw() updates uVoronoiGridSize reflecting structureComplexity', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-grid-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n\n    cloud.draw(scene, makeFrame({ params: { structureComplexity: 0.0 } }));\n    const lowComplexity = mat.uniforms.uVoronoiGridSize.value;\n\n    cloud.draw(scene, makeFrame({ params: { structureComplexity: 1.0 } }));\n    const highComplexity = mat.uniforms.uVoronoiGridSize.value;\n\n    expect(lowComplexity).toBeGreaterThanOrEqual(3.0);\n    expect(highComplexity).toBeLessThanOrEqual(6.0);\n    expect(highComplexity).toBeGreaterThan(lowComplexity);\n  });\n\n  it('T-058-13: draw() with high trebleEnergy does not throw', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-treble-seed', defaultParams);\n    expect(() => {\n      cloud.draw(scene, makeFrame({ params: { trebleEnergy: 0.9 } }));\n    }).not.toThrow();\n  });\n\n  it('T-058-14: createPointCloud({ useVoronoiShader: false }) does NOT have uVoronoiGridSize', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: false });\n    cloud.init(scene, 'no-voronoi-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    expect(mat.uniforms.uVoronoiGridSize).toBeUndefined();\n  });\n\n  it('T-058-15: setOpacity works on voronoi-configured point cloud', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-opacity-seed', defaultParams);\n    cloud.setOpacity!(0.4);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    expect(mat.uniforms.uOpacity.value).toBe(0.4);\n  });\n});\n\ndescribe('US-058: Voronoi fragment shader content validation', () => {\n  it('T-058-20: voronoi fragmentShader contains uVoronoiGridSize, gl_PointCoord, and F2', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-content-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    expect(mat.fragmentShader).toMatch(/uVoronoiGridSize/);\n    expect(mat.fragmentShader).toMatch(/gl_PointCoord/);\n    expect(mat.fragmentShader).toMatch(/F2/);\n  });\n\n  it('T-058-21: voronoi fragment shader does NOT contain noise3d patterns (snoise/fbm3)', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-nonoise-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    expect(mat.fragmentShader).not.toMatch(/snoise/);\n    expect(mat.fragmentShader).not.toMatch(/fbm3/);\n  });\n\n  it('T-058-24: voronoi fragment shader contains fog uniforms and vDepth for depth fog', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-fog-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    expect(mat.fragmentShader).toMatch(/uFogNear/);\n    expect(mat.fragmentShader).toMatch(/uFogFar/);\n    expect(mat.fragmentShader).toMatch(/vDepth/);\n  });\n\n  it('T-058-25: voronoi fragment shader contains audio energy uniforms', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-audio-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    expect(mat.fragmentShader).toMatch(/uBassEnergy/);\n    expect(mat.fragmentShader).toMatch(/uTrebleEnergy/);\n  });\n\n  it('T-058-26: voronoi fragment shader uses vColor varying for palette coloring', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-vcolor-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    expect(mat.fragmentShader).toMatch(/vColor/);\n  });\n});\n\ndescribe('US-058: Voronoi point cloud lifecycle', () => {\n  it('T-058-27: voronoi-enabled point cloud cleanup disposes geometry and material', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-cleanup-seed', defaultParams);\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const geoSpy = vi.spyOn(points.geometry, 'dispose');\n    const matSpy = vi.spyOn(points.material as THREE.Material, 'dispose');\n\n    cloud.cleanup();\n\n    expect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(0);\n    expect(geoSpy).toHaveBeenCalled();\n    expect(matSpy).toHaveBeenCalled();\n  });\n\n  it('T-058-28: all uniform values remain finite after draw with extreme params', () => {\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-finite-seed', defaultParams);\n    cloud.draw(scene, makeFrame({\n      elapsed: 100000,\n      params: { bassEnergy: 1.0, trebleEnergy: 1.0, motionAmplitude: 1.0 },\n    }));\n    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n    const mat = points.material as THREE.ShaderMaterial;\n    for (const [name, uniform] of Object.entries(mat.uniforms)) {\n      if (typeof uniform.value === 'number') {\n        expect(Number.isFinite(uniform.value), `uniform ${name} is not finite`).toBe(true);\n      }\n    }\n  });\n\n  it('T-058-29: no localStorage or cookie access with voronoi shader enabled', () => {\n    const lsSpy = vi.spyOn(Storage.prototype, 'getItem');\n    const cookieSpy = vi.spyOn(document, 'cookie', 'get');\n    const scene = new THREE.Scene();\n    const cloud = createPointCloud({ useVoronoiShader: true });\n    cloud.init(scene, 'voronoi-privacy-seed', defaultParams);\n    cloud.draw(scene, makeFrame());\n    expect(lsSpy).not.toHaveBeenCalled();\n    expect(cookieSpy).not.toHaveBeenCalled();\n  });\n});\n\ndescribe('US-058: Quality profile voronoi settings', () => {\n  it('T-058-22: low tier has enableVoronoiCells === false', () => {\n    const signals = {\n      language: 'en', timezone: 'UTC', screenWidth: 320, screenHeight: 568,\n      devicePixelRatio: 1, hardwareConcurrency: 2, prefersColorScheme: 'dark' as const,\n      prefersReducedMotion: false, touchCapable: true, deviceMemory: 1,\n    };\n    const result = computeQuality(signals);\n    expect(result.tier).toBe('low');\n    expect(result.enableVoronoiCells).toBe(false);\n  });\n\n  it('T-058-23: high tier has enableVoronoiCells === true', () => {\n    const signals = {\n      language: 'en', timezone: 'UTC', screenWidth: 2560, screenHeight: 1440,\n      devicePixelRatio: 2, hardwareConcurrency: 16, prefersColorScheme: 'dark' as const,\n      prefersReducedMotion: false, touchCapable: false, deviceMemory: 8,\n    };\n    const result = computeQuality(signals);\n    expect(result.tier).toBe('high');\n    expect(result.enableVoronoiCells).toBe(true);\n  });\n});\n"
+  }
+}
