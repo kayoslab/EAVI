@@ -1,0 +1,62 @@
+{
+  "verdict": "approve",
+  "concerns": [
+    {
+      "severity": "high",
+      "area": "architecture",
+      "detail": "Plan proposes THREE.ShaderMaterial on InstancedMesh with CPU-side matrix updates, but the vertex shader plan also includes curl3 displacement in GLSL. These conflict: if you update instance matrices on the CPU with curl3-displaced positions, the vertex shader should NOT also displace — it would double-apply. The plan's step 5 (CPU curl3 displacement in draw loop) and step 3 (vertex shader curl3 displacement) must be reconciled. Recommend: do all audio-reactive transform on CPU via setMatrixAt, keep vertex shader pass-through (just instance matrix * position). This avoids JS-side curl noise reimplementation AND shader complexity.",
+      "recommendation": "Remove curl3/noise3d from the vertex shader. Apply bass displacement and treble jitter entirely on CPU via matrix composition in draw(). The vertex shader only needs instanceMatrix transform, fog, and color. This is simpler, avoids JS/GLSL curl noise divergence, and matches the ticket's explicit 'Instance matrices are updated per frame from a Float32Array' note."
+    },
+    {
+      "severity": "medium",
+      "area": "performance",
+      "detail": "CPU-side curl3 noise sampling for 1200 instances per frame is expensive. The existing systems do noise displacement on the GPU via GLSL. Doing it on CPU requires either a JS simplex noise implementation (not currently in the codebase) or a simplified displacement approach.",
+      "recommendation": "Use a simpler CPU-side displacement: sin/cos waves seeded per instance, modulated by bassEnergy. This avoids needing a JS noise library while still producing organic macro motion. Alternatively, do displacement in the vertex shader and only update rotation/scale on CPU — but then the plan's architecture decision needs rewriting."
+    },
+    {
+      "severity": "medium",
+      "area": "architecture",
+      "detail": "Plan says 'Use THREE.ShaderMaterial' but doesn't address that InstancedMesh with ShaderMaterial requires careful handling. Three.js auto-injects instanceMatrix attribute only when material.defines includes USE_INSTANCING, which ShaderMaterial doesn't set automatically. You need either: (a) set material.onBeforeCompile or defines, or (b) manually handle the instance matrix in the vertex shader via attribute mat4 instanceMatrix.",
+      "recommendation": "In the vertex shader, explicitly declare 'attribute mat4 instanceMatrix;' and use it in the position transform: gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0). Three.js will bind the attribute automatically for InstancedMesh, but the shader must declare it. Alternatively, use MeshBasicMaterial/MeshPhongMaterial which handle instancing natively, with onBeforeCompile for customization."
+    },
+    {
+      "severity": "low",
+      "area": "completeness",
+      "detail": "Plan doesn't mention getGeometryInfo() which some systems may need for the health gate's geometry validation. Check if existing systems implement a method beyond the GeometrySystem interface for validation.",
+      "recommendation": "Check if ShaderErrorCollector or geometryValidator expects systems to expose geometry info. If so, add it to the MicroGeometry implementation."
+    },
+    {
+      "severity": "low",
+      "area": "quality_profile",
+      "detail": "Adding maxInstances to QualityProfile is clean, but main.ts currently destructures quality fields explicitly. The new field needs to be threaded to the MicroGeometry factory.",
+      "recommendation": "Follow the exact pattern: createMicroGeometry({ maxInstances: quality.maxInstances, ... })"
+    }
+  ],
+  "suggestions": [
+    {
+      "area": "simplification",
+      "detail": "Consider using MeshBasicMaterial or MeshNormalMaterial instead of ShaderMaterial for the first pass. InstancedMesh works out-of-the-box with built-in materials, and you can add custom ShaderMaterial later. This eliminates shader compile risk entirely for the MVP.",
+      "priority": "optional"
+    },
+    {
+      "area": "naming",
+      "detail": "The factory function should follow existing convention: createMicroGeometry() returning a MicroGeometry interface extending GeometrySystem, matching createCrystalField(), createParticleField(), etc.",
+      "priority": "recommended"
+    },
+    {
+      "area": "testing",
+      "detail": "Step 9 mentions initAllForValidation but doesn't mention that ModeManager.initAllForValidation() calls init() on ALL systems with the same seed/params. Ensure MicroGeometry.init() is idempotent or handles re-init gracefully.",
+      "priority": "recommended"
+    }
+  ],
+  "missing_from_plan": [
+    "No JS-side noise/curl implementation exists in the codebase — plan assumes curl3 can be called from CPU draw loop but it only exists in GLSL",
+    "No mention of how instanceMatrix.needsUpdate interacts with Three.js render loop (must be set to true every frame after updates)",
+    "No mention of disposing the base geometry (BoxGeometry etc.) — Three.js geometries should be disposed in cleanup()",
+    "InstancedMesh.count can be set lower than the constructor count for dynamic LOD — plan doesn't leverage this for quality tier switching"
+  ],
+  "estimated_complexity": "medium",
+  "estimated_files_changed": 6,
+  "ready_to_implement": true,
+  "approved": true
+}
