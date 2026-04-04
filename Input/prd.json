@@ -1259,8 +1259,8 @@
         "Generated edge count stays within performance budget"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-054"
       ],

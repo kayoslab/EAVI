@@ -124,3 +124,5 @@
 
 ## US-058: Add voronoi cellular fragment shader
 
+## US-062: Add geodesic and platonic solid generators
+
