@@ -1,0 +1,160 @@
+{
+  "ticket": "US-055",
+  "title": "Add constellation connection lines between points",
+  "overview": "Create a constellation line overlay system that composites connection lines over the active point-based geometry system. Lines connect nearby points within a bass-modulated proximity threshold, with distance-based opacity fade and GPU-budget-aware connection limits. Implemented as a companion layer that reads positions from any active GeometrySystem exposing a positions getter, rendered as THREE.LineSegments with depth fog and a custom ShaderMaterial for audio reactivity.",
+  "architecture_decisions": [
+    {
+      "decision": "Constellation lines as a companion overlay, not a standalone mode",
+      "rationale": "The ticket says 'composited over any point-based geometry system'. Rather than registering as a ModeManager mode, the constellation layer is initialized alongside the active system and reads its positions. The ModeManager orchestrates which point system is active; the constellation layer hooks into mode switches to rebuild its line buffer from the new system's positions."
+    },
+    {
+      "decision": "CPU-side spatial proximity search with bounded connection count",
+      "rationale": "Per the ticket notes, use CPU-side proximity search at mode init (not per-frame). A brute-force O(n²) neighbor search is acceptable given max point counts (≤2000 at high tier). Connection count is capped per-point (e.g. max 4-6 neighbors) and globally (e.g. max 3000 line segments at high tier) to bound GPU cost."
+    },
+    {
+      "decision": "THREE.LineSegments with custom ShaderMaterial for audio reactivity",
+      "rationale": "LineSegments is the most efficient Three.js line primitive (pairs of vertices = independent segments). A custom ShaderMaterial allows bass-driven distance threshold modulation and treble-driven brightness/opacity in the fragment shader, plus depth fog consistent with existing systems."
+    },
+    {
+      "decision": "Static line topology, dynamic uniforms",
+      "rationale": "Line connections are computed once at init from base positions (pre-GPU-deformation). Per-frame, only uniforms update (bass energy, treble energy, time, opacity). This avoids per-frame CPU geometry rebuilds. The GPU vertex shader applies the same warp as the point system to keep lines attached to their points."
+    }
+  ],
+  "files_to_create": [
+    {
+      "path": "src/visual/systems/constellationLines.ts",
+      "purpose": "Main constellation line overlay system implementing GeometrySystem interface. Contains proximity search, line buffer construction, ShaderMaterial setup, and per-frame uniform updates."
+    },
+    {
+      "path": "src/visual/shaders/constellation.vert.glsl",
+      "purpose": "Vertex shader for constellation lines. Transforms line endpoints, applies the same noise-based warp as point systems (imports noise3d.glsl) so lines track deformed point positions. Passes distance-based alpha and depth to fragment shader."
+    },
+    {
+      "path": "src/visual/shaders/constellation.frag.glsl",
+      "purpose": "Fragment shader for constellation lines. Applies distance-based opacity fade, treble-driven brightness modulation, and atmospheric depth fog matching existing systems."
+    },
+    {
+      "path": "tests/visual/systems/constellationLines.test.ts",
+      "purpose": "Unit and integration tests for the constellation line system covering init, proximity search, connection bounds, audio reactivity, quality tier degradation, cleanup, and determinism."
+    }
+  ],
+  "files_to_modify": [
+    {
+      "path": "src/visual/quality.ts",
+      "changes": "Add enableConstellationLines (boolean) and maxConstellationSegments (number) to QualityProfile interface. Low tier: false/0. Medium tier: true/1500. High tier: true/3000."
+    },
+    {
+      "path": "src/visual/shaderRegistry.ts",
+      "changes": "Add CONSTELLATION_ATTRIBUTES array (position itemSize 3, aAlpha itemSize 1) and optionally CONSTELLATION_UNIFORMS if needed for validation."
+    },
+    {
+      "path": "src/visual/modeManager.ts",
+      "changes": "Extend ModeManager to support an optional overlay layer. Add methods to attach/detach a constellation overlay that inits when the active mode inits and rebuilds on mode switch. The overlay receives the active system's positions and draws after the active mode."
+    },
+    {
+      "path": "src/main.ts",
+      "changes": "Create constellation line overlay with quality-driven config, attach it to the mode manager as an overlay layer. Only create if quality.enableConstellationLines is true."
+    },
+    {
+      "path": "src/visual/types.ts",
+      "changes": "Add optional positions getter to GeometrySystem interface (positions?: Float32Array | null) so the constellation overlay can generically read positions from any active system. Alternatively, add a PositionProvider interface."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": 1,
+      "title": "Extend QualityProfile and types",
+      "description": "Add enableConstellationLines and maxConstellationSegments to QualityProfile in quality.ts. Add a PositionProvider interface or optional positions accessor to types.ts. Add CONSTELLATION_ATTRIBUTES to shaderRegistry.ts.",
+      "files": ["src/visual/quality.ts", "src/visual/types.ts", "src/visual/shaderRegistry.ts"],
+      "tests": false
+    },
+    {
+      "step": 2,
+      "title": "Write constellation shaders",
+      "description": "Create constellation.vert.glsl that imports noise3d.glsl and applies the same warp transform as pointWarp.vert.glsl (radial expansion, noise displacement, twist, drift based on bass/time uniforms). Compute per-vertex alpha from the aAlpha attribute (pre-computed distance-based fade). Create constellation.frag.glsl with atmospheric depth fog (uFogNear/uFogFar), distance-based alpha, treble brightness modulation, and uOpacity support for crossfade transitions.",
+      "files": ["src/visual/shaders/constellation.vert.glsl", "src/visual/shaders/constellation.frag.glsl"],
+      "tests": false
+    },
+    {
+      "step": 3,
+      "title": "Implement constellationLines system",
+      "description": "Create the core system: (1) Proximity search function that takes Float32Array positions and a distance threshold, returns pairs of indices within threshold, capped by maxSegments and max-neighbors-per-point. (2) Line buffer builder that creates a Float32Array of paired vertex positions and per-vertex alpha values (alpha = 1 - distance/threshold). (3) GeometrySystem implementation with init(scene, seed, params) that accepts positions via a setPositions() method, builds LineSegments geometry, and creates ShaderMaterial. (4) draw() updates uniforms: uBassEnergy (modulates effective threshold conceptually, but since topology is static, instead scales line alpha/visibility), uTrebleEnergy (brightness), uTime, uOpacity. (5) cleanup() disposes geometry and material.",
+      "files": ["src/visual/systems/constellationLines.ts"],
+      "tests": false
+    },
+    {
+      "step": 4,
+      "title": "Write tests for constellation system",
+      "description": "Test proximity search correctness (points within threshold are connected, points outside are not). Test connection count bounds (per-point cap and global cap). Test determinism (same positions + threshold = same connections). Test init creates LineSegments mesh in scene. Test draw updates uniforms from frame state. Test cleanup removes mesh and disposes resources. Test graceful degradation (0 maxSegments = no mesh added). Test alpha values are in [0,1] and correlate with distance.",
+      "files": ["tests/visual/systems/constellationLines.test.ts"],
+      "tests": true
+    },
+    {
+      "step": 5,
+      "title": "Extend ModeManager with overlay support",
+      "description": "Add an attachOverlay(overlay, getPositions) method to ModeManager. During mode transitions: when a new mode finishes init, call overlay.setPositions() with the new system's positions and re-init the overlay. During draw, draw the overlay after the active system. Overlay opacity follows the active system's opacity during crossfades.",
+      "files": ["src/visual/modeManager.ts"],
+      "tests": false
+    },
+    {
+      "step": 6,
+      "title": "Wire constellation overlay into main.ts",
+      "description": "In main.ts, after creating geometry systems: if quality.enableConstellationLines is true, create a constellation overlay with maxConstellationSegments from quality profile. Attach it to the mode manager. Ensure the overlay is cleaned up on context loss.",
+      "files": ["src/main.ts"],
+      "tests": false
+    },
+    {
+      "step": 7,
+      "title": "Integration testing and quality gating validation",
+      "description": "Add tests verifying: low-tier devices get no constellation lines, medium/high tiers get appropriate segment caps. Test mode switch triggers constellation rebuild. Test that existing systems still pass all their tests (no regressions). Run full build to verify shader compilation.",
+      "files": ["tests/visual/systems/constellationLines.test.ts"],
+      "tests": true
+    }
+  ],
+  "constellation_config": {
+    "defaultProximityThreshold": 0.8,
+    "maxNeighborsPerPoint": 5,
+    "qualityTiers": {
+      "low": { "enabled": false, "maxSegments": 0 },
+      "medium": { "enabled": true, "maxSegments": 1500 },
+      "high": { "enabled": true, "maxSegments": 3000 }
+    },
+    "bassModulation": "Bass energy scales line alpha globally (high bass = more visible web, low bass = fading connections)",
+    "trebleModulation": "Treble energy modulates line brightness/shimmer",
+    "depthFog": "Same uFogNear=3.0, uFogFar=8.0 as existing systems for visual consistency"
+  },
+  "risks_and_mitigations": [
+    {
+      "risk": "Line endpoints drift from deformed point positions since topology is computed from base positions",
+      "mitigation": "Constellation vertex shader must apply the identical warp transform as the parent point system's vertex shader. Import the same noise3d.glsl and replicate the displacement logic with matching uniforms."
+    },
+    {
+      "risk": "O(n²) proximity search is slow for high point counts",
+      "mitigation": "Max 2000 points → ~2M comparisons, which completes in <10ms on modern CPUs. Only runs at init, not per-frame. If needed later, spatial hashing can be added."
+    },
+    {
+      "risk": "Too many line segments cause GPU performance issues",
+      "mitigation": "Hard cap via maxConstellationSegments in QualityProfile. Per-point neighbor cap (5) provides a soft bound. Low-tier devices skip entirely."
+    },
+    {
+      "risk": "Different geometry systems use different vertex shader warp transforms",
+      "mitigation": "The constellation vertex shader must support multiple warp modes or use a simplified common warp. Initial implementation targets the pointWarp transform; a uniform flag can switch warp profiles per system type if needed."
+    }
+  ],
+  "definition_of_done": [
+    "Build passes (npm run build)",
+    "No console errors or shader compilation errors on normal load",
+    "Constellation lines visible over point-based geometry systems on medium/high tier",
+    "Lines connect points within configurable proximity threshold",
+    "Connection distance threshold effect visible via bass energy modulation",
+    "Line opacity fades with distance between connected points",
+    "Connection count bounded — no GPU overload at max point counts",
+    "Lines render as THREE.LineSegments with depth fog",
+    "Low-tier devices: constellation lines disabled, no performance impact",
+    "No forbidden storage APIs used",
+    "Scene works with and without successful autoplay",
+    "Mute toggle and info overlay still work",
+    "All existing tests pass (no regressions)",
+    "New tests pass for constellation system"
+  ]
+}
