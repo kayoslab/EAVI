@@ -1213,8 +1213,8 @@
         "Works with wireframe polyhedra and constellation line systems"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-054",
         "US-048"
