@@ -108,3 +108,5 @@
 
 ## US-053: Add optional debug overlay for shader and geometry state
 
+## US-047: Adaptive point count scaling
+
