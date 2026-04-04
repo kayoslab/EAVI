@@ -116,3 +116,5 @@
 
 ## US-055: Add constellation connection lines between points
 
+## US-054: Add wireframe polyhedra geometry system
+
