@@ -2,8 +2,11 @@
 // US-034: Soft circular points with per-vertex color (same as pointWarp)
 
 uniform float uOpacity;
+uniform float uFogNear;
+uniform float uFogFar;
 
 varying vec3 vColor;
+varying float vDepth;
 
 void main() {
   // Circular point shape from gl_PointCoord
@@ -16,5 +19,17 @@ void main() {
   // Soft edge falloff for antialiased points
   float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
 
-  gl_FragColor = vec4(vColor, alpha * 0.85 * uOpacity);
+  // Atmospheric depth fog
+  float fogFactor = smoothstep(uFogNear, uFogFar, vDepth);
+
+  // Depth-based color desaturation (cool shift)
+  vec3 color = vColor;
+  float lum = dot(color, vec3(0.299, 0.587, 0.114));
+  vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);
+  color = mix(color, fogTint, fogFactor * 0.5);
+
+  // Fog alpha attenuation (capped at 85% to keep far points ghostly)
+  float fogAlpha = alpha * (1.0 - fogFactor * 0.85) * uOpacity;
+
+  gl_FragColor = vec4(color, fogAlpha);
 }

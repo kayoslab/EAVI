@@ -320,7 +320,7 @@ describe('T-049-07: Fragment shader uniforms are subset of vertex shader uniform
       const fragUniforms = parseGlslUniforms(sys.fragSource);
 
       // Known fragment-only uniforms
-      const fragmentOnly = new Set(['uOpacity']);
+      const fragmentOnly = new Set(['uOpacity', 'uFogFar']);
 
       for (const u of fragUniforms) {
         const inVert = vertUniforms.has(u.name);
