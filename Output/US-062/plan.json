@@ -1,0 +1,92 @@
+{
+  "id": "US-062",
+  "title": "Add geodesic and platonic solid generators",
+  "overview": "Add three new generator modules (geodesic subdivision, nested solids, dual polyhedra) to polyhedraEdges.ts ecosystem, with a new GenerationMode type separate from PolyhedronShape. Wire mode selection into wireframePolyhedra.ts using a second seed-derived roll, with tier-gated access.",
+  "steps": [
+    {
+      "step": 1,
+      "title": "Add GenerationMode type and cube to PolyhedronShape in polyhedraEdges.ts",
+      "description": "Add 'cube' to the PolyhedronShape union type but NOT to the SHAPES selection array (cube is only used internally by the dual generator). Add a new type `GenerationMode = 'plain' | 'geodesic' | 'nested' | 'dual'`. Add `selectGenerationMode(seed: string, tier: QualityTier): GenerationMode` that returns 'plain' for low tier, and uses a seed-derived roll to pick from all four modes for medium/high tiers. Add 'cube' case to createBaseGeometry using `new THREE.BoxGeometry(r*2, r*2, r*2)` + EdgesGeometry(geo, 0) which yields exactly 12 cube edges.",
+      "files": ["src/visual/generators/polyhedraEdges.ts"],
+      "testStrategy": "Unit test selectGenerationMode: verify low tier always returns 'plain'; verify medium/high tiers return valid modes deterministically from seed; verify 'cube' is not in SHAPES array but is a valid PolyhedronShape."
+    },
+    {
+      "step": 2,
+      "title": "Create geodesic sphere generator",
+      "description": "Create `src/visual/generators/geodesicSphere.ts`. Implement `generateGeodesicEdges(opts: { radius?: number; level: number; seed: string }): PolyhedronEdgeData`. Use THREE.IcosahedronGeometry(radius, level) where level is 1-4, then extract edges via EdgesGeometry. Edge count formula: 30 * 4^level (level 1 = 120, level 2 = 480, level 3 = 1920, level 4 = 7680). Export a `maxGeodesicLevel(maxEdges: number): number` helper that returns the highest level where 30*4^level <= maxEdges. This replaces post-generation truncation — subdivision level is capped to stay within budget.",
+      "files": ["src/visual/generators/geodesicSphere.ts"],
+      "testStrategy": "Test edge count matches formula for levels 1-4. Test maxGeodesicLevel returns correct level for various budgets (e.g., 120→1, 500→2, 2000→3). Test output format matches PolyhedronEdgeData interface (positions, randoms, edgeCount). Test positions are finite."
+    },
+    {
+      "step": 3,
+      "title": "Create nested solid generator",
+      "description": "Create `src/visual/generators/nestedSolids.ts`. Implement `generateNestedEdges(opts: { shape: PolyhedronShape; layers: number; radius?: number; seed: string }): PolyhedronEdgeData`. Generate 2-4 concentric copies of the same polyhedron at progressively smaller radii (e.g., r, r*0.65, r*0.42, r*0.27). Each layer gets a slight seed-derived rotation offset. Concatenate all edge-pair arrays into a single PolyhedronEdgeData. Edge count = baseEdgeCount * layers (modest — e.g., 4-layer icosahedron = 120 edges, 4-layer dodecahedron = 120).",
+      "files": ["src/visual/generators/nestedSolids.ts"],
+      "testStrategy": "Test that edge count equals base shape edges * layer count. Test that output positions span multiple radii. Test 2, 3, and 4 layer variants. Test positions are finite."
+    },
+    {
+      "step": 4,
+      "title": "Create dual polyhedra generator",
+      "description": "Create `src/visual/generators/dualPolyhedra.ts`. Implement `generateDualEdges(opts: { shape: PolyhedronShape; radius?: number; seed: string }): PolyhedronEdgeData`. Define dual pairs: icosahedron↔dodecahedron, cube↔octahedron, tetrahedron↔tetrahedron (self-dual, scaled). Generate edges for both the shape and its dual at the same radius, concatenate into one PolyhedronEdgeData. Note: THREE.BoxGeometry(s,s,s) + EdgesGeometry(geo, 0) yields exactly the 12 cube edges needed — no manual vertex math required. Edge counts: icosa+dodeca = 60, cube+octa = 24, tetra+tetra = 12.",
+      "files": ["src/visual/generators/dualPolyhedra.ts"],
+      "testStrategy": "Test each dual pair produces correct combined edge count. Test that both shapes are present in output (positions span two distinct vertex sets). Test tetrahedron self-dual case. Test positions are finite."
+    },
+    {
+      "step": 5,
+      "title": "Add maxEdgesPerShape to QualityProfile and set tier budgets",
+      "description": "Add `maxEdgesPerShape: number` to QualityProfile in quality.ts. Set values: low = 30 (plain shapes only, no geodesic/nested/dual), medium = 480 (allows geodesic level 2, nested, dual), high = 1920 (allows geodesic level 3). These budgets are used by the geodesic generator's maxGeodesicLevel helper to pick the right subdivision. Nested/dual counts are always modest (<= 120) so they inherently stay within budget for medium/high.",
+      "files": ["src/visual/quality.ts"],
+      "testStrategy": "Test that all three tiers have maxEdgesPerShape defined. Verify low tier value works with plain mode only."
+    },
+    {
+      "step": 6,
+      "title": "Integrate generation modes into wireframePolyhedra.ts",
+      "description": "Update wireframePolyhedra.ts init() to: (1) accept a new optional `generationMode` config and `maxEdgesPerShape` config, (2) use selectGenerationMode with a second seed-derived roll (seed + ':wireframe:mode:' + i) independent of shape selection, (3) based on mode, call the appropriate generator: 'plain' → existing generatePolyhedronEdges, 'geodesic' → generateGeodesicEdges with level from maxGeodesicLevel(maxEdgesPerShape), 'nested' → generateNestedEdges with 2-4 layers (seed-derived), 'dual' → generateDualEdges. The rest of the pipeline (geometry creation, subdivision for electric arcs, shader material) remains unchanged since all generators output PolyhedronEdgeData.",
+      "files": ["src/visual/systems/wireframePolyhedra.ts"],
+      "testStrategy": "Test that init still produces LineSegments for all generation modes. Test that geodesic mode produces more edges than plain. Test that nested mode produces expected layer count. Test that dual mode includes edges from both shapes. Test that low tier config only produces plain mode shapes."
+    },
+    {
+      "step": 7,
+      "title": "Wire quality tier settings through to wireframe system in main.ts",
+      "description": "Update the wireframe system instantiation in main.ts (or wherever createWireframePolyhedra is called) to pass maxEdgesPerShape and qualityTier from the computed QualityProfile to the wireframe config.",
+      "files": ["src/main.ts"],
+      "testStrategy": "Verify build passes. Integration test that low tier produces only plain-mode polyhedra."
+    },
+    {
+      "step": 8,
+      "title": "Write comprehensive tests",
+      "description": "Create test files: tests/visual/generators/geodesicSphere.test.ts, tests/visual/generators/nestedSolids.test.ts, tests/visual/generators/dualPolyhedra.test.ts, and tests/visual/generators/polyhedraEdges.us062.test.ts (for selectGenerationMode and cube support). Update tests/visual/systems/wireframePolyhedra.test.ts with mode integration tests. All tests verify: edge counts, position finiteness, PolyhedronEdgeData format compliance, tier-gated mode selection, and edge budget compliance.",
+      "files": [
+        "tests/visual/generators/geodesicSphere.test.ts",
+        "tests/visual/generators/nestedSolids.test.ts",
+        "tests/visual/generators/dualPolyhedra.test.ts",
+        "tests/visual/generators/polyhedraEdges.us062.test.ts",
+        "tests/visual/systems/wireframePolyhedra.test.ts"
+      ],
+      "testStrategy": "Run full test suite, ensure all new and existing tests pass. Verify no shader compile errors in integration tests."
+    }
+  ],
+  "newFiles": [
+    "src/visual/generators/geodesicSphere.ts",
+    "src/visual/generators/nestedSolids.ts",
+    "src/visual/generators/dualPolyhedra.ts",
+    "tests/visual/generators/geodesicSphere.test.ts",
+    "tests/visual/generators/nestedSolids.test.ts",
+    "tests/visual/generators/dualPolyhedra.test.ts",
+    "tests/visual/generators/polyhedraEdges.us062.test.ts"
+  ],
+  "modifiedFiles": [
+    "src/visual/generators/polyhedraEdges.ts",
+    "src/visual/systems/wireframePolyhedra.ts",
+    "src/visual/quality.ts",
+    "src/main.ts",
+    "tests/visual/systems/wireframePolyhedra.test.ts"
+  ],
+  "reviewerFeedbackAddressed": {
+    "type_design": "GenerationMode is a separate type from PolyhedronShape. Shape union gains only 'cube' (a real shape). Mode is selected via a second seed-derived roll independent of shape selection.",
+    "edge_budget_clamping": "No post-generation truncation. Geodesic subdivision level is capped via maxGeodesicLevel(maxEdges) which uses the deterministic formula 30*4^level. Nested/dual counts are inherently modest and always within budget.",
+    "dodecahedron_and_cube_generation": "THREE.BoxGeometry(s,s,s) + EdgesGeometry(geo, 0) yields exactly 12 cube edges — no manual vertex math. Dodecahedron already handled by existing createBaseGeometry.",
+    "quality_tier_values": "Low tier restricted to 'plain' generation mode only. Geodesic/nested/dual only available on medium and high tiers, avoiding edge-budget corner cases.",
+    "cube_in_selectShape": "'cube' added to PolyhedronShape union type but explicitly NOT added to the SHAPES selection array. Cube is only used internally by dualPolyhedra.ts for the cube↔octahedron pair."
+  }
+}
