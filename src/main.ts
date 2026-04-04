@@ -18,6 +18,7 @@ import { createCrystalField } from './visual/systems/crystalField';
 import { createMicroGeometry } from './visual/systems/microGeometry';
 import { createModeManager } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
+import { createConstellationLines } from './visual/systems/constellationLines';
 
 // Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
 const quickTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -131,6 +132,20 @@ geoPromise.then((geo) => {
     { name: 'crystal', factory: () => crystal },
     { name: 'microgeometry', factory: () => microGeo },
   ]);
+
+  // Attach constellation line overlay for medium/high tier devices
+  if (quality.enableConstellationLines) {
+    const constellationOverlay = createConstellationLines({
+      maxConnections: quality.maxConstellationSegments,
+    });
+    modeManager.attachOverlay({
+      overlay: constellationOverlay,
+      getPositions: (system) => {
+        const s = system as { positions?: Float32Array | null };
+        return s.positions ? Float32Array.from(s.positions) : null;
+      },
+    });
+  }
 
   // Enrich loop deps — geometry will init on next frame
   deps.seed = seed;
