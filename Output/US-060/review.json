@@ -1,0 +1,83 @@
+{
+  "planReviewResult": "APPROVED_WITH_CHANGES",
+  "changes": [
+    {
+      "step": 1,
+      "type": "correction",
+      "issue": "Acceptance criteria conflict with description. Description says aEdgeParam is '0 at start endpoint, 1 at end' (linear), but acceptance criteria say 'aEdgeParam is 0 at endpoints and peaks at 1 at midpoint'. Since step 2 applies sin(PI * aEdgeParam) for endpoint tapering in the shader, aEdgeParam should be linear 0-1 along the edge, not pre-tapered.",
+      "correction": "Change acceptance criterion to: 'aEdgeParam is 0 at start endpoint and 1 at end endpoint (linear parametric coordinate)'. The sin(PI*t) tapering belongs in the shader (step 2), not baked into the attribute."
+    },
+    {
+      "step": 4,
+      "type": "correction",
+      "issue": "Subdivision count inconsistency. Design decisions section says medium=6/high=8, but step 4 says medium=5/high=8.",
+      "correction": "Standardize to medium=5, high=8 as stated in step 4 (lower vertex counts are more conservative)."
+    },
+    {
+      "step": 5,
+      "type": "addition",
+      "issue": "Plan does not mention how arc shaders will include noise3d.glsl. Existing pattern in wireframePolyhedra.ts concatenates noise3d.glsl + shader source via Vite raw imports (line 11: `const vertexShader = noise3dGlsl + '\\n' + wireframeVert`). Arc shaders must follow the same pattern.",
+      "correction": "Add to step 5 key logic: 'Import arc shaders via Vite raw imports and prepend noise3dGlsl, following the existing concatenation pattern: `const arcVertexShader = noise3dGlsl + \"\\n\" + electricArcVert`'."
+    },
+    {
+      "step": 6,
+      "type": "clarification",
+      "issue": "The plan is vague about how aDistance attribute is handled in arc shaders. It says 'The constellation-specific vAlpha varying needs to be added to the arc vertex shader output, or the arc fragment shader needs to handle aDistance-based alpha similarly'. This needs a concrete decision.",
+      "correction": "The arc vertex shader should declare an optional `attribute float aDistance` and `varying float vAlpha`. When aDistance is present (constellation usage), compute vAlpha from it. When absent (wireframe usage), default vAlpha to 1.0. The arc fragment shader uses vAlpha to modulate final alpha. The aDistance attribute must be interpolated linearly across subdivided vertices in subdivideEdges when an input aDistance array is provided."
+    },
+    {
+      "step": 7,
+      "type": "correction",
+      "issue": "Step 7 targets src/visual/renderLoop.ts for wiring quality settings to system creation. However, system creation happens in src/main.ts (lines 129-156), not renderLoop.ts. The renderLoop only receives the pre-built geometrySystem via LoopDeps.",
+      "correction": "Change target file from src/visual/renderLoop.ts to src/main.ts. Pass enableElectricArc and arcSubdivisions from quality profile into createWireframePolyhedra() and createConstellationLines() config objects in main.ts."
+    }
+  ],
+  "assessments": {
+    "architecturalSoundness": "The CPU subdivision approach is correct for WebGL LineSegments. Perpendicular displacement in the vertex shader with endpoint tapering is a sound technique. Creating shared arc shaders rather than modifying existing ones is reasonable for isolation, though it introduces duplication of the base deformation pipeline.",
+    "completeness": "All acceptance criteria from the ticket are addressed. The plan correctly handles both wireframe polyhedra and constellation lines, quality-gated behavior, time evolution, and audio reactivity mapping.",
+    "risks": "Vertex count multiplication is the primary concern. With 12 polyhedra and 8 subdivisions (high tier), worst case for a dodecahedron (30 edges) is 30*8*2=480 vertices per shape, 5760 total — manageable. Constellation at 3000 segments * 8 subdivisions = 48000 vertices — still fine for modern GPUs but worth monitoring.",
+    "testCoverage": "Test plan covers utility correctness and integration checks. Missing: test for aDistance interpolation on subdivided constellation geometry. Missing: test that arc shaders include noise3d.glsl (shader string contains snoise declaration)."
+  },
+  "fileSummaryCorrection": {
+    "modify": [
+      "src/visual/quality.ts",
+      "src/visual/systems/wireframePolyhedra.ts",
+      "src/visual/systems/constellationLines.ts",
+      "src/main.ts"
+    ],
+    "note": "src/visual/renderLoop.ts should be removed from modify list and replaced with src/main.ts"
+  },
+  "approved": true,
+  "concerns": [
+    {
+      "step": 1,
+      "type": "correction",
+      "issue": "Acceptance criteria conflict with description. Description says aEdgeParam is '0 at start endpoint, 1 at end' (linear), but acceptance criteria say 'aEdgeParam is 0 at endpoints and peaks at 1 at midpoint'. Since step 2 applies sin(PI * aEdgeParam) for endpoint tapering in the shader, aEdgeParam should be linear 0-1 along the edge, not pre-tapered.",
+      "correction": "Change acceptance criterion to: 'aEdgeParam is 0 at start endpoint and 1 at end endpoint (linear parametric coordinate)'. The sin(PI*t) tapering belongs in the shader (step 2), not baked into the attribute."
+    },
+    {
+      "step": 4,
+      "type": "correction",
+      "issue": "Subdivision count inconsistency. Design decisions section says medium=6/high=8, but step 4 says medium=5/high=8.",
+      "correction": "Standardize to medium=5, high=8 as stated in step 4 (lower vertex counts are more conservative)."
+    },
+    {
+      "step": 5,
+      "type": "addition",
+      "issue": "Plan does not mention how arc shaders will include noise3d.glsl. Existing pattern in wireframePolyhedra.ts concatenates noise3d.glsl + shader source via Vite raw imports (line 11: `const vertexShader = noise3dGlsl + '\\n' + wireframeVert`). Arc shaders must follow the same pattern.",
+      "correction": "Add to step 5 key logic: 'Import arc shaders via Vite raw imports and prepend noise3dGlsl, following the existing concatenation pattern: `const arcVertexShader = noise3dGlsl + \"\\n\" + electricArcVert`'."
+    },
+    {
+      "step": 6,
+      "type": "clarification",
+      "issue": "The plan is vague about how aDistance attribute is handled in arc shaders. It says 'The constellation-specific vAlpha varying needs to be added to the arc vertex shader output, or the arc fragment shader needs to handle aDistance-based alpha similarly'. This needs a concrete decision.",
+      "correction": "The arc vertex shader should declare an optional `attribute float aDistance` and `varying float vAlpha`. When aDistance is present (constellation usage), compute vAlpha from it. When absent (wireframe usage), default vAlpha to 1.0. The arc fragment shader uses vAlpha to modulate final alpha. The aDistance attribute must be interpolated linearly across subdivided vertices in subdivideEdges when an input aDistance array is provided."
+    },
+    {
+      "step": 7,
+      "type": "correction",
+      "issue": "Step 7 targets src/visual/renderLoop.ts for wiring quality settings to system creation. However, system creation happens in src/main.ts (lines 129-156), not renderLoop.ts. The renderLoop only receives the pre-built geometrySystem via LoopDeps.",
+      "correction": "Change target file from src/visual/renderLoop.ts to src/main.ts. Pass enableElectricArc and arcSubdivisions from quality profile into createWireframePolyhedra() and createConstellationLines() config objects in main.ts."
+    }
+  ]
+}

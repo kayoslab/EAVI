@@ -1,0 +1,188 @@
+{
+  "ticket": "US-060",
+  "title": "Add electric arc line shader",
+  "overview": "Create an animated electrical discharge effect for LineSegments geometry by subdividing edges into sub-segments and applying noise-based lateral displacement perpendicular to edge direction. Treble drives arc jaggedness, bass drives brightness/thickness, and time evolves the noise field. Integrates with both wireframe polyhedra (US-054) and constellation lines (US-055).",
+  "keyDesignDecisions": [
+    {
+      "decision": "Subdivide edges on CPU to enable per-vertex displacement along line length",
+      "rationale": "WebGL LineSegments renders straight lines between vertex pairs. To create jagged arc shapes, each edge must be tessellated into N sub-segments so the vertex shader can displace intermediate points laterally. Without subdivision, only endpoints could move."
+    },
+    {
+      "decision": "Add per-vertex attributes aEdgeParam and aEdgeTangent for perpendicular displacement",
+      "rationale": "aEdgeParam (0-1) gives each vertex its parametric position along the edge for smooth endpoint tapering. aEdgeTangent (vec3) provides the edge direction so the shader can compute perpendicular vectors for lateral displacement without needing the paired vertex."
+    },
+    {
+      "decision": "Create shared arc shaders rather than modifying existing wireframe/constellation shaders",
+      "rationale": "Both systems need the same arc effect. New electricArc.vert.glsl and electricArc.frag.glsl shaders contain the full deformation pipeline (existing bass/treble effects plus arc displacement), avoiding duplication and keeping the original shaders intact as fallbacks."
+    },
+    {
+      "decision": "Use quality tier to control subdivision count and arc intensity",
+      "rationale": "Subdivision increases vertex count by a multiplier. Low tier gets fewer subdivisions (4) or disables arcs entirely, medium gets 6, high gets 8. This keeps the feature performant across hardware tiers."
+    }
+  ],
+  "steps": [
+    {
+      "id": 1,
+      "title": "Create edge subdivision utility",
+      "description": "Create src/visual/generators/subdivideEdges.ts that takes a flat Float32Array of LineSegments positions (pairs of vec3) and returns a new geometry with each edge subdivided into N sub-segments. Output includes: positions (Float32Array), aEdgeParam (Float32Array, 0 at start endpoint, 1 at end), aEdgeTangent (Float32Array, vec3 normalized edge direction per vertex), and aRandom (Float32Array, vec3 random values per vertex seeded from position).",
+      "files": [
+        {
+          "path": "src/visual/generators/subdivideEdges.ts",
+          "action": "create",
+          "description": "Edge subdivision utility. Takes positions array and subdivision count, returns object with positions, aEdgeParam, aEdgeTangent, aRandom Float32Arrays. Each original edge (2 vertices) becomes (subdivisions+1)*2 vertices in LineSegments pairs format."
+        }
+      ],
+      "keyLogic": "For each pair of input vertices (v0, v1): compute tangent = normalize(v1-v0). Generate subdivisions+1 points along the edge at even parametric intervals. Output consecutive pairs as LineSegments. aEdgeParam uses sin(PI*t) falloff so displacement tapers to zero at endpoints.",
+      "acceptanceCriteria": ["Subdivision produces correct vertex count: originalEdgeCount * subdivisions * 2", "aEdgeParam is 0 at endpoints and peaks at 1 at midpoint", "aEdgeTangent is consistent and normalized for all vertices on the same edge"]
+    },
+    {
+      "id": 2,
+      "title": "Create electric arc vertex shader",
+      "description": "Create src/visual/shaders/electricArc.vert.glsl that combines the existing deformation pipeline (bass expansion, twist, treble jitter) with new lateral arc displacement. The arc displacement samples simplex noise at a position derived from edge parametric coordinate and time, then displaces perpendicular to the edge tangent.",
+      "files": [
+        {
+          "path": "src/visual/shaders/electricArc.vert.glsl",
+          "action": "create",
+          "description": "Vertex shader extending wireframe deformation with arc displacement. New uniforms: uArcIntensity (float), uArcSpeed (float), uArcFrequency (float). New attributes: aEdgeParam (float), aEdgeTangent (vec3). New varyings: vArcDisplacement (float, for fragment glow), vFogFactor (float)."
+        }
+      ],
+      "keyLogic": "After existing bass/treble deformation: (1) Compute two perpendicular vectors to aEdgeTangent using cross products with world-up fallback. (2) Sample snoise(vec3(aEdgeParam * uArcFrequency, uTime * uArcSpeed * 0.001, aRandom.x * 10.0)) for displacement magnitude. (3) Sample second noise for second perpendicular axis. (4) Scale by uTrebleEnergy * uArcIntensity * sin(PI * aEdgeParam) for endpoint tapering. (5) Add perpendicular displacement to position. Pass displacement magnitude as vArcDisplacement varying for fragment brightness boost.",
+      "acceptanceCriteria": ["All GLSL symbols are declared", "Displacement is zero at edge endpoints (aEdgeParam=0 or 1)", "Higher treble = more jagged displacement", "Arc animates over time via uTime in noise coordinate"]
+    },
+    {
+      "id": 3,
+      "title": "Create electric arc fragment shader",
+      "description": "Create src/visual/shaders/electricArc.frag.glsl that renders lines with HSL coloring, bass-driven brightness boost, and extra glow on high-displacement vertices to create the electric discharge look.",
+      "files": [
+        {
+          "path": "src/visual/shaders/electricArc.frag.glsl",
+          "action": "create",
+          "description": "Fragment shader with HSL palette coloring, bass-modulated brightness, arc displacement glow, and depth fog. Uses vArcDisplacement varying to boost lightness on active arc segments."
+        }
+      ],
+      "keyLogic": "Base lightness = 0.55 + uTrebleEnergy * 0.15. Arc glow adds vArcDisplacement * 0.3 to lightness (clamped). Bass modulates alpha: 0.4 + uBassEnergy * 0.6. Hue shifts slightly along arc displacement for electric color variation. Depth fog applied as in existing shaders.",
+      "acceptanceCriteria": ["Bass increases overall line brightness/alpha", "Arc displacement vertices appear brighter (electric glow)", "No new uniforms beyond those in vertex shader + standard palette/fog uniforms", "hsl2rgb function included"]
+    },
+    {
+      "id": 4,
+      "title": "Add quality profile settings for arc effect",
+      "description": "Add arc-related fields to QualityProfile: enableElectricArc (boolean) and arcSubdivisions (number). Low tier: disabled. Medium: enabled with 5 subdivisions. High: enabled with 8 subdivisions.",
+      "files": [
+        {
+          "path": "src/visual/quality.ts",
+          "action": "modify",
+          "description": "Add enableElectricArc: boolean and arcSubdivisions: number to QualityProfile interface. Set in each tier: low={false, 0}, medium={true, 5}, high={true, 8}."
+        }
+      ],
+      "acceptanceCriteria": ["QualityProfile interface includes new fields", "Each tier has appropriate values", "Low tier disables arc to preserve performance"]
+    },
+    {
+      "id": 5,
+      "title": "Integrate arc shader into wireframe polyhedra system",
+      "description": "Modify wireframePolyhedra.ts to optionally use subdivided geometry and arc shaders when the quality profile enables electric arcs. Add config options for arc parameters. When enabled, edge geometry is passed through subdivideEdges() before buffer creation, and the arc shaders replace the standard wireframe shaders.",
+      "files": [
+        {
+          "path": "src/visual/systems/wireframePolyhedra.ts",
+          "action": "modify",
+          "description": "Add optional enableElectricArc and arcSubdivisions to WireframePolyhedraConfig. When enabled: import arc shaders and subdivideEdges, subdivide edge geometry, attach aEdgeParam and aEdgeTangent attributes, use arc vertex/fragment shaders, add uArcIntensity/uArcSpeed/uArcFrequency uniforms. When disabled: existing behavior unchanged."
+        }
+      ],
+      "keyLogic": "In init(): if arc enabled, pass edgeData.positions through subdivideEdges(positions, arcSubdivisions). Set buffer attributes from subdivision result. Use arc shaders instead of wireframe shaders. In draw(): update uArcIntensity (mapped from trebleEnergy), uArcSpeed (mapped from cadence), uArcFrequency (constant ~8.0). In createUniforms(): add arc-specific uniforms with defaults.",
+      "acceptanceCriteria": ["Wireframe polyhedra render with electric arc effect when enabled", "Existing behavior preserved when arc disabled", "New uniforms updated each frame in draw()", "Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": 6,
+      "title": "Integrate arc shader into constellation lines system",
+      "description": "Modify constellationLines.ts to optionally use subdivided geometry and arc shaders. Since constellation geometry is rebuilt when connections change, subdivision must be applied during the connection rebuild process.",
+      "files": [
+        {
+          "path": "src/visual/systems/constellationLines.ts",
+          "action": "modify",
+          "description": "Add optional enableElectricArc and arcSubdivisions to config. When enabled: after findConnections() builds position pairs, pass through subdivideEdges(), attach arc attributes to geometry, use arc shaders. Preserve aDistance attribute by interpolating it across subdivided vertices."
+        }
+      ],
+      "keyLogic": "In the geometry rebuild path: if arc enabled, subdivide the connection positions. Map aDistance to subdivided vertices by linearly interpolating between the two endpoint distances. Use arc shaders. The constellation-specific vAlpha varying needs to be added to the arc vertex shader output, or the arc fragment shader needs to handle aDistance-based alpha similarly to the constellation fragment shader.",
+      "acceptanceCriteria": ["Constellation lines render with electric arc effect when enabled", "Distance-based alpha falloff still works on subdivided edges", "Connection rebuilds correctly subdivide new geometry", "No performance regression beyond expected vertex count increase"]
+    },
+    {
+      "id": 7,
+      "title": "Wire quality settings to system creation in render loop",
+      "description": "Update the render loop or main.ts where wireframe and constellation systems are created to pass arc-related quality settings from the computed QualityProfile into the system configs.",
+      "files": [
+        {
+          "path": "src/visual/renderLoop.ts",
+          "action": "modify",
+          "description": "Pass enableElectricArc and arcSubdivisions from quality profile to wireframe and constellation system configs during creation."
+        }
+      ],
+      "acceptanceCriteria": ["Quality tier controls whether arc effect is active", "Low-end devices get standard line rendering", "Medium/high devices get arc effect with appropriate subdivision counts"]
+    },
+    {
+      "id": 8,
+      "title": "Write tests",
+      "description": "Create comprehensive tests covering: subdivision utility correctness, shader compilation (no WebGL errors), attribute presence on subdivided geometry, uniform updates in draw(), and quality-gated behavior.",
+      "files": [
+        {
+          "path": "tests/visual/generators/subdivideEdges.test.ts",
+          "action": "create",
+          "description": "Unit tests for subdivideEdges: correct vertex count output, aEdgeParam tapering (0 at endpoints, 1 at midpoint), normalized aEdgeTangent, handles degenerate edges (zero-length)."
+        },
+        {
+          "path": "tests/visual/shaders/electricArc.test.ts",
+          "action": "create",
+          "description": "Tests for arc shader integration: wireframe polyhedra with arc enabled creates LineSegments with aEdgeParam and aEdgeTangent attributes, ShaderMaterial contains arc uniforms, draw() updates arc uniforms, constellation lines with arc enabled have subdivided geometry."
+        }
+      ],
+      "acceptanceCriteria": ["subdivideEdges utility tests pass for various input sizes and subdivision counts", "Integration tests verify attribute presence and uniform updates", "Tests follow existing test patterns (vitest, THREE mocks, makeFrame helper)"]
+    },
+    {
+      "id": 9,
+      "title": "Build verification and manual visual check",
+      "description": "Run npm run build to verify clean compilation. Run dev server and visually confirm: arcs animate, treble increases jaggedness, bass modulates brightness, effect works on both wireframe and constellation lines, no console errors.",
+      "files": [],
+      "acceptanceCriteria": ["npm run build succeeds", "No console errors on load", "No WebGL shader compilation errors", "Arcs visually animate and react to audio", "Effect degrades gracefully on low quality tier (disabled)"]
+    }
+  ],
+  "testStrategy": {
+    "unit": ["subdivideEdges: vertex count = originalEdges * subdivisions * 2", "subdivideEdges: aEdgeParam = 0 at endpoints, peaks at midpoint", "subdivideEdges: aEdgeTangent normalized and consistent per edge", "subdivideEdges: handles zero-length edges without NaN"],
+    "integration": ["Wireframe with arc: LineSegments has aEdgeParam, aEdgeTangent, aRandom attributes", "Wireframe with arc: ShaderMaterial has uArcIntensity, uArcSpeed, uArcFrequency uniforms", "Wireframe without arc: standard wireframe shader used, no arc attributes", "Constellation with arc: subdivided geometry has correct attribute count", "draw() updates all arc uniforms from frame params", "Quality low tier: arc disabled, standard rendering"],
+    "visual": ["Arc displacement visible on wireframe edges", "Treble energy increases arc jaggedness", "Bass energy increases line brightness", "Arc animation evolves over time (not static)", "Endpoints stay connected (no gaps at edge boundaries)"]
+  },
+  "risks": [
+    {
+      "risk": "Vertex count explosion from subdivision",
+      "mitigation": "Quality tier controls subdivision count. Low tier disables entirely. Medium uses 5 subdivisions (10x vertex multiplier), high uses 8 (16x). Monitor frame time."
+    },
+    {
+      "risk": "Constellation geometry rebuild becomes expensive with subdivision",
+      "mitigation": "Constellation already caps at maxConstellationSegments. After subdivision, total vertices = segments * subdivisions * 2. With 1500 segments and 5 subdivisions = 15000 vertices, still manageable."
+    },
+    {
+      "risk": "Perpendicular vector computation degenerate when edge is parallel to world-up",
+      "mitigation": "Use cross product with (0,1,0) as primary up vector, fall back to (1,0,0) when edge is near-vertical (dot product threshold)."
+    },
+    {
+      "risk": "Arc displacement breaks edge connectivity at shared vertices",
+      "mitigation": "Endpoint tapering via sin(PI * aEdgeParam) ensures displacement is zero at t=0 and t=1, keeping endpoints fixed."
+    }
+  ],
+  "fileSummary": {
+    "create": [
+      "src/visual/generators/subdivideEdges.ts",
+      "src/visual/shaders/electricArc.vert.glsl",
+      "src/visual/shaders/electricArc.frag.glsl",
+      "tests/visual/generators/subdivideEdges.test.ts",
+      "tests/visual/shaders/electricArc.test.ts"
+    ],
+    "modify": [
+      "src/visual/quality.ts",
+      "src/visual/systems/wireframePolyhedra.ts",
+      "src/visual/systems/constellationLines.ts",
+      "src/visual/renderLoop.ts"
+    ]
+  },
+  "dependencies": {
+    "US-054": "Wireframe polyhedra system — provides LineSegments geometry and shader pattern to extend",
+    "US-048": "Shader error capture — provides ShaderErrorCollector for validating arc shader compilation"
+  }
+}
