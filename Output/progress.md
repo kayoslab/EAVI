@@ -110,3 +110,5 @@
 
 ## US-047: Adaptive point count scaling
 
+## US-046: Introduce atmospheric depth cues
+
