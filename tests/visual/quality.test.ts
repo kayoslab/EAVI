@@ -268,4 +268,45 @@ describe('US-025: Quality integration tests', () => {
     expect(medium.maxInstances).toBe(600);
     expect(high.maxInstances).toBe(1200);
   });
+
+  it('T-054-41: QualityProfile includes maxPolyhedra field', () => {
+    const signals = makeSignals();
+    const result = computeQuality(signals);
+    expect(result).toHaveProperty('maxPolyhedra');
+    expect(typeof result.maxPolyhedra).toBe('number');
+    expect(result.maxPolyhedra).toBeGreaterThan(0);
+  });
+
+  it('T-054-42: low tier has maxPolyhedra=3, medium=6, high=12', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.maxPolyhedra).toBe(3);
+    expect(medium.maxPolyhedra).toBe(6);
+    expect(high.maxPolyhedra).toBe(12);
+  });
+
+  it('T-054-43: maxPolyhedra scales with tier (low < medium < high)', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.maxPolyhedra).toBeLessThan(medium.maxPolyhedra);
+    expect(medium.maxPolyhedra).toBeLessThan(high.maxPolyhedra);
+  });
+
+  it('T-054-44: null/unknown signals fall back to medium tier which includes maxPolyhedra=6', () => {
+    const signals = makeSignals({
+      devicePixelRatio: null,
+      hardwareConcurrency: null,
+      deviceMemory: null,
+      screenWidth: 1024,
+      screenHeight: 768,
+      touchCapable: null,
+    });
+    const result = computeQuality(signals);
+    expect(result.tier).toBe('medium');
+    expect(result.maxPolyhedra).toBe(6);
+  });
 });

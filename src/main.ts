@@ -16,6 +16,7 @@ import { createRibbonField } from './visual/systems/ribbonField';
 import { createPointCloud } from './visual/systems/pointCloud';
 import { createCrystalField } from './visual/systems/crystalField';
 import { createMicroGeometry } from './visual/systems/microGeometry';
+import { createWireframePolyhedra } from './visual/systems/wireframePolyhedra';
 import { createModeManager } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
@@ -125,12 +126,19 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
   });
+  const wireframe = createWireframePolyhedra({
+    maxPolyhedra: quality.maxPolyhedra,
+    noiseOctaves: quality.noiseOctaves,
+    enablePointerRepulsion: quality.enablePointerRepulsion,
+    enableSlowModulation: quality.enableSlowModulation,
+  });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },
     { name: 'ribbon', factory: () => ribbon },
     { name: 'pointcloud', factory: () => pointCloud },
     { name: 'crystal', factory: () => crystal },
     { name: 'microgeometry', factory: () => microGeo },
+    { name: 'wirepolyhedra', factory: () => wireframe },
   ]);
 
   // Attach constellation line overlay for medium/high tier devices
@@ -161,6 +169,7 @@ geoPromise.then((geo) => {
     { name: 'pointcloud', maxPoints: quality.maxPoints },
     { name: 'crystal', maxPoints: Math.round(quality.maxPoints * 0.8) },
     { name: 'microgeometry', maxPoints: quality.maxInstances },
+    { name: 'wirepolyhedra', maxPoints: quality.maxPolyhedra },
   ];
   deps.getModeName = () => modes[modeManager.activeIndex]?.name ?? 'unknown';
   deps.getPointCount = () => modes[modeManager.activeIndex]?.maxPoints ?? 0;
