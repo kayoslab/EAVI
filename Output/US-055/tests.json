@@ -1,1 +1,20 @@
-{"tests_added": ["T-055-01", "T-055-02", "T-055-03", "T-055-04", "T-055-05", "T-055-06", "T-055-07", "T-055-08", "T-055-09", "T-055-10", "T-055-11", "T-055-12", "T-055-13", "T-055-14", "T-055-15", "T-055-16", "T-055-17", "T-055-18", "T-055-19", "T-055-20", "T-055-21", "T-055-22", "T-055-23", "T-055-24", "T-055-25", "T-055-26", "T-055-27", "T-055-28", "T-055-29", "T-055-30"], "tests_modified": [], "test_results": "pass", "failures": [], "failure_source": null}
+{
+  "ticket": "US-055",
+  "testFile": "tests/visual/systems/constellationLines.test.ts",
+  "testCount": 30,
+  "status": "all_passing",
+  "coverage": {
+    "compositing_over_point_geometry": ["T-055-01", "T-055-10", "T-055-11", "T-055-28"],
+    "configurable_proximity_threshold": ["T-055-03", "T-055-04", "T-055-30"],
+    "bass_energy_modulation": ["T-055-05"],
+    "distance_based_opacity_fade": ["T-055-06", "T-055-07"],
+    "bounded_connection_count": ["T-055-08", "T-055-09"],
+    "line_segments_with_depth_fog": ["T-055-02", "T-055-12", "T-055-27"],
+    "graceful_degradation": ["T-055-13", "T-055-14", "T-055-15", "T-055-16", "T-055-25"],
+    "shader_uniforms": ["T-055-18", "T-055-21", "T-055-22", "T-055-29"],
+    "lifecycle": ["T-055-17", "T-055-19", "T-055-20"],
+    "determinism": ["T-055-23"],
+    "privacy": ["T-055-26"],
+    "edge_cases": ["T-055-24", "T-055-25"]
+  }
+}
