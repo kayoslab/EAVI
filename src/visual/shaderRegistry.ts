@@ -64,3 +64,9 @@ export const OPTIONAL_PARTICLEFIELD_ATTRIBUTES: AttributeSpec[] = [
 export const OPTIONAL_RIBBONFIELD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'size', itemSize: 1 },
 ];
+
+export const CONSTELLATION_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'position', itemSize: 3 },
+  { name: 'aDistance', itemSize: 1 },
+  { name: 'aRandom', itemSize: 3 },
+];

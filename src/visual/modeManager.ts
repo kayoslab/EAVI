@@ -2,10 +2,16 @@ import type { Scene } from 'three';
 import { createPRNG } from './prng';
 import type { VisualParams } from './mappings';
 import type { FrameState, GeometrySystem } from './types';
+import type { ConstellationLines } from './systems/constellationLines';
 
 export interface ModeEntry {
   name: string;
   factory: () => GeometrySystem;
+}
+
+export interface OverlayAttachment {
+  overlay: ConstellationLines;
+  getPositions: (system: GeometrySystem) => Float32Array | null;
 }
 
 export interface ModeManager extends GeometrySystem {
@@ -13,6 +19,7 @@ export interface ModeManager extends GeometrySystem {
   readonly transitioning: boolean;
   initAllForValidation(scene: Scene, seed: string, params: VisualParams): void;
   cleanupInactive(): void;
+  attachOverlay(attachment: OverlayAttachment): void;
 }
 
 function smoothstep(t: number): number {
@@ -37,6 +44,18 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
   let transitionDuration = 3000;
   let outgoingIndex = -1;
 
+  // Overlay state
+  let overlayAttachment: OverlayAttachment | null = null;
+
+  function initOverlay(scene: Scene, params: VisualParams): void {
+    if (!overlayAttachment) return;
+    overlayAttachment.overlay.cleanup();
+    const positions = overlayAttachment.getPositions(systems[activeIndex]);
+    if (positions) {
+      overlayAttachment.overlay.init(scene, positions, params);
+    }
+  }
+
   function selectInitialMode(seed: string): void {
     const rng = createPRNG(seed + ':mode');
     activeIndex = Math.floor(rng() * systems.length);
@@ -56,6 +75,10 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
       return isTransitioning;
     },
 
+    attachOverlay(attachment: OverlayAttachment): void {
+      overlayAttachment = attachment;
+    },
+
     init(
       scene: Scene,
       s: string,
@@ -64,6 +87,7 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
       seed = s;
       selectInitialMode(seed);
       systems[activeIndex].init(scene, seed, params);
+      initOverlay(scene, params);
       initialized = true;
     },
 
@@ -104,7 +128,10 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
           systems[outgoingIndex].setOpacity?.(1);
           systems[activeIndex].setOpacity?.(1);
           isTransitioning = false;
+          // Rebuild overlay for newly active system
+          initOverlay(scene, frame.params);
           systems[activeIndex].draw(scene, frame);
+          overlayAttachment?.overlay.draw(scene, frame);
           return;
         }
 
@@ -113,10 +140,12 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
         // Set opacity on both systems
         systems[outgoingIndex].setOpacity?.(1 - eased);
         systems[activeIndex].setOpacity?.(eased);
+        overlayAttachment?.overlay.setOpacity(eased);
 
         // Draw both systems
         systems[outgoingIndex].draw(scene, frame);
         systems[activeIndex].draw(scene, frame);
+        overlayAttachment?.overlay.draw(scene, frame);
         return;
       }
 
@@ -138,6 +167,7 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
           systems[outgoingIndex].setOpacity?.(1);
           systems[outgoingIndex].draw(scene, frame);
           systems[activeIndex].draw(scene, frame);
+          overlayAttachment?.overlay.draw(scene, frame);
 
           nextSwitchAt = frame.elapsed + switchInterval;
           return;
@@ -146,6 +176,7 @@ export function createModeManager(modes: ModeEntry[]): ModeManager {
       }
 
       systems[activeIndex].draw(scene, frame);
+      overlayAttachment?.overlay.draw(scene, frame);
     },
   };
 }
