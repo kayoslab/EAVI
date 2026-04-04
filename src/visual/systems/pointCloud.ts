@@ -7,7 +7,8 @@ import { validateGeometryAttributes } from '../geometryValidator';
 import { POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
-import fragmentShader from '../shaders/pointWarp.frag.glsl?raw';
+import defaultFragShader from '../shaders/pointWarp.frag.glsl?raw';
+import voronoiFragShader from '../shaders/voronoiCell.frag.glsl?raw';
 
 const vertexShader = noise3dGlsl + '\n' + pointWarpVert;
 import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volumetricPoints';
@@ -35,6 +36,7 @@ export interface PointCloudConfig {
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
+  useVoronoiShader?: boolean;
 }
 
 export interface PointCloud extends GeometrySystem {
@@ -48,6 +50,8 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
   const noiseOctaves = config?.noiseOctaves ?? 3;
   const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
   const enableSlowModulation = config?.enableSlowModulation ?? true;
+  const useVoronoiShader = config?.useVoronoiShader ?? false;
+  const fragmentShader = useVoronoiShader ? voronoiFragShader : defaultFragShader;
 
   let effectiveCount = 0;
   let pointsMesh: THREE.Points | null = null;
@@ -150,7 +154,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         );
       }
 
-      const uniforms = {
+      const uniforms: Record<string, { value: unknown }> = {
         uTime: { value: 0.0 },
         uBassEnergy: { value: 0.0 },
         uTrebleEnergy: { value: 0.0 },
@@ -175,6 +179,10 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
       };
+
+      if (useVoronoiShader) {
+        uniforms.uVoronoiGridSize = { value: 4.0 };
+      }
 
       shaderMaterial = new THREE.ShaderMaterial({
         vertexShader,
@@ -219,6 +227,10 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+
+      if (useVoronoiShader && u.uVoronoiGridSize) {
+        u.uVoronoiGridSize.value = 3.0 + structureComplexity * 3.0;
+      }
 
       // Time-based breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;

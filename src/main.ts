@@ -112,6 +112,7 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
+    useVoronoiShader: quality.enableVoronoiCells,
   });
   const crystal = createCrystalField({
     maxPoints: Math.round(quality.maxPoints * 0.8),
