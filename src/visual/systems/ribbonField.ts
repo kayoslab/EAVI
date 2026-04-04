@@ -8,6 +8,7 @@ import { RIBBONFIELD_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES } from '../shad
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import ribbonWarpVert from '../shaders/ribbonWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/ribbonWarp.frag.glsl?raw';
+import { computeAdaptiveCount } from './pointCloud';
 
 const vertexShader = noise3dGlsl + '\n' + ribbonWarpVert;
 
@@ -54,14 +55,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
     init(scene: Scene, seed: string, params: VisualParams): void {
       const rng = createPRNG(seed + ':ribbon');
 
-      const baseCount = Math.floor(params.density * maxPoints);
-      effectiveCount = Math.max(1, Math.floor(baseCount * (0.6 + params.structureComplexity * 0.4)));
-      if (effectiveCount > maxPoints) effectiveCount = maxPoints;
-
-      // Handle density=0 edge case
-      if (params.density === 0) {
-        effectiveCount = 1;
-      }
+      effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
       // Determine ribbon band count: 3-5 seeded
       const bandCount = 3 + Math.floor(rng() * 3); // 3, 4, or 5

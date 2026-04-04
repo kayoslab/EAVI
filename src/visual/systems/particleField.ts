@@ -8,6 +8,7 @@ import { PARTICLEFIELD_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES } from '../
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import particleWarpVert from '../shaders/particleWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/particleWarp.frag.glsl?raw';
+import { computeAdaptiveCount } from './pointCloud';
 
 // Prepend noise library; leading comment ensures curl3( call signature is
 // discoverable before the library definition for shader-source inspection.
@@ -66,13 +67,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
 
     init(scene: Scene, seed: string, params: VisualParams): void {
       const rng = createPRNG(seed);
-      const baseCount = Math.floor(params.density * maxParticles);
-      effectiveCount = Math.max(1, Math.floor(baseCount * (0.6 + params.structureComplexity * 0.4)));
-      if (effectiveCount > maxParticles) effectiveCount = maxParticles;
-
-      if (params.density === 0) {
-        effectiveCount = 1;
-      }
+      effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxParticles);
 
       storedParticles = [];
       const positionsArr = new Float32Array(effectiveCount * 3);

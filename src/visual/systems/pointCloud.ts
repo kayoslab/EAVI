@@ -15,6 +15,18 @@ import type { VolumetricShape } from '../generators/volumetricPoints';
 
 const DEFAULT_MAX_POINTS = 1200;
 
+/**
+ * Shared adaptive point count formula.
+ * Encapsulates: floor(density * maxPoints * (0.6 + complexity * 0.4))
+ * with a minimum floor of 24 points for visible volumetric shape.
+ */
+export function computeAdaptiveCount(density: number, structureComplexity: number, maxPoints: number): number {
+  if (density === 0) return 24;
+  const baseCount = Math.floor(density * maxPoints);
+  const scaled = Math.floor(baseCount * (0.6 + structureComplexity * 0.4));
+  return Math.max(24, Math.min(scaled, maxPoints));
+}
+
 const REQUIRED_ATTRIBUTES = POINTCLOUD_ATTRIBUTES;
 
 export interface PointCloudConfig {
@@ -56,14 +68,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
     init(scene: Scene, seed: string, params: VisualParams): void {
       const rng = createPRNG(seed + ':pointcloud');
 
-      const baseCount = Math.floor(params.density * maxPoints);
-      effectiveCount = Math.max(1, Math.floor(baseCount * (0.6 + params.structureComplexity * 0.4)));
-      if (effectiveCount > maxPoints) effectiveCount = maxPoints;
-
-      // Handle density=0 edge case
-      if (params.density === 0) {
-        effectiveCount = 1;
-      }
+      effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
       // Select volumetric shape deterministically from seed
       const shapeIndex = Math.floor(rng() * VOLUMETRIC_SHAPES.length) % VOLUMETRIC_SHAPES.length;

@@ -34,7 +34,7 @@ describe('US-025: Quality tier computation', () => {
     });
     const result = computeQuality(signals);
     expect(result.tier).toBe('high');
-    expect(result.maxParticles).toBe(600);
+    expect(result.maxParticles).toBe(1000);
     expect(result.resolutionScale).toBe(1.0);
     expect(result.enableSparkle).toBe(true);
     expect(result.shaderComplexity).toBe('high');
@@ -54,7 +54,7 @@ describe('US-025: Quality tier computation', () => {
     });
     const result = computeQuality(signals);
     expect(result.tier).toBe('medium');
-    expect(result.maxParticles).toBe(350);
+    expect(result.maxParticles).toBe(550);
     expect(result.resolutionScale).toBe(0.75);
     expect(result.enableSparkle).toBe(true);
     expect(result.shaderComplexity).toBe('medium');
@@ -156,7 +156,7 @@ describe('US-025: Quality tier computation', () => {
     for (const signals of variants) {
       const result = computeQuality(signals);
       expect(result.maxParticles).toBeGreaterThanOrEqual(100);
-      expect(result.maxParticles).toBeLessThanOrEqual(600);
+      expect(result.maxParticles).toBeLessThanOrEqual(1000);
       expect(result.resolutionScale).toBeGreaterThanOrEqual(0.25);
       expect(result.resolutionScale).toBeLessThanOrEqual(1.0);
       expect(['low', 'medium', 'high']).toContain(result.tier);

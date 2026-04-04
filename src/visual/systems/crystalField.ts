@@ -8,6 +8,7 @@ import crystalWarpVert from '../shaders/crystalWarp.vert.glsl?raw';
 import fragmentShader from '../shaders/crystalWarp.frag.glsl?raw';
 import { generateVolumetricPoints } from '../generators/volumetricPoints';
 import type { VolumetricShape } from '../generators/volumetricPoints';
+import { computeAdaptiveCount } from './pointCloud';
 
 const vertexShader = noise3dGlsl + '\n' + crystalWarpVert;
 
@@ -53,13 +54,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
     init(scene: Scene, seed: string, params: VisualParams): void {
       const rng = createPRNG(seed + ':crystal');
 
-      const baseCount = Math.floor(params.density * maxPoints);
-      effectiveCount = Math.max(1, Math.floor(baseCount * (0.6 + params.structureComplexity * 0.4)));
-      if (effectiveCount > maxPoints) effectiveCount = maxPoints;
-
-      if (params.density === 0) {
-        effectiveCount = 1;
-      }
+      effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
       // Select from crystal-only shapes
       const shapeIndex = Math.floor(rng() * CRYSTAL_SHAPES.length) % CRYSTAL_SHAPES.length;
