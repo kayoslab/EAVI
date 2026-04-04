@@ -120,3 +120,5 @@
 
 ## US-057: Add fractal recursive geometry generator
 
+## US-060: Add electric arc line shader
+
