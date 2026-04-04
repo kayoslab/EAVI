@@ -1,1 +1,0 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "Typecheck clean. Build succeeds. All 24 US-024 reducedMotion tests pass. 5 failures in tests/visual/bassMotion.test.ts are pre-existing on main (from US-011/US-018), not introduced by this ticket."}

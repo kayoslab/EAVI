@@ -1,1 +1,0 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "All 25 US-016 audio tests pass (trackList: 6, analyser: 6, player: 13). TypeScript typecheck clean. Production build succeeds. 18 pre-existing test failures exist in scaffold.dom.test.ts, canvas-shell.test.ts, and ui/infoOverlay.test.ts — none of these files were modified by US-016."}

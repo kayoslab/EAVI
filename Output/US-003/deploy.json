@@ -1,1 +1,0 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "All 21 US-003 signals tests pass. TypeScript compiles cleanly (tsc --noEmit). Production build succeeds. 2 failing tests exist in tests/ui/infoOverlay.test.ts but belong to US-021 (info overlay integration), not US-003."}

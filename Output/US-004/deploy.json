@@ -1,1 +1,0 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "21/21 tests pass, tsc --noEmit clean, vite build succeeds"}

@@ -1,4 +1,0 @@
-{
-  "approved": true,
-  "reason": "Plan is straightforward and well-scoped. Copy-only change to existing overlay component with clear test criteria matching acceptance requirements. No structural concerns."
-}

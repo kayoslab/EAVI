@@ -1,1 +1,0 @@
-{"files_changed": ["src/main.ts", "tests/setup.ts"], "summary": "Wired initScene, attachResizeHandler, and startLoop into main.ts so the full-screen dark canvas renders on load. Added style.css import. Updated test setup with canvas 2d context and AudioContext stubs for jsdom. All 18 tests pass, build succeeds."}
