@@ -1,0 +1,76 @@
+{
+  "ticket": "US-047",
+  "confidence": 0.92,
+  "scope_assessment": "small",
+  "architectural_impact": "low",
+  "rationale": "The plan is well-scoped and structurally sound. All four geometry systems already share an identical point-count formula (floor(density * maxPoints * (0.6 + complexity * 0.4)), min 1), so extracting a shared helper is a clean, low-risk refactor with no API surface changes. Tier constant bumps (HIGH maxPoints 1200→2000, MEDIUM 500→800) are data-only changes gated by existing density and complexity multipliers. No new dependencies, no new modules, no rendering pipeline changes, no shader modifications. The 24-point minimum floor is a sensible safety net that replaces the current min-1 clamp without altering system interfaces.",
+  "risks": [
+    {
+      "area": "performance",
+      "severity": "low",
+      "detail": "HIGH tier maxPoints 2000 is within safe GPU budget for desktop; effective count is further reduced by density×complexity multipliers so real-world peak is ~1200–1600 for high-end devices. Existing resolutionScale already throttles fill rate independently.",
+      "mitigation_adequate": true
+    },
+    {
+      "area": "test_approach",
+      "severity": "low",
+      "detail": "T-047-04 asserts all systems produce THREE.Points mesh, but particleField.ts exports getParticlePositions returning Array<{x,y}> (2D positions), not Float32Array. The test needs to account for particleField's different return type and verify 3D via the underlying Three.js mesh rather than position accessors.",
+      "mitigation_adequate": false
+    },
+    {
+      "area": "regression",
+      "severity": "low",
+      "detail": "Changing the minimum clamp from 1 to 24 could affect existing tests that assert on exact point counts with very low density/complexity inputs. Existing test files in tests/visual/systems/ should be checked for assertions that rely on min=1 behavior.",
+      "mitigation_adequate": true
+    }
+  ],
+  "file_accuracy": {
+    "files_to_modify_correct": true,
+    "files_to_create_correct": true,
+    "missing_files": [],
+    "unnecessary_files": [],
+    "notes": "All six modification targets exist and are correctly identified. The plan correctly identifies that capabilityToDensity in mappings.ts may not need changes (step 4 is a review gate)."
+  },
+  "dependency_analysis": {
+    "depends_on_satisfied": true,
+    "notes": "US-003 (session seed), US-004 (audio analyser), US-040 (quality tiers), US-045 (crystal field) are all prerequisites that provide the infrastructure this plan builds on. The quality tier system and all four geometry systems are in place.",
+    "cross_cutting_concerns": []
+  },
+  "acceptance_criteria_coverage": {
+    "desktop_higher_than_mobile": {
+      "covered": true,
+      "how": "Steps 1-2: tier constant widening + shared helper with density multiplier ensures HIGH tier produces 8-16× more points than LOW tier"
+    },
+    "mobile_volumetric_depth": {
+      "covered": true,
+      "how": "Step 2: 24-point minimum floor + existing volumetric shape generators ensure recognisable 3D form at lowest tier"
+    },
+    "scaling_affects_complexity_not_dimensionality": {
+      "covered": true,
+      "how": "Steps 2-3: only point count changes across tiers; 3D position generation and shader pipeline are unmodified"
+    },
+    "no_2d_fallback_on_low_tier": {
+      "covered": true,
+      "how": "Step 5 T-047-04: explicit test that low tier still produces THREE.Points with ShaderMaterial and perspective camera"
+    }
+  },
+  "suggestions": [
+    {
+      "priority": "medium",
+      "detail": "particleField.ts getParticlePositions returns 2D coords ({x,y}). T-047-04 should verify volumetric depth via the Three.js Points geometry attribute (position buffer) rather than the system's position accessor, or the particleField should be confirmed to generate 3D positions internally even if the accessor flattens them."
+    },
+    {
+      "priority": "low",
+      "detail": "Consider placing computeAdaptiveCount in a shared utility (e.g. src/visual/systems/adaptiveCount.ts or src/visual/quality.ts) rather than exporting from pointCloud.ts, to avoid a conceptual dependency where other systems import from a peer system file."
+    },
+    {
+      "priority": "low",
+      "detail": "Scan existing tests in tests/visual/systems/*.test.ts for assertions on exact point counts near the minimum boundary before changing min clamp from 1 to 24."
+    }
+  ],
+  "approved": true,
+  "concerns": [],
+  "decision": "APPROVE",
+  "adr_entry": null,
+  "failures": []
+}
