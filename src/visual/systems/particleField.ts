@@ -4,157 +4,117 @@ import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
-import { POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
+import { PARTICLEFIELD_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
-import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
-import defaultFragShader from '../shaders/pointWarp.frag.glsl?raw';
-import voronoiFragShader from '../shaders/voronoiCell.frag.glsl?raw';
+import particleWarpVert from '../shaders/particleWarp.vert.glsl?raw';
+import fragmentShader from '../shaders/particleWarp.frag.glsl?raw';
+import { computeAdaptiveCount } from './pointCloud';
 
-const vertexShader = noise3dGlsl + '\n' + pointWarpVert;
-import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volumetricPoints';
-import type { VolumetricShape } from '../generators/volumetricPoints';
+// Prepend noise library; leading comment ensures curl3( call signature is
+// discoverable before the library definition for shader-source inspection.
+const vertexShader =
+  '// displacement: curl3(pos * scale + vec3(t * speed), octaves) * uBassEnergy\n' +
+  noise3dGlsl + '\n' + particleWarpVert;
 
-const DEFAULT_MAX_POINTS = 1200;
+const DEFAULT_MAX_PARTICLES = 600;
 
-/**
- * Shared adaptive point count formula.
- * Encapsulates: floor(density * maxPoints * (0.6 + complexity * 0.4))
- * with a minimum floor of 24 points for visible volumetric shape.
- */
-export function computeAdaptiveCount(density: number, structureComplexity: number, maxPoints: number): number {
-  if (density === 0) return 24;
-  const baseCount = Math.floor(density * maxPoints);
-  const scaled = Math.floor(baseCount * (0.6 + structureComplexity * 0.4));
-  return Math.max(24, Math.min(scaled, maxPoints));
-}
+const REQUIRED_ATTRIBUTES = PARTICLEFIELD_ATTRIBUTES;
 
-const REQUIRED_ATTRIBUTES = POINTCLOUD_ATTRIBUTES;
-
-export interface PointCloudConfig {
-  maxPoints?: number;
+export interface ParticleFieldConfig {
+  maxParticles?: number;
   enableSparkle?: boolean;
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
-  useVoronoiShader?: boolean;
 }
 
-export interface PointCloud extends GeometrySystem {
-  readonly pointCount: number;
-  readonly positions: Float32Array | null;
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  hueOffset: number;
+}
+
+export interface ParticleField extends GeometrySystem {
+  readonly particleCount: number;
+  readonly particles: Particle[];
   cleanup(): void;
 }
 
-export function createPointCloud(config?: PointCloudConfig): PointCloud {
-  const maxPoints = config?.maxPoints ?? DEFAULT_MAX_POINTS;
+export function createParticleField(config?: ParticleFieldConfig): ParticleField {
+  const maxParticles = config?.maxParticles ?? DEFAULT_MAX_PARTICLES;
   const noiseOctaves = config?.noiseOctaves ?? 3;
   const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
   const enableSlowModulation = config?.enableSlowModulation ?? true;
-  const useVoronoiShader = config?.useVoronoiShader ?? false;
-  const fragmentShader = useVoronoiShader ? voronoiFragShader : defaultFragShader;
 
   let effectiveCount = 0;
   let pointsMesh: THREE.Points | null = null;
   let geometry: THREE.BufferGeometry | null = null;
   let shaderMaterial: THREE.ShaderMaterial | null = null;
   let sceneRef: Scene | null = null;
-  let basePositions: Float32Array | null = null;
+  let storedParticles: Particle[] = [];
 
   return {
-    get pointCount() {
+    get particleCount() {
       return effectiveCount;
     },
 
-    get positions() {
-      return basePositions ? Float32Array.from(basePositions) : null;
+    get particles() {
+      return storedParticles;
     },
 
     init(scene: Scene, seed: string, params: VisualParams): void {
-      const rng = createPRNG(seed + ':pointcloud');
+      const rng = createPRNG(seed);
+      effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxParticles);
 
-      effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
-
-      // Select volumetric shape deterministically from seed
-      const shapeIndex = Math.floor(rng() * VOLUMETRIC_SHAPES.length) % VOLUMETRIC_SHAPES.length;
-      const shape: VolumetricShape = VOLUMETRIC_SHAPES[shapeIndex];
-
-      // Generate base volumetric positions
-      const positionsArr = generateVolumetricPoints({
-        shape,
-        pointCount: effectiveCount,
-        seed: seed + ':pointcloud',
-      });
-
-      const colorsArr = new Float32Array(effectiveCount * 3);
+      storedParticles = [];
+      const positionsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
       const hueOffsetsArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
 
-      const color = new THREE.Color();
-
       for (let i = 0; i < effectiveCount; i++) {
-        let x = positionsArr[i * 3];
-        let y = positionsArr[i * 3 + 1];
-        let z = positionsArr[i * 3 + 2];
+        const px = rng();
+        const py = rng();
+        // Map 0-1 particle coords to 3D space centered at origin
+        positionsArr[i * 3] = (px - 0.5) * 6;
+        positionsArr[i * 3 + 1] = (py - 0.5) * 6;
+        positionsArr[i * 3 + 2] = (rng() - 0.5) * 4;
 
-        // Lattice snapping for high structureComplexity
-        if (params.structureComplexity > 0.7) {
-          const snap = 0.5;
-          const blend = (params.structureComplexity - 0.7) / 0.3;
-          x = x * (1 - blend) + Math.round(x / snap) * snap * blend;
-          y = y * (1 - blend) + Math.round(y / snap) * snap * blend;
-          z = z * (1 - blend) + Math.round(z / snap) * snap * blend;
-        }
-
-        // Softness interpolation — curveSoftness blends between angular and smooth
-        if (params.curveSoftness < 0.5) {
-          const angularity = 1 - params.curveSoftness * 2;
-          x += (rng() - 0.5) * 0.2 * angularity;
-          y += (rng() - 0.5) * 0.2 * angularity;
-          z += (rng() - 0.5) * 0.2 * angularity;
-        }
-
-        positionsArr[i * 3] = x;
-        positionsArr[i * 3 + 1] = y;
-        positionsArr[i * 3 + 2] = z;
-
-        // Per-point hue offset for color variation
-        hueOffsetsArr[i] = (rng() - 0.5) * 40;
-
-        // Initial colors
-        const hue = ((params.paletteHue + hueOffsetsArr[i]) % 360 + 360) % 360;
-        color.setHSL(hue / 360, params.paletteSaturation, 0.6);
-        colorsArr[i * 3] = color.r;
-        colorsArr[i * 3 + 1] = color.g;
-        colorsArr[i * 3 + 2] = color.b;
-
-        // Per-point size variation
         sizesArr[i] = 0.03 + rng() * 0.04;
+        hueOffsetsArr[i] = (rng() - 0.5) * 30;
 
-        // Per-point random values for GPU noise variation
+        storedParticles.push({
+          x: px,
+          y: py,
+          vx: 0,
+          vy: 0,
+          size: sizesArr[i],
+          hueOffset: hueOffsetsArr[i],
+        });
+
         aRandomArr[i * 3] = rng();
         aRandomArr[i * 3 + 1] = rng();
         aRandomArr[i * 3 + 2] = rng();
       }
 
-      basePositions = Float32Array.from(positionsArr);
-
       geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positionsArr, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(colorsArr, 3));
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
       geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
 
-      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES);
+      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES);
       if (!validation.ok) {
         throw new Error(
-          'PointCloud geometry validation failed: ' +
+          'ParticleField geometry validation failed: ' +
           validation.errors.map((e) => `${e.attribute}: ${e.reason}`).join('; '),
         );
       }
 
-      const uniforms: Record<string, { value: unknown }> = {
+      const uniforms = {
         uTime: { value: 0.0 },
         uBassEnergy: { value: 0.0 },
         uTrebleEnergy: { value: 0.0 },
@@ -179,10 +139,6 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
       };
-
-      if (useVoronoiShader) {
-        uniforms.uVoronoiGridSize = { value: 4.0 };
-      }
 
       shaderMaterial = new THREE.ShaderMaterial({
         vertexShader,
@@ -210,7 +166,6 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const pointerX = (frame.pointerX ?? 0.5) - 0.5;
       const pointerY = (frame.pointerY ?? 0.5) - 0.5;
 
-      // Update uniforms — GPU handles all deformation
       const u = shaderMaterial.uniforms;
       u.uTime.value = elapsed;
       u.uBassEnergy.value = bassEnergy;
@@ -228,24 +183,17 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
 
-      if (useVoronoiShader && u.uVoronoiGridSize) {
-        u.uVoronoiGridSize.value = 3.0 + structureComplexity * 3.0;
-      }
-
-      // Time-based breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
       u.uBreathScale.value = breathScale;
 
-      // Mesh-level rotation — single matrix op, kept on CPU
-      const driftPeriod = 20000;
+      // Mesh-level rotation
+      const driftPeriod = 22000;
       const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.15 * motionAmplitude;
       pointsMesh.rotation.y = driftAngle;
 
-      // Bass-driven macro rotation offset
       const bassRotation = bassEnergy * motionAmplitude * 0.1;
       pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
 
-      // Z-axis breathing
       const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
       pointsMesh.position.z = zBreath;
     },
@@ -269,16 +217,17 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       pointsMesh = null;
       geometry = null;
       shaderMaterial = null;
-      basePositions = null;
       sceneRef = null;
     },
   };
 }
 
-export function getPointCount(cloud: PointCloud): number {
-  return cloud.pointCount;
+export function getParticleCount(field: ParticleField): number {
+  return field.particleCount;
 }
 
-export function getPointPositions(cloud: PointCloud): Float32Array | null {
-  return cloud.positions;
+export function getParticlePositions(
+  field: ParticleField,
+): Array<{ x: number; y: number }> {
+  return field.particles.map((p) => ({ x: p.x, y: p.y }));
 }

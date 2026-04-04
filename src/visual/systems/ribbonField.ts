@@ -4,54 +4,37 @@ import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
-import { POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
+import { RIBBONFIELD_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
-import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
-import defaultFragShader from '../shaders/pointWarp.frag.glsl?raw';
-import voronoiFragShader from '../shaders/voronoiCell.frag.glsl?raw';
+import ribbonWarpVert from '../shaders/ribbonWarp.vert.glsl?raw';
+import fragmentShader from '../shaders/ribbonWarp.frag.glsl?raw';
+import { computeAdaptiveCount } from './pointCloud';
 
-const vertexShader = noise3dGlsl + '\n' + pointWarpVert;
-import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volumetricPoints';
-import type { VolumetricShape } from '../generators/volumetricPoints';
+const vertexShader = noise3dGlsl + '\n' + ribbonWarpVert;
 
-const DEFAULT_MAX_POINTS = 1200;
+const DEFAULT_MAX_POINTS = 1000;
 
-/**
- * Shared adaptive point count formula.
- * Encapsulates: floor(density * maxPoints * (0.6 + complexity * 0.4))
- * with a minimum floor of 24 points for visible volumetric shape.
- */
-export function computeAdaptiveCount(density: number, structureComplexity: number, maxPoints: number): number {
-  if (density === 0) return 24;
-  const baseCount = Math.floor(density * maxPoints);
-  const scaled = Math.floor(baseCount * (0.6 + structureComplexity * 0.4));
-  return Math.max(24, Math.min(scaled, maxPoints));
-}
+const REQUIRED_ATTRIBUTES = RIBBONFIELD_ATTRIBUTES;
 
-const REQUIRED_ATTRIBUTES = POINTCLOUD_ATTRIBUTES;
-
-export interface PointCloudConfig {
+export interface RibbonFieldConfig {
   maxPoints?: number;
   enableSparkle?: boolean;
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
-  useVoronoiShader?: boolean;
 }
 
-export interface PointCloud extends GeometrySystem {
+export interface RibbonField extends GeometrySystem {
   readonly pointCount: number;
   readonly positions: Float32Array | null;
   cleanup(): void;
 }
 
-export function createPointCloud(config?: PointCloudConfig): PointCloud {
+export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
   const maxPoints = config?.maxPoints ?? DEFAULT_MAX_POINTS;
   const noiseOctaves = config?.noiseOctaves ?? 3;
   const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
   const enableSlowModulation = config?.enableSlowModulation ?? true;
-  const useVoronoiShader = config?.useVoronoiShader ?? false;
-  const fragmentShader = useVoronoiShader ? voronoiFragShader : defaultFragShader;
 
   let effectiveCount = 0;
   let pointsMesh: THREE.Points | null = null;
@@ -70,21 +53,15 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
     },
 
     init(scene: Scene, seed: string, params: VisualParams): void {
-      const rng = createPRNG(seed + ':pointcloud');
+      const rng = createPRNG(seed + ':ribbon');
 
       effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
-      // Select volumetric shape deterministically from seed
-      const shapeIndex = Math.floor(rng() * VOLUMETRIC_SHAPES.length) % VOLUMETRIC_SHAPES.length;
-      const shape: VolumetricShape = VOLUMETRIC_SHAPES[shapeIndex];
+      // Determine ribbon band count: 3-5 seeded
+      const bandCount = 3 + Math.floor(rng() * 3); // 3, 4, or 5
+      const pointsPerBand = Math.ceil(effectiveCount / bandCount);
 
-      // Generate base volumetric positions
-      const positionsArr = generateVolumetricPoints({
-        shape,
-        pointCount: effectiveCount,
-        seed: seed + ':pointcloud',
-      });
-
+      const positionsArr = new Float32Array(effectiveCount * 3);
       const colorsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
       const hueOffsetsArr = new Float32Array(effectiveCount);
@@ -92,49 +69,84 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
 
       const color = new THREE.Color();
 
-      for (let i = 0; i < effectiveCount; i++) {
-        let x = positionsArr[i * 3];
-        let y = positionsArr[i * 3 + 1];
-        let z = positionsArr[i * 3 + 2];
+      let idx = 0;
+      for (let band = 0; band < bandCount && idx < effectiveCount; band++) {
+        // Each band has its own helical parameters (seeded)
+        const helixRadius = 1.2 + rng() * 1.6;   // 1.2 to 2.8
+        const helixPitch = 1.0 + rng() * 3.0;     // vertical rise per revolution
+        const phaseOffset = rng() * Math.PI * 2;   // angular offset
+        const freqX = 1.0 + rng() * 2.0;           // Lissajous-like frequency ratios
+        const freqZ = 1.0 + rng() * 2.0;
+        const ribbonWidth = 0.15 + rng() * 0.25;   // perpendicular spread
 
-        // Lattice snapping for high structureComplexity
-        if (params.structureComplexity > 0.7) {
-          const snap = 0.5;
-          const blend = (params.structureComplexity - 0.7) / 0.3;
-          x = x * (1 - blend) + Math.round(x / snap) * snap * blend;
-          y = y * (1 - blend) + Math.round(y / snap) * snap * blend;
-          z = z * (1 - blend) + Math.round(z / snap) * snap * blend;
+        const bandPoints = Math.min(pointsPerBand, effectiveCount - idx);
+
+        for (let p = 0; p < bandPoints; p++) {
+          const t = p / Math.max(1, bandPoints - 1); // 0..1 along band
+
+          // Parametric helix/spiral curve
+          const angle = t * Math.PI * 4 + phaseOffset; // 2 full revolutions
+          const cx = helixRadius * Math.cos(angle * freqX);
+          const cy = (t - 0.5) * helixPitch * 2;
+          const cz = helixRadius * Math.sin(angle * freqZ);
+
+          // Perpendicular spread — approximate tangent and spread normal to it
+          const spreadAngle = rng() * Math.PI * 2;
+          const spreadDist = rng() * ribbonWidth;
+
+          // Simple perpendicular offset (cross with up vector approximation)
+          const tx = -Math.sin(angle * freqX) * freqX;
+          const tz = Math.cos(angle * freqZ) * freqZ;
+          const tLen = Math.sqrt(tx * tx + tz * tz) + 0.001;
+          // Normal in XZ plane (perpendicular to tangent)
+          const nx = -tz / tLen;
+          const nz = tx / tLen;
+
+          let x = cx + nx * Math.cos(spreadAngle) * spreadDist;
+          let y = cy + Math.sin(spreadAngle) * spreadDist;
+          let z = cz + nz * Math.cos(spreadAngle) * spreadDist;
+
+          // Lattice snapping for high structureComplexity
+          if (params.structureComplexity > 0.7) {
+            const snap = 0.5;
+            const blend = (params.structureComplexity - 0.7) / 0.3;
+            x = x * (1 - blend) + Math.round(x / snap) * snap * blend;
+            y = y * (1 - blend) + Math.round(y / snap) * snap * blend;
+            z = z * (1 - blend) + Math.round(z / snap) * snap * blend;
+          }
+
+          // Softness — add angular jitter for low curveSoftness
+          if (params.curveSoftness < 0.5) {
+            const angularity = 1 - params.curveSoftness * 2;
+            x += (rng() - 0.5) * 0.2 * angularity;
+            y += (rng() - 0.5) * 0.2 * angularity;
+            z += (rng() - 0.5) * 0.2 * angularity;
+          }
+
+          positionsArr[idx * 3] = x;
+          positionsArr[idx * 3 + 1] = y;
+          positionsArr[idx * 3 + 2] = z;
+
+          // Per-point hue offset
+          hueOffsetsArr[idx] = (rng() - 0.5) * 40;
+
+          // Initial colors
+          const hue = ((params.paletteHue + hueOffsetsArr[idx]) % 360 + 360) % 360;
+          color.setHSL(hue / 360, params.paletteSaturation, 0.6);
+          colorsArr[idx * 3] = color.r;
+          colorsArr[idx * 3 + 1] = color.g;
+          colorsArr[idx * 3 + 2] = color.b;
+
+          // Per-point size variation
+          sizesArr[idx] = 0.03 + rng() * 0.04;
+
+          // Per-point random values for GPU noise
+          aRandomArr[idx * 3] = rng();
+          aRandomArr[idx * 3 + 1] = rng();
+          aRandomArr[idx * 3 + 2] = rng();
+
+          idx++;
         }
-
-        // Softness interpolation — curveSoftness blends between angular and smooth
-        if (params.curveSoftness < 0.5) {
-          const angularity = 1 - params.curveSoftness * 2;
-          x += (rng() - 0.5) * 0.2 * angularity;
-          y += (rng() - 0.5) * 0.2 * angularity;
-          z += (rng() - 0.5) * 0.2 * angularity;
-        }
-
-        positionsArr[i * 3] = x;
-        positionsArr[i * 3 + 1] = y;
-        positionsArr[i * 3 + 2] = z;
-
-        // Per-point hue offset for color variation
-        hueOffsetsArr[i] = (rng() - 0.5) * 40;
-
-        // Initial colors
-        const hue = ((params.paletteHue + hueOffsetsArr[i]) % 360 + 360) % 360;
-        color.setHSL(hue / 360, params.paletteSaturation, 0.6);
-        colorsArr[i * 3] = color.r;
-        colorsArr[i * 3 + 1] = color.g;
-        colorsArr[i * 3 + 2] = color.b;
-
-        // Per-point size variation
-        sizesArr[i] = 0.03 + rng() * 0.04;
-
-        // Per-point random values for GPU noise variation
-        aRandomArr[i * 3] = rng();
-        aRandomArr[i * 3 + 1] = rng();
-        aRandomArr[i * 3 + 2] = rng();
       }
 
       basePositions = Float32Array.from(positionsArr);
@@ -146,15 +158,15 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
 
-      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES);
+      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES);
       if (!validation.ok) {
         throw new Error(
-          'PointCloud geometry validation failed: ' +
+          'RibbonField geometry validation failed: ' +
           validation.errors.map((e) => `${e.attribute}: ${e.reason}`).join('; '),
         );
       }
 
-      const uniforms: Record<string, { value: unknown }> = {
+      const uniforms = {
         uTime: { value: 0.0 },
         uBassEnergy: { value: 0.0 },
         uTrebleEnergy: { value: 0.0 },
@@ -179,10 +191,6 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
       };
-
-      if (useVoronoiShader) {
-        uniforms.uVoronoiGridSize = { value: 4.0 };
-      }
 
       shaderMaterial = new THREE.ShaderMaterial({
         vertexShader,
@@ -228,21 +236,17 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
 
-      if (useVoronoiShader && u.uVoronoiGridSize) {
-        u.uVoronoiGridSize.value = 3.0 + structureComplexity * 3.0;
-      }
-
       // Time-based breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
       u.uBreathScale.value = breathScale;
 
-      // Mesh-level rotation — single matrix op, kept on CPU
-      const driftPeriod = 20000;
-      const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.15 * motionAmplitude;
+      // Mesh-level Y-axis drift rotation
+      const driftPeriod = 25000;
+      const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.2 * motionAmplitude;
       pointsMesh.rotation.y = driftAngle;
 
       // Bass-driven macro rotation offset
-      const bassRotation = bassEnergy * motionAmplitude * 0.1;
+      const bassRotation = bassEnergy * motionAmplitude * 0.12;
       pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
 
       // Z-axis breathing
@@ -275,10 +279,10 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
   };
 }
 
-export function getPointCount(cloud: PointCloud): number {
-  return cloud.pointCount;
+export function getPointCount(ribbon: RibbonField): number {
+  return ribbon.pointCount;
 }
 
-export function getPointPositions(cloud: PointCloud): Float32Array | null {
-  return cloud.positions;
+export function getPointPositions(ribbon: RibbonField): Float32Array | null {
+  return ribbon.positions;
 }

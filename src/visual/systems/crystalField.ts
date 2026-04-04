@@ -3,55 +3,37 @@ import type { Scene } from 'three';
 import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
-import { validateGeometryAttributes } from '../geometryValidator';
-import { POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
-import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
-import defaultFragShader from '../shaders/pointWarp.frag.glsl?raw';
-import voronoiFragShader from '../shaders/voronoiCell.frag.glsl?raw';
-
-const vertexShader = noise3dGlsl + '\n' + pointWarpVert;
-import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volumetricPoints';
+import crystalWarpVert from '../shaders/crystalWarp.vert.glsl?raw';
+import fragmentShader from '../shaders/crystalWarp.frag.glsl?raw';
+import { generateVolumetricPoints } from '../generators/volumetricPoints';
 import type { VolumetricShape } from '../generators/volumetricPoints';
+import { computeAdaptiveCount } from './pointCloud';
+
+const vertexShader = noise3dGlsl + '\n' + crystalWarpVert;
 
 const DEFAULT_MAX_POINTS = 1200;
+const CRYSTAL_SHAPES: VolumetricShape[] = ['crystalCluster', 'geode'];
 
-/**
- * Shared adaptive point count formula.
- * Encapsulates: floor(density * maxPoints * (0.6 + complexity * 0.4))
- * with a minimum floor of 24 points for visible volumetric shape.
- */
-export function computeAdaptiveCount(density: number, structureComplexity: number, maxPoints: number): number {
-  if (density === 0) return 24;
-  const baseCount = Math.floor(density * maxPoints);
-  const scaled = Math.floor(baseCount * (0.6 + structureComplexity * 0.4));
-  return Math.max(24, Math.min(scaled, maxPoints));
-}
-
-const REQUIRED_ATTRIBUTES = POINTCLOUD_ATTRIBUTES;
-
-export interface PointCloudConfig {
+export interface CrystalFieldConfig {
   maxPoints?: number;
   enableSparkle?: boolean;
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
-  useVoronoiShader?: boolean;
 }
 
-export interface PointCloud extends GeometrySystem {
+export interface CrystalField extends GeometrySystem {
   readonly pointCount: number;
   readonly positions: Float32Array | null;
   cleanup(): void;
 }
 
-export function createPointCloud(config?: PointCloudConfig): PointCloud {
+export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
   const maxPoints = config?.maxPoints ?? DEFAULT_MAX_POINTS;
   const noiseOctaves = config?.noiseOctaves ?? 3;
   const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
   const enableSlowModulation = config?.enableSlowModulation ?? true;
-  const useVoronoiShader = config?.useVoronoiShader ?? false;
-  const fragmentShader = useVoronoiShader ? voronoiFragShader : defaultFragShader;
 
   let effectiveCount = 0;
   let pointsMesh: THREE.Points | null = null;
@@ -70,19 +52,18 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
     },
 
     init(scene: Scene, seed: string, params: VisualParams): void {
-      const rng = createPRNG(seed + ':pointcloud');
+      const rng = createPRNG(seed + ':crystal');
 
       effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
-      // Select volumetric shape deterministically from seed
-      const shapeIndex = Math.floor(rng() * VOLUMETRIC_SHAPES.length) % VOLUMETRIC_SHAPES.length;
-      const shape: VolumetricShape = VOLUMETRIC_SHAPES[shapeIndex];
+      // Select from crystal-only shapes
+      const shapeIndex = Math.floor(rng() * CRYSTAL_SHAPES.length) % CRYSTAL_SHAPES.length;
+      const shape: VolumetricShape = CRYSTAL_SHAPES[shapeIndex];
 
-      // Generate base volumetric positions
       const positionsArr = generateVolumetricPoints({
         shape,
         pointCount: effectiveCount,
-        seed: seed + ':pointcloud',
+        seed: seed + ':crystal',
       });
 
       const colorsArr = new Float32Array(effectiveCount * 3);
@@ -93,45 +74,16 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const color = new THREE.Color();
 
       for (let i = 0; i < effectiveCount; i++) {
-        let x = positionsArr[i * 3];
-        let y = positionsArr[i * 3 + 1];
-        let z = positionsArr[i * 3 + 2];
-
-        // Lattice snapping for high structureComplexity
-        if (params.structureComplexity > 0.7) {
-          const snap = 0.5;
-          const blend = (params.structureComplexity - 0.7) / 0.3;
-          x = x * (1 - blend) + Math.round(x / snap) * snap * blend;
-          y = y * (1 - blend) + Math.round(y / snap) * snap * blend;
-          z = z * (1 - blend) + Math.round(z / snap) * snap * blend;
-        }
-
-        // Softness interpolation — curveSoftness blends between angular and smooth
-        if (params.curveSoftness < 0.5) {
-          const angularity = 1 - params.curveSoftness * 2;
-          x += (rng() - 0.5) * 0.2 * angularity;
-          y += (rng() - 0.5) * 0.2 * angularity;
-          z += (rng() - 0.5) * 0.2 * angularity;
-        }
-
-        positionsArr[i * 3] = x;
-        positionsArr[i * 3 + 1] = y;
-        positionsArr[i * 3 + 2] = z;
-
-        // Per-point hue offset for color variation
         hueOffsetsArr[i] = (rng() - 0.5) * 40;
 
-        // Initial colors
         const hue = ((params.paletteHue + hueOffsetsArr[i]) % 360 + 360) % 360;
         color.setHSL(hue / 360, params.paletteSaturation, 0.6);
         colorsArr[i * 3] = color.r;
         colorsArr[i * 3 + 1] = color.g;
         colorsArr[i * 3 + 2] = color.b;
 
-        // Per-point size variation
         sizesArr[i] = 0.03 + rng() * 0.04;
 
-        // Per-point random values for GPU noise variation
         aRandomArr[i * 3] = rng();
         aRandomArr[i * 3 + 1] = rng();
         aRandomArr[i * 3 + 2] = rng();
@@ -146,15 +98,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
 
-      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES);
-      if (!validation.ok) {
-        throw new Error(
-          'PointCloud geometry validation failed: ' +
-          validation.errors.map((e) => `${e.attribute}: ${e.reason}`).join('; '),
-        );
-      }
-
-      const uniforms: Record<string, { value: unknown }> = {
+      const uniforms = {
         uTime: { value: 0.0 },
         uBassEnergy: { value: 0.0 },
         uTrebleEnergy: { value: 0.0 },
@@ -179,10 +123,6 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
       };
-
-      if (useVoronoiShader) {
-        uniforms.uVoronoiGridSize = { value: 4.0 };
-      }
 
       shaderMaterial = new THREE.ShaderMaterial({
         vertexShader,
@@ -210,7 +150,6 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const pointerX = (frame.pointerX ?? 0.5) - 0.5;
       const pointerY = (frame.pointerY ?? 0.5) - 0.5;
 
-      // Update uniforms — GPU handles all deformation
       const u = shaderMaterial.uniforms;
       u.uTime.value = elapsed;
       u.uBassEnergy.value = bassEnergy;
@@ -228,22 +167,19 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
 
-      if (useVoronoiShader && u.uVoronoiGridSize) {
-        u.uVoronoiGridSize.value = 3.0 + structureComplexity * 3.0;
-      }
-
-      // Time-based breathing scale
+      // Breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
       u.uBreathScale.value = breathScale;
 
-      // Mesh-level rotation — single matrix op, kept on CPU
+      // Two-axis rotation: Y drift + bass, X cadence-driven tilt
       const driftPeriod = 20000;
       const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.15 * motionAmplitude;
-      pointsMesh.rotation.y = driftAngle;
-
-      // Bass-driven macro rotation offset
       const bassRotation = bassEnergy * motionAmplitude * 0.1;
-      pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
+      pointsMesh.rotation.y = driftAngle + bassRotation * Math.sin(elapsed * 0.0003);
+
+      // X-axis tilt for sculptural tumbling
+      const tiltAngle = Math.sin(elapsed / 25000 * Math.PI * 2) * 0.1 * motionAmplitude;
+      pointsMesh.rotation.x = tiltAngle + bassEnergy * 0.05 * Math.cos(elapsed * 0.00025);
 
       // Z-axis breathing
       const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
@@ -275,10 +211,10 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
   };
 }
 
-export function getPointCount(cloud: PointCloud): number {
-  return cloud.pointCount;
+export function getPointCount(crystal: CrystalField): number {
+  return crystal.pointCount;
 }
 
-export function getPointPositions(cloud: PointCloud): Float32Array | null {
-  return cloud.positions;
+export function getPointPositions(crystal: CrystalField): Float32Array | null {
+  return crystal.positions;
 }
