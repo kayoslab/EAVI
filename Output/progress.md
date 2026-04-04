@@ -114,3 +114,5 @@
 
 ## US-056: Add instanced micro-geometry system
 
+## US-055: Add constellation connection lines between points
+
