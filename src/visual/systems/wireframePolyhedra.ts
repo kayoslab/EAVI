@@ -6,10 +6,15 @@ import type { FrameState, GeometrySystem } from '../types';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import wireframeVert from '../shaders/wireframe.vert.glsl?raw';
 import wireframeFrag from '../shaders/wireframe.frag.glsl?raw';
+import electricArcVert from '../shaders/electricArc.vert.glsl?raw';
+import electricArcFrag from '../shaders/electricArc.frag.glsl?raw';
 import { generatePolyhedronEdges, selectShape } from '../generators/polyhedraEdges';
+import { subdivideEdges } from '../generators/subdivideEdges';
 
-const vertexShader = noise3dGlsl + '\n' + wireframeVert;
-const fragmentShader = wireframeFrag;
+const standardVertexShader = noise3dGlsl + '\n' + wireframeVert;
+const standardFragmentShader = wireframeFrag;
+const arcVertexShader = noise3dGlsl + '\n' + electricArcVert;
+const arcFragmentShader = electricArcFrag;
 
 const DEFAULT_MAX_POLYHEDRA = 6;
 
@@ -18,6 +23,8 @@ export interface WireframePolyhedraConfig {
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
+  enableElectricArc?: boolean;
+  arcSubdivisions?: number;
 }
 
 export function createWireframePolyhedra(config?: WireframePolyhedraConfig): GeometrySystem & {
@@ -28,12 +35,14 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
   const noiseOctaves = config?.noiseOctaves ?? 3;
   const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
   const enableSlowModulation = config?.enableSlowModulation ?? true;
+  const enableElectricArc = config?.enableElectricArc ?? false;
+  const arcSubdivisions = config?.arcSubdivisions ?? 5;
 
   let meshes: THREE.LineSegments[] = [];
   let sceneRef: Scene | null = null;
 
   function createUniforms(params: VisualParams): Record<string, { value: unknown }> {
-    return {
+    const uniforms: Record<string, { value: unknown }> = {
       uTime: { value: 0.0 },
       uBassEnergy: { value: 0.0 },
       uTrebleEnergy: { value: 0.0 },
@@ -56,6 +65,14 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
       uFogNear: { value: 3.0 },
       uFogFar: { value: 8.0 },
     };
+
+    if (enableElectricArc) {
+      uniforms.uArcIntensity = { value: 0.0 };
+      uniforms.uArcSpeed = { value: 1.0 };
+      uniforms.uArcFrequency = { value: 8.0 };
+    }
+
+    return uniforms;
   }
 
   return {
@@ -73,12 +90,21 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
         });
 
         const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(edgeData.positions, 3));
-        geometry.setAttribute('aRandom', new THREE.BufferAttribute(edgeData.randoms, 3));
+
+        if (enableElectricArc && arcSubdivisions > 1) {
+          const subdivided = subdivideEdges(edgeData.positions, arcSubdivisions);
+          geometry.setAttribute('position', new THREE.BufferAttribute(subdivided.positions, 3));
+          geometry.setAttribute('aRandom', new THREE.BufferAttribute(subdivided.aRandom, 3));
+          geometry.setAttribute('aEdgeParam', new THREE.BufferAttribute(subdivided.aEdgeParam, 1));
+          geometry.setAttribute('aEdgeTangent', new THREE.BufferAttribute(subdivided.aEdgeTangent, 3));
+        } else {
+          geometry.setAttribute('position', new THREE.BufferAttribute(edgeData.positions, 3));
+          geometry.setAttribute('aRandom', new THREE.BufferAttribute(edgeData.randoms, 3));
+        }
 
         const material = new THREE.ShaderMaterial({
-          vertexShader,
-          fragmentShader,
+          vertexShader: enableElectricArc ? arcVertexShader : standardVertexShader,
+          fragmentShader: enableElectricArc ? arcFragmentShader : standardFragmentShader,
           uniforms: createUniforms(params),
           transparent: true,
           blending: THREE.AdditiveBlending,
@@ -138,6 +164,12 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
         u.uFieldSpread.value = fieldSpread;
         u.uDisplacementScale.value = motionAmplitude * structureComplexity;
         u.uBreathScale.value = breathScale;
+
+        if (enableElectricArc && u.uArcIntensity) {
+          u.uArcIntensity.value = 0.5 + trebleEnergy * 1.5;
+          u.uArcSpeed.value = 0.8 + cadence * 0.4;
+          u.uArcFrequency.value = 8.0;
+        }
       }
     },
 

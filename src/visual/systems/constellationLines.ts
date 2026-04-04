@@ -5,9 +5,14 @@ import type { FrameState } from '../types';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import constellationVert from '../shaders/constellation.vert.glsl?raw';
 import constellationFrag from '../shaders/constellation.frag.glsl?raw';
+import electricArcConstellationVert from '../shaders/electricArcConstellation.vert.glsl?raw';
+import electricArcConstellationFrag from '../shaders/electricArcConstellation.frag.glsl?raw';
+import { subdivideEdges } from '../generators/subdivideEdges';
 
-const vertexShader = noise3dGlsl + '\n' + constellationVert;
-const fragmentShader = constellationFrag;
+const standardVertexShader = noise3dGlsl + '\n' + constellationVert;
+const standardFragmentShader = constellationFrag;
+const arcVertexShader = noise3dGlsl + '\n' + electricArcConstellationVert;
+const arcFragmentShader = electricArcConstellationFrag;
 
 const DEFAULT_PROXIMITY_THRESHOLD = 0.8;
 const DEFAULT_MAX_CONNECTIONS = 3000;
@@ -17,6 +22,8 @@ export interface ConstellationConfig {
   proximityThreshold?: number;
   maxConnections?: number;
   enabled?: boolean;
+  enableElectricArc?: boolean;
+  arcSubdivisions?: number;
 }
 
 export interface ConstellationLines {
@@ -124,9 +131,43 @@ function buildLineBuffers(
   return { positions, distances, randoms };
 }
 
+/**
+ * Interpolate per-edge distance values across subdivided vertices.
+ * Each original edge has 2 vertices with distance values (d0, d1).
+ * After subdivision, each edge becomes subdivisions*2 vertices.
+ * We linearly interpolate d0 -> d1 across the sub-segment vertices.
+ */
+function interpolateDistances(
+  distances: Float32Array,
+  edgeCount: number,
+  subdivisions: number,
+): Float32Array {
+  const outVertCount = edgeCount * subdivisions * 2;
+  const out = new Float32Array(outVertCount);
+
+  for (let e = 0; e < edgeCount; e++) {
+    const d0 = distances[e * 2];
+    const d1 = distances[e * 2 + 1];
+    const outBase = e * subdivisions * 2;
+
+    for (let s = 0; s < subdivisions; s++) {
+      const t0 = s / subdivisions;
+      const t1 = (s + 1) / subdivisions;
+      const vi0 = outBase + s * 2;
+      const vi1 = vi0 + 1;
+      out[vi0] = d0 + (d1 - d0) * t0;
+      out[vi1] = d0 + (d1 - d0) * t1;
+    }
+  }
+
+  return out;
+}
+
 export function createConstellationLines(config?: ConstellationConfig): ConstellationLines {
   const proximityThreshold = config?.proximityThreshold ?? DEFAULT_PROXIMITY_THRESHOLD;
   const maxConnections = config?.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
+  const enableElectricArc = config?.enableElectricArc ?? false;
+  const arcSubdivisions = config?.arcSubdivisions ?? 5;
 
   let linesMesh: THREE.LineSegments | null = null;
   let geometry: THREE.BufferGeometry | null = null;
@@ -152,14 +193,29 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
       if (connections.length === 0) return;
 
       const buffers = buildLineBuffers(positions, connections, proximityThreshold);
-      activeVertexCount = connections.length * 2;
 
       geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(buffers.positions, 3));
-      geometry.setAttribute('aDistance', new THREE.BufferAttribute(buffers.distances, 1));
-      geometry.setAttribute('aRandom', new THREE.BufferAttribute(buffers.randoms, 3));
 
-      const uniforms = {
+      if (enableElectricArc && arcSubdivisions > 1) {
+        const subdivided = subdivideEdges(buffers.positions, arcSubdivisions);
+        const interpDistances = interpolateDistances(buffers.distances, connections.length, arcSubdivisions);
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(subdivided.positions, 3));
+        geometry.setAttribute('aDistance', new THREE.BufferAttribute(interpDistances, 1));
+        geometry.setAttribute('aRandom', new THREE.BufferAttribute(subdivided.aRandom, 3));
+        geometry.setAttribute('aEdgeParam', new THREE.BufferAttribute(subdivided.aEdgeParam, 1));
+        geometry.setAttribute('aEdgeTangent', new THREE.BufferAttribute(subdivided.aEdgeTangent, 3));
+
+        activeVertexCount = subdivided.positions.length / 3;
+      } else {
+        geometry.setAttribute('position', new THREE.BufferAttribute(buffers.positions, 3));
+        geometry.setAttribute('aDistance', new THREE.BufferAttribute(buffers.distances, 1));
+        geometry.setAttribute('aRandom', new THREE.BufferAttribute(buffers.randoms, 3));
+
+        activeVertexCount = connections.length * 2;
+      }
+
+      const uniforms: Record<string, { value: unknown }> = {
         uTime: { value: 0.0 },
         uBassEnergy: { value: 0.0 },
         uTrebleEnergy: { value: 0.0 },
@@ -180,9 +236,15 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
         uFogFar: { value: 8.0 },
       };
 
+      if (enableElectricArc) {
+        uniforms.uArcIntensity = { value: 0.0 };
+        uniforms.uArcSpeed = { value: 1.0 };
+        uniforms.uArcFrequency = { value: 8.0 };
+      }
+
       shaderMaterial = new THREE.ShaderMaterial({
-        vertexShader,
-        fragmentShader,
+        vertexShader: enableElectricArc ? arcVertexShader : standardVertexShader,
+        fragmentShader: enableElectricArc ? arcFragmentShader : standardFragmentShader,
         uniforms,
         transparent: true,
         blending: THREE.AdditiveBlending,
@@ -221,6 +283,12 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
 
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
       u.uBreathScale.value = breathScale;
+
+      if (enableElectricArc && u.uArcIntensity) {
+        u.uArcIntensity.value = 0.5 + trebleEnergy * 1.5;
+        u.uArcSpeed.value = 0.8 + cadence * 0.4;
+        u.uArcFrequency.value = 8.0;
+      }
 
       // Match parent point cloud rotation
       const driftPeriod = 20000;
