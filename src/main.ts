@@ -131,6 +131,8 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
+    enableElectricArc: quality.enableElectricArc,
+    arcSubdivisions: quality.arcSubdivisions,
   });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },
@@ -145,6 +147,8 @@ geoPromise.then((geo) => {
   if (quality.enableConstellationLines) {
     const constellationOverlay = createConstellationLines({
       maxConnections: quality.maxConstellationSegments,
+      enableElectricArc: quality.enableElectricArc,
+      arcSubdivisions: quality.arcSubdivisions,
     });
     modeManager.attachOverlay({
       overlay: constellationOverlay,
