@@ -8,7 +8,11 @@ import wireframeVert from '../shaders/wireframe.vert.glsl?raw';
 import wireframeFrag from '../shaders/wireframe.frag.glsl?raw';
 import electricArcVert from '../shaders/electricArc.vert.glsl?raw';
 import electricArcFrag from '../shaders/electricArc.frag.glsl?raw';
-import { generatePolyhedronEdges, selectShape } from '../generators/polyhedraEdges';
+import { generatePolyhedronEdges, selectShape, selectGenerationMode } from '../generators/polyhedraEdges';
+import type { GenerationMode } from '../generators/polyhedraEdges';
+import { generateGeodesicEdges, maxGeodesicLevel } from '../generators/geodesicSphere';
+import { generateNestedEdges } from '../generators/nestedSolids';
+import { generateDualEdges } from '../generators/dualPolyhedra';
 import { subdivideEdges } from '../generators/subdivideEdges';
 
 const standardVertexShader = noise3dGlsl + '\n' + wireframeVert;
@@ -25,6 +29,8 @@ export interface WireframePolyhedraConfig {
   enableSlowModulation?: boolean;
   enableElectricArc?: boolean;
   arcSubdivisions?: number;
+  generationMode?: GenerationMode;
+  maxEdgesPerShape?: number;
 }
 
 export function createWireframePolyhedra(config?: WireframePolyhedraConfig): GeometrySystem & {
@@ -37,6 +43,8 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
   const enableSlowModulation = config?.enableSlowModulation ?? true;
   const enableElectricArc = config?.enableElectricArc ?? false;
   const arcSubdivisions = config?.arcSubdivisions ?? 5;
+  const configGenerationMode = config?.generationMode;
+  const maxEdgesPerShape = config?.maxEdgesPerShape ?? 480;
 
   let meshes: THREE.LineSegments[] = [];
   let sceneRef: Scene | null = null;
@@ -82,12 +90,45 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
 
       for (let i = 0; i < maxPolyhedra; i++) {
         const shape = selectShape(seed + ':wireframe:shape:' + i);
+        const tier = maxEdgesPerShape <= 30 ? 'low' as const : maxEdgesPerShape <= 480 ? 'medium' as const : 'high' as const;
+        const mode = configGenerationMode ?? selectGenerationMode(seed + ':wireframe:mode:' + i, tier);
 
-        const edgeData = generatePolyhedronEdges({
-          shape,
-          radius: 0.3,
-          seed: seed + ':wireframe:edges:' + i,
-        });
+        let edgeData;
+        switch (mode) {
+          case 'geodesic': {
+            const level = maxGeodesicLevel(maxEdgesPerShape);
+            edgeData = generateGeodesicEdges({
+              radius: 0.3,
+              level: Math.max(1, level),
+              seed: seed + ':wireframe:edges:' + i,
+            });
+            break;
+          }
+          case 'nested': {
+            const layerRng = createPRNG(seed + ':wireframe:layers:' + i);
+            const layers = 2 + Math.floor(layerRng() * 3); // 2-4
+            edgeData = generateNestedEdges({
+              shape,
+              layers,
+              radius: 0.3,
+              seed: seed + ':wireframe:edges:' + i,
+            });
+            break;
+          }
+          case 'dual':
+            edgeData = generateDualEdges({
+              shape,
+              radius: 0.3,
+              seed: seed + ':wireframe:edges:' + i,
+            });
+            break;
+          default:
+            edgeData = generatePolyhedronEdges({
+              shape,
+              radius: 0.3,
+              seed: seed + ':wireframe:edges:' + i,
+            });
+        }
 
         const geometry = new THREE.BufferGeometry();
 
