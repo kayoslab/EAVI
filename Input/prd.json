@@ -1102,8 +1102,8 @@
         "System degrades gracefully on low-tier devices (fewer connections or disabled)"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-040",
         "US-047"
