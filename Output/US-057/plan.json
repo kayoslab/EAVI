@@ -1,0 +1,176 @@
+{
+  "ticket": "US-057",
+  "title": "Add fractal recursive geometry generator",
+  "overview": "Create a new generator module that produces fractal-like recursive 3D structures using two strategies (face subdivision and branching growth). Output is compatible with existing point cloud and wireframe geometry systems. Recursion depth is seeded and adapts to quality tier.",
+  "steps": [
+    {
+      "id": 1,
+      "title": "Add maxFractalDepth to QualityProfile",
+      "file": "src/visual/quality.ts",
+      "action": "edit",
+      "details": [
+        "Add `maxFractalDepth: number` to the `QualityProfile` interface",
+        "Set values per tier: low=3, medium=4, high=6",
+        "This controls max recursion depth for fractal generators and prevents excessive allocation on low-end devices"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Create fractal geometry generator module",
+      "file": "src/visual/generators/fractalGeometry.ts",
+      "action": "create",
+      "details": [
+        "Define `FractalStrategy` type: `'faceSubdivision' | 'branchingGrowth'`",
+        "Define `FRACTAL_STRATEGIES: readonly FractalStrategy[]` array",
+        "Define `FractalConfig` interface: `{ strategy: FractalStrategy; depth: number; pointBudget: number; seed: string }`",
+        "Define `FractalOutput` interface: `{ points: Float32Array; edges: Float32Array | null; edgeCount: number; pointCount: number }`",
+        "Export `generateFractalGeometry(config: FractalConfig): FractalOutput`",
+        "Export `selectStrategy(seed: string): FractalStrategy` for deterministic strategy selection via PRNG",
+        "Use seed namespace convention: `seed + ':fractal:' + strategy`"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Implement face subdivision strategy",
+      "file": "src/visual/generators/fractalGeometry.ts",
+      "action": "edit",
+      "details": [
+        "Implement `fillFaceSubdivision(rng, depth, pointBudget): FractalOutput`",
+        "Start with an initial tetrahedron (4 vertices, 4 triangular faces)",
+        "Each recursion level: for each triangle face, compute midpoints of edges, split into 4 sub-triangles, apply seeded random displacement along face normal",
+        "Displacement magnitude decreases with depth (roughness factor ~0.5-0.7, seeded)",
+        "Pre-calculate total vertex count before recursion: vertices at depth d = 3 * 4^d + initial, capped by pointBudget",
+        "If projected vertex count exceeds pointBudget, reduce effective depth",
+        "Collect both vertex positions (for point cloud) and edge pairs (for wireframe)",
+        "Use iterative approach with explicit stack to avoid call-stack overflow at depth 6",
+        "Output edges as pairs of xyz coordinates in a flat Float32Array (same format as polyhedraEdges)"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Implement branching growth strategy",
+      "file": "src/visual/generators/fractalGeometry.ts",
+      "action": "edit",
+      "details": [
+        "Implement `fillBranchingGrowth(rng, depth, pointBudget): FractalOutput`",
+        "Start from origin with an initial growth direction (seeded random unit vector)",
+        "Each recursion level: from current endpoint, spawn 2-4 child branches (count seeded per node)",
+        "Child branch direction: parent direction rotated by seeded angle (30-60 degrees) around a seeded axis",
+        "Branch length scales down by factor ~0.6-0.75 per level (seeded within range)",
+        "Scatter points along each branch segment (interpolated positions with small radial jitter)",
+        "Edge pairs connect parent endpoint to child endpoint for wireframe representation",
+        "Pre-calculate total branch count before recursion: branches at depth d = sum(branchFactor^i), cap by pointBudget",
+        "Use iterative BFS/DFS with explicit queue to avoid stack overflow",
+        "Produces organic tree/coral-like structures visually distinct from face subdivision's crystalline forms"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Add safety bounds and depth adaptation",
+      "file": "src/visual/generators/fractalGeometry.ts",
+      "action": "edit",
+      "details": [
+        "Clamp depth input to [3, 6] regardless of caller",
+        "Add MAX_POINTS constant (e.g. 50000) as hard ceiling to prevent excessive allocation",
+        "Add MAX_EDGES constant (e.g. 30000) as hard ceiling",
+        "If pointBudget exceeds MAX_POINTS, clamp it",
+        "During generation, track allocated count and stop recursion early if budget is exhausted",
+        "Ensure all generated coordinates are finite (no NaN/Infinity) — validate before returning",
+        "Scale output to fit within radius ~2.5 (consistent with existing volumetric shapes)"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Write unit tests for fractal generator",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "action": "create",
+      "details": [
+        "Test determinism: same seed + config produces identical output",
+        "Test different seeds produce different output",
+        "Test both strategies produce non-empty output for depths 3-6",
+        "Test point count stays within pointBudget",
+        "Test edge count stays within bounds",
+        "Test all coordinates are finite (no NaN/Infinity)",
+        "Test depth clamping: depth < 3 treated as 3, depth > 6 treated as 6",
+        "Test zero/negative pointBudget returns empty arrays",
+        "Test face subdivision output is visually distinct from branching growth (different point distributions — compare bounding box or centroid spread)",
+        "Test no stack overflow at max depth (depth=6) with high pointBudget",
+        "Test selectStrategy returns valid strategy and is deterministic",
+        "Test edge pairs format: edges Float32Array length = edgeCount * 6 (two xyz vertices per edge)",
+        "Follow existing test naming convention: T-057-01 through T-057-N"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Integrate with quality tier for depth selection",
+      "file": "src/visual/generators/fractalGeometry.ts",
+      "action": "edit",
+      "details": [
+        "Export helper `computeFractalDepth(seed: string, maxDepth: number): number`",
+        "Uses seeded PRNG to pick depth in [3, maxDepth] range",
+        "Callers pass `quality.maxFractalDepth` as maxDepth",
+        "This keeps the generator module independent of the quality system while allowing tier-adaptive depth"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Update quality.ts tests",
+      "file": "tests/visual/quality.test.ts",
+      "action": "edit",
+      "details": [
+        "Add assertions for `maxFractalDepth` in existing tier tests",
+        "Verify low=3, medium=4, high=6"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Verify build and run full test suite",
+      "action": "command",
+      "details": [
+        "Run `npm run build` to ensure no TypeScript errors",
+        "Run test suite to verify all new and existing tests pass",
+        "Check for any console errors or shader compilation issues"
+      ]
+    }
+  ],
+  "files_to_create": [
+    "src/visual/generators/fractalGeometry.ts",
+    "tests/visual/generators/fractalGeometry.test.ts"
+  ],
+  "files_to_edit": [
+    "src/visual/quality.ts",
+    "tests/visual/quality.test.ts"
+  ],
+  "architecture_notes": {
+    "generator_only": "This ticket creates the generator module only — it does NOT integrate into the scene/render loop. The generator produces raw Float32Array output compatible with existing pointCloud and wireframe systems. A separate ticket would wire it into ModeManager.",
+    "no_three_dependency": "The fractal generator should NOT depend on Three.js — it outputs plain Float32Arrays. This keeps it testable without WebGL context.",
+    "iterative_not_recursive": "Both strategies use iterative traversal with explicit stack/queue to guarantee no call-stack overflow at depth 6.",
+    "seed_namespacing": "Follow existing convention: seed + ':fractal:faceSubdivision' and seed + ':fractal:branchingGrowth'",
+    "output_format": "Points: Float32Array of xyz triples (same as volumetricPoints). Edges: Float32Array of vertex-pair xyz triples where positions[i*6..i*6+2] and positions[i*6+3..i*6+5] form edge i (same layout as polyhedraEdges)."
+  },
+  "risks": [
+    {
+      "risk": "Memory allocation at high depth",
+      "mitigation": "Hard caps on point/edge counts, early termination when budget exhausted, depth clamped to [3,6]"
+    },
+    {
+      "risk": "Non-finite coordinates from accumulated floating point errors",
+      "mitigation": "Validate output array before returning, scale normalization pass"
+    },
+    {
+      "risk": "Visually similar output between strategies",
+      "mitigation": "Face subdivision produces crystalline/faceted forms while branching growth produces organic tree/coral forms — fundamentally different algorithms ensure visual distinction"
+    }
+  ],
+  "definition_of_done": [
+    "Build passes (npm run build)",
+    "All unit tests pass including new fractal generator tests",
+    "Both faceSubdivision and branchingGrowth strategies produce valid 3D point clouds",
+    "Output is compatible with existing Float32Array geometry pipeline",
+    "Recursion depth adapts to quality tier (3-6 levels)",
+    "No stack overflow or excessive allocation at max depth",
+    "Generated structures are visually distinct between the two strategies",
+    "No console errors"
+  ],
+  "reviewer_corrections": "{\"step\":2,\"issue\":\"FractalOutput uses `points: Float32Array` but existing generators use `positions: Float32Array` (see volumetricPoints.ts and polyhedraEdges.ts). Rename to `positions` for consistency.\",\"severity\":\"medium\"}; {\"step\":2,\"issue\":\"Missing `randoms: Float32Array` field in FractalOutput. The polyhedraEdges generator returns `randoms` for per-vertex shader animation. Include this for wireframe compatibility.\",\"severity\":\"low\"}; {\"step\":2,\"issue\":\"PRNG import path: the seeded PRNG lives at `src/visual/prng.ts` (exports `createPRNG`), not in `src/seed/`. Ensure imports reference the correct module.\",\"severity\":\"low\"}; {\"step\":5,\"issue\":\"MAX_POINTS of 50000 is far above the highest quality tier's maxPoints (2000). While this is a generator-level cap, consider aligning the default pointBudget guidance with actual tier limits to avoid generating geometry that will be discarded downstream.\",\"severity\":\"low\"}; {\"step\":3,\"issue\":\"Plan says 'start with initial tetrahedron (4 vertices, 4 triangular faces)' — a tetrahedron has 4 faces but the vertex count formula '3 * 4^d + initial' doesn't account for shared vertices in subdivision. The actual count depends on whether vertices are shared or duplicated. Since Float32Array output duplicates vertices per-face anyway (no index buffer), the formula should be: faces at depth d = 4^(d+1), vertices = faces * 3. Clarify this.\",\"severity\":\"medium\"}; {\"step\":6,\"issue\":\"Test IDs should start at T-057-01. The plan says this but verify no collision with existing test IDs — confirmed no T-057-xx tests exist yet.\",\"severity\":\"info\"}"
+}
