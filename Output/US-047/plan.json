@@ -1,0 +1,133 @@
+{
+  "ticket": "US-047",
+  "title": "Adaptive point count scaling",
+  "summary": "Widen the point-count gap between device tiers so desktop renders significantly more points than mobile, while guaranteeing every tier stays volumetric 3D. Most infrastructure already exists (quality tiers, density mapping, per-system maxPoints). The work is primarily tuning constants, adding a dedicated scaling helper, and writing targeted tests.",
+  "depends_on": ["US-003", "US-004", "US-040", "US-045"],
+  "files_to_modify": [
+    "src/visual/quality.ts",
+    "src/visual/systems/pointCloud.ts",
+    "src/visual/systems/particleField.ts",
+    "src/visual/systems/ribbonField.ts",
+    "src/visual/systems/crystalField.ts",
+    "src/visual/mappings.ts"
+  ],
+  "files_to_create": [
+    "tests/visual/adaptive-point-count.test.ts"
+  ],
+  "steps": [
+    {
+      "id": 1,
+      "title": "Widen maxPoints spread across quality tiers",
+      "file": "src/visual/quality.ts",
+      "description": "Increase the ratio between low and high tier maxPoints so desktop is at least 5× mobile. Current values (200/500/1200) give a 6× ratio but effective counts are compressed by the density×complexity multiplier. Raise high-tier maxPoints to ~2000 and keep low-tier at 200 to guarantee a significant gap after the density formula is applied.",
+      "changes": [
+        "Update HIGH tier maxPoints from 1200 to 2000",
+        "Update HIGH tier maxRibbonPoints from 1000 to 1600",
+        "Update HIGH tier maxParticles from 600 to 1000",
+        "Keep LOW tier values unchanged (200/200/150) to preserve mobile budget",
+        "Update MEDIUM tier maxPoints from 500 to 800, maxRibbonPoints from 500 to 700, maxParticles from 350 to 550"
+      ],
+      "rationale": "After density (0.3–1.0) and complexity (0.2–1.0) multipliers, the effective low-tier count lands around 48–120 points and high-tier around 960–2000. This ensures desktop renders 8–16× more points than low-end mobile."
+    },
+    {
+      "id": 2,
+      "title": "Extract shared adaptive count helper",
+      "file": "src/visual/systems/pointCloud.ts",
+      "description": "The effective point count formula (density × maxPoints × complexityFactor) is duplicated across all four geometry systems. Extract it into a shared exported function so the scaling logic lives in one place.",
+      "changes": [
+        "Create and export function computeAdaptiveCount(density: number, structureComplexity: number, maxPoints: number): number that encapsulates the floor(density * maxPoints * (0.6 + complexity * 0.4)) formula with clamping",
+        "Add a minimum floor of 24 points (enough for visible volumetric shape) instead of current minimum of 1",
+        "Import and use this helper in pointCloud.ts, particleField.ts, ribbonField.ts, and crystalField.ts replacing their inline calculations"
+      ],
+      "rationale": "Single source of truth for the scaling formula. The 24-point minimum ensures even the lowest tier renders a recognisable 3D form, not a single dot."
+    },
+    {
+      "id": 3,
+      "title": "Refactor all geometry systems to use shared helper",
+      "files": [
+        "src/visual/systems/particleField.ts",
+        "src/visual/systems/ribbonField.ts",
+        "src/visual/systems/crystalField.ts"
+      ],
+      "description": "Replace each system's inline point count calculation with a call to the shared computeAdaptiveCount helper.",
+      "changes": [
+        "Import computeAdaptiveCount in each system file",
+        "Replace inline effectiveCount calculation with helper call",
+        "Remove any per-system minimum clamping that conflicts with the shared minimum"
+      ],
+      "rationale": "Consistency: all geometry systems scale identically relative to their tier's maxPoints budget."
+    },
+    {
+      "id": 4,
+      "title": "Verify density mapping produces adequate spread",
+      "file": "src/visual/mappings.ts",
+      "description": "Check that capabilityToDensity produces values that, when combined with the new maxPoints, yield the required gap. Current formula (dpr×0.4 + cores×0.6, range 0.3–1.0) already biases heavily toward core count. No change expected unless testing reveals the spread is still too narrow.",
+      "changes": [
+        "Review capabilityToDensity function — no code change expected",
+        "If mobile density lands above 0.5 for typical phones (DPR=2, cores=4), lower the floor or adjust weights to push mobile density toward 0.3–0.4"
+      ],
+      "rationale": "The density multiplier is the second lever (after maxPoints) that determines the effective gap. It must not compress the tiers back together."
+    },
+    {
+      "id": 5,
+      "title": "Write acceptance tests",
+      "file": "tests/visual/adaptive-point-count.test.ts",
+      "description": "Add targeted tests for all four acceptance criteria using the same vitest+jsdom setup as existing tests.",
+      "tests": [
+        {
+          "id": "T-047-01",
+          "name": "Desktop uses ≥5× more points than mobile",
+          "approach": "Call computeQuality with high-end desktop signals (DPR=2, cores=16, memory=32, no touch) and low-end mobile signals (DPR=2, cores=4, memory=4, touch). Compute effective point counts via computeAdaptiveCount for each. Assert desktop count / mobile count ≥ 5."
+        },
+        {
+          "id": "T-047-02",
+          "name": "Mobile maintains volumetric depth (≥24 points, 3D positions)",
+          "approach": "Create a pointCloud with low-tier QualityProfile and minimum density (0.3). Assert effectiveCount ≥ 24. Assert all generated positions have non-zero Z spread (max(z) - min(z) > 0.5)."
+        },
+        {
+          "id": "T-047-03",
+          "name": "Scaling affects count, not dimensionality",
+          "approach": "For each tier (low/medium/high), create a pointCloud and verify: (a) point count increases with tier, (b) all positions are 3-component vectors, (c) Z variance is positive in every tier."
+        },
+        {
+          "id": "T-047-04",
+          "name": "No 2D fallback on low tier",
+          "approach": "Create all four geometry systems (pointCloud, particleField, ribbonField, crystalField) with low-tier profile. Assert each produces a THREE.Points mesh (not Mesh/Line), uses ShaderMaterial, and has a perspective camera (not orthographic)."
+        },
+        {
+          "id": "T-047-05",
+          "name": "computeAdaptiveCount consistency across systems",
+          "approach": "For identical inputs (density, complexity, maxPoints), assert all systems produce the same effective count via the shared helper."
+        },
+        {
+          "id": "T-047-06",
+          "name": "Minimum point floor is enforced",
+          "approach": "Call computeAdaptiveCount with density=0.01, complexity=0.2, maxPoints=200. Assert result ≥ 24."
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Build verification and manual spot-check",
+      "description": "Run npm run build, ensure no TypeScript errors. Run vitest to confirm all new and existing tests pass. Manually verify in browser that low/high tier produce visually different densities while both remaining clearly 3D.",
+      "changes": []
+    }
+  ],
+  "verification": {
+    "build": "npm run build must pass with zero errors",
+    "tests": "npx vitest run tests/visual/adaptive-point-count.test.ts must pass all 6 tests",
+    "existing_tests": "npx vitest run must not regress any existing tests",
+    "manual": "Browser console must show no WebGL errors; low tier must render a recognisable volumetric shape"
+  },
+  "risks": [
+    {
+      "risk": "Raising high-tier maxPoints to 2000 could hurt frame rate on mid-range desktops",
+      "mitigation": "The density×complexity multiplier means effective count rarely hits the cap. Monitor via debug instrumentation (FPS callback in renderLoop). Can lower to 1600 if needed."
+    },
+    {
+      "risk": "24-point minimum may look too sparse on large screens",
+      "mitigation": "24 is the floor for worst-case inputs (density near 0). Typical low-tier mobile with density ~0.35 gets ~48–84 points, which is adequate for volumetric perception."
+    }
+  ],
+  "estimated_scope": "small — primarily constant tuning, one helper extraction, and test authoring"
+}
