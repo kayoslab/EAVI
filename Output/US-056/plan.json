@@ -1,0 +1,207 @@
+{
+  "ticket": "US-056",
+  "title": "Add instanced micro-geometry system",
+  "summary": "Create a new GeometrySystem that renders many small 3D geometric primitives (cubes, tetrahedra, octahedra) using Three.js InstancedMesh, with audio-reactive per-instance transforms, seeded primitive selection, and quality-tier-adaptive instance counts.",
+  "dependencies_satisfied": {
+    "US-041": "GPU-side curl noise displacement — noise3d.glsl with curl3/fbm3/snoise already integrated",
+    "US-047": "Adaptive point count scaling — computeAdaptiveCount() available in pointCloud.ts",
+    "US-048": "Shader validation gate — ShaderErrorCollector, health gate, and initAllForValidation() all wired"
+  },
+  "architecture_decisions": [
+    {
+      "decision": "Implement as a fifth standalone GeometrySystem",
+      "rationale": "All four existing systems (ParticleField, PointCloud, RibbonField, CrystalField) follow the GeometrySystem interface. Adding a fifth system integrates cleanly with the ModeManager crossfade and health gate without modifying existing code."
+    },
+    {
+      "decision": "Use THREE.InstancedMesh with CPU-side matrix updates via Float32Array",
+      "rationale": "InstancedMesh is the standard Three.js instancing pattern, well-supported in v0.183.2. CPU-side matrix updates via setMatrixAt/instanceMatrix allow per-frame audio-reactive transforms without custom instancing shaders. The ticket explicitly specifies this approach."
+    },
+    {
+      "decision": "Use THREE.ShaderMaterial (not MeshStandardMaterial) on InstancedMesh",
+      "rationale": "Custom ShaderMaterial allows reusing the existing noise3d.glsl library for displacement, matching the visual language of existing systems. The ambient light already in the scene (0.4 intensity) provides basic lighting context. The shader will read instance transforms from the instance matrix attribute."
+    },
+    {
+      "decision": "Primitive type seeded per session, not per instance",
+      "rationale": "The ticket says 'primitive type is seeded per session'. All instances in a given session use the same shape. The PRNG from sessionSeed selects one of three primitives (cube, tetrahedron, octahedron)."
+    },
+    {
+      "decision": "Instance positions initialized from existing volumetric generators",
+      "rationale": "The generators in volumetricPoints.ts already produce sphere, shell, torus, spiral, crystalCluster, and geode distributions. Reusing these for initial instance placement maintains visual coherence with other modes."
+    }
+  ],
+  "files_to_create": [
+    {
+      "path": "src/visual/systems/microGeometry.ts",
+      "purpose": "New GeometrySystem implementation using InstancedMesh with audio-reactive per-instance transforms",
+      "estimated_lines": 280
+    },
+    {
+      "path": "src/visual/shaders/microGeo.vert.glsl",
+      "purpose": "Vertex shader for instanced micro-geometry — applies instance matrix, bass macro displacement via curl3, treble rotation jitter, time evolution",
+      "estimated_lines": 80
+    },
+    {
+      "path": "src/visual/shaders/microGeo.frag.glsl",
+      "purpose": "Fragment shader for instanced micro-geometry — HSL2RGB coloring with depth fog, matching existing visual language",
+      "estimated_lines": 35
+    }
+  ],
+  "files_to_modify": [
+    {
+      "path": "src/visual/modeManager.ts",
+      "changes": "Import MicroGeometry system, add it as a fifth mode in the systems array so ModeManager can transition to/from it"
+    },
+    {
+      "path": "src/visual/quality.ts",
+      "changes": "Add maxInstances field to QualityProfile: low=200, medium=600, high=1200"
+    },
+    {
+      "path": "src/main.ts",
+      "changes": "Import and instantiate MicroGeometry system, pass it to ModeManager alongside existing four systems"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": 1,
+      "title": "Add maxInstances to QualityProfile",
+      "file": "src/visual/quality.ts",
+      "details": "Add `maxInstances: number` to QualityProfile interface and set values per tier: low=200, medium=600, high=1200. These counts are lower than point counts because instanced meshes have higher per-instance GPU cost than points.",
+      "risk": "Low — additive change to an interface"
+    },
+    {
+      "step": 2,
+      "title": "Create primitive geometry builders",
+      "file": "src/visual/systems/microGeometry.ts",
+      "details": "Create three factory functions that return small THREE.BufferGeometry primitives: (1) `buildCube()` — BoxGeometry(0.06, 0.06, 0.06), (2) `buildTetrahedron()` — TetrahedronGeometry(0.04), (3) `buildOctahedron()` — OctahedronGeometry(0.04). These are intentionally tiny — 'micro' geometry. The seeded PRNG selects one at init time.",
+      "risk": "Low — pure geometry construction"
+    },
+    {
+      "step": 3,
+      "title": "Write vertex shader for instanced micro-geometry",
+      "file": "src/visual/shaders/microGeo.vert.glsl",
+      "details": "The vertex shader must: (1) Include noise3d.glsl for curl3/snoise, (2) Accept all shared uniforms from shaderRegistry.ts, (3) Read the instance matrix (Three.js automatically provides `instanceMatrix` attribute for InstancedMesh), (4) Apply bass macro displacement: offset instance position along curl3 field scaled by uBassEnergy * uDisplacementScale, (5) Apply treble micro rotation: perturb instance vertex positions with snoise * uTrebleEnergy for jitter/shimmer effect, (6) Apply time evolution via slow fbm3 modulation, (7) Compute vColor via HSL2RGB using uPaletteHue + per-instance variation derived from instance position hash, (8) Compute vFogFactor for depth attenuation. Key difference from point shaders: vertices are real 3D positions transformed by instanceMatrix, not gl_PointSize screen-space quads.",
+      "risk": "Medium — shader compile errors are the top risk; must validate all uniforms/attributes are declared and bound"
+    },
+    {
+      "step": 4,
+      "title": "Write fragment shader for instanced micro-geometry",
+      "file": "src/visual/shaders/microGeo.frag.glsl",
+      "details": "Minimal fragment shader matching existing pattern: receive vColor and vFogFactor from vertex shader, apply fog, output gl_FragColor with uOpacity. Add simple face-normal-based shading (dot product with fixed light direction) for basic 3D depth perception on the micro-shapes.",
+      "risk": "Low — follows established fragment shader pattern"
+    },
+    {
+      "step": 5,
+      "title": "Implement MicroGeometry GeometrySystem class",
+      "file": "src/visual/systems/microGeometry.ts",
+      "details": "Implement the GeometrySystem interface with: \n\n**init(scene, seed, params):** (1) Create seeded PRNG from seed, (2) Select primitive type via prng (0-2 → cube/tetra/octa), (3) Build chosen geometry, (4) Create ShaderMaterial with shared uniforms from shaderRegistry + noise3d.glsl include, (5) Compute adaptive instance count: floor(density * maxInstances * (0.6 + complexity * 0.4)), min 24, (6) Create InstancedMesh(geometry, material, count), (7) Generate initial instance positions using volumetric shape generator (seeded selection from sphere/shell/torus/spiral), (8) For each instance: compose Matrix4 from position + small random rotation + base scale, write to instanceMatrix, (9) Set instanceMatrix.needsUpdate = true, (10) Add mesh to scene.\n\n**draw(scene, frame):** (1) Update shared uniforms (uTime, uBassEnergy, uTrebleEnergy, etc.) from frame.params, (2) Pre-allocate reusable Matrix4, Vector3, Quaternion, Euler objects (avoid per-frame allocation), (3) For each instance: read base position from stored Float32Array, (4) Compute bass displacement: sample curl3 at (basePos + time * 0.0003) scaled by bassEnergy * displacementScale, add to position, (5) Compute treble rotation: base rotation + sin(time * 0.003 + instanceIndex * 0.1) * trebleEnergy * 0.5 on each Euler axis, (6) Compute treble scale pulse: baseScale * (1.0 + trebleEnergy * 0.15 * sin(time * 0.005 + instanceIndex)), (7) Compose matrix from displaced position + jittered rotation + pulsed scale, (8) mesh.setMatrixAt(i, matrix), (9) After loop: mesh.instanceMatrix.needsUpdate = true.\n\n**cleanup():** Dispose geometry, material, remove mesh from scene.\n\n**setOpacity(opacity):** Update uOpacity uniform for ModeManager crossfade.",
+      "risk": "Medium — CPU-side matrix loop for 1200 instances at 60fps needs to be tight; use pre-allocated objects and avoid GC pressure"
+    },
+    {
+      "step": 6,
+      "title": "Optimize CPU-side instance update loop",
+      "file": "src/visual/systems/microGeometry.ts",
+      "details": "Performance-critical optimizations: (1) Store base positions as a flat Float32Array(count * 3) rather than Vector3 array, (2) Store base rotations as Float32Array(count * 3) for Euler angles, (3) Pre-allocate single Matrix4, Quaternion, Vector3 for the entire loop, (4) Use matrix.compose(position, quaternion, scale) which is the fastest Three.js path, (5) Write directly to mesh.instanceMatrix.array if needed for bypass, (6) Consider updating only a subset of instances per frame on low tier (e.g., update every 2nd instance on alternating frames)",
+      "risk": "Low — optimization pass on existing code"
+    },
+    {
+      "step": 7,
+      "title": "Register MicroGeometry in ModeManager",
+      "file": "src/visual/modeManager.ts",
+      "details": "Import MicroGeometry class. Add it to the systems array alongside ParticleField, PointCloud, RibbonField, CrystalField. The ModeManager already handles seeded mode selection, crossfade transitions, and validation init — no structural changes needed, just array expansion from 4 to 5 systems.",
+      "risk": "Low — additive change to existing array"
+    },
+    {
+      "step": 8,
+      "title": "Wire up in main.ts",
+      "file": "src/main.ts",
+      "details": "Import MicroGeometry. Instantiate it with the same quality config pattern used by existing systems, passing maxInstances from the quality profile. Add to the systems array passed to createModeManager().",
+      "risk": "Low — follows exact pattern of existing system instantiation"
+    },
+    {
+      "step": 9,
+      "title": "Validate shader compilation and WebGL health",
+      "file": "src/visual/systems/microGeometry.ts",
+      "details": "Ensure MicroGeometry works with the existing health gate: (1) initAllForValidation() in ModeManager will call init() on MicroGeometry, (2) ShaderErrorCollector captures any compile errors via renderer.debug.onShaderError, (3) geometryValidator checks that instanceMatrix attribute exists and contains finite values, (4) Verify no VALIDATE_STATUS errors in console. Test with all three primitive types by temporarily forcing each selection.",
+      "risk": "Medium — shader errors are the primary failure mode per CLAUDE.md rules"
+    },
+    {
+      "step": 10,
+      "title": "Integration test and visual verification",
+      "file": null,
+      "details": "Manual verification checklist: (1) npm run build passes, (2) No console errors on load, (3) MicroGeometry mode renders visible 3D shapes (not points), (4) Shapes respond to bass (visible position displacement), (5) Shapes respond to treble (visible rotation jitter / scale pulse), (6) Mode transitions crossfade smoothly to/from MicroGeometry, (7) All three primitive types render correctly when forced, (8) Low/medium/high quality tiers produce different instance counts, (9) No forbidden storage APIs used, (10) Scene works with and without autoplay",
+      "risk": "Low — verification only"
+    }
+  ],
+  "glsl_uniform_requirements": {
+    "reused_from_shaderRegistry": [
+      "uTime", "uBassEnergy", "uTrebleEnergy", "uOpacity", "uMotionAmplitude",
+      "uPointerDisturbance", "uPointerPos", "uPaletteHue", "uPaletteSaturation",
+      "uCadence", "uBreathScale", "uNoiseFrequency", "uRadialScale",
+      "uTwistStrength", "uFieldSpread", "uNoiseOctaves",
+      "uEnablePointerRepulsion", "uEnableSlowModulation",
+      "uDisplacementScale", "uFogNear", "uFogFar"
+    ],
+    "not_needed": ["uHasSizeAttr", "uBasePointSize"],
+    "note": "InstancedMesh provides instanceMatrix attribute automatically — no custom attribute binding needed for transforms"
+  },
+  "instance_counts_by_tier": {
+    "low": { "maxInstances": 200, "rationale": "Mobile/weak GPU — 200 instanced meshes is roughly equivalent GPU cost to 600 points" },
+    "medium": { "maxInstances": 600, "rationale": "Mid-range — good visual density without frame drops" },
+    "high": { "maxInstances": 1200, "rationale": "Desktop — rich visual texture, still well within draw call budget (single draw call via instancing)" }
+  },
+  "primitive_specifications": {
+    "cube": { "constructor": "BoxGeometry(0.06, 0.06, 0.06)", "vertices": 36, "character": "Architectural, grid-like" },
+    "tetrahedron": { "constructor": "TetrahedronGeometry(0.04, 0)", "vertices": 12, "character": "Sharp, crystalline" },
+    "octahedron": { "constructor": "OctahedronGeometry(0.04, 0)", "vertices": 24, "character": "Gem-like, balanced" }
+  },
+  "audio_reactivity_mapping": {
+    "bass": {
+      "target": "Per-instance position displacement",
+      "method": "Sample curl3 noise field at (basePosition + time * 0.0003), scale displacement by bassEnergy * displacementScale",
+      "character": "Macro field motion — all instances breathe and drift together in a divergence-free flow"
+    },
+    "treble": {
+      "target_1": "Per-instance rotation jitter",
+      "method_1": "Add sin(time * frequency + instanceIndex * phase) * trebleEnergy * 0.5 to each Euler axis",
+      "target_2": "Per-instance scale pulse",
+      "method_2": "Multiply base scale by (1.0 + trebleEnergy * 0.15 * sin(time * 0.005 + instanceIndex))",
+      "character": "Fine shimmer — individual shapes twitch and pulse on treble hits"
+    }
+  },
+  "risk_assessment": [
+    {
+      "risk": "Shader compilation failure",
+      "severity": "High",
+      "mitigation": "Follow exact uniform declaration pattern from existing shaders. Include noise3d.glsl via string concatenation (same pattern as existing systems). Test with ShaderErrorCollector before merging."
+    },
+    {
+      "risk": "CPU-side matrix update bottleneck at 1200 instances",
+      "severity": "Medium",
+      "mitigation": "Pre-allocate all math objects. Use compose() path. Profile and consider alternating-frame updates on low tier. Curl noise sampling is the expensive part — consider caching curl results or using simpler displacement on low tier."
+    },
+    {
+      "risk": "Visual incoherence with existing modes during crossfade",
+      "severity": "Low",
+      "mitigation": "ModeManager already handles opacity crossfade via setOpacity(). Ensure uOpacity uniform drives alpha correctly in fragment shader."
+    },
+    {
+      "risk": "Instance count mismatch with quality tier",
+      "severity": "Low",
+      "mitigation": "Reuse computeAdaptiveCount() pattern with maxInstances instead of maxPoints."
+    }
+  ],
+  "definition_of_done_checklist": [
+    "npm run build passes",
+    "No console errors on normal load",
+    "No shader compile or WebGL validation errors",
+    "InstancedMesh renders 3D shapes (cubes, tetrahedra, or octahedra) — not points",
+    "Primitive type is deterministically selected from session seed",
+    "Bass drives visible macro position displacement across instances",
+    "Treble drives visible per-instance rotation jitter and/or scale pulse",
+    "Instance count adapts to quality tier (low/medium/high)",
+    "Mode transitions crossfade correctly to/from micro-geometry",
+    "No forbidden storage APIs used",
+    "Scene works with and without successful autoplay",
+    "Mute toggle and info overlay still work"
+  ]
+}
