@@ -118,3 +118,5 @@
 
 ## US-054: Add wireframe polyhedra geometry system
 
+## US-057: Add fractal recursive geometry generator
+
