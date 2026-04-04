@@ -1,0 +1,314 @@
+{
+  "tests": [
+    {
+      "id": "T-057-01",
+      "description": "generateFractalGeometry with faceSubdivision returns FractalOutput with positions as Float32Array",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result.positions is instanceof Float32Array",
+        "result.positions.length equals result.pointCount * 3",
+        "result.pointCount is greater than 0"
+      ]
+    },
+    {
+      "id": "T-057-02",
+      "description": "generateFractalGeometry with branchingGrowth returns FractalOutput with positions as Float32Array",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result.positions is instanceof Float32Array",
+        "result.positions.length equals result.pointCount * 3",
+        "result.pointCount is greater than 0"
+      ]
+    },
+    {
+      "id": "T-057-03",
+      "description": "faceSubdivision is deterministic — same seed and config produce identical output",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result_a.positions deep equals result_b.positions",
+        "result_a.edges deep equals result_b.edges",
+        "result_a.pointCount equals result_b.pointCount",
+        "result_a.edgeCount equals result_b.edgeCount"
+      ]
+    },
+    {
+      "id": "T-057-04",
+      "description": "branchingGrowth is deterministic — same seed and config produce identical output",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result_a.positions deep equals result_b.positions",
+        "result_a.edges deep equals result_b.edges",
+        "result_a.pointCount equals result_b.pointCount",
+        "result_a.edgeCount equals result_b.edgeCount"
+      ]
+    },
+    {
+      "id": "T-057-05",
+      "description": "different seeds produce different output for faceSubdivision",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result_a.positions does not deep equal result_b.positions"
+      ]
+    },
+    {
+      "id": "T-057-06",
+      "description": "different seeds produce different output for branchingGrowth",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result_a.positions does not deep equal result_b.positions"
+      ]
+    },
+    {
+      "id": "T-057-07",
+      "description": "faceSubdivision produces non-empty output for each valid depth (3, 4, 5, 6)",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "For each depth in [3, 4, 5, 6]: result.pointCount > 0",
+        "For each depth in [3, 4, 5, 6]: result.positions.length > 0"
+      ]
+    },
+    {
+      "id": "T-057-08",
+      "description": "branchingGrowth produces non-empty output for each valid depth (3, 4, 5, 6)",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "For each depth in [3, 4, 5, 6]: result.pointCount > 0",
+        "For each depth in [3, 4, 5, 6]: result.positions.length > 0"
+      ]
+    },
+    {
+      "id": "T-057-09",
+      "description": "point count stays within pointBudget for faceSubdivision",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result.pointCount <= config.pointBudget",
+        "result.positions.length <= config.pointBudget * 3"
+      ]
+    },
+    {
+      "id": "T-057-10",
+      "description": "point count stays within pointBudget for branchingGrowth",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result.pointCount <= config.pointBudget",
+        "result.positions.length <= config.pointBudget * 3"
+      ]
+    },
+    {
+      "id": "T-057-11",
+      "description": "edge count stays within bounds and edges format is correct (edgeCount * 6 floats)",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result.edges is instanceof Float32Array or null",
+        "If result.edges is not null: result.edges.length equals result.edgeCount * 6",
+        "result.edgeCount >= 0"
+      ]
+    },
+    {
+      "id": "T-057-12",
+      "description": "all coordinates in positions are finite (no NaN or Infinity) for faceSubdivision",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "Every value in result.positions satisfies Number.isFinite()"
+      ]
+    },
+    {
+      "id": "T-057-13",
+      "description": "all coordinates in positions are finite (no NaN or Infinity) for branchingGrowth",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "Every value in result.positions satisfies Number.isFinite()"
+      ]
+    },
+    {
+      "id": "T-057-14",
+      "description": "all coordinates in edges are finite (no NaN or Infinity)",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "If result.edges is not null: every value in result.edges satisfies Number.isFinite()"
+      ]
+    },
+    {
+      "id": "T-057-15",
+      "description": "depth is clamped — depth < 3 treated as 3",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "generateFractalGeometry with depth=1 produces same output as depth=3 (same seed/strategy/budget)",
+        "generateFractalGeometry with depth=0 produces same output as depth=3 (same seed/strategy/budget)"
+      ]
+    },
+    {
+      "id": "T-057-16",
+      "description": "depth is clamped — depth > 6 treated as 6",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "generateFractalGeometry with depth=10 produces same output as depth=6 (same seed/strategy/budget)",
+        "generateFractalGeometry with depth=99 produces same output as depth=6 (same seed/strategy/budget)"
+      ]
+    },
+    {
+      "id": "T-057-17",
+      "description": "zero or negative pointBudget returns empty output",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "generateFractalGeometry with pointBudget=0: result.pointCount equals 0",
+        "generateFractalGeometry with pointBudget=0: result.positions.length equals 0",
+        "generateFractalGeometry with pointBudget=-10: result.pointCount equals 0"
+      ]
+    },
+    {
+      "id": "T-057-18",
+      "description": "faceSubdivision and branchingGrowth produce visually distinct point distributions",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "Axis standard deviations differ between the two strategies (at least one axis stdDev ratio > 1.3 or < 0.7)",
+        "Centroid positions differ between the two strategies OR bounding box aspect ratios differ"
+      ]
+    },
+    {
+      "id": "T-057-19",
+      "description": "no stack overflow at max depth (depth=6) with large pointBudget",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "generateFractalGeometry with depth=6 and pointBudget=50000 does not throw",
+        "Result has pointCount > 0 and all positions are finite"
+      ]
+    },
+    {
+      "id": "T-057-20",
+      "description": "selectStrategy returns a valid FractalStrategy and is deterministic",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "selectStrategy('seed-a') returns either 'faceSubdivision' or 'branchingGrowth'",
+        "selectStrategy('seed-a') called twice returns the same result",
+        "selectStrategy produces both strategies across a range of seeds (coverage)"
+      ]
+    },
+    {
+      "id": "T-057-21",
+      "description": "randoms field is present in output and has correct length for wireframe compatibility",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result.randoms is instanceof Float32Array",
+        "result.randoms.length equals result.pointCount * 3",
+        "All values in result.randoms are finite and in [0, 1)"
+      ]
+    },
+    {
+      "id": "T-057-22",
+      "description": "output positions fit within expected radius (~2.5)",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "For every vertex: sqrt(x² + y² + z²) <= 3.0 (small tolerance above 2.5)",
+        "Test for both faceSubdivision and branchingGrowth"
+      ]
+    },
+    {
+      "id": "T-057-23",
+      "description": "computeFractalDepth returns value in [3, maxDepth] range and is deterministic",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "computeFractalDepth('seed', 6) returns integer in [3, 6]",
+        "computeFractalDepth('seed', 3) always returns 3",
+        "computeFractalDepth('seed', 4) returns 3 or 4",
+        "Same seed and maxDepth produce same result"
+      ]
+    },
+    {
+      "id": "T-057-24",
+      "description": "FRACTAL_STRATEGIES array contains exactly faceSubdivision and branchingGrowth",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "FRACTAL_STRATEGIES has length 2",
+        "FRACTAL_STRATEGIES includes 'faceSubdivision'",
+        "FRACTAL_STRATEGIES includes 'branchingGrowth'"
+      ]
+    },
+    {
+      "id": "T-057-25",
+      "description": "faceSubdivision output has 3D volumetric spread (non-coplanar points)",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "stdDev of X, Y, and Z axes are all > 0.05",
+        "min(stdX, stdY, stdZ) > 0.05 confirming non-coplanar distribution"
+      ]
+    },
+    {
+      "id": "T-057-26",
+      "description": "branchingGrowth output has 3D volumetric spread (non-coplanar points)",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "stdDev of X, Y, and Z axes are all > 0.05",
+        "min(stdX, stdY, stdZ) > 0.05 confirming non-coplanar distribution"
+      ]
+    },
+    {
+      "id": "T-057-27",
+      "description": "higher depth produces more points (given sufficient pointBudget)",
+      "file": "tests/visual/generators/fractalGeometry.test.ts",
+      "type": "unit",
+      "assertions": [
+        "result at depth=5 has pointCount >= result at depth=3 (same seed, large budget)",
+        "Test for both faceSubdivision and branchingGrowth"
+      ]
+    },
+    {
+      "id": "T-057-28",
+      "description": "QualityProfile includes maxFractalDepth field",
+      "file": "tests/visual/quality.test.ts",
+      "type": "unit",
+      "assertions": [
+        "computeQuality(signals) result has maxFractalDepth property",
+        "typeof maxFractalDepth is 'number'",
+        "maxFractalDepth > 0"
+      ]
+    },
+    {
+      "id": "T-057-29",
+      "description": "maxFractalDepth per tier: low=3, medium=4, high=6",
+      "file": "tests/visual/quality.test.ts",
+      "type": "unit",
+      "assertions": [
+        "low tier maxFractalDepth equals 3",
+        "medium tier maxFractalDepth equals 4",
+        "high tier maxFractalDepth equals 6"
+      ]
+    },
+    {
+      "id": "T-057-30",
+      "description": "maxFractalDepth scales with tier (low < medium < high)",
+      "file": "tests/visual/quality.test.ts",
+      "type": "unit",
+      "assertions": [
+        "low.maxFractalDepth < medium.maxFractalDepth",
+        "medium.maxFractalDepth < high.maxFractalDepth"
+      ]
+    }
+  ]
+}
