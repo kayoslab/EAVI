@@ -15,6 +15,7 @@ import { createParticleField } from './visual/systems/particleField';
 import { createRibbonField } from './visual/systems/ribbonField';
 import { createPointCloud } from './visual/systems/pointCloud';
 import { createCrystalField } from './visual/systems/crystalField';
+import { createMicroGeometry } from './visual/systems/microGeometry';
 import { createModeManager } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 
@@ -117,11 +118,18 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
   });
+  const microGeo = createMicroGeometry({
+    maxInstances: quality.maxInstances,
+    noiseOctaves: quality.noiseOctaves,
+    enablePointerRepulsion: quality.enablePointerRepulsion,
+    enableSlowModulation: quality.enableSlowModulation,
+  });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },
     { name: 'ribbon', factory: () => ribbon },
     { name: 'pointcloud', factory: () => pointCloud },
     { name: 'crystal', factory: () => crystal },
+    { name: 'microgeometry', factory: () => microGeo },
   ]);
 
   // Enrich loop deps — geometry will init on next frame
@@ -137,6 +145,7 @@ geoPromise.then((geo) => {
     { name: 'ribbon', maxPoints: quality.maxRibbonPoints },
     { name: 'pointcloud', maxPoints: quality.maxPoints },
     { name: 'crystal', maxPoints: Math.round(quality.maxPoints * 0.8) },
+    { name: 'microgeometry', maxPoints: quality.maxInstances },
   ];
   deps.getModeName = () => modes[modeManager.activeIndex]?.name ?? 'unknown';
   deps.getPointCount = () => modes[modeManager.activeIndex]?.maxPoints ?? 0;

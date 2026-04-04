@@ -734,4 +734,16 @@ describe('US-048: Shader validation — ModeManager integration', () => {
     expect(mockA.init).not.toHaveBeenCalled();
     expect(mockB.init).not.toHaveBeenCalled();
   });
+
+  it('T-056-38: ModeManager accepts MicroGeometry as a fifth mode entry', () => {
+    const mockMicro = { init: vi.fn(), draw: vi.fn(), cleanup: vi.fn(), setOpacity: vi.fn() };
+    const manager = createModeManager([
+      { name: 'particles', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
+      { name: 'ribbon', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
+      { name: 'pointcloud', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
+      { name: 'crystal', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
+      { name: 'microgeometry', factory: () => mockMicro },
+    ]);
+    expect(() => manager.init(new THREE.Scene(), 'test-seed', defaultParams)).not.toThrow();
+  });
 });
