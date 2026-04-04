@@ -120,6 +120,8 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uHasSizeAttr: { value: 1.0 },
+        uFogNear: { value: 3.0 },
+        uFogFar: { value: 8.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({

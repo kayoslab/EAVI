@@ -21,12 +21,14 @@ uniform float uEnablePointerRepulsion;
 uniform float uEnableSlowModulation;
 uniform float uDisplacementScale;
 uniform float uHasSizeAttr;
+uniform float uFogNear;
 
 attribute float size;
 attribute float aHueOffset;
 attribute vec3 aRandom;
 
 varying vec3 vColor;
+varying float vDepth;
 
 const float TAU = 6.283185307;
 
@@ -121,9 +123,11 @@ void main() {
   // Point size with treble sparkle
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   float depth = max(0.25, -mvPosition.z);
+  vDepth = depth;
   float trebleSparkle = 1.0 + uTrebleEnergy * 0.4;
+  float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
-  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle;
+  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay;
   gl_PointSize = clamp(pointSize, 2.5, 48.0);
 
   gl_Position = projectionMatrix * mvPosition;
