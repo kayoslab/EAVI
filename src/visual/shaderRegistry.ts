@@ -70,3 +70,8 @@ export const CONSTELLATION_ATTRIBUTES: AttributeSpec[] = [
   { name: 'aDistance', itemSize: 1 },
   { name: 'aRandom', itemSize: 3 },
 ];
+
+export const WIREPOLYHEDRA_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'position', itemSize: 3 },
+  { name: 'aRandom', itemSize: 3 },
+];
