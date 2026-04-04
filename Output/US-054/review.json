@@ -1,37 +1,45 @@
 {
-  "verdict": "revise",
-  "reasons": [
-    "Step 6 proposes adding `maxWireframeEdges` to QualityProfile, but `maxPolyhedra` already exists (low=3, medium=6, high=12). The plan should use the existing field — no quality.ts interface change is needed.",
-    "Step 4 proposes creating WIREPOLYHEDRA_ATTRIBUTES, but it already exists in shaderRegistry.ts (position + aRandom). The step should be scoped to adding `aEdgeId` to the existing array, not creating it from scratch.",
-    "Step 7 (main.ts integration) is already implemented: import, factory call with `maxPolyhedra`, modeManager entry, and debug modes array all exist at lines 19, 129-134, 141, 172. This step should be removed or reduced to a verification-only step.",
-    "Plan uses `maxWireframeEdges` (400/1200/2000 edge counts) inconsistently with the existing `maxPolyhedra` (3/6/12 polyhedron counts). The generator in step 1 must derive edge count from polyhedron count × avg edges per shape, not from a separate quality field.",
-    "Step 5 config correctly references `maxPolyhedra` but steps 6 and 7 reference `maxWireframeEdges` and `quality.maxWireframeEdges` — these are contradictory and will cause build errors against the existing codebase."
+  "verdict": "APPROVE_WITH_CHANGES",
+  "blockers": [],
+  "requiredChanges": [
+    {
+      "step": 5,
+      "issue": "Step says action='create' for tests/visual/systems/wireframePolyhedra.test.ts but that file already exists with 40 tests (T-054-01 through T-054-40). Action should be 'edit' to add new test cases for aEdgeId attribute and positions getter.",
+      "fix": "Change action to 'edit' for wireframePolyhedra.test.ts. Only polyhedraEdges.test.ts is a new file (action='create')."
+    },
+    {
+      "step": 5,
+      "issue": "Description says 'Add tests for the generator and system' as if starting from scratch. The system test file already has comprehensive coverage of mesh creation, attribute binding, uniform updates, cleanup, setOpacity, determinism, volumetric placement, fog, privacy, and boundary values. New tests should only cover the delta: aEdgeId attribute presence/itemSize, positions getter returning Float32Array, and generator edgeIds field.",
+      "fix": "Scope system tests to: (1) aEdgeId attribute exists with itemSize 1, (2) positions getter returns non-empty Float32Array, (3) positions getter length matches expected vertex count. Generator tests for polyhedraEdges.test.ts are new and correctly scoped."
+    },
+    {
+      "step": 5,
+      "issue": "shaderRegistry.test.ts also already exists with 4 tests (T-054-45 through T-054-48) and is not mentioned in step 5, but will need a new test case asserting aEdgeId is present in WIREPOLYHEDRA_ATTRIBUTES.",
+      "fix": "Add shaderRegistry.test.ts to the files list in step 5 (action='edit') with a test verifying aEdgeId with itemSize 1 is in WIREPOLYHEDRA_ATTRIBUTES."
+    }
   ],
-  "step_notes": {
-    "1": "Sound approach. Confirm the generator accepts `maxPolyhedra` (not `maxEdges`) and internally computes total edge segments from shape edge counts (icosa=30, octa=12, dodeca=30, tetra=6).",
-    "2": "Good. Vertex shader design matches constellation.vert.glsl displacement chain. Confirm `aEdgeId` attribute is declared and used correctly.",
-    "3": "Good. Fragment fog pattern matches existing systems. HSL color model with per-polyhedron hue offset is consistent.",
-    "4": "Partially done — WIREPOLYHEDRA_ATTRIBUTES exists with position+aRandom. Only need to append `{ name: 'aEdgeId', itemSize: 1 }` to the existing array.",
-    "5": "Core implementation step. Config should use `maxPolyhedra` (already confirmed). Ensure `positions` getter is exposed for constellation overlay compatibility.",
-    "6": "Remove — `maxPolyhedra` already exists in QualityProfile with appropriate tier values.",
-    "7": "Remove — main.ts already has full wireframe integration (import, instantiation, modeManager registration, debug entry).",
-    "8": "Good. Adjust test expectations to use polyhedron count semantics, not raw edge count.",
-    "9": "Good. Standard system test pattern.",
-    "10": "Good. Essential verification step."
+  "suggestions": [
+    {
+      "step": 2,
+      "note": "Acceptance criterion 'edgeIds length equals positions length / 3' is correct (one float per vertex, positions has 3 floats per vertex) but the wording is confusing. Consider 'edgeIds.length equals vertexCount (positions.length / 3)' for clarity."
+    },
+    {
+      "step": 3,
+      "note": "The positions getter will need to apply mesh.position (world offset) to each vertex since each polyhedron is placed at a random position via mesh.position.set(). Ensure the description clarifies that localToWorld or manual offset addition is needed, not just reading raw buffer data."
+    },
+    {
+      "step": 4,
+      "note": "The fragment shader hue offset '+ 0.05 * (vEdgeId - 0.5)' produces a range of ±0.025 on the 0–1 hue scale (±9 degrees). This is reasonable but consider that the hue is already mod(uPaletteHue, 360.0) / 360.0, so the offset is applied post-normalization — confirm this doesn't cause hue wrapping artifacts near 0/1 boundary."
+    }
+  ],
+  "planAccuracy": {
+    "shaderRegistryClaims": "Verified: WIREPOLYHEDRA_ATTRIBUTES has exactly 2 entries (position, aRandom) at line 74-77",
+    "generatorClaims": "Verified: PolyhedronEdgeData has positions, randoms, edgeCount — no edgeIds field yet",
+    "systemClaims": "Verified: no positions getter, no aEdgeId attribute binding. Factory, modeManager, and main.ts integration all confirmed at described locations",
+    "qualityClaims": "Verified: maxPolyhedra exists in QualityProfile (low=3, medium=6, high=12) at lines 64-69",
+    "testClaims": "INACCURATE: wireframePolyhedra.test.ts and shaderRegistry.test.ts already exist with comprehensive coverage. Only polyhedraEdges.test.ts is truly new",
+    "mainIntegrationClaims": "Verified: import at line 19, factory at 129-134, modeManager at 141, debug at 172"
   },
-  "suggested_changes": [
-    "Remove step 6 entirely — quality.ts already has `maxPolyhedra`.",
-    "Remove or convert step 7 to a read-only verification step — main.ts integration is already in place.",
-    "In step 4, change action from 'create' to 'edit' and scope to appending `aEdgeId` to the existing WIREPOLYHEDRA_ATTRIBUTES array.",
-    "In step 1, change config parameter from `maxEdges` to `maxPolyhedra` and compute total edge budget internally from shape edge counts.",
-    "In step 5, ensure config interface uses `maxPolyhedra: number` matching the existing quality field, not `maxEdges`."
-  ],
   "approved": false,
-  "concerns": [
-    "Step 6 proposes adding `maxWireframeEdges` to QualityProfile, but `maxPolyhedra` already exists (low=3, medium=6, high=12). The plan should use the existing field — no quality.ts interface change is needed.",
-    "Step 4 proposes creating WIREPOLYHEDRA_ATTRIBUTES, but it already exists in shaderRegistry.ts (position + aRandom). The step should be scoped to adding `aEdgeId` to the existing array, not creating it from scratch.",
-    "Step 7 (main.ts integration) is already implemented: import, factory call with `maxPolyhedra`, modeManager entry, and debug modes array all exist at lines 19, 129-134, 141, 172. This step should be removed or reduced to a verification-only step.",
-    "Plan uses `maxWireframeEdges` (400/1200/2000 edge counts) inconsistently with the existing `maxPolyhedra` (3/6/12 polyhedron counts). The generator in step 1 must derive edge count from polyhedron count × avg edges per shape, not from a separate quality field.",
-    "Step 5 config correctly references `maxPolyhedra` but steps 6 and 7 reference `maxWireframeEdges` and `quality.maxWireframeEdges` — these are contradictory and will cause build errors against the existing codebase."
-  ]
+  "concerns": []
 }
