@@ -346,4 +346,49 @@ describe('US-025: Quality integration tests', () => {
     expect(high.maxFlowRibbonPoints).toBeDefined();
     expect(high.maxFlowRibbonPoints).toBeGreaterThan(low.maxFlowRibbonPoints);
   });
+
+  it('T-068-41: QualityProfile includes latticeGridSize field', () => {
+    const signals = makeSignals();
+    const result = computeQuality(signals);
+    expect(result).toHaveProperty('latticeGridSize');
+    expect(typeof result.latticeGridSize).toBe('number');
+    expect(result.latticeGridSize).toBeGreaterThan(0);
+  });
+
+  it('T-068-42: QualityProfile includes latticeCellSize field', () => {
+    const signals = makeSignals();
+    const result = computeQuality(signals);
+    expect(result).toHaveProperty('latticeCellSize');
+    expect(typeof result.latticeCellSize).toBe('number');
+    expect(result.latticeCellSize).toBeGreaterThan(0);
+  });
+
+  it('T-068-43: latticeGridSize per tier: low=3, medium=5, high=7', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.latticeGridSize).toBe(3);
+    expect(medium.latticeGridSize).toBe(5);
+    expect(high.latticeGridSize).toBe(7);
+  });
+
+  it('T-068-44: latticeCellSize per tier: low=1.2, medium=1.0, high=0.8', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.latticeCellSize).toBe(1.2);
+    expect(medium.latticeCellSize).toBe(1.0);
+    expect(high.latticeCellSize).toBe(0.8);
+  });
+
+  it('T-068-45: latticeGridSize scales with tier (low < medium < high)', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.latticeGridSize).toBeLessThan(medium.latticeGridSize);
+    expect(medium.latticeGridSize).toBeLessThan(high.latticeGridSize);
+  });
 });

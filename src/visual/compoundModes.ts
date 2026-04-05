@@ -47,6 +47,13 @@ export const COMPOUND_MODE_DEFS: CompoundModeDef[] = [
       { systemName: 'microgeometry', isPrimary: false },
     ],
   },
+  {
+    name: 'pointcloud+cubelattice',
+    layers: [
+      { systemName: 'pointcloud', isPrimary: true },
+      { systemName: 'cubelattice', isPrimary: false },
+    ],
+  },
 ];
 
 export type SystemFactory = (config: Record<string, unknown>) => GeometrySystem;
@@ -63,6 +70,7 @@ function primaryCountForSystem(systemName: string, config: Record<string, unknow
     case 'flowribbon': return (config.maxPoints as number) ?? 0;
     case 'microgeometry': return (config.maxInstances as number) ?? 0;
     case 'wirepolyhedra': return (config.maxPolyhedra as number) ?? 0;
+    case 'cubelattice': return (config.gridSize as number) ?? 0;
     default: return 0;
   }
 }
