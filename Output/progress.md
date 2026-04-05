@@ -132,3 +132,5 @@
 
 ## US-061: Add compound mode composition
 
+## US-065: Rework wireframe system to vertex-and-edge topology
+
