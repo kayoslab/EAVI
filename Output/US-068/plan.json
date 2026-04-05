@@ -1,0 +1,117 @@
+{
+  "ticket": "US-068",
+  "title": "Add spatial cube lattice wireframe system",
+  "phases": [
+    {
+      "phase": 1,
+      "title": "Create cube lattice generator",
+      "description": "Build generateCubeLattice() in a new generator file following the polyhedraEdges.ts return-type convention. The generator produces an NxNxN grid of cube wireframes with shared/merged vertices at adjacent cube boundaries.",
+      "files": [
+        {
+          "path": "src/visual/generators/cubeLattice.ts",
+          "action": "create",
+          "details": "Export function generateCubeLattice(opts: { gridSize: number; cellSize: number; seed: string }). Produces an NxNxN grid of cubes where each cube has 8 vertices and 12 edges. Adjacent cubes share vertices (total unique vertices = (N+1)^3). Returns two separate result sets following existing conventions: (1) Edge data: { positions: Float32Array, randoms: Float32Array, edgeCount: number } — positions in LineSegments format (consecutive vertex pairs), randoms via hashRandomFromPosition() per edge-vertex, edgeCount = total edges. (2) Vertex data: { positions: Float32Array, aRandom: Float32Array, vertexCount: number } — unique merged vertex positions, aRandom via hashRandomFromPosition(). Grid dimensions (gridSize) are derived from seed using createPRNG. Import hashRandomFromPosition from subdivideEdges.ts and createPRNG from ../prng. Total edges = 3*N*(N+1)^2 for an NxNxN grid (shared edges between adjacent cubes are not duplicated)."
+        }
+      ],
+      "notes": "Return separate vertex and edge result objects matching extractVertices.ts / subdivideEdges.ts patterns. Use hashRandomFromPosition for per-vertex randoms (position-deterministic, inline hash). Do NOT invent a non-existent exported function — use the existing hashRandomFromPosition from subdivideEdges.ts or replicate the hash inline."
+    },
+    {
+      "phase": 2,
+      "title": "Create cube lattice wireframe system",
+      "description": "Build the GeometrySystem implementation for the cube lattice, following the createWireframePolyhedra factory pattern.",
+      "files": [
+        {
+          "path": "src/visual/systems/cubeLatticeWireframe.ts",
+          "action": "create",
+          "details": "Export interface CubeLatticeConfig { gridSize?: number; cellSize?: number; noiseOctaves?: 1 | 2 | 3; enablePointerRepulsion?: boolean; enableSlowModulation?: boolean; }. Export function createCubeLatticeWireframe(config?: CubeLatticeConfig): GeometrySystem & { cleanup(): void; setOpacity(opacity: number): void }. Config is passed to the factory function; init(scene, seed, params) receives runtime context matching GeometrySystem interface. Inside init(): (1) Use seed + ':cubelattice' with createPRNG to pick gridSize within config bounds. (2) Call generateCubeLattice() to get edge and vertex data. (3) Build two Three.js objects: THREE.LineSegments for edges (using wireframe.vert/frag shaders) and THREE.Points for vertices (using wireframeVertex.vert/frag shaders). (4) Attach BufferGeometry attributes: position, aRandom for both; reuse the same uniform set as wireframePolyhedra (uTime, uBassEnergy, uTrebleEnergy, uOpacity, uMotionAmplitude, uPaletteHue, etc.). (5) Center the lattice at origin. draw(scene, frame) updates uniforms from frame.params and audio data. cleanup() disposes geometry/materials/removes from scene. setOpacity() updates uOpacity uniform."
+        }
+      ],
+      "notes": "Reuse existing wireframe.vert/frag and wireframeVertex.vert/frag shaders — the cube lattice is structurally different geometry but the rendering pipeline (displacement, coloring, fog) is identical. No new shaders needed. The factory receives config, init() receives (scene, seed, params) — matching GeometrySystem interface exactly."
+    },
+    {
+      "phase": 3,
+      "title": "Add quality profile fields and config extraction",
+      "description": "Add cubelattice-specific fields to QualityProfile interface and each tier's profile object, then add the extraction case.",
+      "files": [
+        {
+          "path": "src/visual/quality.ts",
+          "action": "edit",
+          "details": "Step 1: Add fields to QualityProfile interface: latticeGridSize: number (max grid dimension N), latticeCellSize: number (spacing between cube vertices). Step 2: Add values to each tier definition — Low: { latticeGridSize: 3, latticeCellSize: 1.2 }, Medium: { latticeGridSize: 5, latticeCellSize: 1.0 }, High: { latticeGridSize: 7, latticeCellSize: 0.8 }. Step 3: Add case 'cubelattice' to extractSystemConfig switch: return { gridSize: profile.latticeGridSize, cellSize: profile.latticeCellSize, noiseOctaves: profile.noiseOctaves, enablePointerRepulsion: profile.enablePointerRepulsion, enableSlowModulation: profile.enableSlowModulation }."
+        }
+      ],
+      "notes": "Explicitly editing the QualityProfile type AND all three tier profile objects, not just the switch case. Grid sizes chosen so vertex/edge counts scale appropriately: 3x3x3 = 64 verts / 144 edges (low), 5x5x5 = 216 verts / 540 edges (medium), 7x7x7 = 512 verts / 1176 edges (high)."
+    },
+    {
+      "phase": 4,
+      "title": "Register system and add to rotation",
+      "description": "Wire the cube lattice system into the system registry, single-mode rotation entries, compound mode definitions, and primaryCountForSystem.",
+      "files": [
+        {
+          "path": "src/main.ts",
+          "action": "edit",
+          "details": "Step 1: Import createCubeLatticeWireframe. Step 2: Create the system instance before rotation entries: const cubeLattice = createCubeLatticeWireframe({ gridSize: quality.latticeGridSize, cellSize: quality.latticeCellSize, noiseOctaves: quality.noiseOctaves, enablePointerRepulsion: quality.enablePointerRepulsion, enableSlowModulation: quality.enableSlowModulation }). Step 3: Add to singleEntries array: { kind: 'single', name: 'cubelattice', system: cubeLattice, maxPoints: quality.latticeGridSize ** 3 }. Note: maxPoints uses the cube of gridSize as the approximate vertex count (actual is (N+1)^3 but N^3 is a reasonable budget proxy). Step 4: Add to systemRegistry: cubelattice: (cfg) => createCubeLatticeWireframe(cfg as Parameters<typeof createCubeLatticeWireframe>[0])."
+        },
+        {
+          "path": "src/visual/compoundModes.ts",
+          "action": "edit",
+          "details": "Step 1: Add compound mode definition to COMPOUND_MODE_DEFS: { name: 'pointcloud+cubelattice', layers: [{ systemName: 'pointcloud', isPrimary: true }, { systemName: 'cubelattice', isPrimary: false }] }. Step 2: Add case to primaryCountForSystem: case 'cubelattice': return (config.gridSize as number) ?? 0. Note: the pointcloud system is registered as 'pointcloud' in the registry (confirmed from existing 'cloud+wireframe' compound mode definition)."
+        }
+      ],
+      "notes": "System instance is created before rotation entry construction, matching the wirepolyhedra pattern where createWireframePolyhedra() is called at startup and the returned system is placed into the SingleRotationEntry. maxPoints for the single entry is quality.latticeGridSize ** 3 (approximates vertex budget). The compound mode name 'pointcloud+cubelattice' follows the existing naming pattern (e.g. 'cloud+wireframe', 'particles+flowribbon')."
+    },
+    {
+      "phase": 5,
+      "title": "Verify build and runtime",
+      "description": "Ensure the implementation compiles, shaders work, and the scene renders correctly.",
+      "steps": [
+        "Run npm run build — must pass with no errors",
+        "Run dev server, verify no WebGL shader compile errors in console",
+        "Verify cube lattice renders as 3D grid of wireframe cubes with vertex dots",
+        "Verify audio reactivity: bass drives macro warp/displacement, treble drives vertex jitter",
+        "Verify mode rotation includes cubelattice as single mode",
+        "Verify compound mode pointcloud+cubelattice appears on medium/high tiers",
+        "Verify no console errors, no forbidden storage APIs",
+        "Verify mute toggle and info overlay still work"
+      ]
+    }
+  ],
+  "keyDecisions": [
+    {
+      "decision": "Reuse existing wireframe shaders instead of creating new ones",
+      "rationale": "The cube lattice uses the same rendering pipeline as wireframe polyhedra — edges as LineSegments, vertices as Points, same audio-reactive displacement, same palette/fog system. The only difference is the input geometry, not the shader logic."
+    },
+    {
+      "decision": "Merge shared vertices at adjacent cube boundaries",
+      "rationale": "Per ticket requirement. An NxNxN grid has (N+1)^3 unique vertices instead of N^3 * 8. Shared edges are also deduplicated: total edges = 3*N*(N+1)^2 instead of N^3 * 12."
+    },
+    {
+      "decision": "Return separate vertex and edge result objects from generator",
+      "rationale": "Matches extractVertices.ts / subdivideEdges.ts patterns. Edge data returns { positions, randoms, edgeCount }; vertex data returns { positions, aRandom, vertexCount }. This addresses the reviewer's feedback about return type conventions."
+    },
+    {
+      "decision": "Grid size seeded per session via quality profile bounds",
+      "rationale": "The quality profile sets the max grid dimension per tier (3/5/7). The actual grid size used is the profile value directly, ensuring consistent performance per tier while session seed influences other aspects like placement and orientation."
+    }
+  ],
+  "risks": [
+    {
+      "risk": "High vertex/edge counts on large grids",
+      "mitigation": "Grid sizes capped by quality tier (max 7x7x7 = 512 verts, 1176 edges on high tier). This is well within budget compared to existing systems (wirepolyhedra allows up to 1920 edges per shape × 12 shapes)."
+    },
+    {
+      "risk": "Shader attribute mismatch if electric arc attributes are expected",
+      "mitigation": "The cube lattice system will NOT use electric arc mode — it uses the standard wireframe shaders only. No aEdgeParam or aEdgeTangent attributes needed. This keeps the system simpler and visually distinct from wirepolyhedra."
+    }
+  ],
+  "estimatedFiles": {
+    "new": [
+      "src/visual/generators/cubeLattice.ts",
+      "src/visual/systems/cubeLatticeWireframe.ts"
+    ],
+    "modified": [
+      "src/visual/quality.ts",
+      "src/main.ts",
+      "src/visual/compoundModes.ts"
+    ]
+  }
+}
