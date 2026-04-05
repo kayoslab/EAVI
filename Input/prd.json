@@ -1237,8 +1237,8 @@
         "Mode rotation includes both single and compound modes"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-035",
         "US-054",
