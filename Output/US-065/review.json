@@ -1,0 +1,101 @@
+{
+  "verdict": "approve_with_changes",
+  "confidence": 0.88,
+  "summary": "Solid plan with correct core insight (position-based aRandom hashing is the prerequisite). Architecture and shader strategy are sound. A few inconsistencies, one unnecessary complexity, and a missed optimization need addressing before implementation.",
+  "issues": [
+    {
+      "severity": "medium",
+      "step": 1,
+      "description": "dualPolyhedra.ts is listed as a file to 'modify' in Step 1 but then the details say 'No additional changes needed'. It's also listed under fileInventory.unchanged. This contradiction will cause confusion during implementation.",
+      "recommendation": "Remove dualPolyhedra.ts from Step 1's files list entirely. It delegates to polyhedraEdges.ts, so fixing polyhedraEdges.ts automatically fixes dualPolyhedra.ts. The fileInventory.unchanged listing is correct."
+    },
+    {
+      "severity": "medium",
+      "step": 3,
+      "description": "The wireframeVertex.vert.glsl plan says to declare 'attribute size' and 'uniform uHasSizeAttr' for 'registry compatibility', but then says size is unused and uHasSizeAttr is always 0.0. This is dead code that adds complexity for no reason. The vertex dot shader is a new shader with its own registry entry (Step 5 defines WIREPOLYHEDRA_VERTEX_ATTRIBUTES with only position and aRandom — no size attribute).",
+      "recommendation": "Drop the size attribute and uHasSizeAttr uniform from wireframeVertex.vert.glsl. Hardcode the point size formula without the sizeMultiplier path. This keeps the shader clean and consistent with the registry spec in Step 5."
+    },
+    {
+      "severity": "low",
+      "step": 3,
+      "description": "The plan says wireframeVertex.frag.glsl should use vDepth for fog, but the existing wireframe.frag.glsl uses vFogFactor (computed in the vertex shader). Using a different fog mechanism for vertex dots vs edge lines could produce subtly different fog attenuation on the same shape.",
+      "recommendation": "Use vFogFactor in wireframeVertex.frag.glsl (same as wireframe.frag.glsl) for consistent fog behavior. Only add vDepth if the point size computation in the vertex shader needs it (which it does — for the 2200/depth perspective scaling), but keep fog based on vFogFactor."
+    },
+    {
+      "severity": "low",
+      "step": 4,
+      "description": "Copying position and rotation to two separate meshes means every frame they must stay in sync. If any future code modifies mesh.position directly, it would need to update both. A THREE.Group parent would eliminate this coupling.",
+      "recommendation": "Consider wrapping each edges+vertices pair in a THREE.Group. Set position/rotation on the group, add both meshes as children. This makes the pairing structural rather than requiring manual sync. The meshes array becomes Array<{ group: THREE.Group; edges: THREE.LineSegments; vertices: THREE.Points }>."
+    },
+    {
+      "severity": "low",
+      "step": 4,
+      "description": "The plan says uBasePointSize value should be ~0.04, but pointWarp.vert.glsl uses uBasePointSize for the point cloud system where it's presumably larger. The 2200.0/depth perspective formula was tuned for point cloud distances. Wireframe polyhedra are positioned at spread=2.0 (closer to camera), so the point size math may produce oversized dots.",
+      "recommendation": "Start with uBasePointSize ~0.02 and adjust empirically. The polyhedra are at distance ~2.0 vs the point cloud which may be further out. Document that this value needs visual tuning."
+    },
+    {
+      "severity": "low",
+      "step": 2,
+      "description": "The extractVertices utility rounds to 6 decimal places for deduplication. The plan claims this matches geodesicSphere.ts, but geodesicSphere.ts uses PRNG-based randoms, not position-based deduplication. The rounding precision should be validated against actual vertex coordinates at radius 0.3.",
+      "recommendation": "Use 4 decimal places instead — at radius 0.3, vertex coordinates have magnitude ~0.3, and 4 decimal places gives ~0.00003 tolerance which is well below visual perception but safely above floating-point drift from rotation/scaling operations in generators."
+    }
+  ],
+  "strengths": [
+    "The critical insight about position-based aRandom hashing is correct and well-reasoned. Without this, vertex dots would visually separate from edge endpoints during audio reactivity.",
+    "Electric arc compatibility analysis is thorough — correctly identifies that aEdgeParam produces sin(0)=0 at endpoints, ensuring zero displacement where vertex dots sit.",
+    "Keeping vertex dot shaders separate from pointWarp shaders is the right call. The deformation pipeline must match wireframe.vert.glsl exactly, not pointWarp.vert.glsl.",
+    "Performance analysis is accurate — 12-20 vertex dots per polyhedron is negligible overhead.",
+    "The step ordering is correct: aRandom hashing (prerequisite) → vertex extraction → shaders → system integration → registry → validation."
+  ],
+  "missingConsiderations": [
+    {
+      "topic": "nestedSolids vertex deduplication edge case",
+      "description": "nestedSolids generates multiple layers of the same shape at different radii with per-layer rotation. After rotation, vertices that were at identical base positions now differ. extractUniqueVertices will correctly treat them as separate vertices. However, the innermost layer vertices (smallest radius) will produce very small position values, and the position-hash (sin/cos with large coefficients) may produce less-uniform distributions for near-zero inputs. Verify hash quality for positions near origin."
+    },
+    {
+      "topic": "Vertex dot z-fighting with edge lines",
+      "description": "Points and LineSegments at identical positions with depthWrite:false and additive blending should be fine, but if depthTest is enabled (default), the rendering order may cause vertex dots to occasionally flicker behind edges depending on camera angle. Consider setting depthTest:false on the Points material or using renderOrder to ensure dots render after edges."
+    }
+  ],
+  "estimatedComplexity": "medium",
+  "readyToImplement": true,
+  "approved": true,
+  "concerns": [
+    {
+      "severity": "medium",
+      "step": 1,
+      "description": "dualPolyhedra.ts is listed as a file to 'modify' in Step 1 but then the details say 'No additional changes needed'. It's also listed under fileInventory.unchanged. This contradiction will cause confusion during implementation.",
+      "recommendation": "Remove dualPolyhedra.ts from Step 1's files list entirely. It delegates to polyhedraEdges.ts, so fixing polyhedraEdges.ts automatically fixes dualPolyhedra.ts. The fileInventory.unchanged listing is correct."
+    },
+    {
+      "severity": "medium",
+      "step": 3,
+      "description": "The wireframeVertex.vert.glsl plan says to declare 'attribute size' and 'uniform uHasSizeAttr' for 'registry compatibility', but then says size is unused and uHasSizeAttr is always 0.0. This is dead code that adds complexity for no reason. The vertex dot shader is a new shader with its own registry entry (Step 5 defines WIREPOLYHEDRA_VERTEX_ATTRIBUTES with only position and aRandom — no size attribute).",
+      "recommendation": "Drop the size attribute and uHasSizeAttr uniform from wireframeVertex.vert.glsl. Hardcode the point size formula without the sizeMultiplier path. This keeps the shader clean and consistent with the registry spec in Step 5."
+    },
+    {
+      "severity": "low",
+      "step": 3,
+      "description": "The plan says wireframeVertex.frag.glsl should use vDepth for fog, but the existing wireframe.frag.glsl uses vFogFactor (computed in the vertex shader). Using a different fog mechanism for vertex dots vs edge lines could produce subtly different fog attenuation on the same shape.",
+      "recommendation": "Use vFogFactor in wireframeVertex.frag.glsl (same as wireframe.frag.glsl) for consistent fog behavior. Only add vDepth if the point size computation in the vertex shader needs it (which it does — for the 2200/depth perspective scaling), but keep fog based on vFogFactor."
+    },
+    {
+      "severity": "low",
+      "step": 4,
+      "description": "Copying position and rotation to two separate meshes means every frame they must stay in sync. If any future code modifies mesh.position directly, it would need to update both. A THREE.Group parent would eliminate this coupling.",
+      "recommendation": "Consider wrapping each edges+vertices pair in a THREE.Group. Set position/rotation on the group, add both meshes as children. This makes the pairing structural rather than requiring manual sync. The meshes array becomes Array<{ group: THREE.Group; edges: THREE.LineSegments; vertices: THREE.Points }>."
+    },
+    {
+      "severity": "low",
+      "step": 4,
+      "description": "The plan says uBasePointSize value should be ~0.04, but pointWarp.vert.glsl uses uBasePointSize for the point cloud system where it's presumably larger. The 2200.0/depth perspective formula was tuned for point cloud distances. Wireframe polyhedra are positioned at spread=2.0 (closer to camera), so the point size math may produce oversized dots.",
+      "recommendation": "Start with uBasePointSize ~0.02 and adjust empirically. The polyhedra are at distance ~2.0 vs the point cloud which may be further out. Document that this value needs visual tuning."
+    },
+    {
+      "severity": "low",
+      "step": 2,
+      "description": "The extractVertices utility rounds to 6 decimal places for deduplication. The plan claims this matches geodesicSphere.ts, but geodesicSphere.ts uses PRNG-based randoms, not position-based deduplication. The rounding precision should be validated against actual vertex coordinates at radius 0.3.",
+      "recommendation": "Use 4 decimal places instead — at radius 0.3, vertex coordinates have magnitude ~0.3, and 4 decimal places gives ~0.00003 tolerance which is well below visual perception but safely above floating-point drift from rotation/scaling operations in generators."
+    }
+  ]
+}
