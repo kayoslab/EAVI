@@ -1,0 +1,697 @@
+{
+  "tests": [
+    {
+      "id": "T-059-01",
+      "description": "chromaticDispersion.glsl file exists and exports reusable GLSL functions",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import chromaticDispersion.glsl as raw string via ?raw import",
+        "Assert the imported string is non-empty",
+        "Assert the string contains a function named chromaticPoint with signature (vec3, vec2, float)",
+        "Assert the string contains a function named chromaticLine with signature (vec3, float)"
+      ],
+      "expected": "The GLSL include file exists and contains both chromaticPoint and chromaticLine function definitions",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)"]
+    },
+    {
+      "id": "T-059-02",
+      "description": "chromaticPoint function returns original color when dispersion is 0.0",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Read chromaticDispersion.glsl source",
+        "Verify the function body contains a guard or early return path for dispersion ≈ 0.0",
+        "Check for pattern: when dispersion equals 0.0, the offset magnitude is 0.0, so R/G/B sample at the same position"
+      ],
+      "expected": "The chromaticPoint function has a code path where dispersion=0.0 produces zero offset, meaning output equals input color",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)"]
+    },
+    {
+      "id": "T-059-03",
+      "description": "chromaticLine function returns original color when dispersion is 0.0",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Read chromaticDispersion.glsl source",
+        "Verify chromaticLine function has a guard or multiplicative path where dispersion=0.0 yields no channel modification",
+        "Check that warm/cool channel shifts scale proportionally to dispersion"
+      ],
+      "expected": "The chromaticLine function produces no channel modification when dispersion=0.0",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)"]
+    },
+    {
+      "id": "T-059-04",
+      "description": "uDispersion uniform is declared in pointCloud system init",
+      "type": "unit",
+      "file": "tests/visual/systems/pointCloud.test.ts",
+      "steps": [
+        "Create a pointCloud via createPointCloud()",
+        "Call init(scene, seed, defaultParams)",
+        "Get the Points mesh from the scene",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion exists",
+        "Assert uniforms.uDispersion.value === 0.0"
+      ],
+      "expected": "uDispersion uniform is present with initial value 0.0 in pointCloud's ShaderMaterial",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)", "Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-05",
+      "description": "uDispersion uniform is declared in particleField system init",
+      "type": "unit",
+      "file": "tests/visual/systems/particleField.test.ts",
+      "steps": [
+        "Create a particleField system",
+        "Call init(scene, seed, defaultParams)",
+        "Get the Points mesh from the scene",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion exists with value 0.0"
+      ],
+      "expected": "uDispersion uniform is present with initial value 0.0 in particleField's ShaderMaterial",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-06",
+      "description": "uDispersion uniform is declared in ribbonField system init",
+      "type": "unit",
+      "file": "tests/visual/systems/ribbonField.test.ts",
+      "steps": [
+        "Create a ribbonField system",
+        "Call init(scene, seed, defaultParams)",
+        "Get the Points mesh from the scene",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion exists with value 0.0"
+      ],
+      "expected": "uDispersion uniform is present with initial value 0.0 in ribbonField's ShaderMaterial",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-07",
+      "description": "uDispersion uniform is declared in constellationLines system init",
+      "type": "unit",
+      "file": "tests/visual/systems/constellationLines.test.ts",
+      "steps": [
+        "Create a constellationLines system",
+        "Call init(scene, seed, defaultParams)",
+        "Get the LineSegments mesh from the scene",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion exists with value 0.0"
+      ],
+      "expected": "uDispersion uniform is present with initial value 0.0 in constellationLines' ShaderMaterial",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-08",
+      "description": "uDispersion uniform is declared in wireframePolyhedra system init",
+      "type": "unit",
+      "file": "tests/visual/systems/wireframePolyhedra.test.ts",
+      "steps": [
+        "Create a wireframePolyhedra system",
+        "Call init(scene, seed, defaultParams)",
+        "Get the LineSegments mesh from the scene",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion exists with value 0.0"
+      ],
+      "expected": "uDispersion uniform is present with initial value 0.0 in wireframePolyhedra's ShaderMaterial",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-09",
+      "description": "uDispersion uniform is declared in microGeometry system init",
+      "type": "unit",
+      "file": "tests/visual/systems/microGeometry.test.ts",
+      "steps": [
+        "Create a microGeometry system",
+        "Call init(scene, seed, defaultParams)",
+        "Get the instanced mesh from the scene",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion exists with value 0.0"
+      ],
+      "expected": "uDispersion uniform is present with initial value 0.0 in microGeometry's ShaderMaterial",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-10",
+      "description": "uDispersion uniform is declared in crystalField system init",
+      "type": "unit",
+      "file": "tests/visual/systems/crystalField.test.ts",
+      "steps": [
+        "Create a crystalField system",
+        "Call init(scene, seed, defaultParams)",
+        "Get the Points mesh from the scene",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion exists with value 0.0"
+      ],
+      "expected": "uDispersion uniform is present with initial value 0.0 in crystalField's ShaderMaterial",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-11",
+      "description": "pointWarp.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import pointWarp.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "pointWarp.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)", "Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-12",
+      "description": "particleWarp.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import particleWarp.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "particleWarp.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-13",
+      "description": "ribbonWarp.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import ribbonWarp.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "ribbonWarp.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-14",
+      "description": "crystalWarp.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import crystalWarp.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "crystalWarp.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-15",
+      "description": "voronoiCell.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import voronoiCell.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "voronoiCell.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-16",
+      "description": "constellation.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import constellation.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "constellation.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-17",
+      "description": "electricArcConstellation.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import electricArcConstellation.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "electricArcConstellation.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-18",
+      "description": "wireframe.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import wireframe.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "wireframe.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-19",
+      "description": "microGeo.frag.glsl contains uniform float uDispersion declaration",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import microGeo.frag.glsl as raw string",
+        "Assert the string contains 'uniform float uDispersion'"
+      ],
+      "expected": "microGeo.frag.glsl declares the uDispersion uniform",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-20",
+      "description": "Point-based fragment shaders use chromaticPoint or equivalent per-channel offset logic with gl_PointCoord",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import pointWarp.frag.glsl, particleWarp.frag.glsl, ribbonWarp.frag.glsl, crystalWarp.frag.glsl as raw strings",
+        "For each shader, assert it references uDispersion in an expression (not just declared)",
+        "Assert each shader contains gl_PointCoord-based offset logic (e.g., vec2 containing offset derived from uDispersion)",
+        "Assert each shader produces per-channel (R/G/B) separation using different sample coordinates"
+      ],
+      "expected": "All 4 point-based fragment shaders apply chromatic aberration via gl_PointCoord offsets scaled by uDispersion",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)", "Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-21",
+      "description": "voronoiCell.frag.glsl applies chromatic dispersion to final cellColor, not to Voronoi UV lookup",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import voronoiCell.frag.glsl as raw string",
+        "Assert uDispersion is referenced in an expression after the cellColor computation (after mix(edgeColor, vColor, edgeFactor))",
+        "Assert uDispersion is NOT referenced before or within the Voronoi grid/cell loop (floor/fract/voronoiHash section)"
+      ],
+      "expected": "Chromatic dispersion is applied post-Voronoi computation to avoid artifacts in the cellular pattern",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)", "Color mapping respects the existing palette system"]
+    },
+    {
+      "id": "T-059-22",
+      "description": "Line-based fragment shaders use multiplicative RGB channel shift for chromatic dispersion",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import constellation.frag.glsl, electricArcConstellation.frag.glsl, wireframe.frag.glsl as raw strings",
+        "For each shader, assert uDispersion is referenced in an expression after hsl2rgb color computation",
+        "Assert the dispersion logic modifies R, G, B channels differently (warm R boost, cool B boost pattern)",
+        "Assert the dispersion modification occurs before the fog desaturation block"
+      ],
+      "expected": "All 3 line-based fragment shaders apply chromatic dispersion as multiplicative RGB shift after palette color computation and before fog",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)", "Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-23",
+      "description": "microGeo.frag.glsl applies chromatic dispersion after lighting, before fog",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import microGeo.frag.glsl as raw string",
+        "Assert uDispersion is referenced after the lighting computation (vColor * lighting)",
+        "Assert the dispersion modification occurs before the fog desaturation block (fogTint)"
+      ],
+      "expected": "microGeo fragment shader applies chromatic dispersion between lighting and fog stages",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)", "Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-24",
+      "description": "dispersion value in VisualParams is computed from combined bass and treble energy",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Import mapSignalsToVisuals",
+        "Call with bass=0, treble=0 and verify result has dispersion property near 0",
+        "Call with bass=255, treble=0 and verify dispersion is moderate (both max(bass,treble) and multiplicative terms contribute)",
+        "Call with bass=0, treble=255 and verify dispersion is moderate",
+        "Call with bass=255, treble=255 and verify dispersion is near maximum (close to 1.0)",
+        "Verify dispersion is always in [0, 1] range"
+      ],
+      "expected": "dispersion is near-zero when both bass and treble are low, moderate when one is active, pronounced when both are high",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy", "Effect is subtle at low energy and pronounced at high energy"]
+    },
+    {
+      "id": "T-059-25",
+      "description": "dispersion is 0 when both bass and treble are 0",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Call mapSignalsToVisuals with bass=0, treble=0",
+        "Assert result.dispersion === 0 or result.dispersion is very close to 0 (< 0.001)"
+      ],
+      "expected": "Zero audio energy produces zero dispersion — no chromatic effect at silence",
+      "acceptanceCriteria": ["Effect is subtle at low energy and pronounced at high energy"]
+    },
+    {
+      "id": "T-059-26",
+      "description": "dispersion is higher when both bass and treble are high vs only one being high",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Call mapSignalsToVisuals with bass=200, treble=0 -> d1",
+        "Call mapSignalsToVisuals with bass=0, treble=200 -> d2",
+        "Call mapSignalsToVisuals with bass=200, treble=200 -> d3",
+        "Assert d3.dispersion > d1.dispersion",
+        "Assert d3.dispersion > d2.dispersion"
+      ],
+      "expected": "Combined bass+treble produces more dispersion than either alone (multiplicative term in formula)",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy", "Effect is subtle at low energy and pronounced at high energy"]
+    },
+    {
+      "id": "T-059-27",
+      "description": "dispersion is clamped to [0, 1] for extreme input values",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Call mapSignalsToVisuals with bass=255, treble=255",
+        "Assert dispersion <= 1.0",
+        "Call mapSignalsToVisuals with bass=0, treble=0",
+        "Assert dispersion >= 0.0",
+        "Call mapSignalsToVisuals with bass=300, treble=300 (above normal range)",
+        "Assert dispersion <= 1.0"
+      ],
+      "expected": "dispersion is always clamped to [0, 1] regardless of input extremes",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy"]
+    },
+    {
+      "id": "T-059-28",
+      "description": "dispersion is scaled by motionAmplitude when prefers-reduced-motion is true",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Call mapSignalsToVisuals with bass=200, treble=200, prefersReducedMotion=false -> normalResult",
+        "Call mapSignalsToVisuals with bass=200, treble=200, prefersReducedMotion=true -> reducedResult",
+        "Assert reducedResult.dispersion < normalResult.dispersion",
+        "Assert reducedResult.dispersion is very small (reduced-motion amplitude is 0.2)"
+      ],
+      "expected": "Reduced-motion preference significantly reduces dispersion intensity",
+      "acceptanceCriteria": ["Effect is subtle at low energy and pronounced at high energy"]
+    },
+    {
+      "id": "T-059-29",
+      "description": "dispersion field is a finite number in VisualParams for all valid inputs",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Call mapSignalsToVisuals with various input combinations (null geo, null DPR, zero bass/treble, max bass/treble, edge cases)",
+        "For each result, assert typeof dispersion === 'number'",
+        "Assert Number.isFinite(dispersion) === true",
+        "Assert dispersion is not NaN"
+      ],
+      "expected": "dispersion is always a valid finite number regardless of input combination",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy"]
+    },
+    {
+      "id": "T-059-30",
+      "description": "pointCloud draw() updates uDispersion uniform from frame params",
+      "type": "unit",
+      "file": "tests/visual/systems/pointCloud.test.ts",
+      "steps": [
+        "Create a pointCloud and init with scene + seed + params",
+        "Create a FrameState with params.dispersion = 0.7",
+        "Call draw(scene, frame)",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion.value === 0.7"
+      ],
+      "expected": "uDispersion uniform is updated each frame from params.dispersion",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy"]
+    },
+    {
+      "id": "T-059-31",
+      "description": "pointCloud draw() defaults uDispersion to 0 when params.dispersion is undefined",
+      "type": "unit",
+      "file": "tests/visual/systems/pointCloud.test.ts",
+      "steps": [
+        "Create a pointCloud and init",
+        "Create a FrameState with params that does NOT include dispersion field",
+        "Call draw(scene, frame)",
+        "Assert uniforms.uDispersion.value === 0.0"
+      ],
+      "expected": "Missing dispersion in params falls back to 0.0 (no chromatic effect)",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-32",
+      "description": "constellationLines draw() updates uDispersion uniform from frame params",
+      "type": "unit",
+      "file": "tests/visual/systems/constellationLines.test.ts",
+      "steps": [
+        "Create a constellationLines system and init",
+        "Create a FrameState with params.dispersion = 0.5",
+        "Call draw(scene, frame)",
+        "Access the ShaderMaterial uniforms",
+        "Assert uniforms.uDispersion.value === 0.5"
+      ],
+      "expected": "Line-based system properly updates uDispersion from frame params",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-33",
+      "description": "wireframePolyhedra draw() updates uDispersion uniform from frame params",
+      "type": "unit",
+      "file": "tests/visual/systems/wireframePolyhedra.test.ts",
+      "steps": [
+        "Create a wireframePolyhedra system and init",
+        "Create a FrameState with params.dispersion = 0.8",
+        "Call draw(scene, frame)",
+        "Assert uniforms.uDispersion.value === 0.8"
+      ],
+      "expected": "wireframePolyhedra properly updates uDispersion from frame params",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-34",
+      "description": "microGeometry draw() updates uDispersion uniform from frame params",
+      "type": "unit",
+      "file": "tests/visual/systems/microGeometry.test.ts",
+      "steps": [
+        "Create a microGeometry system and init",
+        "Create a FrameState with params.dispersion = 0.6",
+        "Call draw(scene, frame)",
+        "Assert uniforms.uDispersion.value === 0.6"
+      ],
+      "expected": "microGeometry properly updates uDispersion from frame params",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-35",
+      "description": "crystalField draw() updates uDispersion uniform from frame params",
+      "type": "unit",
+      "file": "tests/visual/systems/crystalField.test.ts",
+      "steps": [
+        "Create a crystalField system and init",
+        "Create a FrameState with params.dispersion = 0.4",
+        "Call draw(scene, frame)",
+        "Assert uniforms.uDispersion.value === 0.4"
+      ],
+      "expected": "crystalField properly updates uDispersion from frame params",
+      "acceptanceCriteria": ["Can be applied to point-based and line-based geometry systems"]
+    },
+    {
+      "id": "T-059-36",
+      "description": "Point-based fragment shaders preserve palette color at dispersion=0 (no offset at center)",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Read pointWarp.frag.glsl source",
+        "Verify that when uDispersion=0.0, the offset variable evaluates to 0.0",
+        "Verify that R, G, B channels all sample from the same (center) position when offset=0",
+        "This means the output color equals vColor (no chromatic split)"
+      ],
+      "expected": "At dispersion=0, all channels sample identically, preserving the original palette color without any aberration",
+      "acceptanceCriteria": ["Color mapping respects the existing palette system", "A new fragment shader applies per-channel color offset (chromatic aberration)"]
+    },
+    {
+      "id": "T-059-37",
+      "description": "Line-based fragment shaders preserve palette color at dispersion=0 (multiplicative identity)",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Read constellation.frag.glsl, wireframe.frag.glsl, electricArcConstellation.frag.glsl source",
+        "For each, verify that when uDispersion=0.0, the R/G/B channel multipliers evaluate to 1.0",
+        "This means color.r, color.g, color.b are unchanged at zero dispersion"
+      ],
+      "expected": "At dispersion=0, multiplicative channel modifiers are 1.0 (identity), preserving the palette-derived hsl2rgb color",
+      "acceptanceCriteria": ["Color mapping respects the existing palette system"]
+    },
+    {
+      "id": "T-059-38",
+      "description": "Dispersion offset magnitude is bounded (max ~8% of point radius for point-based)",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Read chromaticDispersion.glsl or pointWarp.frag.glsl source",
+        "Locate the offset computation: offset = uDispersion * <coefficient>",
+        "Assert the coefficient is approximately 0.08 (8% of normalized gl_PointCoord radius 0.5)",
+        "Verify maximum offset at uDispersion=1.0 is ~0.08"
+      ],
+      "expected": "Maximum chromatic offset is bounded to prevent excessive RGB fringing that would overpower the palette",
+      "acceptanceCriteria": ["Color mapping respects the existing palette system", "Effect is subtle at low energy and pronounced at high energy"]
+    },
+    {
+      "id": "T-059-39",
+      "description": "Line-based chromatic shift coefficients are bounded (max ~0.3 for R, ~0.25 for B)",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Read constellation.frag.glsl or chromaticDispersion.glsl source",
+        "Locate the line-based channel shift coefficients",
+        "Assert R channel boost coefficient is approximately 0.3",
+        "Assert B channel boost coefficient is approximately 0.25",
+        "Assert G channel reduction coefficient is approximately 0.1"
+      ],
+      "expected": "Channel shift magnitudes are bounded to keep dispersion subtle and palette-respecting",
+      "acceptanceCriteria": ["Color mapping respects the existing palette system", "Effect is subtle at low energy and pronounced at high energy"]
+    },
+    {
+      "id": "T-059-40",
+      "description": "dispersion computation uses pow(1.5) curve for subtle-to-pronounced response",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Call mapSignalsToVisuals with low bass=50, treble=50 -> lowResult",
+        "Call mapSignalsToVisuals with medium bass=128, treble=128 -> midResult",
+        "Call mapSignalsToVisuals with high bass=240, treble=240 -> highResult",
+        "Assert lowResult.dispersion is very small (< 0.1)",
+        "Assert midResult.dispersion is moderate",
+        "Assert highResult.dispersion is close to 1.0",
+        "Verify the growth is non-linear (super-linear above midpoint)"
+      ],
+      "expected": "pow(1.5) curve ensures effect is near-invisible at low energy and only becomes strong at high combined energy",
+      "acceptanceCriteria": ["Effect is subtle at low energy and pronounced at high energy"]
+    },
+    {
+      "id": "T-059-41",
+      "description": "VisualParams interface includes dispersion field",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Call mapSignalsToVisuals with default inputs",
+        "Assert result has property 'dispersion'",
+        "Assert typeof result.dispersion === 'number'"
+      ],
+      "expected": "VisualParams type includes the dispersion field and mapSignalsToVisuals returns it",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy"]
+    },
+    {
+      "id": "T-059-42",
+      "description": "All 9 fragment shaders contain uDispersion in an expression (used, not just declared)",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Import all 9 fragment shaders as raw strings: pointWarp, particleWarp, ribbonWarp, crystalWarp, voronoiCell, constellation, electricArcConstellation, wireframe, microGeo",
+        "For each shader, use regex to find uDispersion usage beyond the uniform declaration",
+        "Assert each shader references uDispersion in at least one expression (e.g., multiplication, function call argument)"
+      ],
+      "expected": "All 9 fragment shaders actively use uDispersion in their rendering logic, not just declare it",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)", "Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-43",
+      "description": "No fragment shader has mismatched uniform declarations vs TypeScript uniform objects",
+      "type": "integration",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "For each geometry system, get the ShaderMaterial after init()",
+        "Extract uniform names from the TypeScript uniforms object",
+        "Read the corresponding fragment shader GLSL source",
+        "Extract all 'uniform float/vec2/vec3/mat4 uXxx;' declarations from the GLSL",
+        "Assert every GLSL-declared uniform has a corresponding entry in the TypeScript uniforms object"
+      ],
+      "expected": "No GLSL uniform is declared without a matching TypeScript-side value, preventing WebGL validation errors",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-44",
+      "description": "dispersion is pure — same bass/treble inputs produce same dispersion output",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Call mapSignalsToVisuals with identical inputs twice",
+        "Assert result1.dispersion === result2.dispersion"
+      ],
+      "expected": "Dispersion computation is deterministic — same audio inputs yield same value",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy"]
+    },
+    {
+      "id": "T-059-45",
+      "description": "Render loop passes dispersion to geometry system draw() via FrameState params",
+      "type": "integration",
+      "file": "tests/visual/renderLoop.test.ts",
+      "steps": [
+        "Create a mock geometry system with a spy on draw()",
+        "Create a mock analyser pipeline that returns frequency data with non-zero bass and treble",
+        "Start the render loop with full deps (seed, signals, geo, analyser)",
+        "Let 2-3 frames execute",
+        "Inspect the FrameState passed to geometrySystem.draw()",
+        "Assert frame.params has a 'dispersion' property",
+        "Assert frame.params.dispersion is a finite number >= 0"
+      ],
+      "expected": "The render loop computes dispersion from audio energy and includes it in the FrameState.params passed to all geometry systems",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy"]
+    },
+    {
+      "id": "T-059-46",
+      "description": "Render loop dispersion is near 0 when audio is silent (synthetic bass fallback produces minimal dispersion)",
+      "type": "integration",
+      "file": "tests/visual/renderLoop.test.ts",
+      "steps": [
+        "Create a mock geometry system with a spy on draw()",
+        "Create a mock analyser pipeline that returns all-zero frequency data (silence)",
+        "Start the render loop",
+        "Let 2-3 frames execute",
+        "Inspect the FrameState.params.dispersion value",
+        "Assert dispersion is very small (the synthetic bass fallback of ~30-55 alone should produce very little dispersion since treble is 0)"
+      ],
+      "expected": "Silent audio produces near-zero dispersion — the synthetic bass alone does not create visible chromatic effect",
+      "acceptanceCriteria": ["Effect is subtle at low energy and pronounced at high energy"]
+    },
+    {
+      "id": "T-059-47",
+      "description": "No forbidden storage APIs are accessed during dispersion computation",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Spy on localStorage.getItem, localStorage.setItem, document.cookie setter",
+        "Call mapSignalsToVisuals with high bass/treble to trigger dispersion computation",
+        "Assert none of the storage spies were called"
+      ],
+      "expected": "Dispersion computation is purely mathematical with no side effects or storage access",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-48",
+      "description": "Build compiles successfully with all chromatic dispersion changes",
+      "type": "build",
+      "file": null,
+      "steps": [
+        "Run npm run build",
+        "Assert exit code is 0",
+        "Assert no TypeScript errors in output"
+      ],
+      "expected": "Production build succeeds with no type errors from the new dispersion field, uniform declarations, or GLSL imports",
+      "acceptanceCriteria": ["Shader compiles cleanly with no WebGL errors"]
+    },
+    {
+      "id": "T-059-49",
+      "description": "Point-based shaders use smooth alpha blending per channel, not hard discard per channel",
+      "type": "unit",
+      "file": "tests/visual/shaders/chromaticDispersion.test.ts",
+      "steps": [
+        "Read pointWarp.frag.glsl source",
+        "Verify the chromatic offset code does NOT use discard for individual R/B channel samples",
+        "Verify R and B channels use smoothstep-based alpha blending for soft falloff at offset positions",
+        "The only hard discard should be the center-distance check (dist > 0.5)"
+      ],
+      "expected": "Per-channel alpha is soft via smoothstep to avoid visible seams where one channel is discarded but another isn't",
+      "acceptanceCriteria": ["A new fragment shader applies per-channel color offset (chromatic aberration)"]
+    },
+    {
+      "id": "T-059-50",
+      "description": "dispersion value increases monotonically with increasing audio energy",
+      "type": "unit",
+      "file": "tests/visual/mappings.test.ts",
+      "steps": [
+        "Generate a series of inputs where both bass and treble increase from 0 to 255 in steps of 50",
+        "Compute dispersion for each step",
+        "Assert each successive dispersion value is >= the previous one"
+      ],
+      "expected": "Dispersion response is monotonically increasing — more energy always means more (or equal) dispersion",
+      "acceptanceCriteria": ["Dispersion amount is driven by combined bass+treble energy", "Effect is subtle at low energy and pronounced at high energy"]
+    }
+  ]
+}
