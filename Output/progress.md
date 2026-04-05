@@ -128,3 +128,5 @@
 
 ## US-059: Add chromatic dispersion fragment shader
 
+## US-063: Add flow-field ribbon shader variant
+
