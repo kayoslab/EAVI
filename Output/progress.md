@@ -130,3 +130,5 @@
 
 ## US-063: Add flow-field ribbon shader variant
 
+## US-061: Add compound mode composition
+
