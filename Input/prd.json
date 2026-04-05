@@ -1290,6 +1290,158 @@
       ],
       "split_from": null,
       "notes": "Use curl3 from noise3d.glsl for divergence-free flow. Elongated sprites can be achieved via gl_PointSize modulation along the velocity axis or by rendering short line segments instead of points. Creates a smoke/aurora/tendril aesthetic."
+    },
+    {
+      "id": "US-064",
+      "title": "Remove instanced micro-geometry system",
+      "description": "As a user, I do not want to see tiny 3D primitive shapes used as particles because they look low-resolution and visually cheap compared to point-based and line-based rendering.",
+      "acceptanceCriteria": [
+        "The microGeometry system (US-056) is removed from the mode rotation",
+        "Its shader files, system file, and generator code are deleted",
+        "ModeManager no longer references microGeometry as a mode",
+        "No instanced mesh rendering of small cubes/tetrahedra/octahedra remains",
+        "Build passes and no dead imports remain"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [],
+      "split_from": "US-056",
+      "notes": "US-056 was a wrong direction. Geometric complexity should come from connections between points, not from replacing points with tiny meshes. This ticket cleans up the failed approach."
+    },
+    {
+      "id": "US-065",
+      "title": "Rework wireframe system to vertex-and-edge topology",
+      "description": "As a user, I want geometric shapes to be formed by visible dots at vertices connected by lines along edges so that the shapes emerge from the connection structure rather than appearing as standalone wireframe meshes.",
+      "acceptanceCriteria": [
+        "Wireframe polyhedra render as Points at vertex positions AND LineSegments connecting them along edges",
+        "Both the vertex dots and the connecting edge lines are visible simultaneously",
+        "Vertex dots use the existing point rendering pipeline (soft circular points with fog)",
+        "Edge lines use LineSegments with matching color and fog",
+        "The geometric shape is clearly recognizable through its vertex-edge structure",
+        "Audio reactivity displaces vertices, and connected edges follow (they share positions)",
+        "Shader compiles cleanly with no WebGL errors"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-054"
+      ],
+      "split_from": "US-054",
+      "notes": "The key insight from nw_wrld: geometric forms are made of dots + connecting lines, not filled wireframe meshes floating in space. Render a Points mesh for vertices and a LineSegments mesh for edges, sharing the same transformed positions. The shape identity comes from the topology of connections."
+    },
+    {
+      "id": "US-066",
+      "title": "Add recursive fractal growth wireframe structures",
+      "description": "As a user, I want to see complex fractal wireframe structures that grow recursively from a seed shape so that the visual includes organic architectural forms made of connected vertices.",
+      "acceptanceCriteria": [
+        "A generator produces recursive cube-growth structures inspired by nw_wrld's CubeGrowth",
+        "Starting from a seed cube, faces spawn child cubes with seeded recursion depth (3-5 levels)",
+        "Each cube is defined as 8 vertex positions and 12 edge index pairs",
+        "All cube instances are merged into a single vertex buffer and a single edge-line buffer",
+        "Vertices render as Points, edges render as LineSegments (per US-065 pattern)",
+        "Recursion branching is controlled by noise so each session produces unique growth patterns",
+        "Total vertex/edge count adapts to quality tier",
+        "Structure is audio-reactive (vertices displaced by bass/treble)"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-065"
+      ],
+      "split_from": "US-057",
+      "notes": "Direct adaptation of nw_wrld's CubeGrowth technique: explicit CUBE_VERTICES (8 corners) and CUBE_EDGES (12 index pairs), each instance transformed by a 4x4 matrix from the recursive growth algorithm. All instances merged into one LineSegments draw call. Optional depth-occlusion via invisible instanced occluder meshes (colorWrite:false, depthWrite:true)."
+    },
+    {
+      "id": "US-067",
+      "title": "Add Bezier curve web connections between scattered points",
+      "description": "As a user, I want scattered points to be connected by curved arcing lines so that the visual creates a luminous web of organic connections rather than straight-line proximity links.",
+      "acceptanceCriteria": [
+        "A connection system draws quadratic Bezier curves between pairs of points",
+        "Curves arc outward from the midpoint (control point offset perpendicular to the pair axis)",
+        "Each curve is tessellated into 4-6 straight line segments for smooth rendering",
+        "Connection pairs are selected from a subset of points (not all-to-all) to control density",
+        "Line opacity is low (0.05-0.15) so individual curves are subtle but overlapping density creates a visible web",
+        "Arc curvature is modulated by bass energy (stronger bass = more pronounced arcs)",
+        "Connection count adapts to quality tier",
+        "Works as a composable layer over any point-based geometry system"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-040"
+      ],
+      "split_from": "US-055",
+      "notes": "Direct adaptation of nw_wrld's LowEarthPoint technique. The key: curves between point PAIRS using quadratic Bezier with a midpoint control pushed outward (midZScale). At low individual opacity but high pair count, the overlapping curves create a glowing web/mesh effect. This replaces the straight-line proximity approach of US-055 with something more organic."
+    },
+    {
+      "id": "US-068",
+      "title": "Add spatial cube lattice wireframe system",
+      "description": "As a user, I want to see a 3D grid of wireframe cubes forming a spatial lattice so that the visual includes structured architectural grid forms made of connected vertices.",
+      "acceptanceCriteria": [
+        "A generator produces an NxNxN grid of cube wireframes (e.g. 4x4x4 or 6x6x6)",
+        "Each cube is defined by 8 vertices and 12 edges, merged into combined buffers",
+        "Grid dimensions are seeded per session",
+        "Vertices render as Points, edges render as LineSegments",
+        "Audio-reactive vertex displacement warps the grid (bass = macro warp, treble = vertex jitter)",
+        "Grid size adapts to quality tier",
+        "Optional: quadrant subdivision outlines at larger scale overlay the fine grid"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-065"
+      ],
+      "split_from": null,
+      "notes": "Inspired by nw_wrld's CubeCube: a regular 3D grid of cube wireframes. The uniform structure contrasts with the organic fractal growth of US-066. When audio-displaced, a regular grid warping into organic shapes is visually striking. Shared vertices between adjacent cubes should be merged to avoid duplicate points."
+    },
+    {
+      "id": "US-069",
+      "title": "Rework constellation lines to form recognizable geometric topologies",
+      "description": "As a user, I want the constellation connection system to form recognizable geometric shapes through its connections rather than random proximity webs so that the visual has structural intention.",
+      "acceptanceCriteria": [
+        "Constellation system places points at vertices of known geometric topologies (tetrahedra, octahedra, icosahedra clusters)",
+        "Edges connect vertices according to the topology's edge table, not proximity threshold",
+        "Multiple small topology instances are scattered in 3D space with seeded positions and orientations",
+        "Each topology instance is clearly recognizable as a geometric form",
+        "Topology type and count are seeded per session",
+        "Audio reactivity displaces the topology vertices (edges follow)",
+        "Instance count adapts to quality tier"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-065"
+      ],
+      "split_from": "US-055",
+      "notes": "The current constellation system (US-055) uses distance-threshold proximity which creates random webs with no recognizable structure. This rework places points deliberately at topology vertices and connects them via explicit edge tables. Think: a field of small connected icosahedra and tetrahedra floating in space, each one clearly a geometric shape made of dots and lines."
+    },
+    {
+      "id": "US-070",
+      "title": "Add depth-occluded wireframe rendering",
+      "description": "As a user, I want wireframe structures to have proper hidden-line removal so that edges behind solid faces of the shape are occluded, giving the geometry more readable spatial depth.",
+      "acceptanceCriteria": [
+        "An optional occluder pass renders invisible solid geometry (colorWrite:false, depthWrite:true) for wireframe shapes",
+        "Edge lines use depthTest:true, depthWrite:false so they respect the occluder depth buffer",
+        "Occluded edges are hidden, making the 3D structure of wireframe shapes much clearer",
+        "Occlusion can be toggled per geometry system",
+        "Performance cost is bounded (instanced occluder mesh for repeated shapes)",
+        "Works with recursive growth, lattice, and topology-based wireframe systems"
+      ],
+      "priority": 3,
+      "passes": false,
+      "status": "available",
+      "depends_on": [
+        "US-065",
+        "US-066"
+      ],
+      "split_from": null,
+      "notes": "Direct adaptation of nw_wrld's CubeGrowth occlusion technique. An InstancedMesh of solid shapes with colorWrite:false writes to the depth buffer without drawing any color. Edge LineSegments then respect this depth buffer, hiding edges that would be behind solid faces. This transforms see-through wireframes into readable 3D objects."
     }
   ]
 }
