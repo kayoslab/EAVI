@@ -336,4 +336,14 @@ describe('US-025: Quality integration tests', () => {
     expect(low.maxFractalDepth).toBeLessThan(medium.maxFractalDepth);
     expect(medium.maxFractalDepth).toBeLessThan(high.maxFractalDepth);
   });
+
+  it('T-063-33: QualityProfile includes maxFlowRibbonPoints field', () => {
+    const lowSignals = { devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 360, screenHeight: 640, touchCapable: true };
+    const highSignals = { devicePixelRatio: 2, hardwareConcurrency: 8, deviceMemory: 8, screenWidth: 1920, screenHeight: 1080, touchCapable: false };
+    const low = computeQuality(lowSignals as BrowserSignals);
+    const high = computeQuality(highSignals as BrowserSignals);
+    expect(low.maxFlowRibbonPoints).toBeDefined();
+    expect(high.maxFlowRibbonPoints).toBeDefined();
+    expect(high.maxFlowRibbonPoints).toBeGreaterThan(low.maxFlowRibbonPoints);
+  });
 });

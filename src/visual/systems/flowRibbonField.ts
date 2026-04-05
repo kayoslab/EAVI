@@ -1,0 +1,260 @@
+import * as THREE from 'three';
+import type { Scene } from 'three';
+import { createPRNG } from '../prng';
+import type { VisualParams } from '../mappings';
+import type { FrameState, GeometrySystem } from '../types';
+import { validateGeometryAttributes } from '../geometryValidator';
+import { FLOWRIBBON_ATTRIBUTES, OPTIONAL_FLOWRIBBON_ATTRIBUTES } from '../shaderRegistry';
+import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import flowRibbonVert from '../shaders/flowRibbon.vert.glsl?raw';
+import fragmentShader from '../shaders/flowRibbon.frag.glsl?raw';
+import { computeAdaptiveCount } from './pointCloud';
+
+const vertexShader = noise3dGlsl + '\n' + flowRibbonVert;
+
+const DEFAULT_MAX_POINTS = 1000;
+
+const REQUIRED_ATTRIBUTES = FLOWRIBBON_ATTRIBUTES;
+
+export interface FlowRibbonFieldConfig {
+  maxPoints?: number;
+  enableSparkle?: boolean;
+  noiseOctaves?: 1 | 2 | 3;
+  enablePointerRepulsion?: boolean;
+  enableSlowModulation?: boolean;
+}
+
+export interface FlowRibbonField extends GeometrySystem {
+  readonly pointCount: number;
+  readonly positions: Float32Array | null;
+  cleanup(): void;
+}
+
+export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbonField {
+  const maxPoints = config?.maxPoints ?? DEFAULT_MAX_POINTS;
+  const noiseOctaves = config?.noiseOctaves ?? 3;
+  const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
+  const enableSlowModulation = config?.enableSlowModulation ?? true;
+
+  let effectiveCount = 0;
+  let pointsMesh: THREE.Points | null = null;
+  let geometry: THREE.BufferGeometry | null = null;
+  let shaderMaterial: THREE.ShaderMaterial | null = null;
+  let sceneRef: Scene | null = null;
+  let basePositions: Float32Array | null = null;
+
+  return {
+    get pointCount() {
+      return effectiveCount;
+    },
+
+    get positions() {
+      return basePositions ? Float32Array.from(basePositions) : null;
+    },
+
+    init(scene: Scene, seed: string, params: VisualParams): void {
+      const rng = createPRNG(seed + ':flowribbon');
+
+      effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
+
+      // Streamline-based initial geometry:
+      // Seed source points randomly in a sphere, then generate short trail points
+      // by iteratively advecting along a simple pseudo-curl to form natural tendril clusters.
+      const trailLength = 6; // points per streamline
+      const sourceCount = Math.ceil(effectiveCount / trailLength);
+
+      const positionsArr = new Float32Array(effectiveCount * 3);
+      const colorsArr = new Float32Array(effectiveCount * 3);
+      const sizesArr = new Float32Array(effectiveCount);
+      const hueOffsetsArr = new Float32Array(effectiveCount);
+      const aRandomArr = new Float32Array(effectiveCount * 3);
+
+      const color = new THREE.Color();
+
+      let idx = 0;
+      for (let s = 0; s < sourceCount && idx < effectiveCount; s++) {
+        // Random source point in a sphere
+        const theta = rng() * Math.PI * 2;
+        const phi = Math.acos(2 * rng() - 1);
+        const r = 1.0 + rng() * 2.0;
+        let sx = r * Math.sin(phi) * Math.cos(theta);
+        let sy = r * Math.sin(phi) * Math.sin(theta);
+        let sz = r * Math.cos(phi);
+
+        const trailPts = Math.min(trailLength, effectiveCount - idx);
+
+        for (let t = 0; t < trailPts; t++) {
+          positionsArr[idx * 3] = sx;
+          positionsArr[idx * 3 + 1] = sy;
+          positionsArr[idx * 3 + 2] = sz;
+
+          // Per-point hue offset
+          hueOffsetsArr[idx] = (rng() - 0.5) * 40;
+
+          // Initial colors
+          const hue = ((params.paletteHue + hueOffsetsArr[idx]) % 360 + 360) % 360;
+          color.setHSL(hue / 360, params.paletteSaturation, 0.6);
+          colorsArr[idx * 3] = color.r;
+          colorsArr[idx * 3 + 1] = color.g;
+          colorsArr[idx * 3 + 2] = color.b;
+
+          // Per-point size variation
+          sizesArr[idx] = 0.03 + rng() * 0.04;
+
+          // Per-point random values for GPU noise
+          aRandomArr[idx * 3] = rng();
+          aRandomArr[idx * 3 + 1] = rng();
+          aRandomArr[idx * 3 + 2] = rng();
+
+          idx++;
+
+          // Advect along a simple pseudo-curl field (CPU-side approximation)
+          // Uses seeded noise-like displacement to create natural streamline clustering
+          const advectStep = 0.3;
+          const nx = Math.sin(sy * 2.1 + sz * 0.7) * advectStep;
+          const ny = Math.sin(sz * 1.9 + sx * 0.8) * advectStep;
+          const nz = Math.sin(sx * 2.3 + sy * 0.6) * advectStep;
+          sx += nx;
+          sy += ny;
+          sz += nz;
+        }
+      }
+
+      basePositions = Float32Array.from(positionsArr);
+
+      geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positionsArr, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colorsArr, 3));
+      geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
+      geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
+      geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
+
+      const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_FLOWRIBBON_ATTRIBUTES);
+      if (!validation.ok) {
+        throw new Error(
+          'FlowRibbonField geometry validation failed: ' +
+          validation.errors.map((e) => `${e.attribute}: ${e.reason}`).join('; '),
+        );
+      }
+
+      const uniforms = {
+        uTime: { value: 0.0 },
+        uBassEnergy: { value: 0.0 },
+        uTrebleEnergy: { value: 0.0 },
+        uOpacity: { value: 1.0 },
+        uMotionAmplitude: { value: params.motionAmplitude },
+        uPointerDisturbance: { value: 0.0 },
+        uPointerPos: { value: new THREE.Vector2(0, 0) },
+        uPaletteHue: { value: params.paletteHue },
+        uPaletteSaturation: { value: params.paletteSaturation },
+        uCadence: { value: params.cadence },
+        uBreathScale: { value: 1.0 },
+        uBasePointSize: { value: 0.06 * (1 + params.structureComplexity * 0.5) },
+        uNoiseFrequency: { value: params.noiseFrequency ?? 1.0 },
+        uRadialScale: { value: params.radialScale ?? 1.0 },
+        uTwistStrength: { value: params.twistStrength ?? 1.0 },
+        uFieldSpread: { value: params.fieldSpread ?? 1.0 },
+        uNoiseOctaves: { value: noiseOctaves },
+        uEnablePointerRepulsion: { value: enablePointerRepulsion ? 1.0 : 0.0 },
+        uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
+        uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
+        uHasSizeAttr: { value: 1.0 },
+        uFogNear: { value: 3.0 },
+        uFogFar: { value: 8.0 },
+        uFlowScale: { value: 1.0 },
+      };
+
+      shaderMaterial = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        uniforms,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+
+      pointsMesh = new THREE.Points(geometry, shaderMaterial);
+      scene.add(pointsMesh);
+      sceneRef = scene;
+    },
+
+    draw(_scene: Scene, frame: FrameState): void {
+      if (!geometry || !pointsMesh || !shaderMaterial) return;
+
+      const {
+        bassEnergy, trebleEnergy, pointerDisturbance,
+        motionAmplitude, paletteHue, paletteSaturation, cadence,
+        structureComplexity, noiseFrequency, radialScale, twistStrength, fieldSpread,
+      } = frame.params;
+      const elapsed = frame.elapsed ?? 0;
+      const pointerX = (frame.pointerX ?? 0.5) - 0.5;
+      const pointerY = (frame.pointerY ?? 0.5) - 0.5;
+
+      // Update uniforms
+      const u = shaderMaterial.uniforms;
+      u.uTime.value = elapsed;
+      u.uBassEnergy.value = bassEnergy;
+      u.uTrebleEnergy.value = trebleEnergy;
+      u.uMotionAmplitude.value = motionAmplitude;
+      u.uPointerDisturbance.value = pointerDisturbance;
+      u.uPointerPos.value.set(pointerX, pointerY);
+      u.uPaletteHue.value = paletteHue;
+      u.uPaletteSaturation.value = paletteSaturation;
+      u.uCadence.value = cadence;
+      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
+      u.uNoiseFrequency.value = noiseFrequency;
+      u.uRadialScale.value = radialScale;
+      u.uTwistStrength.value = twistStrength;
+      u.uFieldSpread.value = fieldSpread;
+      u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+
+      // Time-based breathing scale
+      const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
+      u.uBreathScale.value = breathScale;
+
+      // Mesh-level Y-axis drift rotation
+      const driftPeriod = 25000;
+      const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.2 * motionAmplitude;
+      pointsMesh.rotation.y = driftAngle;
+
+      // Bass-driven macro rotation offset
+      const bassRotation = bassEnergy * motionAmplitude * 0.12;
+      pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
+
+      // Z-axis breathing
+      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
+      pointsMesh.position.z = zBreath;
+    },
+
+    setOpacity(opacity: number): void {
+      if (shaderMaterial) {
+        shaderMaterial.uniforms.uOpacity.value = opacity;
+      }
+    },
+
+    cleanup(): void {
+      if (pointsMesh && sceneRef) {
+        sceneRef.remove(pointsMesh);
+      }
+      if (geometry) {
+        geometry.dispose();
+      }
+      if (shaderMaterial) {
+        shaderMaterial.dispose();
+      }
+      pointsMesh = null;
+      geometry = null;
+      shaderMaterial = null;
+      basePositions = null;
+      sceneRef = null;
+    },
+  };
+}
+
+export function getPointCount(flow: FlowRibbonField): number {
+  return flow.pointCount;
+}
+
+export function getPointPositions(flow: FlowRibbonField): Float32Array | null {
+  return flow.positions;
+}

@@ -24,6 +24,7 @@ export interface QualityProfile {
   arcSubdivisions: number;
   enableVoronoiCells: boolean;
   maxEdgesPerShape: number;
+  maxFlowRibbonPoints: number;
 }
 
 export function computeQuality(signals: BrowserSignals): QualityProfile {
@@ -66,10 +67,10 @@ export function computeQuality(signals: BrowserSignals): QualityProfile {
   score = Math.max(0, Math.min(1, score));
 
   if (score < 0.35) {
-    return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, maxInstances: 200, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false, enableConstellationLines: false, maxConstellationSegments: 0, maxPolyhedra: 3, maxFractalDepth: 3, enableElectricArc: false, arcSubdivisions: 0, enableVoronoiCells: false, maxEdgesPerShape: 30 };
+    return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, maxInstances: 200, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false, enableConstellationLines: false, maxConstellationSegments: 0, maxPolyhedra: 3, maxFractalDepth: 3, enableElectricArc: false, arcSubdivisions: 0, enableVoronoiCells: false, maxEdgesPerShape: 30, maxFlowRibbonPoints: 200 };
   }
   if (score > 0.65) {
-    return { tier: 'high', maxParticles: 1000, maxPoints: 2000, maxRibbonPoints: 1600, maxInstances: 1200, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 3000, maxPolyhedra: 12, maxFractalDepth: 6, enableElectricArc: true, arcSubdivisions: 8, enableVoronoiCells: true, maxEdgesPerShape: 1920 };
+    return { tier: 'high', maxParticles: 1000, maxPoints: 2000, maxRibbonPoints: 1600, maxInstances: 1200, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 3000, maxPolyhedra: 12, maxFractalDepth: 6, enableElectricArc: true, arcSubdivisions: 8, enableVoronoiCells: true, maxEdgesPerShape: 1920, maxFlowRibbonPoints: 1600 };
   }
-  return { tier: 'medium', maxParticles: 550, maxPoints: 800, maxRibbonPoints: 700, maxInstances: 600, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 480 };
+  return { tier: 'medium', maxParticles: 550, maxPoints: 800, maxRibbonPoints: 700, maxInstances: 600, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 480, maxFlowRibbonPoints: 700 };
 }

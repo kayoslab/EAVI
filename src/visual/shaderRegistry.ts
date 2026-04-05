@@ -65,6 +65,17 @@ export const OPTIONAL_RIBBONFIELD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'size', itemSize: 1 },
 ];
 
+export const FLOWRIBBON_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'position', itemSize: 3 },
+  { name: 'color', itemSize: 3 },
+  { name: 'aHueOffset', itemSize: 1 },
+  { name: 'aRandom', itemSize: 3 },
+];
+
+export const OPTIONAL_FLOWRIBBON_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'size', itemSize: 1 },
+];
+
 export const CONSTELLATION_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
   { name: 'aDistance', itemSize: 1 },
