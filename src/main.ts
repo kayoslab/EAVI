@@ -23,6 +23,7 @@ import type { RotationEntry, SingleRotationEntry } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
 import { createBezierCurveWeb } from './visual/systems/bezierCurveWeb';
+import { createCubeLatticeWireframe } from './visual/systems/cubeLatticeWireframe';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
 
 // Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
@@ -147,6 +148,13 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
   });
+  const cubeLattice = createCubeLatticeWireframe({
+    gridSize: quality.latticeGridSize,
+    cellSize: quality.latticeCellSize,
+    noiseOctaves: quality.noiseOctaves,
+    enablePointerRepulsion: quality.enablePointerRepulsion,
+    enableSlowModulation: quality.enableSlowModulation,
+  });
   // Build single-mode rotation entries
   const singleEntries: SingleRotationEntry[] = [
     { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles },
@@ -156,6 +164,7 @@ geoPromise.then((geo) => {
     { kind: 'single', name: 'microgeometry', system: microGeo, maxPoints: quality.maxInstances },
     { kind: 'single', name: 'wirepolyhedra', system: wireframe, maxPoints: quality.maxPolyhedra },
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints },
+    { kind: 'single', name: 'cubelattice', system: cubeLattice, maxPoints: quality.latticeGridSize ** 3 },
   ];
 
   // Build compound mode entries (empty on low tier)
@@ -167,6 +176,7 @@ geoPromise.then((geo) => {
     microgeometry: (cfg) => createMicroGeometry(cfg as Parameters<typeof createMicroGeometry>[0]),
     wirepolyhedra: (cfg) => createWireframePolyhedra(cfg as Parameters<typeof createWireframePolyhedra>[0]),
     flowribbon: (cfg) => createFlowRibbonField(cfg as Parameters<typeof createFlowRibbonField>[0]),
+    cubelattice: (cfg) => createCubeLatticeWireframe(cfg as Parameters<typeof createCubeLatticeWireframe>[0]),
   };
   const compoundEntries = buildCompoundEntries(quality, systemRegistry);
 
