@@ -1,0 +1,187 @@
+{
+  "ticket": "US-059",
+  "title": "Add chromatic dispersion fragment shader",
+  "overview": "Implement per-fragment chromatic aberration (RGB channel separation) driven by combined bass+treble audio energy. The effect is applied directly in each fragment shader — no post-processing pass. For point-based geometry, R/G/B channels sample vColor at offset gl_PointCoord positions. For line-based geometry, color channels are shifted in hue space. A single new uniform uDispersion (0–1) controls intensity, computed from combined audio energy in the render loop.",
+  "depends_on": ["US-041", "US-048"],
+  "steps": [
+    {
+      "step": 1,
+      "title": "Create shared chromatic dispersion GLSL include",
+      "file": "src/visual/shaders/chromaticDispersion.glsl",
+      "action": "create",
+      "description": "Create a reusable GLSL function that computes per-channel color with chromatic offset. Two variants: (1) `chromaticPoint(vec3 baseColor, vec2 pointCoord, float dispersion)` for point-based systems — samples a soft circular falloff at three offset positions (R shifted one direction, B shifted the opposite, G at center) and returns vec3 with per-channel alpha-weighted color. (2) `chromaticLine(vec3 baseColor, float dispersion)` for line-based systems — applies a hue-based RGB split where R and B channels are boosted/attenuated proportionally to dispersion. Both functions return the original color when dispersion ≈ 0.",
+      "details": {
+        "chromaticPoint_logic": "Offset magnitude = dispersion * 0.08 (max ~8% of point radius). R channel samples at pointCoord + vec2(offset, 0), B at pointCoord - vec2(offset, 0), G at center. Each sample computes its own circular falloff alpha. Final color = vec3(R_sample * R_alpha, G_sample * G_alpha, B_sample * B_alpha) normalized by alpha sum per channel. This creates visible RGB fringing at point edges during peaks.",
+        "chromaticLine_logic": "Split baseColor into slight warm shift (R+) and cool shift (B+) proportional to dispersion * 0.3. Preserves luminance. Effect is subtle color splitting along lines.",
+        "key_constraint": "When dispersion = 0.0, output must be identical to input color (no visual change at rest)."
+      }
+    },
+    {
+      "step": 2,
+      "title": "Add uDispersion uniform to all geometry system TypeScript files",
+      "files": [
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/particleField.ts",
+        "src/visual/systems/ribbonField.ts",
+        "src/visual/systems/constellationLines.ts",
+        "src/visual/systems/wireframePolyhedra.ts",
+        "src/visual/systems/microGeometry.ts",
+        "src/visual/systems/crystalField.ts"
+      ],
+      "action": "modify",
+      "description": "Add `uDispersion: { value: 0.0 }` to the uniforms object in each system's init function. In each system's draw function, add `u.uDispersion.value = dispersion;` where dispersion is read from the frame state params (computed in render loop, step 4). Pattern matches existing uniform wiring — no new interfaces needed, just add the field alongside existing audio uniforms.",
+      "details": {
+        "uniform_definition": "uDispersion: { value: 0.0 } — float, range 0.0–1.0",
+        "draw_update": "u.uDispersion.value = params.dispersion ?? 0.0; (fallback to 0 if not yet in params)"
+      }
+    },
+    {
+      "step": 3,
+      "title": "Integrate chromatic dispersion into point-based fragment shaders",
+      "files": [
+        "src/visual/shaders/pointWarp.frag.glsl",
+        "src/visual/shaders/particleWarp.frag.glsl",
+        "src/visual/shaders/ribbonWarp.frag.glsl",
+        "src/visual/shaders/crystalWarp.frag.glsl",
+        "src/visual/shaders/voronoiCell.frag.glsl"
+      ],
+      "action": "modify",
+      "description": "Add `uniform float uDispersion;` declaration. Prepend or inline the chromaticPoint function. Replace the direct use of `vColor` with the chromatic-dispersed version. The dispersion offset is applied in gl_PointCoord space before the circular falloff and fog calculations. For voronoiCell.frag.glsl, apply dispersion after the Voronoi edge/cell color computation (to the final cellColor), not to the Voronoi UV lookup.",
+      "details": {
+        "insertion_point_pointWarp": "After the `float dist = length(center);` line and discard check, compute per-channel offsets. Replace `vec3 color = vColor;` with chromatic-dispersed color.",
+        "insertion_point_voronoi": "After cellColor is computed (after edge/interior mix), apply chromaticPoint to cellColor before fog.",
+        "glsl_snippet_concept": "float offset = uDispersion * 0.08; vec2 rCoord = center + vec2(offset, 0.0); vec2 bCoord = center - vec2(offset, 0.0); float rDist = length(rCoord); float bDist = length(bCoord); float rAlpha = 1.0 - smoothstep(0.3, 0.5, rDist); float bAlpha = 1.0 - smoothstep(0.3, 0.5, bDist); vec3 color = vec3(vColor.r * rAlpha / max(alpha, 0.001), vColor.g, vColor.b * bAlpha / max(alpha, 0.001)); — exact implementation will be refined but this shows the concept."
+      }
+    },
+    {
+      "step": 4,
+      "title": "Integrate chromatic dispersion into line-based fragment shaders",
+      "files": [
+        "src/visual/shaders/constellation.frag.glsl",
+        "src/visual/shaders/electricArcConstellation.frag.glsl",
+        "src/visual/shaders/wireframe.frag.glsl"
+      ],
+      "action": "modify",
+      "description": "Add `uniform float uDispersion;` declaration. After the base color is computed from hsl2rgb, apply chromatic line dispersion: shift R channel warm (multiply R by 1 + dispersion * 0.3, clamp) and B channel cool (multiply B by 1 + dispersion * 0.25, clamp), slightly reduce G (multiply by 1 - dispersion * 0.1). This creates a prismatic RGB split along lines. Apply before fog desaturation so fog still attenuates the effect at distance.",
+      "details": {
+        "insertion_point": "Immediately after `vec3 color = hsl2rgb(...)` line, before fog computation.",
+        "preserves_palette": "The shift is multiplicative on the existing palette-derived color, so palette hue/saturation still dominate. Dispersion only separates channels, it doesn't override the palette."
+      }
+    },
+    {
+      "step": 5,
+      "title": "Integrate chromatic dispersion into microGeo fragment shader",
+      "files": ["src/visual/shaders/microGeo.frag.glsl"],
+      "action": "modify",
+      "description": "Add `uniform float uDispersion;` declaration. After lighting is applied to vColor, apply the same line-style chromatic shift (warm R, cool B boost). MicroGeometry uses lit 3D primitives not points, so the line-based approach is appropriate. Apply before fog.",
+      "details": {
+        "insertion_point": "After `vec3 color = vColor * lighting;`, before fog desaturation block."
+      }
+    },
+    {
+      "step": 6,
+      "title": "Compute dispersion value in render loop from audio energy",
+      "files": [
+        "src/visual/renderLoop.ts",
+        "src/visual/mappings.ts"
+      ],
+      "action": "modify",
+      "description": "Add dispersion computation to the visual parameter mapping. Dispersion = pow(max(bassEnergy, trebleEnergy) * 0.5 + bassEnergy * trebleEnergy * 0.5, 1.5). This formula ensures: (1) dispersion is near-zero when both bass and treble are low, (2) moderate when either is active, (3) pronounced only when both are high simultaneously (the multiplicative term). The pow(1.5) curve keeps it subtle at low-mid energy. Clamp to 0–1. Add `dispersion` to the VisualParams type/interface so it flows through the existing frame state pipeline to all systems.",
+      "details": {
+        "formula": "const combined = Math.max(bass, treble) * 0.5 + bass * treble * 0.5; const dispersion = Math.min(Math.pow(combined, 1.5), 1.0);",
+        "smoothing": "Apply same EMA smoothing as other params (weight ~0.9) to avoid flicker.",
+        "reduced_motion": "If prefers-reduced-motion, scale dispersion by motionAmplitude (0.2) so effect is very subtle."
+      }
+    },
+    {
+      "step": 7,
+      "title": "Prepend chromaticDispersion.glsl to fragment shaders at build time",
+      "files": [
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/particleField.ts",
+        "src/visual/systems/ribbonField.ts",
+        "src/visual/systems/constellationLines.ts",
+        "src/visual/systems/wireframePolyhedra.ts",
+        "src/visual/systems/microGeometry.ts",
+        "src/visual/systems/crystalField.ts"
+      ],
+      "action": "modify",
+      "description": "In each system's init function where fragment shaders are assembled (same pattern as noise3d.glsl is prepended to vertex shaders), import and prepend chromaticDispersion.glsl to the fragment shader string. If the codebase instead inlines the GLSL directly in each fragment file rather than prepending, then skip this step and inline the dispersion function directly in each .frag.glsl file (already covered in steps 3-5). Check the existing pattern — noise3d.glsl is prepended in TypeScript, so follow the same approach for fragment shaders.",
+      "details": {
+        "pattern_to_follow": "const vertexShader = noise3dGlsl + '\\n' + pointWarpVertGlsl; → similarly: const fragmentShader = chromaticDispersionGlsl + '\\n' + pointWarpFragGlsl;",
+        "alternative": "If prepending to fragment shaders is not the existing pattern, inline the ~10 lines of dispersion logic directly into each .frag.glsl file. The function is small enough that duplication is acceptable."
+      }
+    },
+    {
+      "step": 8,
+      "title": "Build verification and shader compilation test",
+      "action": "verify",
+      "description": "Run `npm run build` to verify TypeScript compiles. Then run the dev server and check browser console for: (1) no shader compile errors, (2) no WebGLProgram VALIDATE_STATUS errors, (3) no 'undeclared identifier' GLSL errors. Verify uDispersion uniform is recognized in all 9 fragment shaders. Test with audio playing to confirm chromatic effect is visible during peaks and invisible during silence.",
+      "verification_checklist": [
+        "npm run build succeeds with no errors",
+        "No GLSL compile errors in browser console",
+        "No WebGL validation errors",
+        "uDispersion uniform declared and used in all 9 fragment shaders",
+        "Effect is invisible when audio energy is low (dispersion ≈ 0)",
+        "Effect is subtle at moderate energy",
+        "Effect is pronounced at high combined bass+treble energy",
+        "Point-based systems show visible RGB fringing at point edges",
+        "Line-based systems show prismatic color splitting",
+        "Palette colors are still dominant (dispersion doesn't override palette)",
+        "prefers-reduced-motion reduces the effect",
+        "No visual artifacts when dispersion transitions from 0 to active",
+        "Scene still renders correctly if audio is muted (dispersion stays near 0)"
+      ]
+    }
+  ],
+  "files_to_create": [
+    "src/visual/shaders/chromaticDispersion.glsl"
+  ],
+  "files_to_modify": [
+    "src/visual/shaders/pointWarp.frag.glsl",
+    "src/visual/shaders/particleWarp.frag.glsl",
+    "src/visual/shaders/ribbonWarp.frag.glsl",
+    "src/visual/shaders/crystalWarp.frag.glsl",
+    "src/visual/shaders/voronoiCell.frag.glsl",
+    "src/visual/shaders/constellation.frag.glsl",
+    "src/visual/shaders/electricArcConstellation.frag.glsl",
+    "src/visual/shaders/wireframe.frag.glsl",
+    "src/visual/shaders/microGeo.frag.glsl",
+    "src/visual/systems/pointCloud.ts",
+    "src/visual/systems/particleField.ts",
+    "src/visual/systems/ribbonField.ts",
+    "src/visual/systems/constellationLines.ts",
+    "src/visual/systems/wireframePolyhedra.ts",
+    "src/visual/systems/microGeometry.ts",
+    "src/visual/systems/crystalField.ts",
+    "src/visual/renderLoop.ts",
+    "src/visual/mappings.ts"
+  ],
+  "acceptance_criteria_mapping": {
+    "A new fragment shader applies per-channel color offset (chromatic aberration)": "Steps 1, 3, 4, 5 — chromaticDispersion.glsl provides the shared logic, integrated into all 9 fragment shaders",
+    "Dispersion amount is driven by combined bass+treble energy": "Step 6 — formula uses max(bass,treble)*0.5 + bass*treble*0.5 with pow(1.5) curve",
+    "Effect is subtle at low energy and pronounced at high energy": "Step 6 — pow(1.5) curve and multiplicative bass*treble term ensure near-zero at low energy, pronounced only at peaks",
+    "Color mapping respects the existing palette system": "Steps 3, 4 — dispersion is applied multiplicatively to palette-derived colors, not replacing them",
+    "Shader compiles cleanly with no WebGL errors": "Step 8 — explicit verification of shader compilation and WebGL validation",
+    "Can be applied to point-based and line-based geometry systems": "Steps 3-5 cover all 5 point-based and 3 line-based systems plus microGeo"
+  },
+  "risks": [
+    {
+      "risk": "Per-channel gl_PointCoord sampling may cause visible seams at point edges where one channel is discarded but another isn't",
+      "mitigation": "Use smooth alpha blending per channel rather than hard discard per channel. Only the center-distance discard (dist > 0.5) remains hard; per-channel alpha is soft via smoothstep."
+    },
+    {
+      "risk": "Additive blending may amplify chromatic dispersion unnaturally when points overlap",
+      "mitigation": "Cap the maximum dispersion offset to 8% of point radius. At overlap, additive blending already causes color accumulation — the dispersion just adds subtle fringing, not extra brightness."
+    },
+    {
+      "risk": "voronoiCell shader is more complex; adding dispersion to Voronoi UV could create artifacts",
+      "mitigation": "Apply dispersion to the final cellColor after Voronoi computation, not to the Voronoi grid UV lookup. This keeps Voronoi logic untouched."
+    }
+  ],
+  "estimated_loc_delta": {
+    "new": 30,
+    "modified": 120,
+    "total": 150
+  }
+}
