@@ -1350,12 +1350,13 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-065"
       ],
       "split_from": "US-057",
-      "notes": "Direct adaptation of nw_wrld's CubeGrowth technique: explicit CUBE_VERTICES (8 corners) and CUBE_EDGES (12 index pairs), each instance transformed by a 4x4 matrix from the recursive growth algorithm. All instances merged into one LineSegments draw call. Optional depth-occlusion via invisible instanced occluder meshes (colorWrite:false, depthWrite:true)."
+      "notes": "Direct adaptation of nw_wrld's CubeGrowth technique: explicit CUBE_VERTICES (8 corners) and CUBE_EDGES (12 index pairs), each instance transformed by a 4x4 matrix from the recursive growth algorithm. All instances merged into one LineSegments draw call. Optional depth-occlusion via invisible instanced occluder meshes (colorWrite:false, depthWrite:true).",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-067",
@@ -1372,15 +1373,14 @@
         "Works as a composable layer over any point-based geometry system"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-017",
         "US-040"
       ],
       "split_from": "US-055",
-      "notes": "Direct adaptation of nw_wrld's LowEarthPoint technique. The key: curves between point PAIRS using quadratic Bezier with a midpoint control pushed outward (midZScale). At low individual opacity but high pair count, the overlapping curves create a glowing web/mesh effect. This replaces the straight-line proximity approach of US-055 with something more organic.",
-      "claimed_by": "worker-2"
+      "notes": "Direct adaptation of nw_wrld's LowEarthPoint technique. The key: curves between point PAIRS using quadratic Bezier with a midpoint control pushed outward (midZScale). At low individual opacity but high pair count, the overlapping curves create a glowing web/mesh effect. This replaces the straight-line proximity approach of US-055 with something more organic."
     },
     {
       "id": "US-068",

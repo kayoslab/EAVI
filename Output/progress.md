@@ -134,3 +134,5 @@
 
 ## US-065: Rework wireframe system to vertex-and-edge topology
 
+## US-067: Add Bezier curve web connections between scattered points
+
