@@ -1082,8 +1082,8 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
-        "US-041",
-        "US-035"
+        "US-035",
+        "US-041"
       ],
       "split_from": null,
       "notes": "Use Three.js EdgesGeometry or manual edge arrays for clean wireframe lines. Vertex shader should apply noise-based displacement to edge vertices. This is the foundation for line-based visual modes."
@@ -1105,6 +1105,7 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
+        "US-017",
         "US-040",
         "US-047"
       ],
@@ -1216,8 +1217,8 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
-        "US-054",
-        "US-048"
+        "US-048",
+        "US-054"
       ],
       "split_from": null,
       "notes": "Apply high-frequency simplex noise perpendicular to edge direction in the vertex shader. Use the existing noise3d.glsl library. Creates a Tesla coil / electric discharge aesthetic on wireframe edges."
