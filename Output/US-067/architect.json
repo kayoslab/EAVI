@@ -1,0 +1,117 @@
+{
+  "ticket": "US-067",
+  "verdict": "APPROVE",
+  "confidence": 0.88,
+  "summary": "Well-structured plan that correctly mirrors existing ConstellationLines patterns. The shader-uniform approach for bass modulation is the right call. The Overlay interface extraction is clean. Main risks are shader attribute alignment and perpendicular vector degeneracy — both manageable.",
+  "architecturalImpact": {
+    "level": "moderate",
+    "rationale": "Introduces a new interface abstraction (Overlay), a new generator, a new overlay system, and a new vertex shader. Touches the central wiring in main.ts and modeManager.ts. However, the changes follow established patterns exactly (ConstellationLines is the template) and the replacement strategy avoids combinatorial complexity."
+  },
+  "stepAssessments": [
+    {
+      "step": 1,
+      "title": "Extract generic Overlay interface",
+      "assessment": "APPROVE",
+      "notes": "Clean extraction. The ConstellationLines interface (init, draw, cleanup, setOpacity, activeVertexCount) is already the right shape. Note: Overlay.init signature takes (Scene, Float32Array, VisualParams) which differs from GeometrySystem.init(Scene, string, VisualParams) — this is intentional and correct since overlays receive positions from a parent system."
+    },
+    {
+      "step": 2,
+      "title": "Update ConstellationLines to implement Overlay",
+      "assessment": "APPROVE",
+      "notes": "Trivial type-only change. ConstellationLines already satisfies the interface structurally."
+    },
+    {
+      "step": 3,
+      "title": "Update OverlayAttachment to use generic Overlay type",
+      "assessment": "APPROVE",
+      "notes": "Correct approach. ModeManager only calls init/draw/cleanup/setOpacity/activeVertexCount — all on the Overlay interface. The duck-typed getPositions pattern remains unchanged."
+    },
+    {
+      "step": 4,
+      "title": "Create tessellateBezier generator",
+      "assessment": "APPROVE_WITH_NOTES",
+      "notes": "Sound algorithm. Must handle the degenerate perpendicular case (pair axis parallel to reference vector). Existing generators like subdivideEdges return similar structures (positions, aEdgeParam, aRandom) — follow that pattern exactly. The plan says 'segments * 2 for LineSegments' which is correct (each segment needs start+end vertex). Ensure aArcOffset (vec3 per vertex) is also returned here, not computed later."
+    },
+    {
+      "step": 5,
+      "title": "Create BezierCurveWeb system",
+      "assessment": "APPROVE_WITH_NOTES",
+      "notes": "The plan correctly identifies two approaches for bass modulation and selects the shader-uniform path (b). Critical detail: the plan must store flat (straight-line) positions in the position attribute and arc offsets in aArcOffset, then the vertex shader displaces. This means the geometry is built once at init() and never rebuilt — matching the ConstellationLines pattern. Connection finding should reuse the existing findConnections algorithm from constellationLines.ts (extract it or duplicate it). Current findConnections is O(n²) bounded by maxConnections — acceptable for 2000 connections."
+    },
+    {
+      "step": 6,
+      "title": "Add Bezier vertex shader",
+      "assessment": "APPROVE_WITH_NOTES",
+      "notes": "The sin(aEdgeParam * PI) bell-curve weighting is elegant — zero displacement at endpoints, maximum at midpoint. Must declare ALL attributes used: position (built-in), aArcOffset (vec3), aEdgeParam (float), aDistance (float), aRandom (vec3). Must declare ALL uniforms: uBassArcScale plus all existing constellation uniforms. The plan says to reuse constellation.frag.glsl — this works since the fragment shader only reads vAlpha and vDepth varyings. Ensure the new vert shader outputs these same varyings."
+    },
+    {
+      "step": 7,
+      "title": "Add quality tier fields",
+      "assessment": "APPROVE_WITH_NOTES",
+      "notes": "Three new fields (enableBezierWeb, maxBezierConnections, bezierSegments) is clean. Consider: since this replaces constellation lines, should enableConstellationLines be set to false when enableBezierWeb is true? Or leave both fields independent for future flexibility? The plan's tier values (low=disabled, medium=800/4, high=2000/6) are reasonable. 2000 connections * 6 segments * 2 verts = 24K vertices — well within GPU budget for LineSegments."
+    },
+    {
+      "step": 8,
+      "title": "Wire into main.ts",
+      "assessment": "APPROVE_WITH_NOTES",
+      "notes": "The replacement strategy is correct per ticket intent. Simple swap: replace createConstellationLines() call with createBezierCurveWeb(). The attachOverlay pattern and getPositions duck-typing remain identical. Should guard with quality.enableBezierWeb instead of quality.enableConstellationLines. Consider: keep both quality flags so constellation can still be activated independently in future tickets."
+    },
+    {
+      "step": 9,
+      "title": "Write unit tests",
+      "assessment": "APPROVE",
+      "notes": "Test placement under tests/ matches project convention. The test plan mirrors constellationLines.test.ts patterns (T-055 prefix → T-067 prefix). Key test cases to include: vertex count = connections * segments * 2, arc offset perpendicularity, endpoints match input positions, bass modulation uniform propagation."
+    },
+    {
+      "step": 10,
+      "title": "Build verification",
+      "assessment": "APPROVE",
+      "notes": "Standard definition-of-done gate. The shader compilation check is especially important given the new vertex shader."
+    }
+  ],
+  "risks": [
+    {
+      "area": "Shader attribute declaration",
+      "severity": "high",
+      "likelihood": "medium",
+      "mitigation": "Checklist: every attribute in the vertex shader (aArcOffset, aEdgeParam, aDistance, aRandom) must have a corresponding BufferAttribute set on the geometry before first render. The plan accounts for this but implementation must be exact."
+    },
+    {
+      "area": "Perpendicular vector degeneracy",
+      "severity": "medium",
+      "likelihood": "low",
+      "mitigation": "When pair axis is near-parallel to the reference vector (e.g., (0,1,0)), the cross product approaches zero. Use a fallback: if |cross| < epsilon, use an alternative reference vector. The existing codebase handles similar cases in edge tangent computation."
+    },
+    {
+      "area": "findConnections duplication",
+      "severity": "low",
+      "likelihood": "high",
+      "mitigation": "The plan doesn't explicitly state whether findConnections is extracted as shared utility or duplicated. Should be extracted into a shared module (e.g., src/visual/generators/findConnections.ts) to avoid drift between constellation and bezier implementations."
+    },
+    {
+      "area": "Overlay interface backward compatibility",
+      "severity": "low",
+      "likelihood": "low",
+      "mitigation": "Since ConstellationLines already structurally satisfies Overlay, the extraction is purely additive. No runtime behavior changes."
+    }
+  ],
+  "missingConsiderations": [
+    "The plan does not address extracting findConnections as a shared utility — it's currently private inside constellationLines.ts",
+    "No mention of whether enableConstellationLines quality field should be deprecated or coexist with enableBezierWeb",
+    "The plan reuses constellation.frag.glsl but the fragment shader references vArcDisplacement in the electric arc variant — ensure the standard (non-arc) fragment shader is used, which only needs vAlpha and vDepth"
+  ],
+  "performanceBudget": {
+    "vertexCount": "24,000 max (high tier: 2000 connections × 6 segments × 2 vertices)",
+    "drawCalls": "1 (single LineSegments mesh, same as constellation)",
+    "cpuPerFrame": "Negligible — geometry built once at init, only uniform updates per frame",
+    "gpuImpact": "Comparable to existing constellation lines — same fragment shader, slightly more complex vertex shader (one extra attribute read + sin() call)"
+  },
+  "recommendations": [
+    "Extract findConnections from constellationLines.ts into a shared generator module before step 5",
+    "Add a baseArcHeight config parameter (default ~0.3) so the perpendicular offset has a sensible baseline before bass modulation",
+    "In the vertex shader, clamp uBassArcScale to prevent arc inversion at extreme bass values (e.g., max 3.0)",
+    "Keep enableConstellationLines and enableBezierWeb as independent quality flags — future tickets may want both or neither"
+  ],
+  "approved": false,
+  "adr_entry": null
+}
