@@ -22,6 +22,7 @@ import { createModeManager } from './visual/modeManager';
 import type { RotationEntry, SingleRotationEntry } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
+import { createBezierCurveWeb } from './visual/systems/bezierCurveWeb';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
 
 // Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
@@ -173,8 +174,21 @@ geoPromise.then((geo) => {
   const allEntries: RotationEntry[] = [...singleEntries, ...compoundEntries];
   const modeManager = createModeManager(allEntries);
 
-  // Attach constellation line overlay for medium/high tier devices
-  if (quality.enableConstellationLines) {
+  // Attach overlay for medium/high tier devices:
+  // Bezier web replaces constellation lines with organic curved connections
+  if (quality.enableBezierWeb) {
+    const bezierOverlay = createBezierCurveWeb({
+      maxConnections: quality.maxBezierConnections,
+      segments: quality.bezierSegments,
+    });
+    modeManager.attachOverlay({
+      overlay: bezierOverlay,
+      getPositions: (system) => {
+        const s = system as { positions?: Float32Array | null };
+        return s.positions ? Float32Array.from(s.positions) : null;
+      },
+    });
+  } else if (quality.enableConstellationLines) {
     const constellationOverlay = createConstellationLines({
       maxConnections: quality.maxConstellationSegments,
       enableElectricArc: quality.enableElectricArc,
