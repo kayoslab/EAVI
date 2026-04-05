@@ -1,0 +1,145 @@
+{
+  "ticket": "US-061",
+  "title": "Add compound mode composition",
+  "summary": "The compound mode infrastructure is already largely implemented across compoundModes.ts, modeManager.ts, and main.ts. The primary remaining work is: (1) writing comprehensive tests that prove all acceptance criteria, (2) verifying seeded compound selection works correctly, (3) ensuring the interleaving of single+compound entries in the rotation is seeded per session, and (4) confirming low-tier fallback to single-only modes.",
+  "existing_state": {
+    "compoundModes.ts": "Defines 3 compound combos (cloud+wireframe, particles+flowribbon, crystal+microgeometry), CompoundRotationEntry type, buildCompoundEntries() with 0.5x quality scaling, low-tier returns empty array",
+    "modeManager.ts": "Already handles RotationEntry union (single|compound) with entrySystems(), entryPrimarySystem(), initEntry(), cleanupEntry(), setEntryOpacity(), drawEntry() helpers. Crossfade transitions work for both entry types.",
+    "main.ts": "Builds singleEntries + compoundEntries via buildCompoundEntries(), concatenates into allEntries, passes to createModeManager(). Debug getters use activeEntryName and activeMaxPoints."
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Write unit tests for compoundModes.ts",
+      "file": "tests/visual/compoundModes.test.ts",
+      "description": "Test buildCompoundEntries() returns 3 compound entries for medium/high tiers, returns empty array for low tier, each entry has correct structure (kind='compound', 2 layers, primaryLayerIndex, maxPoints), COMPOUND_SCALE factor is applied to quality counts, and system factories from registry are called with scaled configs.",
+      "tests": [
+        "T-061-01: buildCompoundEntries returns 3 CompoundRotationEntry items for medium tier",
+        "T-061-02: buildCompoundEntries returns 3 CompoundRotationEntry items for high tier",
+        "T-061-03: buildCompoundEntries returns empty array for low tier",
+        "T-061-04: each compound entry has kind='compound' and exactly 2 layers",
+        "T-061-05: compound entry maxPoints is sum of both layers' primary counts at 0.5x scale",
+        "T-061-06: primaryLayerIndex points to the layer marked isPrimary in the def",
+        "T-061-07: compound layer systems are created via registry factories with scaled quality config"
+      ],
+      "acceptance_criteria": [
+        "At least 3 compound mode combinations are defined",
+        "Total GPU cost of compound modes stays within quality tier budget"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Write unit tests for ModeManager compound support",
+      "file": "tests/visual/modeManager.test.ts",
+      "description": "Add a new describe block for US-061 compound mode tests within the existing modeManager test file. Test that ModeManager accepts mixed single+compound entries, compound entries init both layer systems, compound entries draw both layers, opacity is set on both layers during transitions, cleanup disposes both layers, and activeEntryName/isCompoundActive/activeMaxPoints report correctly for compound entries.",
+      "tests": [
+        "T-061-08: ModeManager accepts array of mixed single and compound RotationEntry items",
+        "T-061-09: compound entry init calls init on both layer systems",
+        "T-061-10: compound entry draw calls draw on both layer systems",
+        "T-061-11: compound entry setOpacity applies to both layer systems",
+        "T-061-12: compound entry cleanup disposes both layer systems",
+        "T-061-13: crossfade transition between single and compound entry sets correct opacities",
+        "T-061-14: crossfade transition between two compound entries works without error",
+        "T-061-15: activeEntryName returns compound entry name (e.g. 'cloud+wireframe')",
+        "T-061-16: isCompoundActive returns true when active entry is compound",
+        "T-061-17: isCompoundActive returns false when active entry is single",
+        "T-061-18: activeMaxPoints returns summed maxPoints for compound entry",
+        "T-061-19: overlay attaches to primary layer system of compound entry"
+      ],
+      "acceptance_criteria": [
+        "ModeManager supports compound modes that layer 2 systems",
+        "Each layer respects its own opacity and quality scaling",
+        "Transitions between compound modes use the existing crossfade system",
+        "Mode rotation includes both single and compound modes"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Write seeded compound selection tests",
+      "file": "tests/visual/modeManager.test.ts",
+      "description": "Verify that compound combination selection in the rotation is seeded per session. Same seed produces same initial mode (whether single or compound). Different seeds can produce different initial modes. Compound entries are reachable during rotation cycling.",
+      "tests": [
+        "T-061-20: same seed produces same initial mode index with mixed single+compound entries",
+        "T-061-21: different seeds can select compound entries as initial mode",
+        "T-061-22: mode cycling reaches both single and compound entries over full rotation",
+        "T-061-23: compound entries are deterministically positioned in rotation for given seed"
+      ],
+      "acceptance_criteria": [
+        "Compound combinations are seeded per session",
+        "Mode rotation includes both single and compound modes"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Write GPU budget and quality scaling tests",
+      "file": "tests/visual/compoundModes.test.ts",
+      "description": "Verify that compound mode GPU cost stays within budget. Test that scaleQualityProfile(quality, 0.5) produces counts that sum to <= original tier budget for any compound pair. Verify that each layer's individual counts respect minimums from COUNT_MINIMUMS.",
+      "tests": [
+        "T-061-24: compound layers use 0.5x scaled quality profile counts",
+        "T-061-25: sum of both compound layer point counts does not exceed single-mode tier budget",
+        "T-061-26: scaled counts respect COUNT_MINIMUMS (no layer gets fewer than minimum)",
+        "T-061-27: high tier compound entries have higher counts than medium tier compound entries"
+      ],
+      "acceptance_criteria": [
+        "Total GPU cost of compound modes stays within quality tier budget",
+        "Each layer respects its own opacity and quality scaling"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Write integration test with real geometry systems",
+      "file": "tests/visual/modeManager.test.ts",
+      "description": "Integration test that creates real compound entries (e.g. pointCloud + wireframePolyhedra at scaled quality) and verifies they init, draw, and transition without throwing. Validates no shader errors from having two systems active simultaneously.",
+      "tests": [
+        "T-061-28: integration — real compound entry (pointCloud+wireframe) inits and draws without error",
+        "T-061-29: integration — transition from single to compound entry completes without error",
+        "T-061-30: integration — initAllForValidation works with mixed single+compound entries"
+      ],
+      "acceptance_criteria": [
+        "ModeManager supports compound modes that layer 2 systems",
+        "Transitions between compound modes use the existing crossfade system"
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Verify build passes and no console errors",
+      "description": "Run npm run build to verify TypeScript compilation succeeds. Run the full test suite to confirm all new and existing tests pass. Check that no regressions were introduced in existing mode rotation behavior.",
+      "commands": [
+        "npm run build",
+        "npx vitest run"
+      ],
+      "acceptance_criteria": [
+        "Build passes",
+        "No console errors on normal load"
+      ]
+    }
+  ],
+  "files_to_create": [
+    "tests/visual/compoundModes.test.ts"
+  ],
+  "files_to_modify": [
+    "tests/visual/modeManager.test.ts"
+  ],
+  "files_read_only": [
+    "src/visual/compoundModes.ts",
+    "src/visual/modeManager.ts",
+    "src/visual/quality.ts",
+    "src/visual/types.ts",
+    "src/main.ts"
+  ],
+  "risk_notes": [
+    "The implementation appears complete — compound modes are defined, built, and wired into the rotation. The main gap is test coverage proving the acceptance criteria.",
+    "Two geometry systems rendering simultaneously doubles draw calls per frame — the 0.5x scaling factor mitigates this but integration tests should verify no frame drops.",
+    "Low-tier fallback (empty compound array) means low-end devices only get single modes — this is correct per the ticket notes.",
+    "The current allEntries array appends compounds after singles rather than interleaving — the seeded PRNG initial index selection still covers all entries, but rotation order is singles-first-then-compounds rather than shuffled. This may be worth noting but is not a blocker."
+  ],
+  "acceptance_criteria_mapping": {
+    "ModeManager supports compound modes that layer 2 systems": "Already implemented in modeManager.ts (entrySystems, drawEntry, etc.) — validated by steps 2, 5",
+    "At least 3 compound mode combinations are defined": "Already defined in COMPOUND_MODE_DEFS — validated by step 1",
+    "Compound combinations are seeded per session": "Seed selects initial index across all entries — validated by step 3",
+    "Each layer respects its own opacity and quality scaling": "setEntryOpacity iterates both layers; buildCompoundEntries uses scaleQualityProfile — validated by steps 2, 4",
+    "Transitions between compound modes use the existing crossfade system": "ModeManager draw() handles RotationEntry uniformly — validated by steps 2, 5",
+    "Total GPU cost of compound modes stays within quality tier budget": "0.5x scaling via COMPOUND_SCALE — validated by step 4",
+    "Mode rotation includes both single and compound modes": "main.ts concatenates singleEntries + compoundEntries — validated by steps 2, 3"
+  }
+}

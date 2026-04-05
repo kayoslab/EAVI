@@ -74,3 +74,88 @@ export function computeQuality(signals: BrowserSignals): QualityProfile {
   }
   return { tier: 'medium', maxParticles: 550, maxPoints: 800, maxRibbonPoints: 700, maxInstances: 600, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 480, maxFlowRibbonPoints: 700 };
 }
+
+const COUNT_FIELDS: (keyof QualityProfile)[] = [
+  'maxParticles', 'maxPoints', 'maxRibbonPoints', 'maxInstances',
+  'maxPolyhedra', 'maxConstellationSegments', 'maxEdgesPerShape', 'maxFlowRibbonPoints',
+];
+
+const COUNT_MINIMUMS: Partial<Record<keyof QualityProfile, number>> = {
+  maxParticles: 50,
+  maxPoints: 50,
+  maxRibbonPoints: 50,
+  maxInstances: 50,
+  maxPolyhedra: 2,
+  maxConstellationSegments: 0,
+  maxEdgesPerShape: 20,
+  maxFlowRibbonPoints: 50,
+};
+
+export function scaleQualityProfile(profile: QualityProfile, factor: number): QualityProfile {
+  const scaled = { ...profile };
+  for (const field of COUNT_FIELDS) {
+    const original = profile[field] as number;
+    const min = COUNT_MINIMUMS[field] ?? 0;
+    (scaled as Record<string, unknown>)[field] = Math.max(min, Math.round(original * factor));
+  }
+  return scaled;
+}
+
+export function extractSystemConfig(systemName: string, profile: QualityProfile): Record<string, unknown> {
+  switch (systemName) {
+    case 'particles':
+      return { maxParticles: profile.maxParticles };
+    case 'ribbon':
+      return {
+        maxPoints: profile.maxRibbonPoints,
+        enableSparkle: profile.enableSparkle,
+        noiseOctaves: profile.noiseOctaves,
+        enablePointerRepulsion: profile.enablePointerRepulsion,
+        enableSlowModulation: profile.enableSlowModulation,
+      };
+    case 'pointcloud':
+      return {
+        maxPoints: profile.maxPoints,
+        enableSparkle: profile.enableSparkle,
+        noiseOctaves: profile.noiseOctaves,
+        enablePointerRepulsion: profile.enablePointerRepulsion,
+        enableSlowModulation: profile.enableSlowModulation,
+        useVoronoiShader: profile.enableVoronoiCells,
+      };
+    case 'crystal':
+      return {
+        maxPoints: Math.round(profile.maxPoints * 0.8),
+        enableSparkle: profile.enableSparkle,
+        noiseOctaves: profile.noiseOctaves,
+        enablePointerRepulsion: profile.enablePointerRepulsion,
+        enableSlowModulation: profile.enableSlowModulation,
+      };
+    case 'microgeometry':
+      return {
+        maxInstances: profile.maxInstances,
+        noiseOctaves: profile.noiseOctaves,
+        enablePointerRepulsion: profile.enablePointerRepulsion,
+        enableSlowModulation: profile.enableSlowModulation,
+      };
+    case 'wirepolyhedra':
+      return {
+        maxPolyhedra: profile.maxPolyhedra,
+        noiseOctaves: profile.noiseOctaves,
+        enablePointerRepulsion: profile.enablePointerRepulsion,
+        enableSlowModulation: profile.enableSlowModulation,
+        enableElectricArc: profile.enableElectricArc,
+        arcSubdivisions: profile.arcSubdivisions,
+        maxEdgesPerShape: profile.maxEdgesPerShape,
+      };
+    case 'flowribbon':
+      return {
+        maxPoints: profile.maxFlowRibbonPoints,
+        enableSparkle: profile.enableSparkle,
+        noiseOctaves: profile.noiseOctaves,
+        enablePointerRepulsion: profile.enablePointerRepulsion,
+        enableSlowModulation: profile.enableSlowModulation,
+      };
+    default:
+      throw new Error(`Unknown system name: ${systemName}`);
+  }
+}

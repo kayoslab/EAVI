@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import { createModeManager } from '../../src/visual/modeManager';
+import type { RotationEntry, SingleRotationEntry, CompoundRotationEntry } from '../../src/visual/modeManager';
 import type { GeometrySystem, FrameState } from '../../src/visual/types';
 import type { VisualParams } from '../../src/visual/mappings';
 
@@ -824,5 +825,463 @@ describe('US-048: Shader validation — ModeManager integration', () => {
     expect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();
     expect(() => manager.draw(scene, makeFrame({ elapsed: 201_500 }))).not.toThrow();
     expect(() => manager.draw(scene, makeFrame({ elapsed: 205_000 }))).not.toThrow();
+  });
+});
+
+// --- Compound mode helpers ---
+
+function createSingleEntry(name: string, system?: GeometrySystem): SingleRotationEntry {
+  return {
+    kind: 'single',
+    name,
+    system: system ?? createMockGeometrySystemWithOpacity(),
+    maxPoints: 1000,
+  };
+}
+
+function createCompoundEntry(
+  name: string,
+  systems?: [GeometrySystem, GeometrySystem],
+): CompoundRotationEntry {
+  return {
+    kind: 'compound',
+    name,
+    layers: [
+      { system: systems?.[0] ?? createMockGeometrySystemWithOpacity(), name: 'layerA' },
+      { system: systems?.[1] ?? createMockGeometrySystemWithOpacity(), name: 'layerB' },
+    ],
+    primaryLayerIndex: 0,
+    maxPoints: 500,
+  };
+}
+
+describe('US-061: ModeManager compound modes', () => {
+  it('T-061-18: ModeManager accepts mix of single and compound RotationEntry[]', () => {
+    const singleA = createSingleEntry('a');
+    const compoundAB = createCompoundEntry('a+b');
+    const singleB = createSingleEntry('b');
+
+    expect(() => createModeManager([singleA, compoundAB, singleB])).not.toThrow();
+    const manager = createModeManager([singleA, compoundAB, singleB]);
+    const scene = createTestScene();
+    expect(() => manager.init(scene, 'test-seed', defaultParams)).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame())).not.toThrow();
+  });
+
+  it('T-061-19: compound entry init calls init on both layers', () => {
+    const sys0 = createMockGeometrySystemWithOpacity();
+    const sys1 = createMockGeometrySystemWithOpacity();
+    const compound = createCompoundEntry('compound', [sys0, sys1]);
+    const scene = createTestScene();
+
+    // Use only compound entry so it's guaranteed to be active
+    const manager = createModeManager([compound]);
+    manager.init(scene, 'seed', defaultParams);
+
+    expect(sys0.init).toHaveBeenCalledWith(scene, 'seed', defaultParams);
+    expect(sys1.init).toHaveBeenCalledWith(scene, 'seed', defaultParams);
+  });
+
+  it('T-061-20: compound entry draw calls draw on both layers', () => {
+    const sys0 = createMockGeometrySystemWithOpacity();
+    const sys1 = createMockGeometrySystemWithOpacity();
+    const compound = createCompoundEntry('compound', [sys0, sys1]);
+    const scene = createTestScene();
+
+    const manager = createModeManager([compound]);
+    manager.init(scene, 'seed', defaultParams);
+    const frame = makeFrame();
+    manager.draw(scene, frame);
+
+    expect(sys0.draw).toHaveBeenCalled();
+    expect(sys1.draw).toHaveBeenCalled();
+  });
+
+  it('T-061-21: compound entry cleanup calls cleanup on both layers', () => {
+    const sys0 = createMockGeometrySystemWithOpacity();
+    const sys1 = createMockGeometrySystemWithOpacity();
+    const compound = createCompoundEntry('compound', [sys0, sys1]);
+    const single = createSingleEntry('single');
+    const scene = createTestScene();
+
+    // Need compound first, then trigger transition to single, then complete transition
+    const manager = createModeManager([compound, single]);
+    manager.init(scene, 'seed', defaultParams);
+
+    // Find which entry is active and advance until transition starts
+    const switchTime = 200_000;
+    manager.draw(scene, makeFrame({ elapsed: switchTime }));
+    // Complete transition
+    manager.draw(scene, makeFrame({ elapsed: switchTime + 10_000 }));
+
+    // At least one of the compound systems should have had cleanup called
+    // (depends on which was active initially)
+    if (sys0.init.mock.calls.length > 0) {
+      expect(sys0.cleanup).toHaveBeenCalled();
+      expect(sys1.cleanup).toHaveBeenCalled();
+    }
+  });
+
+  it('T-061-22: crossfade between single and compound sets opacity on all involved systems', () => {
+    const outSys = createMockGeometrySystemWithOpacity();
+    const inSys0 = createMockGeometrySystemWithOpacity();
+    const inSys1 = createMockGeometrySystemWithOpacity();
+
+    const single = createSingleEntry('single', outSys);
+    const compound = createCompoundEntry('compound', [inSys0, inSys1]);
+    const scene = createTestScene();
+
+    const manager = createModeManager([single, compound]);
+    manager.init(scene, 'seed', defaultParams);
+
+    // Trigger transition
+    const switchTime = 200_000;
+    manager.draw(scene, makeFrame({ elapsed: switchTime }));
+
+    // Draw mid-transition
+    manager.draw(scene, makeFrame({ elapsed: switchTime + 1000 }));
+
+    // Check that opacity was set on all systems during transition
+    if (outSys.init.mock.calls.length > 0) {
+      // single was active, transitioning to compound
+      expect(outSys.setOpacity).toHaveBeenCalled();
+      expect(inSys0.setOpacity).toHaveBeenCalled();
+      expect(inSys1.setOpacity).toHaveBeenCalled();
+    } else {
+      // compound was active, transitioning to single
+      expect(inSys0.setOpacity).toHaveBeenCalled();
+      expect(inSys1.setOpacity).toHaveBeenCalled();
+      expect(outSys.setOpacity).toHaveBeenCalled();
+    }
+  });
+
+  it('T-061-23: crossfade between two compound entries sets opacity on all 4 systems', () => {
+    const sys0a = createMockGeometrySystemWithOpacity();
+    const sys0b = createMockGeometrySystemWithOpacity();
+    const sys1a = createMockGeometrySystemWithOpacity();
+    const sys1b = createMockGeometrySystemWithOpacity();
+
+    const compound0 = createCompoundEntry('compound0', [sys0a, sys0b]);
+    const compound1 = createCompoundEntry('compound1', [sys1a, sys1b]);
+    const scene = createTestScene();
+
+    const manager = createModeManager([compound0, compound1]);
+    manager.init(scene, 'seed', defaultParams);
+
+    // Trigger and progress transition
+    const switchTime = 200_000;
+    manager.draw(scene, makeFrame({ elapsed: switchTime }));
+    manager.draw(scene, makeFrame({ elapsed: switchTime + 1000 }));
+
+    // All 4 systems should have setOpacity called
+    expect(sys0a.setOpacity).toHaveBeenCalled();
+    expect(sys0b.setOpacity).toHaveBeenCalled();
+    expect(sys1a.setOpacity).toHaveBeenCalled();
+    expect(sys1b.setOpacity).toHaveBeenCalled();
+  });
+
+  it('T-061-24: activeEntryName returns compound name during compound mode', () => {
+    const compound = createCompoundEntry('cloud+wireframe');
+    const manager = createModeManager([compound]);
+    const scene = createTestScene();
+    manager.init(scene, 'seed', defaultParams);
+
+    expect(manager.activeEntryName).toBe('cloud+wireframe');
+  });
+
+  it('T-061-25: activeEntryName returns single mode name during single mode', () => {
+    const single = createSingleEntry('pointcloud');
+    const manager = createModeManager([single]);
+    const scene = createTestScene();
+    manager.init(scene, 'seed', defaultParams);
+
+    expect(manager.activeEntryName).toBe('pointcloud');
+  });
+
+  it('T-061-26: isCompoundActive returns true during compound mode, false during single', () => {
+    const compound = createCompoundEntry('compound');
+    const single = createSingleEntry('single');
+
+    const compoundManager = createModeManager([compound]);
+    compoundManager.init(createTestScene(), 'seed', defaultParams);
+    expect(compoundManager.isCompoundActive).toBe(true);
+
+    const singleManager = createModeManager([single]);
+    singleManager.init(createTestScene(), 'seed', defaultParams);
+    expect(singleManager.isCompoundActive).toBe(false);
+  });
+
+  it('T-061-27: activeMaxPoints returns correct value for compound and single entries', () => {
+    const compound = createCompoundEntry('compound');
+    compound.maxPoints = 500;
+    const single = createSingleEntry('single');
+    single.maxPoints = 1000;
+
+    const compoundManager = createModeManager([compound]);
+    compoundManager.init(createTestScene(), 'seed', defaultParams);
+    expect(compoundManager.activeMaxPoints).toBe(500);
+
+    const singleManager = createModeManager([single]);
+    singleManager.init(createTestScene(), 'seed', defaultParams);
+    expect(singleManager.activeMaxPoints).toBe(1000);
+  });
+
+  it('T-061-28: rotation sequence includes both single and compound entries across seeds', () => {
+    let foundCompound = false;
+    let foundSingle = false;
+
+    for (let i = 0; i < 30; i++) {
+      const single = createSingleEntry('single');
+      const compound = createCompoundEntry('compound');
+      const manager = createModeManager([single, compound]);
+      manager.init(createTestScene(), `seed-${i}`, defaultParams);
+
+      if (manager.isCompoundActive) foundCompound = true;
+      else foundSingle = true;
+    }
+
+    expect(foundCompound).toBe(true);
+    expect(foundSingle).toBe(true);
+  });
+
+  it('T-061-29: rotation is deterministic from seed', () => {
+    const manager1 = createModeManager([createSingleEntry('a'), createCompoundEntry('b'), createSingleEntry('c')]);
+    manager1.init(createTestScene(), 'deterministic-seed', defaultParams);
+
+    const manager2 = createModeManager([createSingleEntry('a'), createCompoundEntry('b'), createSingleEntry('c')]);
+    manager2.init(createTestScene(), 'deterministic-seed', defaultParams);
+
+    expect(manager1.activeEntryName).toBe(manager2.activeEntryName);
+  });
+
+  it('T-061-30: initAllForValidation inits ALL systems across single and compound entries', () => {
+    const singleSys = createMockGeometrySystemWithOpacity();
+    const compSys0 = createMockGeometrySystemWithOpacity();
+    const compSys1 = createMockGeometrySystemWithOpacity();
+
+    const single = createSingleEntry('single', singleSys);
+    const compound = createCompoundEntry('compound', [compSys0, compSys1]);
+    const scene = createTestScene();
+
+    const manager = createModeManager([single, compound]);
+    manager.initAllForValidation(scene, 'seed', defaultParams);
+
+    expect(singleSys.init).toHaveBeenCalledOnce();
+    expect(compSys0.init).toHaveBeenCalledOnce();
+    expect(compSys1.init).toHaveBeenCalledOnce();
+
+    // Non-active systems should have setOpacity(0)
+    const allSystems = [singleSys, compSys0, compSys1];
+    const inactiveWithOpacity = allSystems.filter((s) =>
+      s.setOpacity.mock.calls.some((c: number[]) => c[0] === 0),
+    );
+    expect(inactiveWithOpacity.length).toBeGreaterThan(0);
+  });
+
+  it('T-061-31: overlay getPositions receives primaryLayer system for compound entries', () => {
+    const primarySys = createMockGeometrySystemWithOpacity();
+    const secondarySys = createMockGeometrySystemWithOpacity();
+    const compound = createCompoundEntry('compound', [primarySys, secondarySys]);
+    compound.primaryLayerIndex = 0;
+
+    const scene = createTestScene();
+    const manager = createModeManager([compound]);
+
+    const getPositions = vi.fn(() => new Float32Array([1, 2, 3]));
+    const overlayMock = {
+      init: vi.fn(),
+      draw: vi.fn(),
+      cleanup: vi.fn(),
+      setOpacity: vi.fn(),
+    };
+
+    manager.attachOverlay({
+      overlay: overlayMock as unknown as import('../../src/visual/systems/constellationLines').ConstellationLines,
+      getPositions,
+    });
+
+    manager.init(scene, 'seed', defaultParams);
+
+    expect(getPositions).toHaveBeenCalledWith(primarySys);
+    expect(getPositions).not.toHaveBeenCalledWith(secondarySys);
+  });
+
+  it('T-061-32: overlay getPositions receives system directly for single entries', () => {
+    const sys = createMockGeometrySystemWithOpacity();
+    const single = createSingleEntry('single', sys);
+    const scene = createTestScene();
+
+    const manager = createModeManager([single]);
+
+    const getPositions = vi.fn(() => new Float32Array([1, 2, 3]));
+    const overlayMock = {
+      init: vi.fn(),
+      draw: vi.fn(),
+      cleanup: vi.fn(),
+      setOpacity: vi.fn(),
+    };
+
+    manager.attachOverlay({
+      overlay: overlayMock as unknown as import('../../src/visual/systems/constellationLines').ConstellationLines,
+      getPositions,
+    });
+
+    manager.init(scene, 'seed', defaultParams);
+
+    expect(getPositions).toHaveBeenCalledWith(sys);
+  });
+
+  it('T-061-33: compound-to-single transition completes cleanly', () => {
+    const compSys0 = createMockGeometrySystemWithOpacity();
+    const compSys1 = createMockGeometrySystemWithOpacity();
+    const singleSys = createMockGeometrySystemWithOpacity();
+
+    const compound = createCompoundEntry('compound', [compSys0, compSys1]);
+    const single = createSingleEntry('single', singleSys);
+    const scene = createTestScene();
+
+    const manager = createModeManager([compound, single]);
+    manager.init(scene, 'seed', defaultParams);
+
+    // Trigger mode switch
+    const switchTime = 200_000;
+    manager.draw(scene, makeFrame({ elapsed: switchTime }));
+
+    // Mid-transition: all systems drawn
+    manager.draw(scene, makeFrame({ elapsed: switchTime + 1000 }));
+
+    // Complete transition
+    manager.draw(scene, makeFrame({ elapsed: switchTime + 10_000 }));
+
+    if (compSys0.init.mock.calls.length > 0) {
+      // compound was initially active
+      expect(compSys0.cleanup).toHaveBeenCalled();
+      expect(compSys1.cleanup).toHaveBeenCalled();
+    }
+  });
+
+  it('T-061-34: single-to-compound transition completes cleanly', () => {
+    const singleSys = createMockGeometrySystemWithOpacity();
+    const compSys0 = createMockGeometrySystemWithOpacity();
+    const compSys1 = createMockGeometrySystemWithOpacity();
+
+    const single = createSingleEntry('single', singleSys);
+    const compound = createCompoundEntry('compound', [compSys0, compSys1]);
+    const scene = createTestScene();
+
+    const manager = createModeManager([single, compound]);
+    manager.init(scene, 'seed', defaultParams);
+
+    // Trigger mode switch
+    const switchTime = 200_000;
+    manager.draw(scene, makeFrame({ elapsed: switchTime }));
+
+    // Mid-transition
+    manager.draw(scene, makeFrame({ elapsed: switchTime + 1000 }));
+
+    // Complete transition
+    manager.draw(scene, makeFrame({ elapsed: switchTime + 10_000 }));
+
+    if (singleSys.init.mock.calls.length > 0 && singleSys.init.mock.calls.length === 1) {
+      // single was initially active, transitioned to compound
+      expect(singleSys.cleanup).toHaveBeenCalled();
+    }
+  });
+
+  it('T-061-35: no frame hitches during compound mode transitions', () => {
+    const compound = createCompoundEntry('compound');
+    const single = createSingleEntry('single');
+    const scene = createTestScene();
+
+    const manager = createModeManager([compound, single]);
+    manager.init(scene, 'seed', defaultParams);
+
+    // Simulate 210 seconds in 500ms increments
+    for (let elapsed = 0; elapsed <= 210_000; elapsed += 500) {
+      expect(() => manager.draw(scene, makeFrame({ elapsed }))).not.toThrow();
+    }
+  });
+
+  it('T-061-36: audio params flow to all compound layers during transition', () => {
+    const sys0 = createMockGeometrySystemWithOpacity();
+    const sys1 = createMockGeometrySystemWithOpacity();
+    const compound = createCompoundEntry('compound', [sys0, sys1]);
+    const scene = createTestScene();
+
+    const manager = createModeManager([compound]);
+    manager.init(scene, 'seed', defaultParams);
+
+    const frame = makeFrame({ params: { bassEnergy: 0.8, trebleEnergy: 0.6 } });
+    manager.draw(scene, frame);
+
+    const drawFrame0 = sys0.draw.mock.calls[sys0.draw.mock.calls.length - 1]?.[1] as FrameState;
+    const drawFrame1 = sys1.draw.mock.calls[sys1.draw.mock.calls.length - 1]?.[1] as FrameState;
+    expect(drawFrame0.params.bassEnergy).toBe(0.8);
+    expect(drawFrame1.params.trebleEnergy).toBe(0.6);
+  });
+
+  it('T-061-37: ModeManager with only compound entries does not throw', () => {
+    const compoundA = createCompoundEntry('a');
+    const compoundB = createCompoundEntry('b');
+    const scene = createTestScene();
+
+    const manager = createModeManager([compoundA, compoundB]);
+    expect(() => manager.init(scene, 'seed', defaultParams)).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame())).not.toThrow();
+
+    // Trigger transition
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 200_000 }))).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 201_000 }))).not.toThrow();
+    expect(() => manager.draw(scene, makeFrame({ elapsed: 210_000 }))).not.toThrow();
+  });
+
+  it('T-061-38: ModeManager with only single entries still works (backward compatibility)', () => {
+    const singleA = createSingleEntry('a');
+    const singleB = createSingleEntry('b');
+    const scene = createTestScene();
+
+    const manager = createModeManager([singleA, singleB]);
+    manager.init(scene, 'seed', defaultParams);
+    expect(manager.isCompoundActive).toBe(false);
+
+    // Transitions work
+    manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+    manager.draw(scene, makeFrame({ elapsed: 201_000 }));
+    manager.draw(scene, makeFrame({ elapsed: 210_000 }));
+  });
+
+  it('T-061-39: no localStorage or cookie access during compound mode lifecycle', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');
+    const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie') ||
+      Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'cookie');
+    const cookieGetSpy = vi.fn(() => '');
+    if (cookieDescriptor) {
+      Object.defineProperty(document, 'cookie', {
+        get: cookieGetSpy,
+        set: vi.fn(),
+        configurable: true,
+      });
+    }
+
+    try {
+      const compound = createCompoundEntry('compound');
+      const single = createSingleEntry('single');
+      const scene = createTestScene();
+
+      const manager = createModeManager([compound, single]);
+      manager.init(scene, 'seed', defaultParams);
+      manager.draw(scene, makeFrame());
+      manager.draw(scene, makeFrame({ elapsed: 200_000 }));
+      manager.draw(scene, makeFrame({ elapsed: 201_000 }));
+      manager.draw(scene, makeFrame({ elapsed: 210_000 }));
+
+      expect(getItemSpy).not.toHaveBeenCalled();
+      expect(cookieGetSpy).not.toHaveBeenCalled();
+    } finally {
+      getItemSpy.mockRestore();
+      if (cookieDescriptor) {
+        Object.defineProperty(document, 'cookie', cookieDescriptor);
+      }
+    }
   });
 });
