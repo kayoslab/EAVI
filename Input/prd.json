@@ -1192,8 +1192,8 @@
         "Can be applied to point-based and line-based geometry systems"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-041",
         "US-048"
