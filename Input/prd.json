@@ -1304,10 +1304,13 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
-      "depends_on": [],
+      "status": "in_progress",
+      "depends_on": [
+        "US-056"
+      ],
       "split_from": "US-056",
-      "notes": "US-056 was a wrong direction. Geometric complexity should come from connections between points, not from replacing points with tiny meshes. This ticket cleans up the failed approach."
+      "notes": "US-056 was a wrong direction. Geometric complexity should come from connections between points, not from replacing points with tiny meshes. This ticket cleans up the failed approach.",
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-065",
@@ -1323,8 +1326,8 @@
         "Shader compiles cleanly with no WebGL errors"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-054"
       ],
@@ -1370,12 +1373,14 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
+        "US-017",
         "US-040"
       ],
       "split_from": "US-055",
-      "notes": "Direct adaptation of nw_wrld's LowEarthPoint technique. The key: curves between point PAIRS using quadratic Bezier with a midpoint control pushed outward (midZScale). At low individual opacity but high pair count, the overlapping curves create a glowing web/mesh effect. This replaces the straight-line proximity approach of US-055 with something more organic."
+      "notes": "Direct adaptation of nw_wrld's LowEarthPoint technique. The key: curves between point PAIRS using quadratic Bezier with a midpoint control pushed outward (midZScale). At low individual opacity but high pair count, the overlapping curves create a glowing web/mesh effect. This replaces the straight-line proximity approach of US-055 with something more organic.",
+      "claimed_by": "worker-2"
     },
     {
       "id": "US-068",
