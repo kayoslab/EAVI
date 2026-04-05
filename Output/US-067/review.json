@@ -1,0 +1,149 @@
+{
+  "ticket": "US-067",
+  "planVersion": 1,
+  "status": "approved_with_changes",
+  "overallAssessment": "Solid plan that correctly identifies the shader-uniform approach for bass modulation and the replacement strategy. Needs adjustments for reusing existing infrastructure (findConnections, quality fields, electric arc pattern) rather than creating parallel systems.",
+  "stepReviews": [
+    {
+      "step": 1,
+      "status": "adjust",
+      "comment": "Extracting a generic Overlay interface is clean but lightweight enough to inline. The ConstellationLines interface (init, draw, cleanup, setOpacity, activeVertexCount) is already the right shape. Instead of a new file, just export the interface from a shared location or use a type alias. Acceptable either way — just don't over-engineer it."
+    },
+    {
+      "step": 2,
+      "status": "ok",
+      "comment": "No-op at runtime, just type alignment. Fine."
+    },
+    {
+      "step": 3,
+      "status": "ok",
+      "comment": "Correct — OverlayAttachment at modeManager.ts:24-27 currently hard-types overlay as ConstellationLines. Must be generalized."
+    },
+    {
+      "step": 4,
+      "status": "adjust",
+      "comment": "The existing subdivideEdges.ts already tessellates edges into segments with aEdgeParam, aEdgeTangent, and aRandom — very similar output shape. The Bezier generator should follow the same SubdivisionResult return pattern for consistency. Also: the plan says 'segments * 2 for LineSegments' but LineSegments uses pairs — for N segments you need N*2 vertices (each segment is an independent pair). Correct, but be explicit that this means 5 segments = 10 vertices per connection, not 6 vertices. The perpendicular vector computation should use the same tangent-based approach as electricArcConstellation.vert.glsl (cross with up vector, fallback to cross with right vector if degenerate)."
+    },
+    {
+      "step": 5,
+      "status": "adjust",
+      "comment": "Critical missing detail: findConnections is a private function inside constellationLines.ts (lines 49-88). The plan must extract it to a shared utility (e.g., src/visual/utils/findConnections.ts) or duplicate it. Extraction is strongly preferred since both systems need the same logic. Also: the plan mentions 'BezierWebConfig' but should reuse the existing quality profile fields rather than a separate config object — see step 7 notes."
+    },
+    {
+      "step": 6,
+      "status": "adjust",
+      "comment": "The existing electricArcConstellation.vert.glsl (110 lines) already implements perpendicular displacement modulated by bass energy using aEdgeTangent cross products and sin(aEdgeParam * PI) weighting. The Bezier vertex shader is conceptually identical but with a pre-computed arc offset instead of noise-based displacement. Strongly consider extending or parameterizing the electric arc shader rather than writing a new one from scratch. At minimum, reuse the same deformation pipeline (radial scale, bass expansion, twist, field spread, breathing) from constellation.vert.glsl — don't rewrite it."
+    },
+    {
+      "step": 7,
+      "status": "reject",
+      "comment": "Adding enableBezierWeb + maxBezierConnections + bezierSegments creates parallel fields alongside existing enableConstellationLines + maxConstellationSegments. Since the ticket explicitly replaces constellation lines with Bezier web, reuse the existing fields: enableConstellationLines stays as-is (controls whether any connection overlay is active), maxConstellationSegments becomes the connection budget, and add only bezierSegments (or repurpose arcSubdivisions which already controls tessellation granularity: low=0, medium=5, high=8). This avoids quality profile bloat and dead fields."
+    },
+    {
+      "step": 8,
+      "status": "ok",
+      "comment": "Replacement strategy is correct per ticket notes. The wiring at main.ts:176-190 is straightforward to swap. Keep the createConstellationLines import available but unused — don't delete it, as other tickets may reference it."
+    },
+    {
+      "step": 9,
+      "status": "ok",
+      "comment": "Test placement under tests/ is correct. Follow the pattern in tests/visual/systems/constellationLines.test.ts (30 test cases). The threeMocks helper at tests/helpers/threeMocks.ts should be reused."
+    },
+    {
+      "step": 10,
+      "status": "ok",
+      "comment": "Standard verification step. Matches Definition of Done and Shader Integrity Rules from CLAUDE.md."
+    }
+  ],
+  "missingSteps": [
+    {
+      "title": "Extract findConnections to shared utility",
+      "where": "Before step 5",
+      "reason": "findConnections (constellationLines.ts:49-88) is private but needed by both constellation and bezier systems. Extract to src/visual/utils/findConnections.ts with the Connection interface. Update constellationLines.ts to import from the shared location."
+    }
+  ],
+  "keyDecisionReviews": [
+    {
+      "decision": "Bass modulation via shader uniform rather than CPU geometry rebuild",
+      "verdict": "approved",
+      "comment": "Correct approach. Matches the existing electric arc pattern which already does this with aEdgeTangent + uBassEnergy."
+    },
+    {
+      "decision": "Extract generic Overlay interface",
+      "verdict": "approved",
+      "comment": "Lightweight and clean. Keep it minimal — just the 5 methods already on ConstellationLines."
+    },
+    {
+      "decision": "Replace constellation overlay with Bezier web",
+      "verdict": "approved",
+      "comment": "Correct per ticket notes. Reuse quality fields rather than adding new ones."
+    },
+    {
+      "decision": "Reuse constellation fragment shader",
+      "verdict": "approved",
+      "comment": "Fragment shader handles palette/opacity/fog/chromatic dispersion identically for both line types."
+    },
+    {
+      "decision": "Tests placed under tests/ at repo root",
+      "verdict": "approved",
+      "comment": "Matches existing convention (70+ test files in tests/)."
+    }
+  ],
+  "riskAdditions": [
+    "findConnections extraction could break existing constellationLines tests if import paths change — run existing tests after extraction.",
+    "Reusing arcSubdivisions for bezierSegments changes its semantic meaning — verify no other system reads this field with the old interpretation."
+  ],
+  "approved": true,
+  "concerns": [
+    {
+      "step": 1,
+      "status": "adjust",
+      "comment": "Extracting a generic Overlay interface is clean but lightweight enough to inline. The ConstellationLines interface (init, draw, cleanup, setOpacity, activeVertexCount) is already the right shape. Instead of a new file, just export the interface from a shared location or use a type alias. Acceptable either way — just don't over-engineer it."
+    },
+    {
+      "step": 2,
+      "status": "ok",
+      "comment": "No-op at runtime, just type alignment. Fine."
+    },
+    {
+      "step": 3,
+      "status": "ok",
+      "comment": "Correct — OverlayAttachment at modeManager.ts:24-27 currently hard-types overlay as ConstellationLines. Must be generalized."
+    },
+    {
+      "step": 4,
+      "status": "adjust",
+      "comment": "The existing subdivideEdges.ts already tessellates edges into segments with aEdgeParam, aEdgeTangent, and aRandom — very similar output shape. The Bezier generator should follow the same SubdivisionResult return pattern for consistency. Also: the plan says 'segments * 2 for LineSegments' but LineSegments uses pairs — for N segments you need N*2 vertices (each segment is an independent pair). Correct, but be explicit that this means 5 segments = 10 vertices per connection, not 6 vertices. The perpendicular vector computation should use the same tangent-based approach as electricArcConstellation.vert.glsl (cross with up vector, fallback to cross with right vector if degenerate)."
+    },
+    {
+      "step": 5,
+      "status": "adjust",
+      "comment": "Critical missing detail: findConnections is a private function inside constellationLines.ts (lines 49-88). The plan must extract it to a shared utility (e.g., src/visual/utils/findConnections.ts) or duplicate it. Extraction is strongly preferred since both systems need the same logic. Also: the plan mentions 'BezierWebConfig' but should reuse the existing quality profile fields rather than a separate config object — see step 7 notes."
+    },
+    {
+      "step": 6,
+      "status": "adjust",
+      "comment": "The existing electricArcConstellation.vert.glsl (110 lines) already implements perpendicular displacement modulated by bass energy using aEdgeTangent cross products and sin(aEdgeParam * PI) weighting. The Bezier vertex shader is conceptually identical but with a pre-computed arc offset instead of noise-based displacement. Strongly consider extending or parameterizing the electric arc shader rather than writing a new one from scratch. At minimum, reuse the same deformation pipeline (radial scale, bass expansion, twist, field spread, breathing) from constellation.vert.glsl — don't rewrite it."
+    },
+    {
+      "step": 7,
+      "status": "reject",
+      "comment": "Adding enableBezierWeb + maxBezierConnections + bezierSegments creates parallel fields alongside existing enableConstellationLines + maxConstellationSegments. Since the ticket explicitly replaces constellation lines with Bezier web, reuse the existing fields: enableConstellationLines stays as-is (controls whether any connection overlay is active), maxConstellationSegments becomes the connection budget, and add only bezierSegments (or repurpose arcSubdivisions which already controls tessellation granularity: low=0, medium=5, high=8). This avoids quality profile bloat and dead fields."
+    },
+    {
+      "step": 8,
+      "status": "ok",
+      "comment": "Replacement strategy is correct per ticket notes. The wiring at main.ts:176-190 is straightforward to swap. Keep the createConstellationLines import available but unused — don't delete it, as other tickets may reference it."
+    },
+    {
+      "step": 9,
+      "status": "ok",
+      "comment": "Test placement under tests/ is correct. Follow the pattern in tests/visual/systems/constellationLines.test.ts (30 test cases). The threeMocks helper at tests/helpers/threeMocks.ts should be reused."
+    },
+    {
+      "step": 10,
+      "status": "ok",
+      "comment": "Standard verification step. Matches Definition of Done and Shader Integrity Rules from CLAUDE.md."
+    }
+  ]
+}
