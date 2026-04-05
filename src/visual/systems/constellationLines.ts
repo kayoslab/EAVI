@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Scene } from 'three';
 import type { VisualParams } from '../mappings';
 import type { FrameState } from '../types';
+import type { Overlay } from '../overlay';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import constellationVert from '../shaders/constellation.vert.glsl?raw';
@@ -27,14 +28,7 @@ export interface ConstellationConfig {
   arcSubdivisions?: number;
 }
 
-export interface ConstellationLines {
-  init(scene: Scene, positions: Float32Array, params: VisualParams): void;
-  draw(scene: Scene, frame: FrameState): void;
-  cleanup(): void;
-  setOpacity(opacity: number): void;
-  /** Number of active vertices in line buffer (exposed for testing) */
-  readonly activeVertexCount: number;
-}
+export interface ConstellationLines extends Overlay {}
 
 interface Connection {
   i: number;

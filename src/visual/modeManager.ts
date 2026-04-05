@@ -2,7 +2,7 @@ import type { Scene } from 'three';
 import { createPRNG } from './prng';
 import type { VisualParams } from './mappings';
 import type { FrameState, GeometrySystem } from './types';
-import type { ConstellationLines } from './systems/constellationLines';
+import type { Overlay } from './overlay';
 import type { CompoundRotationEntry } from './compoundModes';
 
 export interface ModeEntry {
@@ -22,7 +22,7 @@ export type RotationEntry = SingleRotationEntry | CompoundRotationEntry;
 export type { CompoundRotationEntry };
 
 export interface OverlayAttachment {
-  overlay: ConstellationLines;
+  overlay: Overlay;
   getPositions: (system: GeometrySystem) => Float32Array | null;
 }
 
