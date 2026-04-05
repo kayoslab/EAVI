@@ -4,6 +4,7 @@
 uniform float uOpacity;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uDispersion;
 
 varying vec3 vColor;
 varying float vDepth;
@@ -19,11 +20,13 @@ void main() {
   // Soft edge falloff for antialiased points
   float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
 
+  // Chromatic dispersion: per-channel gl_PointCoord offset
+  vec3 color = chromaticPoint(vColor, gl_PointCoord, uDispersion);
+
   // Atmospheric depth fog
   float fogFactor = smoothstep(uFogNear, uFogFar, vDepth);
 
   // Depth-based color desaturation (cool shift)
-  vec3 color = vColor;
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
   vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);
   color = mix(color, fogTint, fogFactor * 0.5);

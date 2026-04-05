@@ -6,8 +6,9 @@ import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
 import { PARTICLEFIELD_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import particleWarpVert from '../shaders/particleWarp.vert.glsl?raw';
-import fragmentShader from '../shaders/particleWarp.frag.glsl?raw';
+import particleWarpFrag from '../shaders/particleWarp.frag.glsl?raw';
 import { computeAdaptiveCount } from './pointCloud';
 
 // Prepend noise library; leading comment ensures curl3( call signature is
@@ -15,6 +16,7 @@ import { computeAdaptiveCount } from './pointCloud';
 const vertexShader =
   '// displacement: curl3(pos * scale + vec3(t * speed), octaves) * uBassEnergy\n' +
   noise3dGlsl + '\n' + particleWarpVert;
+const fragmentShader = chromaticDispersionGlsl + '\n' + particleWarpFrag;
 
 const DEFAULT_MAX_PARTICLES = 600;
 
@@ -138,6 +140,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
         uHasSizeAttr: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uDispersion: { value: 0.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
@@ -182,6 +185,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
       u.uBreathScale.value = breathScale;

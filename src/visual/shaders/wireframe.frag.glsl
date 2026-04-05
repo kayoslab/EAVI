@@ -8,6 +8,7 @@ uniform float uPaletteHue;
 uniform float uPaletteSaturation;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uDispersion;
 
 varying float vFogFactor;
 
@@ -35,6 +36,9 @@ void main() {
   float lightness = 0.55 + uTrebleEnergy * 0.15;
 
   vec3 color = hsl2rgb(hue, uPaletteSaturation * 0.7, lightness);
+
+  // Chromatic dispersion: multiplicative RGB channel shift
+  color = chromaticLine(color, uDispersion);
 
   // Bass modulates overall line visibility (wireframe is more visible than constellation)
   float bassAlpha = 0.5 + uBassEnergy * 0.5;

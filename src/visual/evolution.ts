@@ -145,6 +145,7 @@ export function evolveParams(
     trebleEnergy: base.trebleEnergy,
     curveSoftness: base.curveSoftness,
     structureComplexity: base.structureComplexity,
+    dispersion: base.dispersion,
     // Structural evolution
     noiseFrequency: clamp(base.noiseFrequency + noiseDrift, 0.3, 2.5),
     radialScale: clamp(base.radialScale + radialDrift, 0.5, 1.6),

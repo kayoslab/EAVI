@@ -4,6 +4,7 @@ import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import wireframeVert from '../shaders/wireframe.vert.glsl?raw';
 import wireframeFrag from '../shaders/wireframe.frag.glsl?raw';
 import electricArcVert from '../shaders/electricArc.vert.glsl?raw';
@@ -16,9 +17,9 @@ import { generateDualEdges } from '../generators/dualPolyhedra';
 import { subdivideEdges } from '../generators/subdivideEdges';
 
 const standardVertexShader = noise3dGlsl + '\n' + wireframeVert;
-const standardFragmentShader = wireframeFrag;
+const standardFragmentShader = chromaticDispersionGlsl + '\n' + wireframeFrag;
 const arcVertexShader = noise3dGlsl + '\n' + electricArcVert;
-const arcFragmentShader = electricArcFrag;
+const arcFragmentShader = chromaticDispersionGlsl + '\n' + electricArcFrag;
 
 const DEFAULT_MAX_POLYHEDRA = 6;
 
@@ -72,6 +73,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
       uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
       uFogNear: { value: 3.0 },
       uFogFar: { value: 8.0 },
+      uDispersion: { value: 0.0 },
     };
 
     if (enableElectricArc) {
@@ -204,6 +206,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
         u.uTwistStrength.value = twistStrength;
         u.uFieldSpread.value = fieldSpread;
         u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+        u.uDispersion.value = frame.params.dispersion ?? 0.0;
         u.uBreathScale.value = breathScale;
 
         if (enableElectricArc && u.uArcIntensity) {

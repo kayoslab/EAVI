@@ -2,6 +2,7 @@
 // US-056: Lit 3D primitives with depth fog
 
 uniform float uOpacity;
+uniform float uDispersion;
 
 varying vec3 vColor;
 varying float vFogFactor;
@@ -15,6 +16,9 @@ void main() {
   float lighting = ambient + diffuse * 0.65;
 
   vec3 color = vColor * lighting;
+
+  // Chromatic dispersion: multiplicative RGB channel shift
+  color = chromaticLine(color, uDispersion);
 
   // Depth-based color desaturation
   float lum = dot(color, vec3(0.299, 0.587, 0.114));

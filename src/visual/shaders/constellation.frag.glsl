@@ -9,6 +9,7 @@ uniform float uPaletteSaturation;
 uniform float uProximityThreshold;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uDispersion;
 
 varying float vAlpha;
 varying float vDepth;
@@ -37,6 +38,9 @@ void main() {
   float lightness = 0.55 + uTrebleEnergy * 0.15;
 
   vec3 color = hsl2rgb(hue, uPaletteSaturation * 0.7, lightness);
+
+  // Chromatic dispersion: multiplicative RGB channel shift
+  color = chromaticLine(color, uDispersion);
 
   // Bass modulates overall line visibility (high bass = more visible web)
   float bassAlpha = 0.3 + uBassEnergy * 0.7;

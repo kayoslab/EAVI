@@ -6,6 +6,7 @@ import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
 import { POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
 import defaultFragShader from '../shaders/pointWarp.frag.glsl?raw';
 import voronoiFragShader from '../shaders/voronoiCell.frag.glsl?raw';
@@ -51,7 +52,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
   const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
   const enableSlowModulation = config?.enableSlowModulation ?? true;
   const useVoronoiShader = config?.useVoronoiShader ?? false;
-  const fragmentShader = useVoronoiShader ? voronoiFragShader : defaultFragShader;
+  const fragmentShader = chromaticDispersionGlsl + '\n' + (useVoronoiShader ? voronoiFragShader : defaultFragShader);
 
   let effectiveCount = 0;
   let pointsMesh: THREE.Points | null = null;
@@ -178,6 +179,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uHasSizeAttr: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uDispersion: { value: 0.0 },
       };
 
       if (useVoronoiShader) {
@@ -227,6 +229,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
       if (useVoronoiShader && u.uVoronoiGridSize) {
         u.uVoronoiGridSize.value = 3.0 + structureComplexity * 3.0;

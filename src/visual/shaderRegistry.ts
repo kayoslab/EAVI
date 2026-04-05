@@ -31,6 +31,7 @@ export const COMMON_UNIFORMS: UniformSpec[] = [
   { name: 'uHasSizeAttr', type: 'float', defaultValue: 0.0 },
   { name: 'uFogNear', type: 'float', defaultValue: 3.0 },
   { name: 'uFogFar', type: 'float', defaultValue: 8.0 },
+  { name: 'uDispersion', type: 'float', defaultValue: 0.0 },
 ];
 
 export const POINTCLOUD_ATTRIBUTES: AttributeSpec[] = [

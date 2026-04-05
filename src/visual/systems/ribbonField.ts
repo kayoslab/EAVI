@@ -6,11 +6,13 @@ import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
 import { RIBBONFIELD_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import ribbonWarpVert from '../shaders/ribbonWarp.vert.glsl?raw';
-import fragmentShader from '../shaders/ribbonWarp.frag.glsl?raw';
+import ribbonWarpFrag from '../shaders/ribbonWarp.frag.glsl?raw';
 import { computeAdaptiveCount } from './pointCloud';
 
 const vertexShader = noise3dGlsl + '\n' + ribbonWarpVert;
+const fragmentShader = chromaticDispersionGlsl + '\n' + ribbonWarpFrag;
 
 const DEFAULT_MAX_POINTS = 1000;
 
@@ -190,6 +192,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
         uHasSizeAttr: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uDispersion: { value: 0.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
@@ -235,6 +238,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
       // Time-based breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;

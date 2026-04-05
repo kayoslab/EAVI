@@ -54,6 +54,7 @@ const GLSL_BUILTINS = new Set([
 ]);
 
 const NOISE3D_EXPORTS = new Set(['snoise', 'fbm3', 'curl3', 'mod289', 'permute', 'taylorInvSqrt']);
+const CHROMATIC_EXPORTS = new Set(['chromaticPoint', 'chromaticLine']);
 
 function extractBodyIdentifiers(source: string): Set<string> {
   let clean = source.replace(/\/\/.*$/gm, '');
@@ -340,6 +341,7 @@ describe('T-046-18: No undeclared identifiers after depth cue additions', () => 
       const source = s.fullSrc;
       const allowed = new Set(GLSL_BUILTINS);
       for (const n of NOISE3D_EXPORTS) allowed.add(n);
+      for (const n of CHROMATIC_EXPORTS) allowed.add(n);
       for (const u of parseGlslUniforms(source)) allowed.add(u.name);
       for (const v of parseGlslVaryings(source)) allowed.add(v.name);
 
