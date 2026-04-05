@@ -4,6 +4,18 @@
  * so the vertex shader can apply lateral noise-based displacement.
  */
 
+/**
+ * Deterministic position-based hash producing 3 random values in [0, 1).
+ * Uses sin/cos with prime coefficients — same vertex always gets the same randoms.
+ */
+export function hashRandomFromPosition(x: number, y: number, z: number): [number, number, number] {
+  return [
+    Math.abs(Math.sin(x * 73.1 + y * 91.3 + z * 117.7)) % 1,
+    Math.abs(Math.cos(x * 43.7 + y * 67.1 + z * 31.9)) % 1,
+    Math.abs(Math.sin(x * 17.3 + y * 53.9 + z * 89.1)) % 1,
+  ];
+}
+
 export interface SubdivisionResult {
   positions: Float32Array;
   aEdgeParam: Float32Array;
@@ -108,12 +120,14 @@ export function subdivideEdges(
       outTangent[vi1 * 3 + 2] = tz;
 
       // Per-vertex random seeded from position (deterministic)
-      outRandom[vi0 * 3] = Math.abs(Math.sin(p0x * 73.1 + p0y * 91.3 + p0z * 117.7)) % 1;
-      outRandom[vi0 * 3 + 1] = Math.abs(Math.cos(p0x * 43.7 + p0y * 67.1 + p0z * 31.9)) % 1;
-      outRandom[vi0 * 3 + 2] = Math.abs(Math.sin(p0x * 17.3 + p0y * 53.9 + p0z * 89.1)) % 1;
-      outRandom[vi1 * 3] = Math.abs(Math.sin(p1x * 73.1 + p1y * 91.3 + p1z * 117.7)) % 1;
-      outRandom[vi1 * 3 + 1] = Math.abs(Math.cos(p1x * 43.7 + p1y * 67.1 + p1z * 31.9)) % 1;
-      outRandom[vi1 * 3 + 2] = Math.abs(Math.sin(p1x * 17.3 + p1y * 53.9 + p1z * 89.1)) % 1;
+      const [r0a, r0b, r0c] = hashRandomFromPosition(p0x, p0y, p0z);
+      outRandom[vi0 * 3] = r0a;
+      outRandom[vi0 * 3 + 1] = r0b;
+      outRandom[vi0 * 3 + 2] = r0c;
+      const [r1a, r1b, r1c] = hashRandomFromPosition(p1x, p1y, p1z);
+      outRandom[vi1 * 3] = r1a;
+      outRandom[vi1 * 3 + 1] = r1b;
+      outRandom[vi1 * 3 + 2] = r1c;
     }
   }
 

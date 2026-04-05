@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createPRNG } from '../prng';
 import type { QualityTier } from '../quality';
+import { hashRandomFromPosition } from './subdivideEdges';
 
 export type PolyhedronShape = 'icosahedron' | 'octahedron' | 'dodecahedron' | 'tetrahedron' | 'cube';
 
@@ -45,7 +46,6 @@ export function generatePolyhedronEdges(opts: {
   seed: string;
 }): PolyhedronEdgeData {
   const radius = opts.radius ?? 0.3;
-  const rng = createPRNG(opts.seed + ':edges');
 
   const base = createBaseGeometry(opts.shape, radius);
   // Use threshold=1 to filter out internal triangulation edges
@@ -61,8 +61,13 @@ export function generatePolyhedronEdges(opts: {
   }
 
   const randoms = new Float32Array(vertCount * 3);
-  for (let i = 0; i < vertCount * 3; i++) {
-    randoms[i] = rng();
+  for (let i = 0; i < vertCount; i++) {
+    const [r0, r1, r2] = hashRandomFromPosition(
+      positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2],
+    );
+    randoms[i * 3] = r0;
+    randoms[i * 3 + 1] = r1;
+    randoms[i * 3 + 2] = r2;
   }
 
   base.dispose();
