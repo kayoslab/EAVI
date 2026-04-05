@@ -3,6 +3,7 @@ import type { Scene } from 'three';
 import type { VisualParams } from '../mappings';
 import type { FrameState } from '../types';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import constellationVert from '../shaders/constellation.vert.glsl?raw';
 import constellationFrag from '../shaders/constellation.frag.glsl?raw';
 import electricArcConstellationVert from '../shaders/electricArcConstellation.vert.glsl?raw';
@@ -10,9 +11,9 @@ import electricArcConstellationFrag from '../shaders/electricArcConstellation.fr
 import { subdivideEdges } from '../generators/subdivideEdges';
 
 const standardVertexShader = noise3dGlsl + '\n' + constellationVert;
-const standardFragmentShader = constellationFrag;
+const standardFragmentShader = chromaticDispersionGlsl + '\n' + constellationFrag;
 const arcVertexShader = noise3dGlsl + '\n' + electricArcConstellationVert;
-const arcFragmentShader = electricArcConstellationFrag;
+const arcFragmentShader = chromaticDispersionGlsl + '\n' + electricArcConstellationFrag;
 
 const DEFAULT_PROXIMITY_THRESHOLD = 0.8;
 const DEFAULT_MAX_CONNECTIONS = 3000;
@@ -234,6 +235,7 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uDispersion: { value: 0.0 },
       };
 
       if (enableElectricArc) {
@@ -280,6 +282,7 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
       u.uBreathScale.value = breathScale;

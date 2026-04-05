@@ -339,7 +339,7 @@ describe('US-024: Add reduced-motion fallback', () => {
 
       const reducedEntries = Object.entries(reduced) as [keyof VisualParams, number][];
       for (const [key, value] of reducedEntries) {
-        if (key === 'motionAmplitude') {
+        if (key === 'motionAmplitude' || key === 'dispersion') {
           expect(value).not.toBe(normal[key]);
         } else {
           expect(value).toBe(normal[key]);

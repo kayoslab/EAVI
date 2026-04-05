@@ -8,6 +8,7 @@ uniform float uBassEnergy;
 uniform float uTrebleEnergy;
 uniform float uVoronoiGridSize;
 uniform float uTime;
+uniform float uDispersion;
 
 varying vec3 vColor;
 varying float vDepth;
@@ -65,6 +66,9 @@ void main() {
   // Edge color: darkened vColor with slight cool shift (no hsl round-trip)
   vec3 edgeColor = vec3(vColor.r * 0.25, vColor.g * 0.3, vColor.b * 0.45);
   vec3 cellColor = mix(edgeColor, vColor, edgeFactor);
+
+  // Chromatic dispersion applied to final cellColor (post-Voronoi)
+  cellColor = chromaticPoint(cellColor, gl_PointCoord, uDispersion);
 
   // Soft circular edge falloff
   float alpha = 1.0 - smoothstep(0.3, 0.5, dist);

@@ -84,6 +84,9 @@ const GLSL_BUILTINS = new Set([
 // noise3d.glsl exported functions
 const NOISE3D_EXPORTS = new Set(['snoise', 'fbm3', 'curl3', 'mod289', 'permute', 'taylorInvSqrt']);
 
+// chromaticDispersion.glsl exported functions
+const CHROMATIC_EXPORTS = new Set(['chromaticPoint', 'chromaticLine']);
+
 /**
  * Extract all identifiers used in a GLSL shader body (after stripping comments).
  * Filters out swizzle components that follow a dot accessor.
@@ -239,6 +242,7 @@ describe('T-049-04: No undeclared identifiers remain in vertex or fragment shade
         // Build allowlist
         const allowed = new Set(GLSL_BUILTINS);
         for (const n of NOISE3D_EXPORTS) allowed.add(n);
+        for (const n of CHROMATIC_EXPORTS) allowed.add(n);
 
         // Declared symbols from GLSL
         for (const a of parseGlslAttributes(source)) allowed.add(a.name);
@@ -320,7 +324,7 @@ describe('T-049-07: Fragment shader uniforms are subset of vertex shader uniform
       const fragUniforms = parseGlslUniforms(sys.fragSource);
 
       // Known fragment-only uniforms
-      const fragmentOnly = new Set(['uOpacity', 'uFogFar']);
+      const fragmentOnly = new Set(['uOpacity', 'uFogFar', 'uDispersion']);
 
       for (const u of fragUniforms) {
         const inVert = vertUniforms.has(u.name);

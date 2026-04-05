@@ -4,13 +4,15 @@ import { createPRNG } from '../prng';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
+import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import crystalWarpVert from '../shaders/crystalWarp.vert.glsl?raw';
-import fragmentShader from '../shaders/crystalWarp.frag.glsl?raw';
+import crystalWarpFrag from '../shaders/crystalWarp.frag.glsl?raw';
 import { generateVolumetricPoints } from '../generators/volumetricPoints';
 import type { VolumetricShape } from '../generators/volumetricPoints';
 import { computeAdaptiveCount } from './pointCloud';
 
 const vertexShader = noise3dGlsl + '\n' + crystalWarpVert;
+const fragmentShader = chromaticDispersionGlsl + '\n' + crystalWarpFrag;
 
 const DEFAULT_MAX_POINTS = 1200;
 const CRYSTAL_SHAPES: VolumetricShape[] = ['crystalCluster', 'geode'];
@@ -122,6 +124,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
         uHasSizeAttr: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uDispersion: { value: 0.0 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
@@ -166,6 +169,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
       // Breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;

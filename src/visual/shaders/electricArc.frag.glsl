@@ -8,6 +8,7 @@ uniform float uPaletteHue;
 uniform float uPaletteSaturation;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uDispersion;
 
 varying float vFogFactor;
 varying float vArcDisplacement;
@@ -43,6 +44,9 @@ void main() {
   float finalHue = fract(hue + hueShift);
 
   vec3 color = hsl2rgb(finalHue, uPaletteSaturation * 0.7, lightness);
+
+  // Chromatic dispersion: multiplicative RGB channel shift
+  color = chromaticLine(color, uDispersion);
 
   // Bass modulates overall line visibility
   float bassAlpha = 0.4 + uBassEnergy * 0.6;

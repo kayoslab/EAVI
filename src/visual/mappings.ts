@@ -45,6 +45,8 @@ export interface VisualParams {
   twistStrength: number;
   /** Overall point spread factor, evolved over time */
   fieldSpread: number;
+  /** Chromatic dispersion intensity 0-1, driven by combined bass+treble energy */
+  dispersion: number;
 }
 
 /** Bundled inputs for the mapping function — keeps it pure and testable. */
@@ -203,6 +205,24 @@ function trebleToShimmer(trebleAvg: number): number {
 }
 
 /**
+ * Combined audio energy -> Chromatic dispersion intensity.
+ *
+ * Near-zero when both bass and treble are low, moderate when one is active,
+ * pronounced only when both are high simultaneously. The pow(1.5) curve
+ * keeps it subtle at low-mid energy. Scaled by motionAmplitude for
+ * prefers-reduced-motion support.
+ */
+function computeDispersion(
+  bassNorm: number,
+  trebleNorm: number,
+  motionAmplitude: number,
+): number {
+  const combined = Math.max(bassNorm, trebleNorm) * 0.5 + bassNorm * trebleNorm * 0.5;
+  const raw = Math.min(Math.pow(combined, 1.5), 1.0);
+  return raw * motionAmplitude;
+}
+
+/**
  * Touch capability -> Curve softness.
  *
  * Touch-capable devices get rounder, finger-friendly shapes;
@@ -281,6 +301,12 @@ export function mapSignalsToVisuals(inputs: MappingInputs): VisualParams {
     ),
     // Structural evolution base values — seeded per session
     ...structuralBase(sessionSeed),
+    // Chromatic dispersion from combined audio energy
+    dispersion: computeDispersion(
+      bassToMacro(bass),
+      trebleToShimmer(treble),
+      motionPref(signals.prefersReducedMotion),
+    ),
   };
 }
 
