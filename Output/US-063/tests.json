@@ -1,0 +1,347 @@
+{
+  "tests": [
+    {
+      "id": "T-063-01",
+      "name": "init creates THREE.Points mesh in scene",
+      "description": "createFlowRibbonField().init() adds exactly one THREE.Points child to the scene, confirming the system uses point-based rendering",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-01: init creates THREE.Points mesh in scene', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'mesh-seed', defaultParams);\n  const pointsMeshes = scene.children.filter((c) => c instanceof THREE.Points);\n  expect(pointsMeshes.length).toBe(1);\n  const lineMeshes = scene.children.filter((c) => c instanceof THREE.Line);\n  expect(lineMeshes.length).toBe(0);\n});"
+    },
+    {
+      "id": "T-063-02",
+      "name": "mesh uses ShaderMaterial with vertex and fragment shaders",
+      "description": "The Points mesh must use a ShaderMaterial with non-empty vertexShader and fragmentShader strings, confirming custom GLSL is wired up",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Shader compiles cleanly with no WebGL errors"],
+      "code": "it('T-063-02: mesh uses ShaderMaterial with vertex and fragment shaders', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'shader-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  expect(mat).toBeInstanceOf(THREE.ShaderMaterial);\n  expect(mat.vertexShader.length).toBeGreaterThan(0);\n  expect(mat.fragmentShader.length).toBeGreaterThan(0);\n});"
+    },
+    {
+      "id": "T-063-03",
+      "name": "vertex shader contains curl3 call for flow-field displacement",
+      "description": "The vertex shader source must contain a curl3 function call, confirming the flow-field displacement uses curl noise as specified in AC",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["A new vertex shader displaces points along curl noise flow-field lines"],
+      "code": "it('T-063-03: vertex shader contains curl3 call for flow-field displacement', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'curl-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  expect(mat.vertexShader).toContain('curl3');\n});"
+    },
+    {
+      "id": "T-063-04",
+      "name": "vertex shader references uBassEnergy for flow speed modulation",
+      "description": "The vertex shader must reference uBassEnergy in a context that modulates the curl velocity (flow speed), confirming bass drives macro flow",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Flow speed is modulated by bass energy"],
+      "code": "it('T-063-04: vertex shader references uBassEnergy for flow speed modulation', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'bass-shader-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  expect(mat.vertexShader).toContain('uBassEnergy');\n});"
+    },
+    {
+      "id": "T-063-05",
+      "name": "vertex shader references uTrebleEnergy for turbulence modulation",
+      "description": "The vertex shader must reference uTrebleEnergy in a context that modulates turbulence/detail, confirming treble drives fine flow variation",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Flow turbulence is modulated by treble energy"],
+      "code": "it('T-063-05: vertex shader references uTrebleEnergy for turbulence modulation', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'treble-shader-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  expect(mat.vertexShader).toContain('uTrebleEnergy');\n});"
+    },
+    {
+      "id": "T-063-06",
+      "name": "fragment shader uses gl_PointCoord for elongated sprite rendering",
+      "description": "The fragment shader must reference gl_PointCoord and apply an elongation/stretch to create the tendril-like streak appearance",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Points are rendered as elongated sprites aligned to their velocity direction"],
+      "code": "it('T-063-06: fragment shader uses gl_PointCoord for elongated sprite rendering', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'frag-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  expect(mat.fragmentShader).toContain('gl_PointCoord');\n});"
+    },
+    {
+      "id": "T-063-07",
+      "name": "vertex shader passes elongation varying to fragment shader",
+      "description": "The vertex shader must declare and write a vElongation varying derived from velocity magnitude, and the fragment shader must read it",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Points are rendered as elongated sprites aligned to their velocity direction"],
+      "code": "it('T-063-07: vertex shader passes elongation varying to fragment shader', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'elong-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  expect(mat.vertexShader).toContain('vElongation');\n  expect(mat.fragmentShader).toContain('vElongation');\n});"
+    },
+    {
+      "id": "T-063-08",
+      "name": "geometry has required attributes: position(3), color(3), aHueOffset(1), aRandom(3)",
+      "description": "FlowRibbonField uses the same attribute layout as RibbonField (position, color, aHueOffset, aRandom), confirming compatibility with existing systems",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-08: geometry has required attributes: position(3), color(3), aHueOffset(1), aRandom(3)', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'attr-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const geo = points.geometry as THREE.BufferGeometry;\n  expect(geo.getAttribute('position')).toBeDefined();\n  expect(geo.getAttribute('position').itemSize).toBe(3);\n  expect(geo.getAttribute('color')).toBeDefined();\n  expect(geo.getAttribute('color').itemSize).toBe(3);\n  expect(geo.getAttribute('aHueOffset')).toBeDefined();\n  expect(geo.getAttribute('aHueOffset').itemSize).toBe(1);\n  expect(geo.getAttribute('aRandom')).toBeDefined();\n  expect(geo.getAttribute('aRandom').itemSize).toBe(3);\n});"
+    },
+    {
+      "id": "T-063-09",
+      "name": "optional size attribute has itemSize 1 when present",
+      "description": "The optional size attribute should be present with itemSize 1, consistent with other point-based systems",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-09: optional size attribute has itemSize 1 when present', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'size-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const geo = points.geometry as THREE.BufferGeometry;\n  const sizeAttr = geo.getAttribute('size');\n  if (sizeAttr) {\n    expect(sizeAttr.itemSize).toBe(1);\n  }\n});"
+    },
+    {
+      "id": "T-063-10",
+      "name": "all buffer attributes contain only finite values after init",
+      "description": "All geometry buffer arrays must contain only finite numeric values (no NaN, no Infinity) to prevent rendering artifacts",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Shader compiles cleanly with no WebGL errors"],
+      "code": "it('T-063-10: all buffer attributes contain only finite values after init', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'finite-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const geo = points.geometry as THREE.BufferGeometry;\n  for (const name of ['position', 'color', 'aHueOffset', 'aRandom']) {\n    const arr = geo.getAttribute(name).array as Float32Array;\n    for (let i = 0; i < arr.length; i++) {\n      expect(Number.isFinite(arr[i])).toBe(true);\n    }\n  }\n});"
+    },
+    {
+      "id": "T-063-11",
+      "name": "point positions have non-zero Z-depth confirming 3D distribution",
+      "description": "The geometry must have volumetric 3D distribution — Z values must span a meaningful range, not be flat on a plane",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-11: point positions have non-zero Z-depth confirming 3D distribution', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'depth-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;\n  const count = posArr.length / 3;\n  let minZ = Infinity;\n  let maxZ = -Infinity;\n  for (let i = 0; i < count; i++) {\n    const z = posArr[i * 3 + 2];\n    if (z < minZ) minZ = z;\n    if (z > maxZ) maxZ = z;\n  }\n  expect(maxZ - minZ).toBeGreaterThan(1.0);\n});"
+    },
+    {
+      "id": "T-063-12",
+      "name": "same seed produces same initial point configuration",
+      "description": "Deterministic seeding: identical seeds must produce identical initial geometry, ensuring reproducibility",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-12: same seed produces same initial point configuration', () => {\n  const scene = new THREE.Scene();\n  const a = createFlowRibbonField();\n  a.init(scene, 'deterministic-seed', defaultParams);\n  const b = createFlowRibbonField();\n  b.init(scene, 'deterministic-seed', defaultParams);\n  expect(getPointPositions(a)).toEqual(getPointPositions(b));\n});"
+    },
+    {
+      "id": "T-063-13",
+      "name": "different seeds produce different configurations",
+      "description": "Different seeds must produce different geometry distributions, confirming the PRNG varies with seed input",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-13: different seeds produce different configurations', () => {\n  const scene = new THREE.Scene();\n  const a = createFlowRibbonField();\n  a.init(scene, 'seed-one', defaultParams);\n  const b = createFlowRibbonField();\n  b.init(scene, 'seed-two', defaultParams);\n  expect(getPointPositions(a)).not.toEqual(getPointPositions(b));\n});"
+    },
+    {
+      "id": "T-063-14",
+      "name": "draw does not throw with valid FrameState",
+      "description": "The draw method must execute without errors given a standard valid FrameState",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Shader compiles cleanly with no WebGL errors"],
+      "code": "it('T-063-14: draw does not throw with valid FrameState', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'draw-seed', defaultParams);\n  expect(() => flow.draw(scene, makeFrame())).not.toThrow();\n});"
+    },
+    {
+      "id": "T-063-15",
+      "name": "draw does not throw with edge-case params (zero bass, zero treble, no pointer)",
+      "description": "The system must handle zero-energy and missing pointer gracefully without throwing",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Shader compiles cleanly with no WebGL errors"],
+      "code": "it('T-063-15: draw does not throw with edge-case params (zero bass, zero treble, no pointer)', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  const params = { ...defaultParams, bassEnergy: 0, trebleEnergy: 0, pointerDisturbance: 0 };\n  flow.init(scene, 'edge-seed', params);\n  expect(() => flow.draw(scene, makeFrame({ params, pointerX: undefined, pointerY: undefined }))).not.toThrow();\n});"
+    },
+    {
+      "id": "T-063-16",
+      "name": "draw does not throw at boundary parameter values",
+      "description": "The system must handle extreme boundary combinations (all zeros, all ones) without throwing",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Shader compiles cleanly with no WebGL errors"],
+      "code": "it('T-063-16: draw does not throw at boundary parameter values', () => {\n  const scene = new THREE.Scene();\n  const combos: Partial<VisualParams>[] = [\n    { bassEnergy: 0, trebleEnergy: 0, density: 0, motionAmplitude: 0.2 },\n    { bassEnergy: 1, trebleEnergy: 1, density: 1, motionAmplitude: 1 },\n    { curveSoftness: 0, structureComplexity: 0 },\n    { curveSoftness: 1, structureComplexity: 1 },\n  ];\n  for (const combo of combos) {\n    const params = { ...defaultParams, ...combo };\n    const flow = createFlowRibbonField();\n    flow.init(scene, 'boundary-seed', params);\n    expect(() => flow.draw(scene, makeFrame({ params }))).not.toThrow();\n  }\n});"
+    },
+    {
+      "id": "T-063-17",
+      "name": "draw updates uBassEnergy uniform from frame params",
+      "description": "The draw method must propagate bassEnergy from FrameState params to the uBassEnergy shader uniform, confirming bass modulates flow speed at runtime",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Flow speed is modulated by bass energy"],
+      "code": "it('T-063-17: draw updates uBassEnergy uniform from frame params', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'bass-uniform-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  flow.draw(scene, makeFrame({ params: { ...defaultParams, bassEnergy: 0 } }));\n  expect(mat.uniforms.uBassEnergy.value).toBe(0);\n  flow.draw(scene, makeFrame({ params: { ...defaultParams, bassEnergy: 0.8 } }));\n  expect(mat.uniforms.uBassEnergy.value).toBe(0.8);\n});"
+    },
+    {
+      "id": "T-063-18",
+      "name": "draw updates uTrebleEnergy uniform from frame params",
+      "description": "The draw method must propagate trebleEnergy from FrameState params to the uTrebleEnergy shader uniform, confirming treble modulates turbulence at runtime",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Flow turbulence is modulated by treble energy"],
+      "code": "it('T-063-18: draw updates uTrebleEnergy uniform from frame params', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'treble-uniform-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  flow.draw(scene, makeFrame({ params: { ...defaultParams, trebleEnergy: 0 } }));\n  expect(mat.uniforms.uTrebleEnergy.value).toBe(0);\n  flow.draw(scene, makeFrame({ params: { ...defaultParams, trebleEnergy: 0.6 } }));\n  expect(mat.uniforms.uTrebleEnergy.value).toBe(0.6);\n});"
+    },
+    {
+      "id": "T-063-19",
+      "name": "bass and treble are mapped to distinct uniforms",
+      "description": "Setting bassEnergy=1 with trebleEnergy=0 and vice versa must independently update the correct uniforms, ensuring the two audio bands drive separate shader behaviors",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Flow speed is modulated by bass energy", "Flow turbulence is modulated by treble energy"],
+      "code": "it('T-063-19: bass and treble are mapped to distinct uniforms', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'distinct-seed', defaultParams);\n  const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n  flow.draw(scene, makeFrame({ params: { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 0 } }));\n  expect(mat.uniforms.uBassEnergy.value).toBe(1.0);\n  expect(mat.uniforms.uTrebleEnergy.value).toBe(0);\n  flow.draw(scene, makeFrame({ params: { ...defaultParams, bassEnergy: 0, trebleEnergy: 1.0 } }));\n  expect(mat.uniforms.uBassEnergy.value).toBe(0);\n  expect(mat.uniforms.uTrebleEnergy.value).toBe(1.0);\n});"
+    },
+    {
+      "id": "T-063-20",
+      "name": "draw updates uTime uniform over successive frames",
+      "description": "The uTime uniform must change between frames, confirming the shader receives temporal progression for animation",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Shader compiles cleanly with no WebGL errors"],
+      "code": "it('T-063-20: draw updates uTime uniform over successive frames', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'time-seed', defaultParams);\n  const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n  flow.draw(scene, makeFrame({ time: 100, elapsed: 100 }));\n  expect(mat.uniforms.uTime.value).toBe(100);\n  flow.draw(scene, makeFrame({ time: 500, elapsed: 500 }));\n  expect(mat.uniforms.uTime.value).toBe(500);\n});"
+    },
+    {
+      "id": "T-063-21",
+      "name": "material uses additive blending with transparency and depthWrite disabled",
+      "description": "The ShaderMaterial must use AdditiveBlending, transparent=true, depthWrite=false for the glowing tendril/aurora aesthetic",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Visual character is distinctly different from existing warp shaders"],
+      "code": "it('T-063-21: material uses additive blending with transparency and depthWrite disabled', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'blend-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const mat = points.material as THREE.ShaderMaterial;\n  expect(mat.blending).toBe(THREE.AdditiveBlending);\n  expect(mat.transparent).toBe(true);\n  expect(mat.depthWrite).toBe(false);\n});"
+    },
+    {
+      "id": "T-063-22",
+      "name": "vertex shader is distinct from existing warp shaders (uses flow advection, not radial expansion)",
+      "description": "The flowRibbon vertex shader must NOT contain the same displacement pattern as existing shaders. It should use curl3 advection rather than fbm3+direction radial displacement or sinusoidal ribbon sway",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Visual character is distinctly different from existing warp shaders"],
+      "code": "it('T-063-22: vertex shader is distinct from existing warp shaders (uses flow advection, not radial expansion)', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'distinct-shader-seed', defaultParams);\n  const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n  // Must use curl3 for flow-field advection\n  expect(mat.vertexShader).toContain('curl3');\n  // Must have vElongation for streak rendering (unique to flowRibbon)\n  expect(mat.vertexShader).toContain('vElongation');\n  // Should NOT have ribbonPhase (ribbonWarp pattern) or quantized noise (crystalWarp pattern)\n  expect(mat.vertexShader).not.toContain('ribbonPhase');\n  expect(mat.vertexShader).not.toContain('floor(rawNoise');\n});"
+    },
+    {
+      "id": "T-063-23",
+      "name": "init creates points based on density and maxPoints config",
+      "description": "Higher density must produce more points, and maxPoints config must cap the count, matching the adaptive counting pattern of other systems",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-23: init creates points based on density and maxPoints config', () => {\n  const scene = new THREE.Scene();\n  const low = createFlowRibbonField({ maxPoints: 500 });\n  low.init(scene, 'seed-a', { ...defaultParams, density: 0.3 });\n  const lowCount = getPointCount(low);\n  const high = createFlowRibbonField({ maxPoints: 500 });\n  high.init(scene, 'seed-a', { ...defaultParams, density: 1.0 });\n  const highCount = getPointCount(high);\n  expect(highCount).toBeGreaterThan(lowCount);\n  const capped = createFlowRibbonField({ maxPoints: 100 });\n  capped.init(scene, 'seed-a', { ...defaultParams, density: 1.0 });\n  expect(getPointCount(capped)).toBeLessThanOrEqual(100);\n});"
+    },
+    {
+      "id": "T-063-24",
+      "name": "cleanup removes mesh from scene and disposes geometry/material",
+      "description": "Calling cleanup() must remove the Points mesh from the scene and call dispose() on both geometry and material to prevent GPU memory leaks",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-24: cleanup removes mesh from scene and disposes geometry/material', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'cleanup-seed', defaultParams);\n  expect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(1);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const geoDisposeSpy = vi.spyOn(points.geometry, 'dispose');\n  const matDisposeSpy = vi.spyOn(points.material as THREE.Material, 'dispose');\n  flow.cleanup!();\n  expect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(0);\n  expect(geoDisposeSpy).toHaveBeenCalled();\n  expect(matDisposeSpy).toHaveBeenCalled();\n});"
+    },
+    {
+      "id": "T-063-25",
+      "name": "setOpacity updates uOpacity uniform",
+      "description": "The setOpacity method must update the uOpacity uniform for cross-fade transitions in ModeManager",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-25: setOpacity updates uOpacity uniform', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'opacity-seed', defaultParams);\n  const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n  flow.setOpacity!(0.5);\n  expect(mat.uniforms.uOpacity.value).toBe(0.5);\n  flow.setOpacity!(1.0);\n  expect(mat.uniforms.uOpacity.value).toBe(1.0);\n});"
+    },
+    {
+      "id": "T-063-26",
+      "name": "mesh rotation changes over elapsed time (Y-axis drift)",
+      "description": "The mesh must slowly rotate over time, providing organic drift consistent with other geometry systems",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Visual character is distinctly different from existing warp shaders"],
+      "code": "it('T-063-26: mesh rotation changes over elapsed time (Y-axis drift)', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'drift-seed', defaultParams);\n  const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  flow.draw(scene, makeFrame({ elapsed: 0 }));\n  const rotY0 = points.rotation.y;\n  flow.draw(scene, makeFrame({ elapsed: 5000 }));\n  const rotY1 = points.rotation.y;\n  expect(rotY1).not.toBeCloseTo(rotY0, 5);\n});"
+    },
+    {
+      "id": "T-063-27",
+      "name": "paletteHue is passed to GPU via uPaletteHue uniform",
+      "description": "The draw method must propagate paletteHue to the uPaletteHue shader uniform for GPU-side color computation",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-27: paletteHue is passed to GPU via uPaletteHue uniform', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'hue-seed', { ...defaultParams, paletteHue: 0 });\n  const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n  flow.draw(scene, makeFrame({ params: { ...defaultParams, paletteHue: 0 } }));\n  expect(mat.uniforms.uPaletteHue.value).toBe(0);\n  flow.draw(scene, makeFrame({ params: { ...defaultParams, paletteHue: 270 } }));\n  expect(mat.uniforms.uPaletteHue.value).toBe(270);\n});"
+    },
+    {
+      "id": "T-063-28",
+      "name": "shader has uFlowScale uniform for advection strength control",
+      "description": "The ShaderMaterial must include a uFlowScale uniform to control the overall flow advection strength, a unique parameter for this shader variant",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["A new vertex shader displaces points along curl noise flow-field lines"],
+      "code": "it('T-063-28: shader has uFlowScale uniform for advection strength control', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'flow-scale-seed', defaultParams);\n  const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n  expect(mat.uniforms.uFlowScale).toBeDefined();\n  expect(typeof mat.uniforms.uFlowScale.value).toBe('number');\n});"
+    },
+    {
+      "id": "T-063-29",
+      "name": "no localStorage or cookie access during flow ribbon operations",
+      "description": "Privacy gate: no storage APIs must be accessed during init or draw, consistent with the project's no-persistence policy",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Shader compiles cleanly with no WebGL errors"],
+      "code": "it('T-063-29: no localStorage or cookie access during flow ribbon operations', () => {\n  const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');\n  const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');\n  const cookieGet = vi.fn().mockReturnValue('');\n  Object.defineProperty(document, 'cookie', { get: cookieGet, configurable: true });\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'privacy-seed', defaultParams);\n  flow.draw(scene, makeFrame());\n  expect(getItemSpy).not.toHaveBeenCalled();\n  expect(cookieGet).not.toHaveBeenCalled();\n  getItemSpy.mockRestore();\n  if (cookieDescriptor) {\n    Object.defineProperty(document, 'cookie', cookieDescriptor);\n  }\n});"
+    },
+    {
+      "id": "T-063-30",
+      "name": "position buffer values are finite at boundary params",
+      "description": "Geometry must remain valid (all finite values) even at extreme parameter boundaries like density=0 or density=1",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Shader compiles cleanly with no WebGL errors"],
+      "code": "it('T-063-30: position buffer values are finite at boundary params', () => {\n  const scene = new THREE.Scene();\n  const boundaries = [\n    { density: 0 },\n    { density: 1, structureComplexity: 1, curveSoftness: 0 },\n  ];\n  for (const b of boundaries) {\n    const flow = createFlowRibbonField();\n    flow.init(scene, 'boundary-finite-seed', { ...defaultParams, ...b });\n    const points = scene.children.filter((c) => c instanceof THREE.Points).pop() as THREE.Points;\n    const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;\n    for (let i = 0; i < posArr.length; i++) {\n      expect(Number.isFinite(posArr[i])).toBe(true);\n    }\n  }\n});"
+    },
+    {
+      "id": "T-063-31",
+      "name": "FLOWRIBBON_ATTRIBUTES registered in shaderRegistry",
+      "description": "shaderRegistry.ts must export FLOWRIBBON_ATTRIBUTES matching the RIBBONFIELD_ATTRIBUTES layout (position, color, aHueOffset, aRandom)",
+      "type": "unit",
+      "file": "tests/visual/shaderRegistry.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-31: FLOWRIBBON_ATTRIBUTES registered in shaderRegistry', () => {\n  expect(FLOWRIBBON_ATTRIBUTES).toBeDefined();\n  expect(Array.isArray(FLOWRIBBON_ATTRIBUTES)).toBe(true);\n  const names = FLOWRIBBON_ATTRIBUTES.map((a: AttributeSpec) => a.name);\n  expect(names).toContain('position');\n  expect(names).toContain('color');\n  expect(names).toContain('aHueOffset');\n  expect(names).toContain('aRandom');\n});"
+    },
+    {
+      "id": "T-063-32",
+      "name": "OPTIONAL_FLOWRIBBON_ATTRIBUTES includes size attribute",
+      "description": "shaderRegistry.ts must export OPTIONAL_FLOWRIBBON_ATTRIBUTES with a size(1) attribute spec",
+      "type": "unit",
+      "file": "tests/visual/shaderRegistry.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-32: OPTIONAL_FLOWRIBBON_ATTRIBUTES includes size attribute', () => {\n  expect(OPTIONAL_FLOWRIBBON_ATTRIBUTES).toBeDefined();\n  expect(Array.isArray(OPTIONAL_FLOWRIBBON_ATTRIBUTES)).toBe(true);\n  const sizeSpec = OPTIONAL_FLOWRIBBON_ATTRIBUTES.find((a: AttributeSpec) => a.name === 'size');\n  expect(sizeSpec).toBeDefined();\n  expect(sizeSpec!.itemSize).toBe(1);\n});"
+    },
+    {
+      "id": "T-063-33",
+      "name": "QualityProfile includes maxFlowRibbonPoints field",
+      "description": "The QualityProfile interface and computeQuality() must include maxFlowRibbonPoints with tier-appropriate values",
+      "type": "unit",
+      "file": "tests/visual/quality.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-33: QualityProfile includes maxFlowRibbonPoints field', () => {\n  const lowSignals = { devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 360, screenHeight: 640, touchCapable: true };\n  const highSignals = { devicePixelRatio: 2, hardwareConcurrency: 8, deviceMemory: 8, screenWidth: 1920, screenHeight: 1080, touchCapable: false };\n  const low = computeQuality(lowSignals as BrowserSignals);\n  const high = computeQuality(highSignals as BrowserSignals);\n  expect(low.maxFlowRibbonPoints).toBeDefined();\n  expect(high.maxFlowRibbonPoints).toBeDefined();\n  expect(high.maxFlowRibbonPoints).toBeGreaterThan(low.maxFlowRibbonPoints);\n});"
+    },
+    {
+      "id": "T-063-34",
+      "name": "flowribbon mode registered in ModeManager modes array",
+      "description": "The main.ts ModeManager setup must include a 'flowribbon' mode entry, confirming it participates in the mode rotation",
+      "type": "integration",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Can be assigned to particleField or pointCloud systems"],
+      "code": "it('T-063-34: flowribbon mode is importable and implements GeometrySystem interface', () => {\n  const flow = createFlowRibbonField();\n  expect(typeof flow.init).toBe('function');\n  expect(typeof flow.draw).toBe('function');\n  expect(typeof flow.cleanup).toBe('function');\n  expect(typeof flow.setOpacity).toBe('function');\n});"
+    },
+    {
+      "id": "T-063-35",
+      "name": "fragment shader includes fog/depth attenuation",
+      "description": "The fragment shader must include atmospheric fog calculations (uFogNear/uFogFar) consistent with the ribbonWarp fragment shader pattern",
+      "type": "unit",
+      "file": "tests/visual/systems/flowRibbonField.test.ts",
+      "accepts": ["Visual character is distinctly different from existing warp shaders"],
+      "code": "it('T-063-35: fragment shader includes fog/depth attenuation', () => {\n  const scene = new THREE.Scene();\n  const flow = createFlowRibbonField();\n  flow.init(scene, 'fog-seed', defaultParams);\n  const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;\n  expect(mat.fragmentShader).toContain('uFogNear');\n  expect(mat.fragmentShader).toContain('uFogFar');\n});"
+    }
+  ],
+  "testFile": {
+    "path": "tests/visual/systems/flowRibbonField.test.ts",
+    "imports": "import { describe, it, expect, vi } from 'vitest';\nimport * as THREE from 'three';\nimport { createFlowRibbonField, getPointCount, getPointPositions } from '../../../src/visual/systems/flowRibbonField';\nimport type { VisualParams } from '../../../src/visual/mappings';\nimport type { FrameState } from '../../../src/visual/types';",
+    "setup": "const defaultParams: VisualParams = {\n  paletteHue: 180,\n  paletteSaturation: 0.5,\n  cadence: 0.7,\n  density: 0.6,\n  motionAmplitude: 1.0,\n  pointerDisturbance: 0,\n  bassEnergy: 0,\n  trebleEnergy: 0,\n  curveSoftness: 0.5,\n  structureComplexity: 0.5,\n  noiseFrequency: 1.0,\n  radialScale: 1.0,\n  twistStrength: 1.0,\n  fieldSpread: 1.0,\n};\n\nfunction makeFrame(overrides?: Partial<FrameState>): FrameState {\n  return {\n    time: 1000,\n    delta: 16,\n    elapsed: 1000,\n    width: 800,\n    height: 600,\n    params: { ...defaultParams },\n    ...overrides,\n  };\n}",
+    "describeBlock": "US-063: FlowRibbonField geometry system"
+  },
+  "additionalTestFiles": [
+    {
+      "path": "tests/visual/shaderRegistry.test.ts",
+      "note": "Add T-063-31 and T-063-32 to existing shaderRegistry tests. Import FLOWRIBBON_ATTRIBUTES and OPTIONAL_FLOWRIBBON_ATTRIBUTES from shaderRegistry."
+    },
+    {
+      "path": "tests/visual/quality.test.ts",
+      "note": "Add T-063-33 to existing quality tests. Import computeQuality and BrowserSignals."
+    }
+  ],
+  "summary": {
+    "totalTests": 35,
+    "acceptanceCoverage": {
+      "A new vertex shader displaces points along curl noise flow-field lines": ["T-063-03", "T-063-28"],
+      "Points are rendered as elongated sprites aligned to their velocity direction": ["T-063-06", "T-063-07"],
+      "Flow speed is modulated by bass energy": ["T-063-04", "T-063-17", "T-063-19"],
+      "Flow turbulence is modulated by treble energy": ["T-063-05", "T-063-18", "T-063-19"],
+      "Shader compiles cleanly with no WebGL errors": ["T-063-02", "T-063-10", "T-063-14", "T-063-15", "T-063-16", "T-063-20", "T-063-29", "T-063-30"],
+      "Can be assigned to particleField or pointCloud systems": ["T-063-01", "T-063-08", "T-063-09", "T-063-11", "T-063-12", "T-063-13", "T-063-23", "T-063-24", "T-063-25", "T-063-27", "T-063-31", "T-063-32", "T-063-33", "T-063-34"],
+      "Visual character is distinctly different from existing warp shaders": ["T-063-21", "T-063-22", "T-063-26", "T-063-35"]
+    }
+  }
+}
