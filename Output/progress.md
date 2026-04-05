@@ -126,3 +126,5 @@
 
 ## US-062: Add geodesic and platonic solid generators
 
+## US-059: Add chromatic dispersion fragment shader
+
