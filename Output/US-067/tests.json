@@ -1,0 +1,369 @@
+{
+  "tests": [
+    {
+      "id": "T-067-01",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "tessellateBezier produces correct vertex count for LineSegments format (segments * 2 per pair)",
+      "description": "Given two 3D endpoints and a segment count of 5, the tessellation should produce 10 vertices (5 segments × 2 vertices each) in LineSegments format.",
+      "type": "unit",
+      "assertions": [
+        "Output positions array length equals segments * 2 * 3 (vec3 per vertex)",
+        "Output aEdgeParam array length equals segments * 2",
+        "Output aArcOffset array length equals segments * 2 * 3"
+      ]
+    },
+    {
+      "id": "T-067-02",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "tessellated curve endpoints match the original input points",
+      "description": "The first vertex of the first segment should match point A, and the last vertex of the last segment should match point B.",
+      "type": "unit",
+      "assertions": [
+        "First vertex position equals point A (within floating-point tolerance)",
+        "Last vertex position equals point B (within floating-point tolerance)"
+      ]
+    },
+    {
+      "id": "T-067-03",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "control point offset is perpendicular to the pair axis",
+      "description": "The arc offset vectors at the midpoint should be perpendicular to the line between A and B (dot product ≈ 0).",
+      "type": "unit",
+      "assertions": [
+        "Dot product of aArcOffset at midpoint vertex with (B - A) direction is approximately zero",
+        "aArcOffset magnitude at midpoint is non-zero (curve actually arcs outward)"
+      ]
+    },
+    {
+      "id": "T-067-04",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "aEdgeParam values range from 0 to 1 along the curve",
+      "description": "The parametric t values stored in aEdgeParam should start near 0 at the first endpoint and end near 1 at the last endpoint.",
+      "type": "unit",
+      "assertions": [
+        "First vertex aEdgeParam is 0",
+        "Last vertex aEdgeParam is 1",
+        "All aEdgeParam values are between 0 and 1 inclusive"
+      ]
+    },
+    {
+      "id": "T-067-05",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "aArcOffset has bell-curve weighting (zero at endpoints, max at midpoint)",
+      "description": "Arc offset magnitude should be zero at endpoints and largest near the curve midpoint, following sin(t * PI) weighting.",
+      "type": "unit",
+      "assertions": [
+        "aArcOffset magnitude at first vertex (t=0) is zero or near-zero",
+        "aArcOffset magnitude at last vertex (t=1) is zero or near-zero",
+        "aArcOffset magnitude at midpoint vertex is greater than at endpoint vertices"
+      ]
+    },
+    {
+      "id": "T-067-06",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "tessellation with segments=4 and segments=6 both produce valid output",
+      "description": "The configurable segment count (4–6 per acceptance criteria) should produce correct vertex counts for both bounds.",
+      "type": "unit",
+      "assertions": [
+        "segments=4 produces 8 vertices (4 × 2)",
+        "segments=6 produces 12 vertices (6 × 2)",
+        "All output arrays have consistent lengths"
+      ]
+    },
+    {
+      "id": "T-067-07",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "degenerate input: identical points A and B produce valid output without NaN",
+      "description": "When both endpoints are the same, the perpendicular vector computation should not produce NaN or Infinity.",
+      "type": "unit",
+      "assertions": [
+        "No NaN values in output positions",
+        "No NaN values in aArcOffset",
+        "Function does not throw"
+      ]
+    },
+    {
+      "id": "T-067-08",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "perpendicular fallback works when pair axis is aligned with reference vector",
+      "description": "If A-B axis is parallel to the default cross-product reference vector (e.g., Y-axis), a fallback reference must be used to avoid degenerate perpendicular.",
+      "type": "unit",
+      "assertions": [
+        "aArcOffset at midpoint has non-zero magnitude even when A-B is axis-aligned",
+        "No NaN in output"
+      ]
+    },
+    {
+      "id": "T-067-09",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "arcHeight parameter scales the offset magnitude",
+      "description": "Providing a larger arcHeight should result in proportionally larger aArcOffset magnitudes at the midpoint.",
+      "type": "unit",
+      "assertions": [
+        "Midpoint aArcOffset magnitude with arcHeight=2 is approximately 2× the magnitude with arcHeight=1"
+      ]
+    },
+    {
+      "id": "T-067-10",
+      "file": "tests/visual/generators/tessellateBezier.test.ts",
+      "name": "output is deterministic for the same input",
+      "description": "Calling tessellateBezier twice with the same points and parameters produces identical output arrays.",
+      "type": "unit",
+      "assertions": [
+        "positions arrays are identical",
+        "aEdgeParam arrays are identical",
+        "aArcOffset arrays are identical"
+      ]
+    },
+    {
+      "id": "T-067-11",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "init() adds a THREE.LineSegments mesh to the scene",
+      "description": "After calling init with valid positions, the scene should contain exactly one LineSegments child.",
+      "type": "unit",
+      "assertions": [
+        "scene.children contains one THREE.LineSegments instance"
+      ]
+    },
+    {
+      "id": "T-067-12",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "LineSegments mesh has BufferGeometry with position, aArcOffset, aEdgeParam, and aDistance attributes",
+      "description": "The geometry must have all required attributes for the Bezier vertex shader.",
+      "type": "unit",
+      "assertions": [
+        "position attribute exists with itemSize 3",
+        "aArcOffset attribute exists with itemSize 3",
+        "aEdgeParam attribute exists with itemSize 1",
+        "aDistance attribute exists with itemSize 1"
+      ]
+    },
+    {
+      "id": "T-067-13",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "curves are tessellated into configurable segments (4-6) per connection",
+      "description": "With segments=5 and N connections, activeVertexCount should be N × 5 × 2.",
+      "type": "unit",
+      "assertions": [
+        "activeVertexCount is a multiple of (segments × 2)",
+        "activeVertexCount > 0 for inputs with nearby points"
+      ]
+    },
+    {
+      "id": "T-067-14",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "connection pairs are selected from a subset (not all-to-all) to control density",
+      "description": "With many dense points, connections should be bounded by maxConnections config, not O(n²).",
+      "type": "unit",
+      "assertions": [
+        "activeVertexCount / (segments * 2) is less than or equal to maxConnections",
+        "Connection count is significantly less than n*(n-1)/2 for large n"
+      ]
+    },
+    {
+      "id": "T-067-15",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "material uses ShaderMaterial with transparent, additive blending, depthWrite false",
+      "description": "The line material must be configured for compositing as a glow layer over the point cloud.",
+      "type": "unit",
+      "assertions": [
+        "material is instanceof THREE.ShaderMaterial",
+        "material.transparent is true",
+        "material.blending is THREE.AdditiveBlending",
+        "material.depthWrite is false"
+      ]
+    },
+    {
+      "id": "T-067-16",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "material has uOpacity uniform with low initial value (0.05–0.15 range)",
+      "description": "Per acceptance criteria, individual curve opacity must be low so overlapping density creates the web effect.",
+      "type": "unit",
+      "assertions": [
+        "uOpacity uniform exists",
+        "Initial uOpacity value is between 0.05 and 0.15 inclusive"
+      ]
+    },
+    {
+      "id": "T-067-17",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "bass energy modulates arc curvature via uBassArcScale uniform",
+      "description": "The draw() method must update a uBassArcScale uniform based on bass energy, causing arcs to become more pronounced with stronger bass.",
+      "type": "unit",
+      "assertions": [
+        "uBassArcScale uniform exists",
+        "uBassArcScale with bassEnergy=0 is less than uBassArcScale with bassEnergy=1.0",
+        "Both values are finite numbers"
+      ]
+    },
+    {
+      "id": "T-067-18",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "draw() updates standard uniforms (uTime, uBassEnergy, uTrebleEnergy, uPaletteHue)",
+      "description": "Frame state parameters should propagate to shader uniforms each frame.",
+      "type": "unit",
+      "assertions": [
+        "uTime reflects frame.elapsed",
+        "uBassEnergy reflects frame.params.bassEnergy",
+        "uTrebleEnergy reflects frame.params.trebleEnergy",
+        "uPaletteHue reflects frame.params.paletteHue"
+      ]
+    },
+    {
+      "id": "T-067-19",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "setOpacity updates uOpacity uniform",
+      "description": "The overlay's setOpacity method must update the shader uniform for mode transitions.",
+      "type": "unit",
+      "assertions": [
+        "After setOpacity(0.3), uOpacity.value is 0.3",
+        "After setOpacity(0), uOpacity.value is 0"
+      ]
+    },
+    {
+      "id": "T-067-20",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "cleanup() removes mesh from scene and disposes geometry and material",
+      "description": "Cleanup must fully release GPU resources and remove the mesh from the scene graph.",
+      "type": "unit",
+      "assertions": [
+        "scene.children has no LineSegments after cleanup",
+        "geometry.dispose was called",
+        "material.dispose was called"
+      ]
+    },
+    {
+      "id": "T-067-21",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "init with null positions does not throw (graceful skip)",
+      "description": "Incompatible geometry systems may pass null; the overlay must handle this gracefully.",
+      "type": "unit",
+      "assertions": [
+        "No exception thrown",
+        "No LineSegments added to scene",
+        "activeVertexCount is 0"
+      ]
+    },
+    {
+      "id": "T-067-22",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "init with fewer than 2 points produces no connections",
+      "description": "A single point cannot form a pair, so no connections or mesh should be created.",
+      "type": "unit",
+      "assertions": [
+        "No LineSegments in scene",
+        "activeVertexCount is 0"
+      ]
+    },
+    {
+      "id": "T-067-23",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "vertex shader source includes aArcOffset attribute declaration",
+      "description": "The custom vertex shader must declare the arc offset attribute for Bezier displacement.",
+      "type": "unit",
+      "assertions": [
+        "vertexShader string contains 'aArcOffset'",
+        "vertexShader string contains 'uBassArcScale'"
+      ]
+    },
+    {
+      "id": "T-067-24",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "connection count adapts to maxConnections config (quality tier adaptation)",
+      "description": "Lower maxConnections config should produce fewer connections than higher config with the same input.",
+      "type": "unit",
+      "assertions": [
+        "activeVertexCount with maxConnections=50 <= activeVertexCount with maxConnections=500",
+        "Low-config vertex count is bounded by maxConnections × segments × 2"
+      ]
+    },
+    {
+      "id": "T-067-25",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "line positions exist in 3D space (Z values vary, not coplanar)",
+      "description": "The Bezier arcs push control points perpendicular to the pair axis, so positions must span all three dimensions.",
+      "type": "unit",
+      "assertions": [
+        "At least some Z-coordinate values in the position attribute are non-zero",
+        "Position values are all finite (no NaN/Infinity)"
+      ]
+    },
+    {
+      "id": "T-067-26",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "draw() does not throw with valid FrameState",
+      "description": "Basic smoke test that draw executes without error after init.",
+      "type": "unit",
+      "assertions": [
+        "No exception thrown from draw()"
+      ]
+    },
+    {
+      "id": "T-067-27",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "draw() does not throw with edge-case params (zero bass, zero treble, no pointer)",
+      "description": "Edge-case frame parameters should not cause division by zero or other errors.",
+      "type": "unit",
+      "assertions": [
+        "No exception thrown with bassEnergy=0, trebleEnergy=0, pointerDisturbance=0"
+      ]
+    },
+    {
+      "id": "T-067-28",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "same positions produce same connection topology (deterministic)",
+      "description": "Two instances initialized with identical positions should produce the same activeVertexCount.",
+      "type": "unit",
+      "assertions": [
+        "activeVertexCount from first init equals activeVertexCount from second init"
+      ]
+    },
+    {
+      "id": "T-067-29",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "no localStorage or cookie access during init/draw operations",
+      "description": "Privacy requirement: the overlay must not use forbidden storage APIs.",
+      "type": "unit",
+      "assertions": [
+        "localStorage.getItem spy not called during init/draw",
+        "document.cookie getter spy not called during init/draw"
+      ]
+    },
+    {
+      "id": "T-067-30",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "BezierCurveWeb implements the Overlay interface (init, draw, cleanup, setOpacity, activeVertexCount)",
+      "description": "The system must satisfy the generic Overlay contract to be composable with any point-based geometry system.",
+      "type": "unit",
+      "assertions": [
+        "Returned object has init function",
+        "Returned object has draw function",
+        "Returned object has cleanup function",
+        "Returned object has setOpacity function",
+        "Returned object has activeVertexCount getter"
+      ]
+    },
+    {
+      "id": "T-067-31",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "fog uniforms are present for depth fog integration",
+      "description": "The shader material should include fog-related uniforms for consistent scene compositing.",
+      "type": "unit",
+      "assertions": [
+        "uFogNear or uFogFar uniform exists on the material"
+      ]
+    },
+    {
+      "id": "T-067-32",
+      "file": "tests/visual/systems/bezierCurveWeb.test.ts",
+      "name": "boundary values (proximityThreshold=0, maxConnections=0) do not throw",
+      "description": "Zero-config edge cases should be handled gracefully without crashing.",
+      "type": "unit",
+      "assertions": [
+        "init with proximityThreshold=0 does not throw",
+        "init with maxConnections=0 does not throw",
+        "activeVertexCount is 0 for both cases"
+      ]
+    }
+  ]
+}
