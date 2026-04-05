@@ -1,6 +1,7 @@
 import { createPRNG } from '../prng';
 import { generatePolyhedronEdges } from './polyhedraEdges';
 import type { PolyhedronShape, PolyhedronEdgeData } from './polyhedraEdges';
+import { hashRandomFromPosition } from './subdivideEdges';
 
 const LAYER_SCALE_FACTORS = [1.0, 0.65, 0.42, 0.27];
 
@@ -55,6 +56,12 @@ export function generateNestedEdges(opts: {
       data.positions[i] = x;
       data.positions[i + 1] = y;
       data.positions[i + 2] = z;
+
+      // Recompute randoms from rotated positions
+      const [r0, r1, r2] = hashRandomFromPosition(x, y, z);
+      data.randoms[i] = r0;
+      data.randoms[i + 1] = r1;
+      data.randoms[i + 2] = r2;
     }
 
     layerResults.push(data);

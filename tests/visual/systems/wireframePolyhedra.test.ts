@@ -34,14 +34,14 @@ function makeFrame(overrides?: Partial<FrameState & { params: Partial<VisualPara
 }
 
 describe('US-054: Wireframe polyhedra geometry system', () => {
-  it('T-054-01: init() adds THREE.LineSegments to the scene (not Points or Mesh)', () => {
+  it('T-054-01: init() adds THREE.LineSegments and THREE.Points to the scene (vertex-edge topology)', () => {
     const scene = new THREE.Scene();
     const wire = createWireframePolyhedra();
     wire.init(scene, 'line-seed', defaultParams);
     const lines = scene.children.filter((c) => c instanceof THREE.LineSegments);
     expect(lines.length).toBeGreaterThanOrEqual(1);
     const points = scene.children.filter((c) => c instanceof THREE.Points);
-    expect(points.length).toBe(0);
+    expect(points.length).toBe(lines.length);
   });
 
   it('T-054-02: LineSegments geometry has position attribute with itemSize 3', () => {
