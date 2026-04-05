@@ -136,3 +136,5 @@
 
 ## US-067: Add Bezier curve web connections between scattered points
 
+## US-068: Add spatial cube lattice wireframe system
+
