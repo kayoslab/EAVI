@@ -19,8 +19,10 @@ import { createMicroGeometry } from './visual/systems/microGeometry';
 import { createWireframePolyhedra } from './visual/systems/wireframePolyhedra';
 import { createFlowRibbonField } from './visual/systems/flowRibbonField';
 import { createModeManager } from './visual/modeManager';
+import type { RotationEntry, SingleRotationEntry } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
+import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
 
 // Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
 const quickTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -144,15 +146,32 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
   });
-  const modeManager = createModeManager([
-    { name: 'particles', factory: () => particles },
-    { name: 'ribbon', factory: () => ribbon },
-    { name: 'pointcloud', factory: () => pointCloud },
-    { name: 'crystal', factory: () => crystal },
-    { name: 'microgeometry', factory: () => microGeo },
-    { name: 'wirepolyhedra', factory: () => wireframe },
-    { name: 'flowribbon', factory: () => flowRibbon },
-  ]);
+  // Build single-mode rotation entries
+  const singleEntries: SingleRotationEntry[] = [
+    { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles },
+    { kind: 'single', name: 'ribbon', system: ribbon, maxPoints: quality.maxRibbonPoints },
+    { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints },
+    { kind: 'single', name: 'crystal', system: crystal, maxPoints: Math.round(quality.maxPoints * 0.8) },
+    { kind: 'single', name: 'microgeometry', system: microGeo, maxPoints: quality.maxInstances },
+    { kind: 'single', name: 'wirepolyhedra', system: wireframe, maxPoints: quality.maxPolyhedra },
+    { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints },
+  ];
+
+  // Build compound mode entries (empty on low tier)
+  const systemRegistry: SystemRegistry = {
+    particles: (cfg) => createParticleField(cfg as Parameters<typeof createParticleField>[0]),
+    ribbon: (cfg) => createRibbonField(cfg as Parameters<typeof createRibbonField>[0]),
+    pointcloud: (cfg) => createPointCloud(cfg as Parameters<typeof createPointCloud>[0]),
+    crystal: (cfg) => createCrystalField(cfg as Parameters<typeof createCrystalField>[0]),
+    microgeometry: (cfg) => createMicroGeometry(cfg as Parameters<typeof createMicroGeometry>[0]),
+    wirepolyhedra: (cfg) => createWireframePolyhedra(cfg as Parameters<typeof createWireframePolyhedra>[0]),
+    flowribbon: (cfg) => createFlowRibbonField(cfg as Parameters<typeof createFlowRibbonField>[0]),
+  };
+  const compoundEntries = buildCompoundEntries(quality, systemRegistry);
+
+  // Interleave compound entries among singles
+  const allEntries: RotationEntry[] = [...singleEntries, ...compoundEntries];
+  const modeManager = createModeManager(allEntries);
 
   // Attach constellation line overlay for medium/high tier devices
   if (quality.enableConstellationLines) {
@@ -178,17 +197,8 @@ geoPromise.then((geo) => {
   deps.geometrySystem = modeManager;
 
   // Wire debug getters now that mode manager and quality are available
-  const modes = [
-    { name: 'particles', maxPoints: quality.maxParticles },
-    { name: 'ribbon', maxPoints: quality.maxRibbonPoints },
-    { name: 'pointcloud', maxPoints: quality.maxPoints },
-    { name: 'crystal', maxPoints: Math.round(quality.maxPoints * 0.8) },
-    { name: 'microgeometry', maxPoints: quality.maxInstances },
-    { name: 'wirepolyhedra', maxPoints: quality.maxPolyhedra },
-    { name: 'flowribbon', maxPoints: quality.maxFlowRibbonPoints },
-  ];
-  deps.getModeName = () => modes[modeManager.activeIndex]?.name ?? 'unknown';
-  deps.getPointCount = () => modes[modeManager.activeIndex]?.maxPoints ?? 0;
+  deps.getModeName = () => modeManager.activeEntryName;
+  deps.getPointCount = () => modeManager.activeMaxPoints;
   deps.getShaderStatus = () => errorCollector.hasErrors() ? 'fail' : 'pass';
   deps.getQualityTier = () => quality.tier;
   deps.getOptionalAttrs = () => {
