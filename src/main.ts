@@ -17,6 +17,7 @@ import { createPointCloud } from './visual/systems/pointCloud';
 import { createCrystalField } from './visual/systems/crystalField';
 import { createMicroGeometry } from './visual/systems/microGeometry';
 import { createWireframePolyhedra } from './visual/systems/wireframePolyhedra';
+import { createFlowRibbonField } from './visual/systems/flowRibbonField';
 import { createModeManager } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
@@ -136,6 +137,13 @@ geoPromise.then((geo) => {
     arcSubdivisions: quality.arcSubdivisions,
     maxEdgesPerShape: quality.maxEdgesPerShape,
   });
+  const flowRibbon = createFlowRibbonField({
+    maxPoints: quality.maxFlowRibbonPoints,
+    enableSparkle: quality.enableSparkle,
+    noiseOctaves: quality.noiseOctaves,
+    enablePointerRepulsion: quality.enablePointerRepulsion,
+    enableSlowModulation: quality.enableSlowModulation,
+  });
   const modeManager = createModeManager([
     { name: 'particles', factory: () => particles },
     { name: 'ribbon', factory: () => ribbon },
@@ -143,6 +151,7 @@ geoPromise.then((geo) => {
     { name: 'crystal', factory: () => crystal },
     { name: 'microgeometry', factory: () => microGeo },
     { name: 'wirepolyhedra', factory: () => wireframe },
+    { name: 'flowribbon', factory: () => flowRibbon },
   ]);
 
   // Attach constellation line overlay for medium/high tier devices
@@ -176,6 +185,7 @@ geoPromise.then((geo) => {
     { name: 'crystal', maxPoints: Math.round(quality.maxPoints * 0.8) },
     { name: 'microgeometry', maxPoints: quality.maxInstances },
     { name: 'wirepolyhedra', maxPoints: quality.maxPolyhedra },
+    { name: 'flowribbon', maxPoints: quality.maxFlowRibbonPoints },
   ];
   deps.getModeName = () => modes[modeManager.activeIndex]?.name ?? 'unknown';
   deps.getPointCount = () => modes[modeManager.activeIndex]?.maxPoints ?? 0;
