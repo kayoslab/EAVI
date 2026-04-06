@@ -1083,7 +1083,8 @@
       "status": "pass",
       "depends_on": [
         "US-035",
-        "US-041"
+        "US-041",
+        "US-046"
       ],
       "split_from": null,
       "notes": "Use Three.js EdgesGeometry or manual edge arrays for clean wireframe lines. Vertex shader should apply noise-based displacement to edge vertices. This is the foundation for line-based visual modes."
@@ -1107,6 +1108,7 @@
       "depends_on": [
         "US-017",
         "US-040",
+        "US-046",
         "US-047"
       ],
       "split_from": null,
@@ -1303,14 +1305,13 @@
         "Build passes and no dead imports remain"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-056"
       ],
       "split_from": "US-056",
-      "notes": "US-056 was a wrong direction. Geometric complexity should come from connections between points, not from replacing points with tiny meshes. This ticket cleans up the failed approach.",
-      "claimed_by": "worker-2"
+      "notes": "US-056 was a wrong direction. Geometric complexity should come from connections between points, not from replacing points with tiny meshes. This ticket cleans up the failed approach."
     },
     {
       "id": "US-065",
@@ -1418,12 +1419,13 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-065"
       ],
       "split_from": "US-055",
-      "notes": "The current constellation system (US-055) uses distance-threshold proximity which creates random webs with no recognizable structure. This rework places points deliberately at topology vertices and connects them via explicit edge tables. Think: a field of small connected icosahedra and tetrahedra floating in space, each one clearly a geometric shape made of dots and lines."
+      "notes": "The current constellation system (US-055) uses distance-threshold proximity which creates random webs with no recognizable structure. This rework places points deliberately at topology vertices and connects them via explicit edge tables. Think: a field of small connected icosahedra and tetrahedra floating in space, each one clearly a geometric shape made of dots and lines.",
+      "claimed_by": "worker-2"
     },
     {
       "id": "US-070",
