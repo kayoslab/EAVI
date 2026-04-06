@@ -784,7 +784,8 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
-        "US-029"
+        "US-029",
+        "US-030"
       ],
       "split_from": "US-030",
       "notes": "Canvas2D implementations automatically fail this story."
