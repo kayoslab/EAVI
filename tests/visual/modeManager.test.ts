@@ -736,33 +736,20 @@ describe('US-048: Shader validation — ModeManager integration', () => {
     expect(mockB.init).not.toHaveBeenCalled();
   });
 
-  it('T-056-38: ModeManager accepts MicroGeometry as a fifth mode entry', () => {
-    const mockMicro = { init: vi.fn(), draw: vi.fn(), cleanup: vi.fn(), setOpacity: vi.fn() };
-    const manager = createModeManager([
-      { name: 'particles', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
-      { name: 'ribbon', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
-      { name: 'pointcloud', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
-      { name: 'crystal', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
-      { name: 'microgeometry', factory: () => mockMicro },
-    ]);
-    expect(() => manager.init(new THREE.Scene(), 'test-seed', defaultParams)).not.toThrow();
-  });
-
-  it('T-054-49: ModeManager accepts wireframePolyhedra as a sixth mode entry', () => {
+  it('T-054-49: ModeManager accepts wireframePolyhedra as a fifth mode entry', () => {
     const mockWire = { init: vi.fn(), draw: vi.fn(), cleanup: vi.fn(), setOpacity: vi.fn() };
     const manager = createModeManager([
       { name: 'particles', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
       { name: 'ribbon', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
       { name: 'pointcloud', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
       { name: 'crystal', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
-      { name: 'microgeometry', factory: () => ({ init: vi.fn(), draw: vi.fn() }) },
       { name: 'wirepolyhedra', factory: () => mockWire },
     ]);
     expect(() => manager.init(new THREE.Scene(), 'test-seed', defaultParams)).not.toThrow();
   });
 
-  it('T-054-50: wirepolyhedra mode can be reached during mode cycling (6-mode rotation)', () => {
-    const mocks = Array.from({ length: 6 }, () => ({
+  it('T-054-50: wirepolyhedra mode can be reached during mode cycling (5-mode rotation)', () => {
+    const mocks = Array.from({ length: 5 }, () => ({
       init: vi.fn(),
       draw: vi.fn(),
       cleanup: vi.fn(),
@@ -777,18 +764,17 @@ describe('US-048: Shader validation — ModeManager integration', () => {
         { name: 'ribbon', factory: () => mocks[1] },
         { name: 'pointcloud', factory: () => mocks[2] },
         { name: 'crystal', factory: () => mocks[3] },
-        { name: 'microgeometry', factory: () => mocks[4] },
-        { name: 'wirepolyhedra', factory: () => mocks[5] },
+        { name: 'wirepolyhedra', factory: () => mocks[4] },
       ]);
       manager.init(scene, `cycle-${s}`, defaultParams);
       indices.add(manager.activeIndex);
     }
-    // All 6 modes should be reachable as initial mode
+    // All 5 modes should be reachable as initial mode
     expect(indices.size).toBeGreaterThanOrEqual(4);
   });
 
   it('T-054-51: initAllForValidation initializes wirepolyhedra along with all other modes', () => {
-    const mocks = Array.from({ length: 6 }, () => ({
+    const mocks = Array.from({ length: 5 }, () => ({
       init: vi.fn(),
       draw: vi.fn(),
       cleanup: vi.fn(),
@@ -800,12 +786,11 @@ describe('US-048: Shader validation — ModeManager integration', () => {
       { name: 'ribbon', factory: () => mocks[1] },
       { name: 'pointcloud', factory: () => mocks[2] },
       { name: 'crystal', factory: () => mocks[3] },
-      { name: 'microgeometry', factory: () => mocks[4] },
-      { name: 'wirepolyhedra', factory: () => mocks[5] },
+      { name: 'wirepolyhedra', factory: () => mocks[4] },
     ]);
     manager.initAllForValidation(scene, 'val-seed', defaultParams);
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 5; i++) {
       expect(mocks[i].init).toHaveBeenCalledTimes(1);
     }
   });

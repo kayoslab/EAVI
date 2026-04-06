@@ -69,7 +69,7 @@ function createMockRegistry(): {
   instances: Record<string, GeometrySystem[]>;
 } {
   const instances: Record<string, GeometrySystem[]> = {};
-  const names = ['pointcloud', 'wirepolyhedra', 'particles', 'crystal', 'microgeometry', 'flowribbon', 'ribbon', 'cubelattice'];
+  const names = ['pointcloud', 'wirepolyhedra', 'particles', 'crystal', 'flowribbon', 'ribbon', 'cubelattice'];
   const registry: Record<string, (config: Record<string, unknown>) => GeometrySystem> = {};
 
   for (const name of names) {
@@ -94,7 +94,6 @@ describe('US-061: scaleQualityProfile', () => {
     expect(scaled.maxParticles).toBe(Math.round(medium.maxParticles * 0.5));
     expect(scaled.maxPoints).toBe(Math.round(medium.maxPoints * 0.5));
     expect(scaled.maxRibbonPoints).toBe(Math.round(medium.maxRibbonPoints * 0.5));
-    expect(scaled.maxInstances).toBe(Math.round(medium.maxInstances * 0.5));
     expect(scaled.maxPolyhedra).toBe(Math.round(medium.maxPolyhedra * 0.5));
     expect(scaled.maxConstellationSegments).toBe(Math.round(medium.maxConstellationSegments * 0.5));
     expect(scaled.maxEdgesPerShape).toBe(Math.round(medium.maxEdgesPerShape * 0.5));
@@ -108,7 +107,6 @@ describe('US-061: scaleQualityProfile', () => {
     expect(scaled.maxParticles).toBeGreaterThanOrEqual(50);
     expect(scaled.maxPoints).toBeGreaterThanOrEqual(50);
     expect(scaled.maxRibbonPoints).toBeGreaterThanOrEqual(50);
-    expect(scaled.maxInstances).toBeGreaterThanOrEqual(50);
     expect(scaled.maxPolyhedra).toBeGreaterThanOrEqual(2);
     expect(scaled.maxEdgesPerShape).toBeGreaterThanOrEqual(20);
     expect(scaled.maxFlowRibbonPoints).toBeGreaterThanOrEqual(50);
@@ -165,9 +163,9 @@ describe('US-061: extractSystemConfig', () => {
     expect(config.maxEdgesPerShape).toBe(profile.maxEdgesPerShape);
   });
 
-  it('T-061-08: extractSystemConfig covers all 8 supported system names', () => {
+  it('T-061-08: extractSystemConfig covers all 7 supported system names', () => {
     const profile = makeMediumProfile();
-    const names = ['particles', 'ribbon', 'pointcloud', 'crystal', 'microgeometry', 'wirepolyhedra', 'flowribbon', 'cubelattice'];
+    const names = ['particles', 'ribbon', 'pointcloud', 'crystal', 'wirepolyhedra', 'flowribbon', 'cubelattice'];
 
     for (const name of names) {
       expect(() => extractSystemConfig(name, profile)).not.toThrow();
@@ -179,8 +177,8 @@ describe('US-061: extractSystemConfig', () => {
 });
 
 describe('US-061: COMPOUND_MODE_DEFS', () => {
-  it('T-061-09: COMPOUND_MODE_DEFS defines exactly 4 compound modes', () => {
-    expect(COMPOUND_MODE_DEFS.length).toBe(4);
+  it('T-061-09: COMPOUND_MODE_DEFS defines exactly 3 compound modes', () => {
+    expect(COMPOUND_MODE_DEFS.length).toBe(3);
     for (const def of COMPOUND_MODE_DEFS) {
       expect(typeof def.name).toBe('string');
       expect(def.name.length).toBeGreaterThan(0);
@@ -196,7 +194,6 @@ describe('US-061: COMPOUND_MODE_DEFS', () => {
     const names = COMPOUND_MODE_DEFS.map((d) => d.name);
     expect(names).toContain('cloud+wireframe');
     expect(names).toContain('particles+flowribbon');
-    expect(names).toContain('crystal+microgeometry');
   });
 
   it('T-061-17: each compound mode def has exactly one primary layer', () => {
@@ -208,12 +205,12 @@ describe('US-061: COMPOUND_MODE_DEFS', () => {
 });
 
 describe('US-061: buildCompoundEntries', () => {
-  it('T-061-11: buildCompoundEntries returns 4 entries on medium tier', () => {
+  it('T-061-11: buildCompoundEntries returns 3 entries on medium tier', () => {
     const profile = makeMediumProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
 
-    expect(entries.length).toBe(4);
+    expect(entries.length).toBe(3);
     for (const entry of entries) {
       expect(entry.kind).toBe('compound');
       expect(entry.layers.length).toBe(2);
@@ -221,12 +218,12 @@ describe('US-061: buildCompoundEntries', () => {
     }
   });
 
-  it('T-061-12: buildCompoundEntries returns 4 entries on high tier', () => {
+  it('T-061-12: buildCompoundEntries returns 3 entries on high tier', () => {
     const profile = makeHighProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
 
-    expect(entries.length).toBe(4);
+    expect(entries.length).toBe(3);
   });
 
   it('T-061-13: buildCompoundEntries returns 0 entries on low tier', () => {
@@ -326,15 +323,15 @@ describe('US-068: Cube lattice compound mode and config', () => {
     expect(scaled.latticeGridSize).toBeGreaterThanOrEqual(2);
   });
 
-  it('T-068-58: COMPOUND_MODE_DEFS count increases to 4 after adding cubelattice mode', () => {
-    expect(COMPOUND_MODE_DEFS.length).toBe(4);
+  it('T-068-58: COMPOUND_MODE_DEFS count is 3 after removing microgeometry mode', () => {
+    expect(COMPOUND_MODE_DEFS.length).toBe(3);
   });
 
-  it('T-068-59: buildCompoundEntries returns 4 entries on medium tier (including cubelattice mode)', () => {
+  it('T-068-59: buildCompoundEntries returns 3 entries on medium tier (including cubelattice mode)', () => {
     const profile = makeMediumProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
-    expect(entries.length).toBe(4);
+    expect(entries.length).toBe(3);
     const names = entries.map((e) => e.name);
     expect(names).toContain('pointcloud+cubelattice');
   });

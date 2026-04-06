@@ -9,7 +9,7 @@ export interface QualityProfile {
   maxParticles: number;
   maxPoints: number;
   maxRibbonPoints: number;
-  maxInstances: number;
+
   resolutionScale: number;
   enableSparkle: boolean;
   shaderComplexity: ShaderComplexity;
@@ -72,16 +72,16 @@ export function computeQuality(signals: BrowserSignals): QualityProfile {
   score = Math.max(0, Math.min(1, score));
 
   if (score < 0.35) {
-    return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, maxInstances: 200, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false, enableConstellationLines: false, maxConstellationSegments: 0, maxPolyhedra: 3, maxFractalDepth: 3, enableElectricArc: false, arcSubdivisions: 0, enableVoronoiCells: false, maxEdgesPerShape: 30, maxFlowRibbonPoints: 200, enableBezierWeb: false, maxBezierConnections: 0, bezierSegments: 4, latticeGridSize: 3, latticeCellSize: 1.2 };
+    return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false, enableConstellationLines: false, maxConstellationSegments: 0, maxPolyhedra: 3, maxFractalDepth: 3, enableElectricArc: false, arcSubdivisions: 0, enableVoronoiCells: false, maxEdgesPerShape: 30, maxFlowRibbonPoints: 200, enableBezierWeb: false, maxBezierConnections: 0, bezierSegments: 4, latticeGridSize: 3, latticeCellSize: 1.2 };
   }
   if (score > 0.65) {
-    return { tier: 'high', maxParticles: 1000, maxPoints: 2000, maxRibbonPoints: 1600, maxInstances: 1200, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 3000, maxPolyhedra: 12, maxFractalDepth: 6, enableElectricArc: true, arcSubdivisions: 8, enableVoronoiCells: true, maxEdgesPerShape: 1920, maxFlowRibbonPoints: 1600, enableBezierWeb: true, maxBezierConnections: 2000, bezierSegments: 6, latticeGridSize: 7, latticeCellSize: 0.8 };
+    return { tier: 'high', maxParticles: 1000, maxPoints: 2000, maxRibbonPoints: 1600, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 3000, maxPolyhedra: 12, maxFractalDepth: 6, enableElectricArc: true, arcSubdivisions: 8, enableVoronoiCells: true, maxEdgesPerShape: 1920, maxFlowRibbonPoints: 1600, enableBezierWeb: true, maxBezierConnections: 2000, bezierSegments: 6, latticeGridSize: 7, latticeCellSize: 0.8 };
   }
-  return { tier: 'medium', maxParticles: 550, maxPoints: 800, maxRibbonPoints: 700, maxInstances: 600, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 480, maxFlowRibbonPoints: 700, enableBezierWeb: true, maxBezierConnections: 800, bezierSegments: 4, latticeGridSize: 5, latticeCellSize: 1.0 };
+  return { tier: 'medium', maxParticles: 550, maxPoints: 800, maxRibbonPoints: 700, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 480, maxFlowRibbonPoints: 700, enableBezierWeb: true, maxBezierConnections: 800, bezierSegments: 4, latticeGridSize: 5, latticeCellSize: 1.0 };
 }
 
 const COUNT_FIELDS: (keyof QualityProfile)[] = [
-  'maxParticles', 'maxPoints', 'maxRibbonPoints', 'maxInstances',
+  'maxParticles', 'maxPoints', 'maxRibbonPoints',
   'maxPolyhedra', 'maxConstellationSegments', 'maxEdgesPerShape', 'maxFlowRibbonPoints',
   'maxBezierConnections', 'latticeGridSize',
 ];
@@ -90,7 +90,7 @@ const COUNT_MINIMUMS: Partial<Record<keyof QualityProfile, number>> = {
   maxParticles: 50,
   maxPoints: 50,
   maxRibbonPoints: 50,
-  maxInstances: 50,
+
   maxPolyhedra: 2,
   maxConstellationSegments: 0,
   maxEdgesPerShape: 20,
@@ -134,13 +134,6 @@ export function extractSystemConfig(systemName: string, profile: QualityProfile)
       return {
         maxPoints: Math.round(profile.maxPoints * 0.8),
         enableSparkle: profile.enableSparkle,
-        noiseOctaves: profile.noiseOctaves,
-        enablePointerRepulsion: profile.enablePointerRepulsion,
-        enableSlowModulation: profile.enableSlowModulation,
-      };
-    case 'microgeometry':
-      return {
-        maxInstances: profile.maxInstances,
         noiseOctaves: profile.noiseOctaves,
         enablePointerRepulsion: profile.enablePointerRepulsion,
         enableSlowModulation: profile.enableSlowModulation,
