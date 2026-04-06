@@ -1,0 +1,46 @@
+{
+  "reasoning": "The plan cleanly extends the proven harmonic-evolution architecture (layered sine curves per parameter) to four new structural uniforms. It follows existing patterns precisely: seeded harmonics in evolution.ts, new VisualParams fields in mappings.ts, GPU uniforms in the vertex shader for pointCloud, and CPU multiplications in particleField/waveField draw loops. The multiplicative-identity default (1.0) ensures backward compatibility. The cross-cutting VisualParams change is the main complexity driver but is well-managed by step 7's explicit test fixture updates.",
+  "structuralRisk": "low",
+  "testImpact": "medium — 6 existing test files need baseParams fixture updates and T-012-12 passthrough assertion needs narrowing, plus 1 new test file with 8 tests",
+  "filesAffected": {
+    "production": 6,
+    "test": 7,
+    "total": 13
+  },
+  "concerns": [
+    {
+      "severity": "low",
+      "area": "shader ordering",
+      "detail": "The plan applies radialScale before deformation and fieldSpread before breathing scale. This ordering matters — applying fieldSpread after breathing means breathing and field-spread compound multiplicatively. Verify this produces the intended visual effect rather than applying fieldSpread before all deformations."
+    },
+    {
+      "severity": "low",
+      "area": "reduced-motion interaction",
+      "detail": "radialScale and fieldSpread modify base position (not velocity), so they are not gated by uMotionAmplitude. This is intentional per the plan but should be visually verified — structural drift at full amplitude while motion is reduced could feel jarring."
+    },
+    {
+      "severity": "low",
+      "area": "clamping at bounds",
+      "detail": "If harmonic drift pushes a value to its clamp boundary and holds it there, the evolution flattens temporarily. The chosen amplitude/range ratios make this unlikely but not impossible for twistStrength (range 0.1-2.5, potential drift ±0.75 from base 0.5-1.5). Consider soft-clamping or wider bounds if visual testing reveals plateaus."
+    },
+    {
+      "severity": "info",
+      "area": "CPU cost in particleField",
+      "detail": "Three new multiplications per particle per frame (600 particles × 3 ops) is negligible. No performance concern."
+    }
+  ],
+  "alignmentWithArchitecture": {
+    "evolutionPattern": "exact match — reuses CurveParams + harmonic layering + evalCurve",
+    "mappingsPattern": "exact match — adds seeded base values via simpleHash, same as existing geo/time mappers",
+    "shaderPattern": "exact match — new uniforms follow same declaration and piping pattern as existing 11 uniforms",
+    "systemPattern": "exact match — pointCloud uses GPU uniforms, particleField/waveField use CPU multiplications, consistent with their existing draw() approaches",
+    "testPattern": "exact match — new test file mirrors evolution.test.ts structure with range/smoothness/determinism/seed-variance checks"
+  },
+  "missingFromPlan": [],
+  "suggestedRevisions": [],
+  "estimatedComplexity": "medium",
+  "approved": true,
+  "decision": "approve",
+  "adr_entry": null,
+  "failures": []
+}

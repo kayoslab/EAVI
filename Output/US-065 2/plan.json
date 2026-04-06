@@ -1,0 +1,187 @@
+{
+  "ticket": "US-065",
+  "title": "Rework wireframe system to vertex-and-edge topology",
+  "summary": "Transform the wireframe polyhedra system from standalone LineSegments meshes into a vertex-and-edge topology where Points render at vertex positions and LineSegments connect them along edges. Both meshes share the same deformation pipeline so dots remain at edge endpoints during audio reactivity.",
+  "criticalInsight": "The current aRandom attribute in edge generators uses sequential PRNG, so the same vertex position appearing in multiple edges gets different aRandom values. This means the same spatial point would deform differently depending on which edge it belongs to. For vertex dots to stay at edge endpoints, aRandom must be derived deterministically from position (like subdivideEdges.ts already does). This is the fundamental prerequisite for the entire feature.",
+  "steps": [
+    {
+      "id": 1,
+      "title": "Switch all edge generators to position-based aRandom hashing",
+      "description": "Replace sequential PRNG-based aRandom generation with deterministic position-based hashing in all polyhedra edge generators. This ensures that the same vertex position always produces the same aRandom value regardless of which edge it belongs to, which is required for vertex dots and edge endpoints to deform identically.",
+      "files": [
+        {
+          "path": "src/visual/generators/polyhedraEdges.ts",
+          "action": "modify",
+          "details": "Extract the position-based hash function from subdivideEdges.ts into a shared helper. Replace lines 63-66 (PRNG-based randoms loop) with position-based hash: for each vertex i, compute randoms from positions[i*3], positions[i*3+1], positions[i*3+2] using the same sin/cos hash as subdivideEdges (coefficients 73.1/91.3/117.7, 43.7/67.1/31.9, 17.3/53.9/89.1)."
+        },
+        {
+          "path": "src/visual/generators/subdivideEdges.ts",
+          "action": "modify",
+          "details": "Extract the position-hash function (lines 111-116 pattern) into a named export `hashRandomFromPosition(x, y, z): [number, number, number]` so it can be reused by polyhedraEdges.ts and the new vertex extraction utility."
+        },
+        {
+          "path": "src/visual/generators/geodesicSphere.ts",
+          "action": "modify",
+          "details": "Replace PRNG-based randoms with the same position-based hash function for aRandom generation."
+        },
+        {
+          "path": "src/visual/generators/nestedSolids.ts",
+          "action": "modify",
+          "details": "Replace PRNG-based randoms with position-based hash. Note: positions here are already rotated per-layer, so the hash will naturally produce different randoms for the same base shape at different nesting levels."
+        },
+        {
+          "path": "src/visual/generators/dualPolyhedra.ts",
+          "action": "modify",
+          "details": "Inherits from generatePolyhedronEdges calls which will already use position-based hash after polyhedraEdges.ts is updated. No additional changes needed unless it does its own random generation."
+        }
+      ],
+      "risks": "Changing aRandom derivation slightly alters the visual character of existing wireframe deformations. The position-hash produces a different distribution than PRNG. This is acceptable because the visual change is subtle (aRandom only modulates phase offsets in deformation, not amplitude) and the deterministic property is essential for the new feature.",
+      "validationCriteria": "Existing wireframe rendering still works. aRandom values are identical for the same position across different edges."
+    },
+    {
+      "id": 2,
+      "title": "Create vertex extraction utility",
+      "description": "Create a utility function that extracts unique vertex positions from LineSegments edge data (which has duplicated vertices at shared endpoints).",
+      "files": [
+        {
+          "path": "src/visual/generators/extractVertices.ts",
+          "action": "create",
+          "details": "Export function `extractUniqueVertices(edgePositions: Float32Array): { positions: Float32Array; aRandom: Float32Array; vertexCount: number }`. Algorithm: iterate edge position pairs, round each vertex to 6 decimal places for deduplication (same approach geodesicSphere.ts uses), build a Map<string, number> of canonical position keys to indices, output deduplicated positions and compute aRandom using the shared hashRandomFromPosition function. Return vertex count for buffer sizing."
+        }
+      ],
+      "risks": "Floating-point rounding for deduplication must use the same precision as the edge generators. 6 decimal places (matching geodesicSphere.ts) is sufficient for polyhedra at radius 0.3.",
+      "validationCriteria": "For an icosahedron (12 vertices, 30 edges = 60 edge endpoints), extraction yields exactly 12 unique vertices."
+    },
+    {
+      "id": 3,
+      "title": "Create vertex dot shaders",
+      "description": "Create vertex and fragment shaders for the wireframe vertex dots. The vertex shader must apply the exact same deformation pipeline as wireframe.vert.glsl, plus compute gl_PointSize. The fragment shader renders soft circular points with fog, matching the point cloud aesthetic.",
+      "files": [
+        {
+          "path": "src/visual/shaders/wireframeVertex.vert.glsl",
+          "action": "create",
+          "details": "Copy wireframe.vert.glsl as the base. Add: (1) uniform uBasePointSize (float), (2) uniform uHasSizeAttr (float, always 0.0 for vertex dots), (3) attribute size (unused but declared for registry compatibility). After the existing deformation pipeline (lines 29-87 of wireframe.vert.glsl), add gl_PointSize computation matching pointWarp.vert.glsl lines 118-129: compute depth, treble sparkle via snoise, atmospheric decay, then clamp point size to 2.5-48.0. Also output vDepth varying for fragment shader fog. Keep vFogFactor varying too for consistency. The deformation body must be character-for-character identical to wireframe.vert.glsl to ensure vertex dots track edge endpoints exactly."
+        },
+        {
+          "path": "src/visual/shaders/wireframeVertex.frag.glsl",
+          "action": "create",
+          "details": "Based on pointWarp.frag.glsl structure but with wireframe coloring. Uniforms: uOpacity, uBassEnergy, uTrebleEnergy, uPaletteHue, uPaletteSaturation, uFogNear, uFogFar, uDispersion. Varying: vDepth. Include hsl2rgb function (from wireframe.frag.glsl). Compute color from palette hue/saturation with treble lightness modulation (matching wireframe.frag.glsl line 36-38). Use gl_PointCoord for soft circular point shape with smoothstep(0.3, 0.5, dist) falloff. Apply chromaticPoint dispersion. Apply fog attenuation matching wireframe.frag.glsl pattern. Vertex dots should be slightly brighter than edge lines (lightness 0.6 vs 0.55) to make vertices pop."
+        }
+      ],
+      "risks": "Shader compile errors if uniforms/attributes/varyings mismatch. The deformation pipeline must be exactly identical between wireframe.vert.glsl and wireframeVertex.vert.glsl to prevent visual separation. Consider extracting the deformation into a shared GLSL include, but for now character-identical copy is safer and avoids include-system complexity.",
+      "validationCriteria": "Both shaders compile cleanly. Vertex dots render at the exact endpoints of edge lines with no visible separation during audio reactivity."
+    },
+    {
+      "id": 4,
+      "title": "Modify wireframePolyhedra.ts to create paired Points + LineSegments meshes",
+      "description": "Rework the main system file to create both a LineSegments mesh (edges) and a Points mesh (vertex dots) for each polyhedron, sharing the same scene position, rotation, and uniform values.",
+      "files": [
+        {
+          "path": "src/visual/systems/wireframePolyhedra.ts",
+          "action": "modify",
+          "details": "Key changes: (1) Import extractUniqueVertices from generators. (2) Import new wireframeVertex shaders. (3) Build composed shader strings for vertex dots: noise3dGlsl + wireframeVertexVert and chromaticDispersionGlsl + wireframeVertexFrag. (4) Change `meshes` array type from `THREE.LineSegments[]` to `Array<{ edges: THREE.LineSegments; vertices: THREE.Points }>`. (5) In init(): after creating edge geometry and LineSegments mesh, call extractUniqueVertices(edgeData.positions) to get vertex positions/randoms, create a new BufferGeometry with position and aRandom attributes, create a ShaderMaterial with the vertex dot shaders and same uniforms (plus uBasePointSize and uFogFar for point size calc), create THREE.Points mesh, copy the same position/rotation from the LineSegments mesh to the Points mesh, add both to scene. (6) In draw(): iterate pairs, update uniforms on both edge material and vertex material. (7) In setOpacity(): update both materials. (8) In cleanup(): remove and dispose both meshes per pair. (9) Add uBasePointSize uniform to createUniforms (value ~0.04, slightly smaller than point cloud's 0.06 since these are structural vertex markers not ambient particles). (10) For electric arc mode: still only apply arc subdivision to the edges LineSegments, vertex dots use the same standard wireframeVertex shaders since arc displacement is edge-internal."
+        }
+      ],
+      "risks": "Doubling the mesh count per polyhedron (6 polyhedra = 12 meshes instead of 6). Performance impact is minimal since vertex dot meshes have very few vertices (12 for icosahedron, 20 for dodecahedron). The Points meshes are tiny compared to the LineSegments meshes.",
+      "validationCriteria": "Both vertex dots and edge lines render simultaneously for each polyhedron. Vertex dots sit exactly at edge endpoints. Audio reactivity displaces both together. Shape identity is clearly recognizable."
+    },
+    {
+      "id": 5,
+      "title": "Update shader registry and geometry validator",
+      "description": "Register the vertex dot attributes in the shader registry so the geometry validator can check them.",
+      "files": [
+        {
+          "path": "src/visual/shaderRegistry.ts",
+          "action": "modify",
+          "details": "Add new export `WIREPOLYHEDRA_VERTEX_ATTRIBUTES: AttributeSpec[]` with entries: position(3), aRandom(3). This matches the existing WIREPOLYHEDRA_ATTRIBUTES since vertex dots need the same attributes as edges. Optionally add to existing WIREPOLYHEDRA_ATTRIBUTES comment that this spec covers both edge and vertex meshes."
+        }
+      ],
+      "risks": "None. Additive change.",
+      "validationCriteria": "Geometry validator passes for both edge and vertex meshes."
+    },
+    {
+      "id": 6,
+      "title": "Verify electric arc mode compatibility",
+      "description": "Ensure the electric arc variant still works correctly with the new paired mesh structure. Arc subdivision only affects edge LineSegments; vertex dots remain at the original polyhedron vertices.",
+      "files": [
+        {
+          "path": "src/visual/systems/wireframePolyhedra.ts",
+          "action": "verify",
+          "details": "In init(), when enableElectricArc is true: edge geometry uses subdivided positions/attributes with arc shaders, but vertex dot geometry still uses extractUniqueVertices(edgeData.positions) from the PRE-subdivision edge data. The vertex dots use the standard wireframeVertex shaders (not arc shaders). Verify that vertex dot positions match the endpoints of the original unsubdivided edges, which are also the endpoints of the subdivided edges (subdivision only adds interior points). The arc displacement at edge endpoints is zero (aEdgeParam = sin(0) = 0), so arc-displaced edges still meet the undisplaced vertex dots at endpoints."
+        }
+      ],
+      "risks": "If arc displacement at endpoints is not exactly zero due to floating-point, there could be a tiny gap between vertex dots and arc edge endpoints. The aEdgeParam at t=0 and t=1 gives sin(0)=0 and sin(π)≈0, so displacement is zero at endpoints. This is safe.",
+      "validationCriteria": "Electric arc mode renders with vertex dots at polyhedron vertices and arc-displaced edges connecting them. No visible gap at endpoints."
+    },
+    {
+      "id": 7,
+      "title": "Build and validate",
+      "description": "Run build, check for shader compilation errors, verify no WebGL validation errors, and confirm the visual output matches acceptance criteria.",
+      "files": [],
+      "commands": [
+        "npm run build",
+        "npm run dev (manual visual inspection)"
+      ],
+      "validationCriteria": "Build passes. No shader compile errors. No WebGL VALIDATE_STATUS errors. Vertex dots and edge lines visible simultaneously. Shapes recognizable through vertex-edge structure. Audio reactivity displaces both together."
+    }
+  ],
+  "architecturalDecisions": [
+    {
+      "decision": "Position-based aRandom hashing instead of PRNG",
+      "rationale": "The same vertex position must produce the same deformation in both the Points mesh and the LineSegments mesh. PRNG-based aRandom gives different values to the same position depending on iteration order. Position hashing (sin/cos with prime coefficients) is deterministic per position, making vertex-edge alignment guaranteed.",
+      "tradeoff": "Slightly different visual character for existing wireframe deformations due to changed aRandom distribution. Acceptable because the change is subtle."
+    },
+    {
+      "decision": "Separate shaders for vertex dots rather than reusing pointWarp shaders",
+      "rationale": "The vertex dot shader must apply the exact same deformation as wireframe.vert.glsl (not pointWarp.vert.glsl) to ensure alignment. pointWarp has a different slow modulation implementation and pointer repulsion formula. A dedicated wireframeVertex shader guarantees deformation identity.",
+      "tradeoff": "Some shader code duplication between wireframe.vert.glsl and wireframeVertex.vert.glsl. Could be refactored into a shared GLSL include later."
+    },
+    {
+      "decision": "Paired mesh arrays instead of a single compound mesh",
+      "rationale": "THREE.js cannot render Points and LineSegments from the same mesh. Pairing them in a struct and copying position/rotation ensures they move together. The Points mesh has negligible vertex count (12-20 vertices) compared to the LineSegments mesh.",
+      "tradeoff": "Double the mesh count per polyhedron. Minimal performance impact given tiny vertex counts."
+    },
+    {
+      "decision": "Vertex dots use wireframe coloring (palette hue) not per-vertex color attribute",
+      "rationale": "Wireframe edges use uniform-based coloring (uPaletteHue/uPaletteSaturation), not per-vertex color. Vertex dots should match, using the same palette with slightly higher lightness (0.6 vs 0.55) to make vertices visually pop as connection nodes.",
+      "tradeoff": "Less color variation per vertex compared to point cloud system, but this is intentional — vertex dots should read as structural markers, not ambient particles."
+    }
+  ],
+  "fileInventory": {
+    "create": [
+      "src/visual/generators/extractVertices.ts",
+      "src/visual/shaders/wireframeVertex.vert.glsl",
+      "src/visual/shaders/wireframeVertex.frag.glsl"
+    ],
+    "modify": [
+      "src/visual/generators/polyhedraEdges.ts",
+      "src/visual/generators/subdivideEdges.ts",
+      "src/visual/generators/geodesicSphere.ts",
+      "src/visual/generators/nestedSolids.ts",
+      "src/visual/systems/wireframePolyhedra.ts",
+      "src/visual/shaderRegistry.ts"
+    ],
+    "unchanged": [
+      "src/visual/shaders/wireframe.vert.glsl",
+      "src/visual/shaders/wireframe.frag.glsl",
+      "src/visual/shaders/electricArc.vert.glsl",
+      "src/visual/shaders/electricArc.frag.glsl",
+      "src/visual/shaders/noise3d.glsl",
+      "src/visual/shaders/chromaticDispersion.glsl",
+      "src/visual/geometry/compoundModes.ts",
+      "src/visual/geometry/modeManager.ts",
+      "src/visual/generators/dualPolyhedra.ts"
+    ]
+  },
+  "estimatedComplexity": "medium",
+  "dependsOn": ["US-054"],
+  "acceptanceCriteriaMapping": {
+    "Wireframe polyhedra render as Points at vertex positions AND LineSegments connecting them along edges": "Steps 2, 4",
+    "Both the vertex dots and the connecting edge lines are visible simultaneously": "Step 4",
+    "Vertex dots use the existing point rendering pipeline (soft circular points with fog)": "Step 3",
+    "Edge lines use LineSegments with matching color and fog": "Unchanged from US-054, verified in Step 7",
+    "The geometric shape is clearly recognizable through its vertex-edge structure": "Steps 2, 4, 7",
+    "Audio reactivity displaces vertices, and connected edges follow (they share positions)": "Steps 1, 3 (identical deformation pipeline + deterministic aRandom)",
+    "Shader compiles cleanly with no WebGL errors": "Step 7"
+  }
+}

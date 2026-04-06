@@ -1,0 +1,136 @@
+{
+  "ticket": "US-067",
+  "title": "Add Bezier curve web connections between scattered points",
+  "steps": [
+    {
+      "step": 1,
+      "title": "Extract generic Overlay interface",
+      "description": "Create a generic Overlay interface that both ConstellationLines and the new BezierCurveWeb will implement. The interface defines: init(scene, positions, params), draw(scene, frame), cleanup(), setOpacity(opacity), and readonly activeVertexCount. Place it in src/visual/overlay.ts.",
+      "files": [
+        "src/visual/overlay.ts"
+      ],
+      "details": "Extract the method signatures from the existing ConstellationLines interface (init, draw, cleanup, setOpacity, activeVertexCount) into a new generic Overlay interface. This interface is the contract that any overlay system must satisfy to be used with the ModeManager's overlay attachment system."
+    },
+    {
+      "step": 2,
+      "title": "Update ConstellationLines to implement Overlay interface",
+      "description": "Make the existing ConstellationLines interface extend the new Overlay interface (or replace it with a type alias). Update the import in constellationLines.ts.",
+      "files": [
+        "src/visual/systems/constellationLines.ts"
+      ],
+      "details": "Change 'export interface ConstellationLines { ... }' to 'export interface ConstellationLines extends Overlay {}' (re-exporting the same shape). This is a no-op at runtime but enforces type compatibility."
+    },
+    {
+      "step": 3,
+      "title": "Update OverlayAttachment to use generic Overlay type",
+      "description": "Change the OverlayAttachment interface in modeManager.ts to reference the generic Overlay interface instead of the concrete ConstellationLines type. Update the import accordingly.",
+      "files": [
+        "src/visual/modeManager.ts"
+      ],
+      "details": "Replace 'import type { ConstellationLines }' with 'import type { Overlay }' from '../overlay'. Change 'overlay: ConstellationLines' to 'overlay: Overlay' in the OverlayAttachment interface. The rest of modeManager.ts needs no changes since it only calls init/draw/cleanup/setOpacity/activeVertexCount — all defined on the generic Overlay."
+    },
+    {
+      "step": 4,
+      "title": "Create tessellateBezier generator utility",
+      "description": "Create src/visual/generators/tessellateBezier.ts with a pure function that takes two 3D endpoints, computes a quadratic Bezier control point offset perpendicular to the pair axis, and tessellates the curve into N line segments (4–6 configurable). Returns positions, per-vertex edge parameters, and per-vertex random values.",
+      "files": [
+        "src/visual/generators/tessellateBezier.ts"
+      ],
+      "details": "Key algorithm: given points A and B, compute midpoint M = (A+B)/2, compute pair axis D = B-A, find a perpendicular vector P (cross D with a non-parallel reference vector), normalize P, then control point C = M + P * arcHeight. arcHeight is the offset distance (modulated by bass later). Tessellate: for segments=5, evaluate the quadratic Bezier B(t) = (1-t)^2*A + 2*(1-t)*t*C + t^2*B at t = 0/5, 1/5, ..., 5/5, producing 5 line segments (10 vertices for LineSegments). Return Float32Arrays for positions, aEdgeParam (t value per vertex), and aRandom (deterministic from pair indices)."
+    },
+    {
+      "step": 5,
+      "title": "Create BezierCurveWeb system",
+      "description": "Create src/visual/systems/bezierCurveWeb.ts implementing the generic Overlay interface. Uses findConnections-style pair selection from input positions, tessellates each pair via tessellateBezier, builds a single LineSegments mesh with additive blending and low base opacity (0.05–0.15).",
+      "files": [
+        "src/visual/systems/bezierCurveWeb.ts"
+      ],
+      "details": "Structure mirrors constellationLines.ts but replaces straight-line buildLineBuffers with Bezier tessellation. Config: BezierWebConfig { proximityThreshold, maxConnections, maxNeighborsPerPoint, segments (4-6), baseArcHeight, enabled }. init(): find connections from input positions, for each connection call tessellateBezier to get curved segments, concatenate all into a single BufferGeometry, create ShaderMaterial with the constellation shaders (reuse noise3d + constellation vert/frag — the Bezier curvature is baked into position data, not shader-side). draw(): update uniforms including uBassEnergy which modulates arc curvature by rebuilding control points (or via a uniform if doing shader-side modulation). Key: bass modulation of arc height. Two approaches — (a) rebuild geometry each frame (expensive) or (b) store base positions + control point offsets as attributes and modulate in the vertex shader. Prefer (b): add a uBassArcScale uniform that scales the perpendicular offset in the shader. This means storing the 'flat' line positions and the perpendicular offset as a separate attribute, then in the vertex shader: finalPos = flatPos + aArcOffset * uBassArcScale. This avoids per-frame CPU geometry rebuilds."
+    },
+    {
+      "step": 6,
+      "title": "Add Bezier vertex shader",
+      "description": "Create src/visual/shaders/bezierWeb.vert.glsl that applies the arc offset modulation and standard noise displacement. Reuse the existing constellation fragment shader.",
+      "files": [
+        "src/visual/shaders/bezierWeb.vert.glsl"
+      ],
+      "details": "The vertex shader receives: position (the flat tessellated point on the straight line), aArcOffset (vec3 perpendicular offset to create the Bezier arc), aEdgeParam (0-1 along curve), aDistance (normalized pair distance), aRandom (per-vertex noise seed). Uniforms: uBassArcScale (bass-modulated arc strength), uTime, uBassEnergy, uTrebleEnergy, uMotionAmplitude, uOpacity, plus palette/cadence uniforms. Logic: float arcWeight = sin(aEdgeParam * PI) to get a bell-curve weighting (max at midpoint, zero at endpoints). vec3 displaced = position + aArcOffset * arcWeight * uBassArcScale. Then apply the same noise3d displacement and fog as constellation.vert.glsl. Pass vOpacity (based on uOpacity, aDistance, fog) to fragment shader."
+    },
+    {
+      "step": 7,
+      "title": "Add quality tier fields for Bezier web",
+      "description": "Add enableBezierWeb and maxBezierConnections fields to QualityProfile. Set per-tier values: low=disabled/0, medium=enabled/800, high=enabled/2000.",
+      "files": [
+        "src/visual/quality.ts"
+      ],
+      "details": "Add to QualityProfile interface: enableBezierWeb: boolean, maxBezierConnections: number, bezierSegments: number. Low tier: false, 0, 4. Medium tier: true, 800, 4. High tier: true, 2000, 6. Also add bezierSegments to the numeric keys array for quality interpolation if applicable."
+    },
+    {
+      "step": 8,
+      "title": "Wire BezierCurveWeb into main.ts as overlay",
+      "description": "In main.ts, after the existing constellation overlay attachment, add a second overlay attachment for the Bezier web when quality.enableBezierWeb is true. Since the current OverlayAttachment only supports a single overlay, either: (a) replace the constellation overlay with the Bezier web, or (b) extend ModeManager to support multiple overlays.",
+      "files": [
+        "src/main.ts",
+        "src/visual/modeManager.ts"
+      ],
+      "details": "The simplest approach: extend ModeManager.attachOverlay to accept multiple overlays by changing overlayAttachment from a single reference to an array. Update initOverlay, draw, and setOpacity calls to iterate the array. Then in main.ts, attach both constellation and bezier overlays independently. Alternative: if the ticket intends bezier to replace constellation, just swap in the bezier web as the sole overlay. Given the ticket says 'replaces the straight-line proximity approach', the Bezier web replaces ConstellationLines as the overlay — so simply swap createConstellationLines with createBezierCurveWeb in main.ts, keeping the same attachOverlay pattern. The ConstellationLines system remains available but unused for now."
+    },
+    {
+      "step": 9,
+      "title": "Write unit tests",
+      "description": "Add tests for the tessellateBezier generator and the BezierCurveWeb system following the project's test convention (tests/ at repo root).",
+      "files": [
+        "tests/visual/generators/tessellateBezier.test.ts",
+        "tests/visual/systems/bezierCurveWeb.test.ts"
+      ],
+      "details": "tessellateBezier.test.ts: test that tessellation produces correct vertex count (segments * 2 for LineSegments), endpoints match input points, control point offset is perpendicular to pair axis, edge params range 0-1. bezierCurveWeb.test.ts: test init produces non-zero activeVertexCount with valid positions, cleanup resets state, setOpacity updates uniform, draw doesn't throw, connection count respects maxConnections config. Follow the same pattern as tests/visual/systems/constellationLines.test.ts with mock THREE.Scene and defaultParams."
+    },
+    {
+      "step": 10,
+      "title": "Build verification and console error check",
+      "description": "Run npm run build to verify no TypeScript errors. Check browser console for shader compile errors, WebGL validation errors, and confirm the Bezier web renders correctly with visible curved connections at low opacity creating a luminous web effect.",
+      "files": [],
+      "details": "Definition of done checklist: build passes, no console errors, shaders compile cleanly, no WebGL validation errors, curves arc outward from midpoint, tessellation is 4-6 segments per curve, individual curve opacity is 0.05-0.15, bass energy modulates arc curvature, connection count adapts to quality tier, overlay composes correctly over point-based geometry systems."
+    }
+  ],
+  "keyDecisions": [
+    {
+      "decision": "Bass modulation via shader uniform rather than CPU geometry rebuild",
+      "rationale": "Rebuilding all Bezier control points and tessellating each frame on CPU is expensive for 800-2000 connections. Instead, store the perpendicular arc offset as a vertex attribute and modulate it with a uBassArcScale uniform in the vertex shader. Uses sin(aEdgeParam * PI) weighting so endpoints stay fixed while midpoint displacement scales with bass."
+    },
+    {
+      "decision": "Extract generic Overlay interface before implementing BezierCurveWeb",
+      "rationale": "Per reviewer feedback: OverlayAttachment currently types overlay as ConstellationLines (concrete). Must first extract a generic Overlay interface that both ConstellationLines and BezierCurveWeb implement, then update OverlayAttachment to use the generic type."
+    },
+    {
+      "decision": "Replace constellation overlay with Bezier web rather than running both simultaneously",
+      "rationale": "The ticket notes say this 'replaces the straight-line proximity approach of US-055 with something more organic'. The Bezier web is the evolution of constellation lines, not an addition alongside it. This avoids GPU budget doubling and keeps the overlay system simple."
+    },
+    {
+      "decision": "Reuse constellation fragment shader, create new vertex shader only",
+      "rationale": "The fragment shader handles palette coloring, opacity, fog, and chromatic dispersion — all of which apply identically to Bezier curves. Only the vertex shader needs changes to handle the arc offset attribute and bass modulation."
+    },
+    {
+      "decision": "Tests placed under tests/ at repo root",
+      "rationale": "Per reviewer feedback: project convention places tests under tests/ at repo root, not co-located __tests__ directories."
+    }
+  ],
+  "affectedFiles": [
+    "src/visual/overlay.ts (new — generic Overlay interface)",
+    "src/visual/systems/constellationLines.ts (extend Overlay interface)",
+    "src/visual/modeManager.ts (OverlayAttachment uses generic Overlay type)",
+    "src/visual/generators/tessellateBezier.ts (new — Bezier tessellation utility)",
+    "src/visual/systems/bezierCurveWeb.ts (new — BezierCurveWeb overlay system)",
+    "src/visual/shaders/bezierWeb.vert.glsl (new — arc offset vertex shader)",
+    "src/visual/quality.ts (add enableBezierWeb, maxBezierConnections, bezierSegments)",
+    "src/main.ts (swap constellation overlay for Bezier web overlay)",
+    "tests/visual/generators/tessellateBezier.test.ts (new — generator tests)",
+    "tests/visual/systems/bezierCurveWeb.test.ts (new — system tests)"
+  ],
+  "riskAreas": [
+    "Shader compilation: new vertex shader must declare all attributes/uniforms used. Validate no undeclared symbols.",
+    "BufferGeometry attribute alignment: aArcOffset attribute must be same length as position attribute (vertexCount * 3).",
+    "Performance: 2000 connections * 6 segments = 12000 line segments = 24000 vertices at high tier. Should be fine for LineSegments but monitor.",
+    "Perpendicular vector computation: cross product with reference vector can degenerate if pair axis is parallel to reference. Need fallback reference vector."
+  ]
+}

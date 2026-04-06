@@ -1,0 +1,49 @@
+{
+  "id": "US-058",
+  "verdict": "pass",
+  "confidence": 0.9,
+  "strengths": [
+    "Fragment-only swap is the correct approach — reuses the existing vertex shader (noise3d + pointWarp.vert) unchanged, avoiding duplication of the complex deformation pipeline",
+    "Correctly identifies that uBassEnergy, uTrebleEnergy, and uTime are already in the uniform block; only uVoronoiGridSize is truly new",
+    "Fog implementation matches the existing pointWarp.frag.glsl pattern exactly (smoothstep on vDepth, desaturation toward cool tint, 85% alpha cap)",
+    "Edge color uses RGB darkening of vColor rather than an HSL round-trip — correct since vColor is already palette-derived RGB from the vertex shader",
+    "Self-contained hash function (fract/sin/dot) avoids coupling to noise3d.glsl which is only prepended to the vertex shader string",
+    "Test suite covers both positive (uniform present, shader source content) and negative (voronoi disabled, no uVoronoiGridSize) paths, plus quality tier propagation",
+    "Step 0 bulk restore avoids fragile per-step file recovery"
+  ],
+  "concerns": [
+    {
+      "severity": "minor",
+      "step": 2,
+      "issue": "enableVoronoiCells defaults to true for medium AND high tiers, making voronoi the default point cloud shader for most users. The ticket says 'alternative fragment shader' — consider defaulting to false everywhere and exposing it as an explicit opt-in (e.g. via mode manager config or a separate voronoi point cloud mode), or at least only enabling it for the high tier so medium remains familiar.",
+      "suggestion": "Set enableVoronoiCells to true only for high tier, false for medium and low. This keeps the voronoi shader as a premium visual while still satisfying 'can be assigned to at least one geometry system'."
+    },
+    {
+      "severity": "minor",
+      "step": 3,
+      "issue": "The current import is `import fragmentShader from '../shaders/pointWarp.frag.glsl?raw'` as a top-level const. Step 3 should clarify that both fragment shaders are imported at the top level and selection happens in init(), not that the import itself is conditional (dynamic imports would complicate Vite bundling).",
+      "suggestion": "Import both at top level: `import pointWarpFrag from '...pointWarp.frag.glsl?raw'` and `import voronoiFrag from '...voronoiCell.frag.glsl?raw'`, then select in init() via `const frag = useVoronoiShader ? voronoiFrag : pointWarpFrag`."
+    },
+    {
+      "severity": "minor",
+      "step": 3,
+      "issue": "draw() conditionally updating uVoronoiGridSize only in voronoi mode adds a branch every frame. Since Three.js silently ignores uniforms not declared in the active shader, the uniform could be set unconditionally.",
+      "suggestion": "Always set uVoronoiGridSize in the uniforms object at init time and update it unconditionally in draw(). Three.js will ignore it when the standard fragment shader is active. Simplifies draw() logic."
+    },
+    {
+      "severity": "info",
+      "step": 1,
+      "issue": "The 9-cell voronoi loop (nested -1..1 x/y iteration) runs 9 distance computations per fragment. On mobile low-end GPUs with large point sizes this could be costly, but the quality gating (disabled on low tier) mitigates this.",
+      "suggestion": "No action needed — quality gating is sufficient. Could add a comment in the shader noting the O(9) cost for future maintainers."
+    }
+  ],
+  "missingSteps": [],
+  "riskAreas": [
+    "Voronoi hash function quality — fract(sin(dot())) can produce visible patterns on some GPU architectures. If artifacts appear, may need to switch to a better hash (e.g., integer-based).",
+    "Point size interaction — voronoi cells only look good at sufficient gl_PointSize. Very small points (low structureComplexity, far depth) may degrade to noise rather than readable cells. May need a minimum point size threshold when voronoi is active."
+  ],
+  "estimatedComplexity": "moderate",
+  "orderCorrect": true,
+  "dependenciesValid": true,
+  "approved": true
+}
