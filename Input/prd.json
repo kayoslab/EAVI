@@ -686,7 +686,8 @@
         "US-018",
         "US-019",
         "US-026",
-        "US-030"
+        "US-030",
+        "US-031"
       ],
       "split_from": "US-026",
       "notes": "Second mode should still be ‘close to point clouds’: e.g., a 3D ribbon of points, a volumetric lattice, or a rotating shell field."
@@ -885,6 +886,7 @@
       "status": "pass",
       "depends_on": [
         "US-026",
+        "US-034",
         "US-041"
       ],
       "split_from": "US-034",
@@ -1424,6 +1426,7 @@
       "passes": false,
       "status": "available",
       "depends_on": [
+        "US-055",
         "US-065"
       ],
       "split_from": "US-055",
