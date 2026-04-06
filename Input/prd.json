@@ -1312,7 +1312,6 @@
       ],
       "split_from": "US-056",
       "notes": "US-056 was a wrong direction. Geometric complexity should come from connections between points, not from replacing points with tiny meshes. This ticket cleans up the failed approach."
-
     },
     {
       "id": "US-065",
