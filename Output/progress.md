@@ -138,3 +138,5 @@
 
 ## US-068: Add spatial cube lattice wireframe system
 
+## US-064: Remove instanced micro-geometry system
+
