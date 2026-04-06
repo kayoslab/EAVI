@@ -1,0 +1,77 @@
+{
+  "id": "US-058",
+  "verdict": "APPROVE",
+  "risk": "low",
+  "summary": "Fragment-only shader swap with config gating is a clean, minimal-surface-area change. The plan correctly preserves the vertex shader, reuses existing uniforms, and gates the feature behind quality tiers.",
+  "strengths": [
+    "Fragment-only change — vertex shader (noise3d + pointWarp.vert) is untouched, eliminating varying/attribute mismatch risk",
+    "Correctly identifies that uBassEnergy, uTrebleEnergy, and uTime already exist in the uniform block; only uVoronoiGridSize is new",
+    "Edge tint via RGB darkening avoids color-space round-trip mismatch with the vertex shader's palette-derived vColor",
+    "Quality-tier gating (disabled on low) respects the existing performance scaling pattern",
+    "Self-contained hash-based voronoi (fract/sin/dot) avoids importing noise3d into the fragment shader, keeping the shader modular",
+    "Test plan includes shader content assertions (checking for F2, gl_PointCoord, absence of snoise/fbm3) — not just 'does it init'"
+  ],
+  "concerns": [
+    {
+      "severity": "low",
+      "issue": "Step 0 is unnecessary — working tree is clean (git status shows no changes). Executing 'git checkout HEAD -- src/ tests/' on a clean tree is harmless but adds noise.",
+      "suggestion": "Remove step 0 or make it conditional on dirty working tree detection."
+    },
+    {
+      "severity": "low",
+      "issue": "The current fragment shader is imported as a module-level const: `import fragmentShader from '../shaders/pointWarp.frag.glsl?raw'`. The plan's step 3 says to 'select fragmentShader' at init() time but doesn't explicitly address the naming collision with the existing top-level import.",
+      "suggestion": "Rename the existing import to `pointWarpFrag` (or similar) and import voronoiFragShader alongside it, then select in init()."
+    },
+    {
+      "severity": "low",
+      "issue": "The circular discard (dist > 0.5 from gl_PointCoord) in the voronoi shader clips the voronoi pattern to a circle per point. This is consistent with the existing soft-circle shader but means voronoi cells will be visible only within each point's circular footprint, not as a continuous tiled pattern across the screen.",
+      "suggestion": "This is actually the correct approach for GL_POINTS rendering — each point is an independent quad. The stained-glass effect emerges from many overlapping points. No change needed, but the plan could note this explicitly to set visual expectations."
+    }
+  ],
+  "filesAffected": {
+    "created": [
+      "src/visual/shaders/voronoiCell.frag.glsl",
+      "tests/visual/systems/voronoiPointCloud.test.ts"
+    ],
+    "modified": [
+      "src/visual/quality.ts",
+      "src/visual/systems/pointCloud.ts",
+      "src/main.ts"
+    ],
+    "deleted": []
+  },
+  "architecturalImpact": {
+    "shaderPipeline": "Adds one new fragment shader file and a conditional selection path in pointCloud.ts. The vertex shader chain is unchanged. Impact is additive-only.",
+    "qualitySystem": "Adds one boolean field (enableVoronoiCells) to QualityProfile. Follows the existing pattern of feature flags gated by tier.",
+    "configSurface": "Adds one optional boolean (useVoronoiShader) to PointCloudConfig. Follows existing optional config pattern (enableSparkle, enablePointerRepulsion, etc.).",
+    "uniformBlock": "Adds one new uniform (uVoronoiGridSize). All other uniforms consumed by the voronoi shader already exist.",
+    "testSurface": "Creates the first dedicated point cloud test file. Uses the same patterns established by electricArc.test.ts.",
+    "breakingChanges": "None. Default behavior (useVoronoiShader: false / undefined) produces identical output to current state."
+  },
+  "dependencyCheck": {
+    "US-041": "Required — provides the point cloud system, ShaderMaterial, and uniform block that this plan extends",
+    "US-048": "Required — provides quality tier system and QualityProfile interface that this plan adds enableVoronoiCells to",
+    "satisfied": true
+  },
+  "acceptanceCriteriaCoverage": {
+    "A new fragment shader renders points/geometry with voronoi cell patterns": "covered",
+    "Cell boundaries shift with audio energy": "covered",
+    "Color mapping respects the existing palette system": "covered",
+    "Shader compiles cleanly with no WebGL errors": "partially-covered — build gate validates TypeScript/bundling but GLSL compile errors are runtime-only; ShaderErrorCollector file is referenced but not yet implemented",
+    "Can be assigned to at least one existing geometry system": "covered",
+    "Depth fog still applies": "covered"
+  },
+  "estimatedComplexity": "small",
+  "parallelizableSteps": [
+    [
+      1,
+      2
+    ],
+    [
+      4,
+      5
+    ]
+  ],
+  "approved": false,
+  "adr_entry": null
+}

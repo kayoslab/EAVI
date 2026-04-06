@@ -1,0 +1,124 @@
+{
+  "ticket": "US-046",
+  "title": "Introduce atmospheric depth cues",
+  "summary": "Add fog-based attenuation and depth-dependent visual variation to the existing 3D point cloud shaders so that far geometry looks visually distinct from near geometry, reinforcing spatial immersion without a game-like aesthetic.",
+  "approach": "Implement depth cues at the shader level (custom fog in fragment shaders) rather than using THREE.Fog, because all four geometry systems already use custom ShaderMaterial with additive blending and depthWrite:false — THREE.Fog would not integrate cleanly. Each fragment shader will receive depth from the vertex shader via a varying and apply a smooth exponential fade toward the scene background color. Point size attenuation already exists (2200/depth) but will be refined for subtlety.",
+  "steps": [
+    {
+      "id": 1,
+      "title": "Add depth varying to all four vertex shaders",
+      "description": "In each vertex shader (pointWarp.vert.glsl, particleWarp.vert.glsl, crystalWarp.vert.glsl, ribbonWarp.vert.glsl), declare a `varying float vDepth` and assign it from the already-computed `mvPosition.z`. This passes camera-space depth to the fragment stage. All four shaders already compute `float depth = max(0.25, -mvPosition.z)` — reuse that value.",
+      "files": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/crystalWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl"
+      ],
+      "details": "Add `varying float vDepth;` declaration and `vDepth = depth;` assignment after the existing depth calculation line. No new uniforms needed in this step."
+    },
+    {
+      "id": 2,
+      "title": "Add fog uniforms to all four geometry systems",
+      "description": "In each TypeScript system file (pointCloud.ts, particleField.ts, crystalField.ts, ribbonField.ts), add two new uniforms to the ShaderMaterial: `uFogNear` (float, default ~3.0) and `uFogFar` (float, default ~8.0). These define the depth range over which fog attenuation ramps from 0% to 100%. Values are chosen relative to the camera's BASE_Z of 5 and the point cloud's typical world-space extent of ±1.",
+      "files": [
+        "src/visual/systems/pointCloud.ts",
+        "src/visual/systems/particleField.ts",
+        "src/visual/systems/crystalField.ts",
+        "src/visual/systems/ribbonField.ts"
+      ],
+      "details": "Add `uFogNear: { value: 3.0 }` and `uFogFar: { value: 8.0 }` to each ShaderMaterial's uniforms block. These are static for now but could be driven by bass energy later."
+    },
+    {
+      "id": 3,
+      "title": "Implement depth-based attenuation in all four fragment shaders",
+      "description": "In each fragment shader, receive `varying float vDepth`, receive `uniform float uFogNear` and `uniform float uFogFar`, and compute a fog factor using smoothstep. Apply the fog factor to reduce alpha (not color) so that far points fade toward transparency rather than a solid fog color — this preserves the additive blending aesthetic and dark background.",
+      "files": [
+        "src/visual/shaders/pointWarp.frag.glsl",
+        "src/visual/shaders/particleWarp.frag.glsl",
+        "src/visual/shaders/crystalWarp.frag.glsl",
+        "src/visual/shaders/ribbonWarp.frag.glsl"
+      ],
+      "details": "Add declarations: `varying float vDepth; uniform float uFogNear; uniform float uFogFar;`. Compute: `float fogFactor = smoothstep(uFogNear, uFogFar, vDepth);`. Apply before final gl_FragColor: multiply the computed alpha by `(1.0 - fogFactor * 0.85)`. The 0.85 cap ensures far points don't fully vanish — they become ghostly, not invisible. This keeps the effect subtle and non-game-like."
+    },
+    {
+      "id": 4,
+      "title": "Add depth-based color desaturation in fragment shaders",
+      "description": "Far geometry should appear visually distinct beyond just fading. Add a subtle desaturation and cool-shift for distant points: as depth increases, lerp the fragment color toward a muted blue-grey. This simulates atmospheric scattering and makes near/far distinction perceptible even at similar brightness levels.",
+      "files": [
+        "src/visual/shaders/pointWarp.frag.glsl",
+        "src/visual/shaders/particleWarp.frag.glsl",
+        "src/visual/shaders/crystalWarp.frag.glsl",
+        "src/visual/shaders/ribbonWarp.frag.glsl"
+      ],
+      "details": "After computing fogFactor, compute luminance: `float lum = dot(color.rgb, vec3(0.299, 0.587, 0.114));`. Define fog tint: `vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);` (slight cool shift). Apply: `color.rgb = mix(color.rgb, fogTint, fogFactor * 0.5);`. The 0.5 multiplier keeps the desaturation subtle — far points look hazier and cooler, not uniformly grey."
+    },
+    {
+      "id": 5,
+      "title": "Refine point size depth curve for atmospheric feel",
+      "description": "The current point size formula (2200.0 / depth) is purely geometric perspective. Enhance it so that far points shrink slightly faster than pure perspective would dictate, reinforcing the atmospheric depth impression. Add a subtle exponential decay term.",
+      "files": [
+        "src/visual/shaders/pointWarp.vert.glsl",
+        "src/visual/shaders/particleWarp.vert.glsl",
+        "src/visual/shaders/crystalWarp.vert.glsl",
+        "src/visual/shaders/ribbonWarp.vert.glsl"
+      ],
+      "details": "Modify the point size line from: `float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle;` to: `float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));` then `float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay;`. This adds uFogNear as a uniform to vertex shaders too (already added in step 2). Points nearer than fogNear are unaffected; beyond it they shrink exponentially with a gentle 0.08 rate constant."
+    },
+    {
+      "id": 6,
+      "title": "Verify shader compilation and visual output",
+      "description": "Run the dev server, open the browser, and verify: (1) no shader compile errors in console, (2) no WebGL validation errors, (3) near points appear bright and saturated, (4) far points appear faded, slightly desaturated, and smaller, (5) the effect is subtle — enhances spatial feel without looking like video game fog, (6) mute toggle and info overlay still work, (7) scene renders correctly with and without audio autoplay.",
+      "files": [],
+      "details": "Run `npm run dev` and check browser console. Also run `npm run build` to ensure production build succeeds. Key visual check: the depth gradient should be continuous and smooth, not a hard cutoff. Camera drift from cameraMotion.ts should make the depth layers visible through parallax."
+    }
+  ],
+  "risks": [
+    {
+      "risk": "Fragment shader fog applied to additive blending may produce unexpected visual artifacts if fogFactor interacts badly with overlapping transparent points",
+      "mitigation": "Alpha-based fog (not color-mix-to-white) preserves additive blending correctly on black background. The 0.85 cap prevents full transparency which could cause popping."
+    },
+    {
+      "risk": "Uniform names uFogNear/uFogFar could conflict with Three.js built-in fog uniforms if THREE.Fog is ever added to the scene",
+      "mitigation": "We are deliberately NOT using THREE.Fog. The custom uniforms are scoped to our ShaderMaterial instances only. If THREE.Fog were added later, the built-in uniforms (fogNear, fogFar, fogColor) use different names."
+    },
+    {
+      "risk": "The atmospheric decay on point size may make far points too small on lower-DPR displays",
+      "mitigation": "The existing gl_PointSize clamp of 2.5 minimum ensures far points never become sub-pixel. The decay rate of 0.08 is conservative."
+    }
+  ],
+  "testingStrategy": {
+    "manual": [
+      "Verify no console errors (shader compile, WebGL validation)",
+      "Visually confirm near points are bright/saturated vs far points faded/desaturated",
+      "Confirm depth effect is continuous, not a hard edge",
+      "Verify camera drift reveals depth layers via parallax",
+      "Check all four geometry modes exhibit consistent depth cues",
+      "Test with muted audio — depth cues should still render",
+      "Test on mobile viewport — depth cues should degrade gracefully with reduced point counts"
+    ],
+    "automated": [
+      "npm run build passes without errors",
+      "No TypeScript type errors from new uniforms"
+    ]
+  },
+  "acceptanceCriteriaMapping": {
+    "Scene includes fog or depth-based attenuation": "Steps 3 and 4 implement custom shader-level fog via smoothstep depth attenuation on alpha and color desaturation",
+    "Point size or brightness varies with distance": "Step 5 adds atmospheric decay to point size; step 3 reduces alpha with depth; step 4 desaturates color with depth",
+    "Far geometry appears visually distinct from near geometry": "Combined effect of alpha fade, color desaturation/cool-shift, and enhanced size reduction makes far geometry clearly distinct",
+    "Depth effect remains subtle and non-game-like": "Alpha fade capped at 0.85 (far points ghost, never vanish), desaturation at 0.5 factor, size decay at gentle 0.08 rate — all tuned for atmospheric rather than game-like fog"
+  },
+  "estimatedFiles": [
+    "src/visual/shaders/pointWarp.vert.glsl",
+    "src/visual/shaders/pointWarp.frag.glsl",
+    "src/visual/shaders/particleWarp.vert.glsl",
+    "src/visual/shaders/particleWarp.frag.glsl",
+    "src/visual/shaders/crystalWarp.vert.glsl",
+    "src/visual/shaders/crystalWarp.frag.glsl",
+    "src/visual/shaders/ribbonWarp.vert.glsl",
+    "src/visual/shaders/ribbonWarp.frag.glsl",
+    "src/visual/systems/pointCloud.ts",
+    "src/visual/systems/particleField.ts",
+    "src/visual/systems/crystalField.ts",
+    "src/visual/systems/ribbonField.ts"
+  ]
+}

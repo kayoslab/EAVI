@@ -1,0 +1,115 @@
+{
+  "ticket_id": "US-064",
+  "title": "Remove instanced micro-geometry system",
+  "summary": "Delete the microGeometry system (US-056) entirely: source files, shaders, tests, and all references in quality config, compound modes, mode rotation, and system registry. Update affected test assertions to reflect reduced mode/compound counts and the removal of the maxInstances quality field.",
+  "steps": [
+    {
+      "order": 1,
+      "action": "delete",
+      "description": "Delete microGeometry system source file",
+      "file": "src/visual/systems/microGeometry.ts",
+      "details": "Delete the entire file. This is the core factory (createMicroGeometry) that creates InstancedMesh-based 3D primitives (cubes, tetrahedra, octahedra)."
+    },
+    {
+      "order": 2,
+      "action": "delete",
+      "description": "Delete microGeometry vertex shader",
+      "file": "src/visual/shaders/microGeo.vert.glsl",
+      "details": "Delete the instanced micro-geometry vertex shader file."
+    },
+    {
+      "order": 3,
+      "action": "delete",
+      "description": "Delete microGeometry fragment shader",
+      "file": "src/visual/shaders/microGeo.frag.glsl",
+      "details": "Delete the instanced micro-geometry fragment shader file."
+    },
+    {
+      "order": 4,
+      "action": "delete",
+      "description": "Delete microGeometry unit tests",
+      "file": "tests/visual/systems/microGeometry.test.ts",
+      "details": "Delete the entire test file containing ~35 test cases (T-056-01 through T-056-37) for the microGeometry system."
+    },
+    {
+      "order": 5,
+      "action": "modify",
+      "description": "Remove maxInstances from QualityProfile and all related config",
+      "file": "src/visual/quality.ts",
+      "details": "1. Remove `maxInstances: number` from QualityProfile interface (line 12).\n2. Remove `maxInstances` values from all three tier returns in computeQuality: low (200), medium (600), high (1200) — lines 75, 78, 80.\n3. Remove `'maxInstances'` from COUNT_FIELDS array (line 84).\n4. Remove `maxInstances: 50` from COUNT_MINIMUMS (line 93).\n5. Remove the entire `case 'microgeometry':` block from extractSystemConfig (lines 141-147)."
+    },
+    {
+      "order": 6,
+      "action": "modify",
+      "description": "Remove crystal+microgeometry compound mode and microgeometry from primaryCountForSystem",
+      "file": "src/visual/compoundModes.ts",
+      "details": "1. Remove the `crystal+microgeometry` entry from COMPOUND_MODE_DEFS array (lines 43-49). This reduces COMPOUND_MODE_DEFS from 4 to 3 entries.\n2. Remove the `case 'microgeometry': return (config.maxInstances as number) ?? 0;` line from primaryCountForSystem (line 71)."
+    },
+    {
+      "order": 7,
+      "action": "modify",
+      "description": "Remove microGeometry from main.ts mode rotation and system registry",
+      "file": "src/main.ts",
+      "details": "1. Remove the import of `createMicroGeometry` (line 18).\n2. Remove the `microGeo` creation block (lines 129-134).\n3. Remove the microgeometry entry from singleEntries array (line 164): `{ kind: 'single', name: 'microgeometry', system: microGeo, maxPoints: quality.maxInstances }`.\n4. Remove the microgeometry entry from systemRegistry (line 176): `microgeometry: (cfg) => createMicroGeometry(...)`.\nThis reduces single modes from 8 to 7."
+    },
+    {
+      "order": 8,
+      "action": "modify",
+      "description": "Update modeManager tests to remove microgeometry from mode arrays",
+      "file": "tests/visual/modeManager.test.ts",
+      "details": "1. T-056-38 (line 739): Remove the microgeometry entry from the 5-mode array. Update test description to reflect it now tests 4 modes. Alternatively, remove the test entirely since it specifically tests 'ModeManager accepts MicroGeometry as a fifth mode entry'.\n2. T-054-49 (line 751): Remove microgeometry entry (line 758) from the 6-mode array, making it a 5-mode array. wirepolyhedra becomes the fifth entry.\n3. T-054-50 (line 764): Remove microgeometry entry (line 780) from the 6-mode array. Update description to '5-mode rotation'. Update mocks count from 6 to 5, adjust wirepolyhedra index from mocks[5] to mocks[4].\n4. T-054-51 (line 790): Remove microgeometry entry (line 803). Update mocks count from 6 to 5, adjust wirepolyhedra index, update loop bound from 6 to 5."
+    },
+    {
+      "order": 9,
+      "action": "modify",
+      "description": "Update compoundModes tests to remove microgeometry references and adjust counts",
+      "file": "tests/visual/compoundModes.test.ts",
+      "details": "1. In createMockRegistry (line 72): Remove 'microgeometry' from the names array.\n2. T-061-02 (line 104): Remove `expect(scaled.maxInstances).toBeGreaterThanOrEqual(50)` (line 111).\n3. T-061-01 (line 90): Remove `expect(scaled.maxInstances).toBe(Math.round(medium.maxInstances * 0.5))` (line 97).\n4. T-061-08 (line 168): Remove 'microgeometry' from the names array (line 170). Update expected count from 8 to 7 system names.\n5. T-061-09 (line 182): Change expected compound mode count from 4 to 3.\n6. T-061-10 (line 195): Remove `expect(names).toContain('crystal+microgeometry')` (line 199).\n7. T-061-11 (line 211): Change expected entry count from 4 to 3.\n8. T-061-12 (line 224): Change expected entry count from 4 to 3.\n9. T-068-58 (line 329): Change expected COMPOUND_MODE_DEFS count from 4 to 3.\n10. T-068-59 (line 333): Change expected entry count from 4 to 3."
+    },
+    {
+      "order": 10,
+      "action": "modify",
+      "description": "Remove maxInstances tests from quality.test.ts",
+      "file": "tests/visual/quality.test.ts",
+      "details": "1. Remove test T-056-36 entirely (lines 254-260): 'QualityProfile includes maxInstances field'.\n2. Remove test T-056-37 entirely (lines 262-269): 'low tier has maxInstances=200, medium=600, high=1200'.\n3. In T-061-01 (line 90): Remove `expect(scaled.maxInstances).toBe(Math.round(medium.maxInstances * 0.5))` (line 97).\n4. In T-061-02 (line 104): Remove `expect(scaled.maxInstances).toBeGreaterThanOrEqual(50)` (line 111)."
+    },
+    {
+      "order": 11,
+      "action": "verify",
+      "description": "Build and test verification",
+      "file": null,
+      "details": "1. Run `npm run build` — must pass with no errors and no dead import warnings.\n2. Run `npx vitest run` — all remaining tests must pass.\n3. Grep the entire src/ and tests/ directories for 'microgeometry', 'microGeo', 'MicroGeometry', 'maxInstances' to confirm no orphaned references remain."
+    }
+  ],
+  "files_to_delete": [
+    "src/visual/systems/microGeometry.ts",
+    "src/visual/shaders/microGeo.vert.glsl",
+    "src/visual/shaders/microGeo.frag.glsl",
+    "tests/visual/systems/microGeometry.test.ts"
+  ],
+  "files_to_modify": [
+    "src/visual/quality.ts",
+    "src/visual/compoundModes.ts",
+    "src/main.ts",
+    "tests/visual/modeManager.test.ts",
+    "tests/visual/compoundModes.test.ts",
+    "tests/visual/quality.test.ts"
+  ],
+  "files_to_create": [],
+  "risks": [
+    "Reducing compound modes from 4 to 3 changes the mode rotation balance — fewer compound modes means slightly less visual variety on medium/high tier devices.",
+    "The T-056-38 test specifically validates microGeometry as a mode entry and should be removed entirely rather than modified, since its purpose no longer applies.",
+    "Any other test files not yet discovered that hardcode mode counts (e.g., expecting 8 single modes or 4 compound modes) will also need updating."
+  ],
+  "estimated_complexity": "low",
+  "reviewer_feedback_addressed": [
+    {
+      "feedback": "tests/visual/compoundModes.test.ts contains 'microgeometry' in mode name arrays, asserts 'crystal+microgeometry' compound mode exists, and asserts maxInstances scaling",
+      "resolution": "Step 9 explicitly covers all microgeometry references in compoundModes.test.ts: removing from createMockRegistry names array (line 72), removing crystal+microgeometry assertion (line 199), removing maxInstances scaling assertions (lines 97, 111), and updating all compound mode count assertions from 4 to 3."
+    },
+    {
+      "feedback": "tests/visual/quality.test.ts contains tests T-056-36 and T-056-37 that assert maxInstances exists on QualityProfile and verify per-tier values",
+      "resolution": "Step 10 explicitly covers removing T-056-36 (lines 254-260) and T-056-37 (lines 262-269) from quality.test.ts, plus removing maxInstances assertions from the scaleQualityProfile tests (T-061-01 line 97, T-061-02 line 111)."
+    }
+  ]
+}

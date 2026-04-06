@@ -1,0 +1,26 @@
+{
+  "ticket": "US-021",
+  "risk": "none",
+  "architectural_impact": "none",
+  "rationale": "Pure UI-only addition. createInfoButton() and createInfoOverlay() are self-contained DOM factory functions in src/ui/infoOverlay.ts with no external dependencies beyond the browser DOM API. They are appended synchronously in main.ts and do not touch the audio pipeline, Three.js scene, session seed, or any data flow. Module-private state is limited to a single overlay reference. No new dependencies, no new network calls, no storage APIs, no changes to existing modules.",
+  "modules_affected": [
+    "src/ui/infoOverlay.ts",
+    "src/style.css",
+    "src/main.ts"
+  ],
+  "modules_not_affected": [
+    "src/input/*",
+    "src/seed/*",
+    "src/audio/*",
+    "src/visual/*",
+    "api/*"
+  ],
+  "new_dependencies": [],
+  "breaking_changes": [],
+  "security_concerns": [],
+  "performance_concerns": [],
+  "notes": "Implementation is already complete with 27 passing tests. The overlay uses inline display toggling and standard DOM events (click, keydown Escape). CSS uses fixed positioning with z-index layering that does not conflict with the Three.js canvas. No ADR required.",
+  "approved": true,
+  "concerns": [],
+  "decision": "approve"
+}

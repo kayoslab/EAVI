@@ -1,0 +1,89 @@
+{
+  "ticket": "US-060",
+  "verdict": "APPROVE",
+  "confidence": 0.9,
+  "reasoning": "The plan aligns well with existing codebase patterns. Line-based systems (wireframePolyhedra, constellationLines) already use THREE.LineSegments with ShaderMaterial and the noise3d.glsl library. The subdivision-on-CPU + perpendicular-displacement-in-vertex-shader approach is the correct strategy given WebGL LineSegments constraints. Quality tier gating follows the established enableConstellationLines/maxConstellationSegments pattern. Shared arc shaders avoid duplication while keeping original shaders as fallbacks.",
+  "architecturalImpact": {
+    "scope": "moderate",
+    "newFiles": 5,
+    "modifiedFiles": 4,
+    "affectedSystems": [
+      "wireframePolyhedra",
+      "constellationLines",
+      "quality",
+      "main"
+    ],
+    "sharedInfraChanges": true,
+    "breakingChanges": false
+  },
+  "strengths": [
+    "Follows established shader pattern (noise3d prepend + system-specific vert/frag)",
+    "Subdivision utility is a clean, testable pure function matching existing generator patterns (polyhedraEdges, fractalGeometry)",
+    "Quality tier gating prevents performance regression on low-end devices",
+    "Endpoint tapering via sin(PI * aEdgeParam) correctly preserves edge connectivity",
+    "Shared arc shaders serve both wireframe and constellation systems without duplication",
+    "Existing systems remain functional when arc is disabled — no regressions"
+  ],
+  "concerns": [
+    {
+      "severity": "medium",
+      "area": "Step 7 file targeting",
+      "detail": "Step 7 targets renderLoop.ts for wiring quality settings to system configs, but renderLoop.ts does not create systems — it only calls geometrySystem.init() and geometrySystem.draw() on the modeManager. System creation with quality-driven config happens in main.ts (lines 97-156). Step 7 should modify main.ts to pass enableElectricArc and arcSubdivisions into wireframe and constellation configs.",
+      "recommendation": "Change step 7 target from src/visual/renderLoop.ts to src/main.ts"
+    },
+    {
+      "severity": "low",
+      "area": "Constellation arc integration complexity",
+      "detail": "Step 6 notes that constellation geometry is rebuilt when connections change, but the current constellationLines.ts only builds geometry once in init() — there is no dynamic rebuild path. The plan references a 'connection rebuild process' that doesn't exist. Subdivision only needs to happen in init().",
+      "recommendation": "Simplify step 6 description to reflect that subdivision happens once during init(), not on dynamic rebuilds"
+    },
+    {
+      "severity": "low",
+      "area": "Vertex count estimation in step 1",
+      "detail": "Step 1 acceptance criteria states 'originalEdgeCount * subdivisions * 2' but the actual count should be 'originalEdgeCount * subdivisions * 2' where each original edge (2 vertices) becomes subdivisions line segments (subdivisions * 2 vertices). The plan text in keyLogic says '(subdivisions+1)*2 vertices in LineSegments pairs format' which equals subdivisions*2 vertices — these are inconsistent.",
+      "recommendation": "Clarify: each edge becomes N sub-segments = N*2 vertices in LineSegments format, where N = subdivision count"
+    },
+    {
+      "severity": "low",
+      "area": "Constellation aDistance interpolation",
+      "detail": "Step 6 proposes interpolating aDistance across subdivided vertices. Since both endpoints of a constellation edge share the same distance value (lines 110-111 in constellationLines.ts), interpolation is trivial — all subdivided vertices get the same distance. The plan overcomplicates this.",
+      "recommendation": "Simplify: just replicate the edge's distance value to all subdivided vertices"
+    },
+    {
+      "severity": "low",
+      "area": "Arc shader uniform overlap",
+      "detail": "The arc shaders will need all existing uniforms from wireframe/constellation shaders plus new arc-specific ones. The plan correctly identifies this but should ensure the arc vertex shader includes pointer repulsion and slow modulation uniforms used by wireframe.vert.glsl (uEnableSlowModulation, uEnablePointerRepulsion, uPointerPos, uPointerDisturbance) — these are present in wireframe but absent from constellation shaders.",
+      "recommendation": "Ensure arc vertex shader includes the superset of uniforms from both source shaders, or accept that constellation-applied arcs won't have pointer repulsion"
+    }
+  ],
+  "risks": [
+    {
+      "risk": "Vertex multiplication on high-polyhedra scenes",
+      "impact": "medium",
+      "mitigation": "Quality tier caps subdivision count. With maxPolyhedra=12 (high tier) and ~30 edges per polyhedron at 8 subdivisions = ~5760 vertices total — well within budget."
+    },
+    {
+      "risk": "Perpendicular vector degenerate case",
+      "impact": "low",
+      "mitigation": "Plan includes cross-product fallback for near-vertical edges. Standard approach, low risk."
+    }
+  ],
+  "dependencyCheck": {
+    "US-054": {
+      "status": "required",
+      "detail": "wireframePolyhedra.ts exists and provides the LineSegments + ShaderMaterial pattern to extend"
+    },
+    "US-048": {
+      "status": "required",
+      "detail": "ShaderErrorCollector exists at src/visual/shaderErrorCollector.ts and is wired into healthGate for shader validation"
+    }
+  },
+  "estimatedComplexity": "moderate",
+  "suggestedRevisions": [
+    "Move step 7 target from renderLoop.ts to main.ts where system creation and quality wiring occurs",
+    "Simplify step 6 — constellation init() is the only geometry creation path, no dynamic rebuild exists",
+    "Clarify vertex count formula in step 1 acceptance criteria to be unambiguous"
+  ],
+  "approved": false,
+  "adr_entry": null
+}
