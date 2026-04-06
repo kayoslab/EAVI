@@ -1132,6 +1132,7 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
+        "US-007",
         "US-041",
         "US-047"
       ],
@@ -1154,6 +1155,7 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
+        "US-007",
         "US-040"
       ],
       "split_from": null,
@@ -1419,13 +1421,12 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "in_progress",
+      "status": "available",
       "depends_on": [
         "US-065"
       ],
       "split_from": "US-055",
-      "notes": "The current constellation system (US-055) uses distance-threshold proximity which creates random webs with no recognizable structure. This rework places points deliberately at topology vertices and connects them via explicit edge tables. Think: a field of small connected icosahedra and tetrahedra floating in space, each one clearly a geometric shape made of dots and lines.",
-      "claimed_by": "worker-2"
+      "notes": "The current constellation system (US-055) uses distance-threshold proximity which creates random webs with no recognizable structure. This rework places points deliberately at topology vertices and connects them via explicit edge tables. Think: a field of small connected icosahedra and tetrahedra floating in space, each one clearly a geometric shape made of dots and lines."
     },
     {
       "id": "US-070",
