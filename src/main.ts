@@ -15,7 +15,7 @@ import { createParticleField } from './visual/systems/particleField';
 import { createRibbonField } from './visual/systems/ribbonField';
 import { createPointCloud } from './visual/systems/pointCloud';
 import { createCrystalField } from './visual/systems/crystalField';
-import { createMicroGeometry } from './visual/systems/microGeometry';
+
 import { createWireframePolyhedra } from './visual/systems/wireframePolyhedra';
 import { createFlowRibbonField } from './visual/systems/flowRibbonField';
 import { createModeManager } from './visual/modeManager';
@@ -126,12 +126,6 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
   });
-  const microGeo = createMicroGeometry({
-    maxInstances: quality.maxInstances,
-    noiseOctaves: quality.noiseOctaves,
-    enablePointerRepulsion: quality.enablePointerRepulsion,
-    enableSlowModulation: quality.enableSlowModulation,
-  });
   const wireframe = createWireframePolyhedra({
     maxPolyhedra: quality.maxPolyhedra,
     noiseOctaves: quality.noiseOctaves,
@@ -161,7 +155,7 @@ geoPromise.then((geo) => {
     { kind: 'single', name: 'ribbon', system: ribbon, maxPoints: quality.maxRibbonPoints },
     { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints },
     { kind: 'single', name: 'crystal', system: crystal, maxPoints: Math.round(quality.maxPoints * 0.8) },
-    { kind: 'single', name: 'microgeometry', system: microGeo, maxPoints: quality.maxInstances },
+
     { kind: 'single', name: 'wirepolyhedra', system: wireframe, maxPoints: quality.maxPolyhedra },
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints },
     { kind: 'single', name: 'cubelattice', system: cubeLattice, maxPoints: quality.latticeGridSize ** 3 },
@@ -173,7 +167,7 @@ geoPromise.then((geo) => {
     ribbon: (cfg) => createRibbonField(cfg as Parameters<typeof createRibbonField>[0]),
     pointcloud: (cfg) => createPointCloud(cfg as Parameters<typeof createPointCloud>[0]),
     crystal: (cfg) => createCrystalField(cfg as Parameters<typeof createCrystalField>[0]),
-    microgeometry: (cfg) => createMicroGeometry(cfg as Parameters<typeof createMicroGeometry>[0]),
+
     wirepolyhedra: (cfg) => createWireframePolyhedra(cfg as Parameters<typeof createWireframePolyhedra>[0]),
     flowribbon: (cfg) => createFlowRibbonField(cfg as Parameters<typeof createFlowRibbonField>[0]),
     cubelattice: (cfg) => createCubeLatticeWireframe(cfg as Parameters<typeof createCubeLatticeWireframe>[0]),

@@ -251,24 +251,6 @@ describe('US-025: Quality integration tests', () => {
     expect(cookieSpy).not.toHaveBeenCalled();
   });
 
-  it('T-056-36: QualityProfile includes maxInstances field', () => {
-    const signals = makeSignals();
-    const result = computeQuality(signals);
-    expect(result).toHaveProperty('maxInstances');
-    expect(typeof result.maxInstances).toBe('number');
-    expect(result.maxInstances).toBeGreaterThan(0);
-  });
-
-  it('T-056-37: low tier has maxInstances=200, medium=600, high=1200', () => {
-    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
-    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
-    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
-
-    expect(low.maxInstances).toBe(200);
-    expect(medium.maxInstances).toBe(600);
-    expect(high.maxInstances).toBe(1200);
-  });
-
   it('T-054-41: QualityProfile includes maxPolyhedra field', () => {
     const signals = makeSignals();
     const result = computeQuality(signals);
