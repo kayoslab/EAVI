@@ -422,4 +422,43 @@ describe('US-025: Quality integration tests', () => {
     expect(low.maxTopologyInstances).toBeLessThanOrEqual(medium.maxTopologyInstances);
     expect(medium.maxTopologyInstances).toBeLessThanOrEqual(high.maxTopologyInstances);
   });
+
+  it('T-066-62: low tier maxEdgesPerShape is 30 (constrains fractalgrowth to ~2-3 cubes)', () => {
+    const signals = makeSignals({
+      devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1,
+      screenWidth: 320, screenHeight: 568, touchCapable: true,
+    });
+    const result = computeQuality(signals);
+    expect(result.tier).toBe('low');
+    expect(result.maxEdgesPerShape).toBe(30);
+  });
+
+  it('T-066-63: medium tier maxEdgesPerShape is 480 (constrains fractalgrowth to ~40 cubes)', () => {
+    const signals = makeSignals({
+      devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4,
+      screenWidth: 390, screenHeight: 844, touchCapable: true,
+    });
+    const result = computeQuality(signals);
+    expect(result.tier).toBe('medium');
+    expect(result.maxEdgesPerShape).toBe(480);
+  });
+
+  it('T-066-64: high tier maxEdgesPerShape is 1920 (constrains fractalgrowth to ~160 cubes)', () => {
+    const signals = makeSignals({
+      devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8,
+      screenWidth: 2560, screenHeight: 1440, touchCapable: false,
+    });
+    const result = computeQuality(signals);
+    expect(result.tier).toBe('high');
+    expect(result.maxEdgesPerShape).toBe(1920);
+  });
+
+  it('T-066-65: maxFractalDepth per tier: low=3, medium=4, high=6', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const med = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+    expect(low.maxFractalDepth).toBe(3);
+    expect(med.maxFractalDepth).toBe(4);
+    expect(high.maxFractalDepth).toBe(6);
+  });
 });

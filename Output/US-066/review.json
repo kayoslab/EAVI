@@ -1,0 +1,108 @@
+{
+  "ticket": "US-066",
+  "planVersion": 1,
+  "verdict": "approve_with_notes",
+  "confidence": 0.9,
+  "notes": [
+    {
+      "severity": "low",
+      "step": 1,
+      "issue": "Generator output interface diverges from existing FractalOutput naming (vertexPositions/edgePositions vs positions/edges). Not blocking since it's a separate generator, but consider aligning field names for consistency across generators.",
+      "suggestion": "Optional: rename to { positions, edges, randoms, edgeRandoms, pointCount, edgeCount } to match fractalGeometry.ts conventions."
+    },
+    {
+      "severity": "low",
+      "step": 1,
+      "issue": "Config has both maxVertices and maxEdges, but the system only receives maxEdgesPerShape from quality tiers. The vertex budget should be derived from edge budget (maxVertices = maxEdges * 2/3 for cubes where 8 vertices map to 12 edges).",
+      "suggestion": "Derive maxVertices inside the generator from maxEdges rather than requiring both as separate config fields."
+    },
+    {
+      "severity": "info",
+      "step": 1,
+      "issue": "PRNG pattern uses per-face/per-depth seeds (seed + ':face:' + faceIndex + ':depth:' + d) which creates many PRNG instances. Existing generators typically create fewer. This works but consider creating one PRNG per recursion call and drawing multiple values from it.",
+      "suggestion": "Use a single PRNG seeded once per generateCubeGrowth call, or one per recursion level, rather than one per face per depth."
+    },
+    {
+      "severity": "info",
+      "step": 2,
+      "issue": "Plan correctly notes extractUniqueVertices may be unnecessary since cube vertices are unique per instance. The vertex buffer from the generator can be used directly for Points.",
+      "suggestion": "Use the generator's vertex buffer directly; skip extractUniqueVertices."
+    },
+    {
+      "severity": "info",
+      "step": 3,
+      "issue": "maxFractalDepth in quality tiers is 3/4/6 but plan clamps to 5 max. This is reasonable for controlling geometry explosion but should be documented in the extractSystemConfig case with a comment.",
+      "suggestion": "Add Math.min(profile.maxFractalDepth, 5) with a comment explaining the cap."
+    },
+    {
+      "severity": "info",
+      "step": 4,
+      "issue": "maxPoints for singleEntries should use a meaningful metric. For cubes: maxCubes = maxEdgesPerShape / 12, maxPoints = maxCubes * 8. Ensure this is consistent with how other systems report their budget.",
+      "suggestion": "Use edgeBudget or derive vertex count for the SingleRotationEntry maxPoints field."
+    }
+  ],
+  "risks": [
+    {
+      "risk": "Geometry explosion at depth 5 with high branching probability",
+      "mitigation": "Budget enforcement (maxEdges) in generator already planned. Ensure budget check happens before recursion, not after allocating arrays.",
+      "severity": "medium"
+    },
+    {
+      "risk": "Low-tier budget of 30 edges yields only ~2 cubes which may look too sparse",
+      "mitigation": "Acceptable since this matches existing quality tier values for wireframe systems. Could increase low-tier minimum to 60 (5 cubes) if visual result is too minimal.",
+      "severity": "low"
+    }
+  ],
+  "verifiedAssumptions": [
+    "All referenced shaders exist (wireframe.vert.glsl, wireframe.frag.glsl, wireframeVertex.vert/frag, noise3d.glsl, chromaticDispersion.glsl)",
+    "createEdgeUniforms and createVertexDotUniforms are exported from wireframePolyhedra.ts and can be reused",
+    "extractSystemConfig uses a switch statement that can accept new cases",
+    "systemRegistry in main.ts is a plain object that accepts new factory entries",
+    "singleEntries array accepts new SingleRotationEntry objects",
+    "Quality profile already has maxFractalDepth (3/4/6) and maxEdgesPerShape (30/480/1920) fields",
+    "normalizeToRadius and createPRNG are importable from existing modules",
+    "GeometrySystem interface requires init/draw with optional cleanup/setOpacity"
+  ],
+  "missingFromPlan": [],
+  "estimatedComplexity": "medium",
+  "readyToImplement": true,
+  "approved": true,
+  "concerns": [
+    {
+      "severity": "low",
+      "step": 1,
+      "issue": "Generator output interface diverges from existing FractalOutput naming (vertexPositions/edgePositions vs positions/edges). Not blocking since it's a separate generator, but consider aligning field names for consistency across generators.",
+      "suggestion": "Optional: rename to { positions, edges, randoms, edgeRandoms, pointCount, edgeCount } to match fractalGeometry.ts conventions."
+    },
+    {
+      "severity": "low",
+      "step": 1,
+      "issue": "Config has both maxVertices and maxEdges, but the system only receives maxEdgesPerShape from quality tiers. The vertex budget should be derived from edge budget (maxVertices = maxEdges * 2/3 for cubes where 8 vertices map to 12 edges).",
+      "suggestion": "Derive maxVertices inside the generator from maxEdges rather than requiring both as separate config fields."
+    },
+    {
+      "severity": "info",
+      "step": 1,
+      "issue": "PRNG pattern uses per-face/per-depth seeds (seed + ':face:' + faceIndex + ':depth:' + d) which creates many PRNG instances. Existing generators typically create fewer. This works but consider creating one PRNG per recursion call and drawing multiple values from it.",
+      "suggestion": "Use a single PRNG seeded once per generateCubeGrowth call, or one per recursion level, rather than one per face per depth."
+    },
+    {
+      "severity": "info",
+      "step": 2,
+      "issue": "Plan correctly notes extractUniqueVertices may be unnecessary since cube vertices are unique per instance. The vertex buffer from the generator can be used directly for Points.",
+      "suggestion": "Use the generator's vertex buffer directly; skip extractUniqueVertices."
+    },
+    {
+      "severity": "info",
+      "step": 3,
+      "issue": "maxFractalDepth in quality tiers is 3/4/6 but plan clamps to 5 max. This is reasonable for controlling geometry explosion but should be documented in the extractSystemConfig case with a comment.",
+      "suggestion": "Add Math.min(profile.maxFractalDepth, 5) with a comment explaining the cap."
+    },
+    {
+      "severity": "info",
+      "step": 4,
+      "issue": "maxPoints for singleEntries should use a meaningful metric. For cubes: maxCubes = maxEdgesPerShape / 12, maxPoints = maxCubes * 8. Ensure this is consistent with how other systems report their budget.",
+      "suggestion": "Use edgeBudget or derive vertex count for the SingleRotationEntry maxPoints field."
+    }
+  ]
+}

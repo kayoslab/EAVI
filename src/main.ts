@@ -24,6 +24,7 @@ import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
 import { createBezierCurveWeb } from './visual/systems/bezierCurveWeb';
 import { createCubeLatticeWireframe } from './visual/systems/cubeLatticeWireframe';
+import { createFractalGrowthWireframe } from './visual/systems/fractalGrowthWireframe';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
 
 // Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
@@ -149,6 +150,13 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
   });
+  const fractalGrowth = createFractalGrowthWireframe({
+    maxFractalDepth: Math.min(quality.maxFractalDepth, 5),
+    noiseOctaves: quality.noiseOctaves,
+    enablePointerRepulsion: quality.enablePointerRepulsion,
+    enableSlowModulation: quality.enableSlowModulation,
+    maxEdgesPerShape: quality.maxEdgesPerShape,
+  });
   // Build single-mode rotation entries
   const singleEntries: SingleRotationEntry[] = [
     { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles },
@@ -159,6 +167,7 @@ geoPromise.then((geo) => {
     { kind: 'single', name: 'wirepolyhedra', system: wireframe, maxPoints: quality.maxPolyhedra },
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints },
     { kind: 'single', name: 'cubelattice', system: cubeLattice, maxPoints: quality.latticeGridSize ** 3 },
+    { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape },
   ];
 
   // Build compound mode entries (empty on low tier)
@@ -171,6 +180,7 @@ geoPromise.then((geo) => {
     wirepolyhedra: (cfg) => createWireframePolyhedra(cfg as Parameters<typeof createWireframePolyhedra>[0]),
     flowribbon: (cfg) => createFlowRibbonField(cfg as Parameters<typeof createFlowRibbonField>[0]),
     cubelattice: (cfg) => createCubeLatticeWireframe(cfg as Parameters<typeof createCubeLatticeWireframe>[0]),
+    fractalgrowth: (cfg) => createFractalGrowthWireframe(cfg as Parameters<typeof createFractalGrowthWireframe>[0]),
   };
   const compoundEntries = buildCompoundEntries(quality, systemRegistry);
 
