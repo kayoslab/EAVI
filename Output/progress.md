@@ -146,3 +146,5 @@
 
 ## US-072: Fix boring cube lattice wireframe appearance
 
+## US-071: Fix cluttered multi-polyhedra constellation scene
+
