@@ -148,3 +148,5 @@
 
 ## US-071: Fix cluttered multi-polyhedra constellation scene
 
+## US-073: Add wireframe terrain heightfield generator
+
