@@ -1,0 +1,83 @@
+{
+  "id": "US-071",
+  "title": "Fix cluttered multi-polyhedra constellation scene",
+  "overview": "Rework the constellation topology system so it produces 1–3 large, clearly separated hero polyhedra instead of a cluttered field of 8–15 small ones. Prefer clean topologies (icosahedron, octahedron) over dense ones, and enforce strong screen-space separation.",
+  "steps": [
+    {
+      "step": 1,
+      "title": "Update quality tier instance counts",
+      "file": "src/visual/quality.ts",
+      "action": "edit",
+      "details": "Change maxTopologyInstances: low=0 (unchanged), medium=2, high=3. This is the core count reduction from 8/15 down to 2/3."
+    },
+    {
+      "step": 2,
+      "title": "Increase instance scale range",
+      "file": "src/visual/generators/topologyInstances.ts",
+      "action": "edit",
+      "details": "Change scale range from [0.3, 0.7] to [1.2, 2.0]. This makes each instance significantly larger with a clear silhouette. Update the line: `const scale = 1.2 + rng() * 0.8;`"
+    },
+    {
+      "step": 3,
+      "title": "Increase minimum separation between instances",
+      "file": "src/visual/generators/topologyInstances.ts",
+      "action": "edit",
+      "details": "Increase MIN_SEPARATION from 0.8 to 3.0. With only 1–3 large instances in a radius of 2.5–3.0, this ensures they never overlap in screen space. Also increase spreadRadius default to 3.5 in constellationLines.ts (DEFAULT_SPREAD_RADIUS)."
+    },
+    {
+      "step": 4,
+      "title": "Bias topology selection toward clean forms",
+      "file": "src/visual/generators/topologyDefinitions.ts",
+      "action": "edit",
+      "details": "Replace uniform random pickTopologies with a weighted selection that strongly favours icosahedron and octahedron (clean silhouettes with moderate edge count) over tetrahedron (too sparse). Weights: icosahedron=0.45, octahedron=0.45, tetrahedron=0.10. This reduces dense crossing lines while keeping recognizable geometry."
+    },
+    {
+      "step": 5,
+      "title": "Update default spread radius",
+      "file": "src/visual/systems/constellationLines.ts",
+      "action": "edit",
+      "details": "Change DEFAULT_SPREAD_RADIUS from 2.5 to 3.5 and DEFAULT_MAX_TOPOLOGY_INSTANCES from 10 to 3. This spreads the few remaining instances further apart for clear separation."
+    },
+    {
+      "step": 6,
+      "title": "Update existing tests for new instance counts and scales",
+      "file": "tests/visual/systems/constellationLines.test.ts",
+      "action": "edit",
+      "details": "Update test configs that use maxTopologyInstances: 5, 8, 10, 15 to use values consistent with the new 1–3 range. Tests asserting scale ranges or vertex counts need adjustment for the larger scale. Key tests to update: T-055-13 (low=1 vs high=3), T-069-34 (low=1 vs high=3), T-069-32 (cap test, use maxTopologyInstances:3), T-069-42 (use 3 instances). Tests using maxTopologyInstances:5 should be changed to 2 or 3."
+    },
+    {
+      "step": 7,
+      "title": "Add tests for new acceptance criteria",
+      "file": "tests/visual/systems/constellationLines.test.ts",
+      "action": "edit",
+      "details": "Add new tests: (1) T-071-01: instance count is at most 3 for high tier config, (2) T-071-02: instances do not overlap — all instance centers are at least MIN_SEPARATION apart, (3) T-071-03: each instance scale is >= 1.2 (hero-sized), (4) T-071-04: topology selection favours icosahedron/octahedron over tetrahedron (run 50 picks, verify tetrahedron < 25%)."
+    },
+    {
+      "step": 8,
+      "title": "Add topology weight test",
+      "file": "tests/visual/generators/topologyDefinitions.test.ts",
+      "action": "edit",
+      "details": "Add test verifying pickTopologies weighted selection: over 100 picks with a fixed PRNG, tetrahedron count should be significantly lower than octahedron + icosahedron combined."
+    },
+    {
+      "step": 9,
+      "title": "Run build and tests",
+      "action": "verify",
+      "details": "Run `npm run build` to verify no compile errors. Run `npx vitest run` to verify all tests pass. Verify no console errors by checking shader compilation in tests."
+    }
+  ],
+  "filesModified": [
+    "src/visual/quality.ts",
+    "src/visual/generators/topologyInstances.ts",
+    "src/visual/generators/topologyDefinitions.ts",
+    "src/visual/systems/constellationLines.ts",
+    "tests/visual/systems/constellationLines.test.ts",
+    "tests/visual/generators/topologyDefinitions.test.ts"
+  ],
+  "risks": [
+    "Existing tests with hardcoded maxTopologyInstances values (5, 8, 10, 15) will fail until updated",
+    "Larger scale + larger spread radius may push vertices beyond fog far plane (uFogFar=8.0) — verify visually",
+    "Weighted topology selection changes PRNG consumption order, breaking determinism for same seeds vs old code — acceptable since this is a visual rework"
+  ],
+  "testStrategy": "Update all existing constellation tests to use new instance count range (1-3). Add 4 new tests covering: max instance cap, minimum separation enforcement, hero scale range, and topology weight bias. Run full test suite and build."
+}
