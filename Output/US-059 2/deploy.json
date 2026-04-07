@@ -1,1 +1,0 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "Build succeeds (tsc + vite). Typecheck clean (tsc --noEmit). All 1352 tests pass across 77 test files (7 skipped). Chunk size warning is non-blocking."}

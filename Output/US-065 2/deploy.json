@@ -1,1 +1,0 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "TypeScript typecheck clean, production build succeeds (648.75 kB JS), all 85 test files pass (1496 passed, 7 skipped)."}

@@ -1,1 +1,0 @@
-{"tests_added": ["tests/visual/systems/wireframePolyhedra.test.ts", "tests/visual/shaderRegistry.test.ts", "tests/visual/quality.test.ts", "tests/visual/modeManager.test.ts"], "tests_modified": [], "test_results": "pass", "failures": [], "failure_source": null}
