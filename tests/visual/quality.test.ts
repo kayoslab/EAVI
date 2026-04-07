@@ -387,14 +387,14 @@ describe('US-025: Quality integration tests', () => {
     expect(low.enableConstellationLines).toBe(false);
   });
 
-  it('T-069-52: Medium tier has maxTopologyInstances: 8', () => {
+  it('T-069-52: Medium tier has maxTopologyInstances: 2', () => {
     const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
-    expect(medium.maxTopologyInstances).toBe(8);
+    expect(medium.maxTopologyInstances).toBe(2);
   });
 
-  it('T-069-53: High tier has maxTopologyInstances: 15', () => {
+  it('T-069-53: High tier has maxTopologyInstances: 3', () => {
     const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
-    expect(high.maxTopologyInstances).toBe(15);
+    expect(high.maxTopologyInstances).toBe(3);
   });
 
   it('T-069-54: extractSystemConfig constellation returns topology-related fields', () => {
