@@ -461,4 +461,69 @@ describe('US-025: Quality integration tests', () => {
     expect(med.maxFractalDepth).toBe(4);
     expect(high.maxFractalDepth).toBe(6);
   });
+
+  it('T-072-31: QualityProfile includes latticeVoidDensity field', () => {
+    const signals = makeSignals();
+    const result = computeQuality(signals);
+    expect(result).toHaveProperty('latticeVoidDensity');
+    expect(typeof result.latticeVoidDensity).toBe('number');
+    expect(result.latticeVoidDensity).toBeGreaterThanOrEqual(0);
+    expect(result.latticeVoidDensity).toBeLessThanOrEqual(1);
+  });
+
+  it('T-072-32: QualityProfile includes latticeJitter field', () => {
+    const signals = makeSignals();
+    const result = computeQuality(signals);
+    expect(result).toHaveProperty('latticeJitter');
+    expect(typeof result.latticeJitter).toBe('number');
+    expect(result.latticeJitter).toBeGreaterThanOrEqual(0);
+    expect(result.latticeJitter).toBeLessThanOrEqual(1);
+  });
+
+  it('T-072-33: latticeVoidDensity per tier: low=0.4, medium=0.3, high=0.25', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.latticeVoidDensity).toBe(0.4);
+    expect(medium.latticeVoidDensity).toBe(0.3);
+    expect(high.latticeVoidDensity).toBe(0.25);
+  });
+
+  it('T-072-34: latticeJitter per tier: low=0.25, medium=0.3, high=0.35', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.latticeJitter).toBe(0.25);
+    expect(medium.latticeJitter).toBe(0.3);
+    expect(high.latticeJitter).toBe(0.35);
+  });
+
+  it('T-072-35: latticeVoidDensity decreases from low to high tier', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.latticeVoidDensity).toBeGreaterThan(medium.latticeVoidDensity);
+    expect(medium.latticeVoidDensity).toBeGreaterThan(high.latticeVoidDensity);
+  });
+
+  it('T-072-36: latticeJitter increases from low to high tier', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+
+    expect(low.latticeJitter).toBeLessThan(medium.latticeJitter);
+    expect(medium.latticeJitter).toBeLessThan(high.latticeJitter);
+  });
+
+  it('T-072-37: extractSystemConfig cubelattice includes jitter and voidDensity', () => {
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+    const config = extractSystemConfig('cubelattice', high);
+    expect(config.jitter).toBeDefined();
+    expect(config.voidDensity).toBeDefined();
+    expect(config.jitter).toBe(high.latticeJitter);
+    expect(config.voidDensity).toBe(high.latticeVoidDensity);
+  });
 });

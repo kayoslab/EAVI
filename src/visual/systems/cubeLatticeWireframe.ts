@@ -21,6 +21,8 @@ export interface CubeLatticeConfig {
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
+  jitter?: number;
+  voidDensity?: number;
 }
 
 export function createCubeLatticeWireframe(config?: CubeLatticeConfig): GeometrySystem & {
@@ -32,6 +34,8 @@ export function createCubeLatticeWireframe(config?: CubeLatticeConfig): Geometry
   const noiseOctaves = config?.noiseOctaves ?? 3;
   const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
   const enableSlowModulation = config?.enableSlowModulation ?? true;
+  const jitter = config?.jitter ?? 0.3;
+  const voidDensity = config?.voidDensity ?? 0.3;
 
   let edgeMesh: THREE.LineSegments | null = null;
   let vertexMesh: THREE.Points | null = null;
@@ -88,15 +92,15 @@ export function createCubeLatticeWireframe(config?: CubeLatticeConfig): Geometry
       uFogNear: { value: 3.0 },
       uFogFar: { value: 8.0 },
       uDispersion: { value: 0.0 },
-      uBasePointSize: { value: 0.04 },
+      uBasePointSize: { value: 0.06 },
     };
   }
 
   return {
-    init(scene: Scene, _seed: string, params: VisualParams): void {
+    init(scene: Scene, seed: string, params: VisualParams): void {
       sceneRef = scene;
 
-      const lattice = generateCubeLattice({ gridSize, cellSize });
+      const lattice = generateCubeLattice({ gridSize, cellSize, seed, jitter, voidDensity });
 
       // --- Edge LineSegments mesh ---
       const edgeGeometry = new THREE.BufferGeometry();
@@ -119,6 +123,7 @@ export function createCubeLatticeWireframe(config?: CubeLatticeConfig): Geometry
       const vertexGeometry = new THREE.BufferGeometry();
       vertexGeometry.setAttribute('position', new THREE.BufferAttribute(lattice.vertices.positions, 3));
       vertexGeometry.setAttribute('aRandom', new THREE.BufferAttribute(lattice.vertices.aRandom, 3));
+      vertexGeometry.setAttribute('aConnectivity', new THREE.BufferAttribute(lattice.vertices.connectivity, 1));
 
       const vertexMaterial = new THREE.ShaderMaterial({
         vertexShader: vertexDotVertShader,
