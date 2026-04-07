@@ -1,0 +1,136 @@
+{
+  "ticket": "US-069",
+  "verdict": "APPROVE",
+  "confidence": 0.88,
+  "architecturalImpact": {
+    "level": "moderate",
+    "summary": "Transforms the constellation overlay from a dependent consumer of point-cloud positions to a self-contained geometry generator. The Overlay interface contract is preserved but semantically weakened—init(positions) becomes a no-op parameter. No cross-system breakage expected; changes are well-scoped to constellation + quality modules.",
+    "affectedBoundaries": [
+      {
+        "boundary": "Overlay interface contract",
+        "impact": "The `init(scene, positions, params)` signature is preserved but `positions` is ignored. This is a semantic contract violation—the interface implies overlays consume external positions. Future overlays or refactors may be confused by this precedent.",
+        "severity": "low",
+        "recommendation": "Acceptable pragmatic choice. Add a JSDoc comment on init() noting positions are unused. Consider a future ADR if more overlays become self-generating."
+      },
+      {
+        "boundary": "modeManager.initOverlay() → getPositions() pipeline",
+        "impact": "The getPositions callback in main.ts will still extract positions from primary geometry systems on every mode switch, passing them to constellation init(). This work is now wasted CPU. On mode switch, constellation will re-initialize with new seeded topology regardless of the primary system's geometry.",
+        "severity": "low",
+        "recommendation": "Could pass null from getPositions to skip the Float32Array copy, but the existing code path is harmless. No change needed now."
+      },
+      {
+        "boundary": "QualityProfile interface",
+        "impact": "Adding maxTopologyInstances is additive. All consumers of QualityProfile will see the new field. scaleQualityProfile will scale it correctly if added to COUNT_FIELDS and COUNT_MINIMUMS.",
+        "severity": "low",
+        "recommendation": "Straightforward. Follow reviewer correction: set COUNT_MINIMUMS to 0, not 3."
+      },
+      {
+        "boundary": "extractSystemConfig switch",
+        "impact": "Adding a 'constellation' case is valid but currently unused—main.ts passes config fields directly to createConstellationLines(), not through extractSystemConfig. The new case would be dead code unless callers are updated.",
+        "severity": "low",
+        "recommendation": "Either skip the extractSystemConfig case (avoid dead code) or update main.ts to use it for consistency with other systems. Prefer the latter for architectural consistency."
+      }
+    ]
+  },
+  "planCorrectness": {
+    "score": 0.85,
+    "issues": [
+      {
+        "step": 3,
+        "issue": "COUNT_MINIMUMS of 3 would override low tier's maxTopologyInstances: 0, enabling topologies on devices where enableConstellationLines is false",
+        "severity": "medium",
+        "status": "identified_by_reviewer",
+        "fix": "Set COUNT_MINIMUMS for maxTopologyInstances to 0. The enableConstellationLines boolean gate controls system activation."
+      },
+      {
+        "step": 3,
+        "issue": "extractSystemConfig('constellation') case is new but no caller uses it. main.ts passes config directly. Dead code unless main.ts is updated.",
+        "severity": "low",
+        "status": "new",
+        "fix": "Either update main.ts to use extractSystemConfig('constellation') or omit the case entirely."
+      },
+      {
+        "step": 4,
+        "issue": "Plan says init() signature stays compatible but positions parameter is ignored. The modeManager will still call getPositions() and copy a Float32Array on every mode switch for nothing.",
+        "severity": "low",
+        "status": "acknowledged_in_plan",
+        "fix": "Acceptable as-is. Could optimize later by having getPositions return null for topology-based overlays."
+      },
+      {
+        "step": 2,
+        "issue": "createPRNG import path assumed as src/visual/prng.ts. Confirmed this exists and exports createPRNG.",
+        "severity": "none",
+        "status": "verified"
+      },
+      {
+        "step": 4,
+        "issue": "Plan says 'store instance metadata for potential future per-instance animation' which violates CLAUDE.md's 'don't design for hypothetical future requirements' if it adds unused data structures.",
+        "severity": "low",
+        "status": "new",
+        "fix": "Only store instance metadata if it's needed for the current implementation (e.g., per-instance bounding checks). Don't add unused fields."
+      }
+    ]
+  },
+  "reviewerCorrections": {
+    "allValid": true,
+    "notes": "All 5 reviewer corrections are accurate. The COUNT_MINIMUMS issue (severity medium) is the most impactful and must be addressed. The extractSystemConfig clarification, init() comment, spreadRadius tuning, and retry-cap behavior are all valid low-severity items."
+  },
+  "riskAssessment": {
+    "overallRisk": "low-medium",
+    "risks": [
+      {
+        "risk": "Topology vertices may cluster too tightly at spread radius edges, creating visual overlap",
+        "likelihood": "medium",
+        "impact": "low",
+        "mitigation": "Reject-and-retry with minimum separation handles this. Tunable at implementation time."
+      },
+      {
+        "risk": "Mode switch re-initializes constellation topology with same seed, so topology never changes during session",
+        "likelihood": "certain",
+        "impact": "low",
+        "mitigation": "This is likely intentional—constellation is a persistent overlay across modes. If per-mode variation is desired, seed could incorporate mode index."
+      },
+      {
+        "risk": "Existing proximity-based tests are tightly coupled and may reference internal functions that will be removed",
+        "likelihood": "high",
+        "impact": "low",
+        "mitigation": "Step 7 explicitly plans test rewrites. Well-scoped."
+      },
+      {
+        "risk": "Electric arc subdivision assumes LineSegments pairs from proximity algorithm; topology edges produce the same format",
+        "likelihood": "low",
+        "impact": "none",
+        "mitigation": "subdivideEdges operates on generic position pairs. Format is compatible."
+      }
+    ]
+  },
+  "completenessCheck": {
+    "missingConsiderations": [
+      {
+        "item": "main.ts update for maxTopologyInstances config passing",
+        "description": "main.ts currently passes maxConnections, enableElectricArc, arcSubdivisions to createConstellationLines. Plan adds maxTopologyInstances and spreadRadius to ConstellationConfig but doesn't explicitly list main.ts as a file to modify to pass these new fields.",
+        "severity": "medium",
+        "recommendation": "Add main.ts to filesToModify. Update the createConstellationLines call to include maxTopologyInstances from quality profile."
+      },
+      {
+        "item": "Session seed access for topology PRNG",
+        "description": "topologyInstances.ts needs a seed string to create PRNG. Plan says 'use createPRNG from prng.ts' but doesn't specify how the session seed reaches the topology generator. Currently constellationLines.ts doesn't receive a seed.",
+        "severity": "medium",
+        "recommendation": "Either pass seed through ConstellationConfig or through VisualParams in init(). The session seed is available in main.ts and passed through VisualParams."
+      }
+    ],
+    "filesToModifyMissing": [
+      "src/main.ts"
+    ],
+    "dependenciesVerified": true
+  },
+  "recommendations": [
+    "Fix COUNT_MINIMUMS to 0 for maxTopologyInstances (reviewer correction, medium severity)",
+    "Add main.ts to filesToModify—it needs to pass maxTopologyInstances to createConstellationLines config",
+    "Clarify how session seed reaches topology generation (via ConstellationConfig or VisualParams)",
+    "Either use extractSystemConfig('constellation') from main.ts or skip adding the case to avoid dead code",
+    "Drop 'store instance metadata for future animation'—only store what the current implementation needs"
+  ],
+  "approved": false,
+  "adr_entry": null
+}
