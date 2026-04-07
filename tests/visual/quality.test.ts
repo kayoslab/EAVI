@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { computeQuality } from '../../src/visual/quality';
+import { computeQuality, extractSystemConfig, scaleQualityProfile } from '../../src/visual/quality';
 import type { BrowserSignals } from '../../src/input/signals';
 import * as THREE from 'three';
 import { createParticleField, getParticleCount } from '../../src/visual/systems/particleField';
@@ -372,5 +372,54 @@ describe('US-025: Quality integration tests', () => {
 
     expect(low.latticeGridSize).toBeLessThan(medium.latticeGridSize);
     expect(medium.latticeGridSize).toBeLessThan(high.latticeGridSize);
+  });
+
+  it('T-069-50: QualityProfile includes maxTopologyInstances field', () => {
+    const signals = makeSignals();
+    const result = computeQuality(signals);
+    expect(result).toHaveProperty('maxTopologyInstances');
+    expect(typeof result.maxTopologyInstances).toBe('number');
+  });
+
+  it('T-069-51: Low tier has maxTopologyInstances: 0 (constellation topology disabled)', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    expect(low.maxTopologyInstances).toBe(0);
+    expect(low.enableConstellationLines).toBe(false);
+  });
+
+  it('T-069-52: Medium tier has maxTopologyInstances: 8', () => {
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    expect(medium.maxTopologyInstances).toBe(8);
+  });
+
+  it('T-069-53: High tier has maxTopologyInstances: 15', () => {
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+    expect(high.maxTopologyInstances).toBe(15);
+  });
+
+  it('T-069-54: extractSystemConfig constellation returns topology-related fields', () => {
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+    const config = extractSystemConfig('constellation', high);
+    expect(config.maxTopologyInstances).toBeDefined();
+    expect(config.maxConstellationSegments).toBeDefined();
+    expect(config.enableElectricArc).toBeDefined();
+    expect(config.arcSubdivisions).toBeDefined();
+    expect(config.enableConstellationLines).toBeDefined();
+  });
+
+  it('T-069-55: scaleQualityProfile respects COUNT_MINIMUMS for maxTopologyInstances (minimum 0)', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const scaled = scaleQualityProfile(low, 0.1);
+    expect(scaled.maxTopologyInstances).toBeGreaterThanOrEqual(0);
+    // Can be scaled to 0 (fully disabled)
+    expect(scaled.maxTopologyInstances).toBe(0);
+  });
+
+  it('T-069-56: tier progression: maxTopologyInstances increases from low to medium to high', () => {
+    const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));
+    const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));
+    const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));
+    expect(low.maxTopologyInstances).toBeLessThanOrEqual(medium.maxTopologyInstances);
+    expect(medium.maxTopologyInstances).toBeLessThanOrEqual(high.maxTopologyInstances);
   });
 });

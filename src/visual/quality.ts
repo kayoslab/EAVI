@@ -30,6 +30,7 @@ export interface QualityProfile {
   bezierSegments: number;
   latticeGridSize: number;
   latticeCellSize: number;
+  maxTopologyInstances: number;
 }
 
 export function computeQuality(signals: BrowserSignals): QualityProfile {
@@ -72,18 +73,18 @@ export function computeQuality(signals: BrowserSignals): QualityProfile {
   score = Math.max(0, Math.min(1, score));
 
   if (score < 0.35) {
-    return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false, enableConstellationLines: false, maxConstellationSegments: 0, maxPolyhedra: 3, maxFractalDepth: 3, enableElectricArc: false, arcSubdivisions: 0, enableVoronoiCells: false, maxEdgesPerShape: 30, maxFlowRibbonPoints: 200, enableBezierWeb: false, maxBezierConnections: 0, bezierSegments: 4, latticeGridSize: 3, latticeCellSize: 1.2 };
+    return { tier: 'low', maxParticles: 150, maxPoints: 200, maxRibbonPoints: 200, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false, enableConstellationLines: false, maxConstellationSegments: 0, maxPolyhedra: 3, maxFractalDepth: 3, enableElectricArc: false, arcSubdivisions: 0, enableVoronoiCells: false, maxEdgesPerShape: 30, maxFlowRibbonPoints: 200, enableBezierWeb: false, maxBezierConnections: 0, bezierSegments: 4, latticeGridSize: 3, latticeCellSize: 1.2, maxTopologyInstances: 0 };
   }
   if (score > 0.65) {
-    return { tier: 'high', maxParticles: 1000, maxPoints: 2000, maxRibbonPoints: 1600, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 3000, maxPolyhedra: 12, maxFractalDepth: 6, enableElectricArc: true, arcSubdivisions: 8, enableVoronoiCells: true, maxEdgesPerShape: 1920, maxFlowRibbonPoints: 1600, enableBezierWeb: true, maxBezierConnections: 2000, bezierSegments: 6, latticeGridSize: 7, latticeCellSize: 0.8 };
+    return { tier: 'high', maxParticles: 1000, maxPoints: 2000, maxRibbonPoints: 1600, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 3000, maxPolyhedra: 12, maxFractalDepth: 6, enableElectricArc: true, arcSubdivisions: 8, enableVoronoiCells: true, maxEdgesPerShape: 1920, maxFlowRibbonPoints: 1600, enableBezierWeb: true, maxBezierConnections: 2000, bezierSegments: 6, latticeGridSize: 7, latticeCellSize: 0.8, maxTopologyInstances: 15 };
   }
-  return { tier: 'medium', maxParticles: 550, maxPoints: 800, maxRibbonPoints: 700, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 480, maxFlowRibbonPoints: 700, enableBezierWeb: true, maxBezierConnections: 800, bezierSegments: 4, latticeGridSize: 5, latticeCellSize: 1.0 };
+  return { tier: 'medium', maxParticles: 550, maxPoints: 800, maxRibbonPoints: 700, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 480, maxFlowRibbonPoints: 700, enableBezierWeb: true, maxBezierConnections: 800, bezierSegments: 4, latticeGridSize: 5, latticeCellSize: 1.0, maxTopologyInstances: 8 };
 }
 
 const COUNT_FIELDS: (keyof QualityProfile)[] = [
   'maxParticles', 'maxPoints', 'maxRibbonPoints',
   'maxPolyhedra', 'maxConstellationSegments', 'maxEdgesPerShape', 'maxFlowRibbonPoints',
-  'maxBezierConnections', 'latticeGridSize',
+  'maxBezierConnections', 'latticeGridSize', 'maxTopologyInstances',
 ];
 
 const COUNT_MINIMUMS: Partial<Record<keyof QualityProfile, number>> = {
@@ -97,6 +98,7 @@ const COUNT_MINIMUMS: Partial<Record<keyof QualityProfile, number>> = {
   maxFlowRibbonPoints: 50,
   maxBezierConnections: 0,
   latticeGridSize: 2,
+  maxTopologyInstances: 0,
 };
 
 export function scaleQualityProfile(profile: QualityProfile, factor: number): QualityProfile {
@@ -163,6 +165,14 @@ export function extractSystemConfig(systemName: string, profile: QualityProfile)
         noiseOctaves: profile.noiseOctaves,
         enablePointerRepulsion: profile.enablePointerRepulsion,
         enableSlowModulation: profile.enableSlowModulation,
+      };
+    case 'constellation':
+      return {
+        maxTopologyInstances: profile.maxTopologyInstances,
+        maxConstellationSegments: profile.maxConstellationSegments,
+        enableElectricArc: profile.enableElectricArc,
+        arcSubdivisions: profile.arcSubdivisions,
+        enableConstellationLines: profile.enableConstellationLines,
       };
     default:
       throw new Error(`Unknown system name: ${systemName}`);
