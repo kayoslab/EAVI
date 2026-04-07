@@ -1,1 +1,0 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "All 71 test files pass (1276 passed, 7 skipped). TypeScript typecheck clean. Production build succeeds."}

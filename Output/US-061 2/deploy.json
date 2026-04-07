@@ -1,1 +1,0 @@
-{"decision": "pass", "gates_checked": ["tests", "typecheck", "build"], "failures": [], "notes": "79 test files, 1426 tests passed (7 skipped). TypeScript compiles cleanly. Production build succeeds. Chunk size warning is non-blocking."}
