@@ -49,16 +49,24 @@ export function createInfoOverlay(): HTMLDivElement {
 
   const p4 = document.createElement('p');
   p4.textContent =
-    'EAVI is entirely created by karl. karl is an autonomous coding agent built on top of Claude, developed by Anthropic.';
+    'EAVI is entirely created by karl. karl is an autonomous coding agent built on top of Claude.';
 
-  const link = document.createElement('a');
-  link.href = 'https://github.com/kayoslab/karl';
-  link.textContent = 'Github - karl';
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
+  const karllink = document.createElement('a');
+  karllink.href = 'https://github.com/kayoslab/karl';
+  karllink.textContent = 'Github - karl';
+  karllink.target = '_blank';
+  karllink.rel = 'noopener noreferrer';
+
+  const eavilink = document.createElement('a');
+  eavilink.href = 'https://github.com/kayoslab/EAVI';
+  eavilink.textContent = 'Github - EAVI';
+  eavilink.target = '_blank';
+  eavilink.rel = 'noopener noreferrer';
 
   p4.appendChild(document.createElement('br'));
-  p4.appendChild(link);
+  p4.appendChild(karllink);
+  p4.appendChild(document.createElement('br'));
+  p4.appendChild(eavilink);
 
   panel.appendChild(closeBtn);
   panel.appendChild(p1);
