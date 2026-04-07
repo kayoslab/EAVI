@@ -164,6 +164,14 @@ export function extractSystemConfig(systemName: string, profile: QualityProfile)
         enablePointerRepulsion: profile.enablePointerRepulsion,
         enableSlowModulation: profile.enableSlowModulation,
       };
+    case 'fractalgrowth':
+      return {
+        maxFractalDepth: Math.min(profile.maxFractalDepth, 5),
+        noiseOctaves: profile.noiseOctaves,
+        enablePointerRepulsion: profile.enablePointerRepulsion,
+        enableSlowModulation: profile.enableSlowModulation,
+        maxEdgesPerShape: profile.maxEdgesPerShape,
+      };
     default:
       throw new Error(`Unknown system name: ${systemName}`);
   }
