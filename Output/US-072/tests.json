@@ -1,0 +1,226 @@
+{
+  "tests": [
+    {
+      "id": "T-072-01",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "generateCubeLattice accepts seed and jitter options and produces non-uniform vertex positions",
+      "code": "it('T-072-01: generateCubeLattice with jitter > 0 produces non-uniform vertex positions', () => {\n  const uniform = generateCubeLattice({ gridSize: 3, cellSize: 1.0 });\n  const jittered = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'test-seed', jitter: 0.5 });\n  // With jitter, vertex positions should differ from the uniform grid\n  let diffCount = 0;\n  for (let i = 0; i < uniform.vertices.positions.length; i++) {\n    if (Math.abs(uniform.vertices.positions[i] - jittered.vertices.positions[i]) > 0.001) {\n      diffCount++;\n    }\n  }\n  expect(diffCount).toBeGreaterThan(0);\n});"
+    },
+    {
+      "id": "T-072-02",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "generateCubeLattice with jitter=0 produces the same positions as without jitter",
+      "code": "it('T-072-02: generateCubeLattice with jitter=0 produces positions identical to no-jitter baseline', () => {\n  const baseline = generateCubeLattice({ gridSize: 3, cellSize: 1.0 });\n  const noJitter = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'any-seed', jitter: 0 });\n  expect(noJitter.vertices.positions).toEqual(baseline.vertices.positions);\n});"
+    },
+    {
+      "id": "T-072-03",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Jitter is deterministic: same seed produces identical jittered output",
+      "code": "it('T-072-03: jitter is deterministic — same seed and jitter produce identical output', () => {\n  const a = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'det-jitter', jitter: 0.3 });\n  const b = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'det-jitter', jitter: 0.3 });\n  expect(a.vertices.positions).toEqual(b.vertices.positions);\n  expect(a.vertices.aRandom).toEqual(b.vertices.aRandom);\n});"
+    },
+    {
+      "id": "T-072-04",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Different seeds produce different jittered positions",
+      "code": "it('T-072-04: different seeds produce different jittered positions', () => {\n  const a = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'seed-a', jitter: 0.3 });\n  const b = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'seed-b', jitter: 0.3 });\n  let diffCount = 0;\n  for (let i = 0; i < a.vertices.positions.length; i++) {\n    if (Math.abs(a.vertices.positions[i] - b.vertices.positions[i]) > 0.0001) {\n      diffCount++;\n    }\n  }\n  expect(diffCount).toBeGreaterThan(0);\n});"
+    },
+    {
+      "id": "T-072-05",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Jitter displacement is bounded by 0.35 * cellSize per axis",
+      "code": "it('T-072-05: jitter displacement is bounded by 0.35 * cellSize per axis', () => {\n  const cellSize = 1.0;\n  const N = 4;\n  const baseline = generateCubeLattice({ gridSize: N, cellSize });\n  const jittered = generateCubeLattice({ gridSize: N, cellSize, seed: 'bound-test', jitter: 1.0 });\n  const maxDisplacement = 0.35 * cellSize;\n  for (let i = 0; i < baseline.vertices.positions.length; i++) {\n    const diff = Math.abs(jittered.vertices.positions[i] - baseline.vertices.positions[i]);\n    expect(diff).toBeLessThanOrEqual(maxDisplacement + 0.001);\n  }\n});"
+    },
+    {
+      "id": "T-072-06",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "voidDensity > 0 produces fewer edges than the full grid formula",
+      "code": "it('T-072-06: voidDensity > 0 produces fewer edges than the full grid', () => {\n  const full = generateCubeLattice({ gridSize: 5, cellSize: 1.0 });\n  const voided = generateCubeLattice({ gridSize: 5, cellSize: 1.0, seed: 'void-test', voidDensity: 0.5 });\n  expect(voided.edges.edgeCount).toBeLessThan(full.edges.edgeCount);\n});"
+    },
+    {
+      "id": "T-072-07",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "voidDensity=0 preserves all edges",
+      "code": "it('T-072-07: voidDensity=0 preserves all edges (no cells voided)', () => {\n  const full = generateCubeLattice({ gridSize: 4, cellSize: 1.0 });\n  const noVoid = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'no-void', voidDensity: 0 });\n  expect(noVoid.edges.edgeCount).toBe(full.edges.edgeCount);\n});"
+    },
+    {
+      "id": "T-072-08",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Voided lattice has fewer vertices than the full grid (vertex compaction)",
+      "code": "it('T-072-08: voided lattice has fewer vertices than the full grid (vertex compaction)', () => {\n  const full = generateCubeLattice({ gridSize: 5, cellSize: 1.0 });\n  const voided = generateCubeLattice({ gridSize: 5, cellSize: 1.0, seed: 'compact-test', voidDensity: 0.5 });\n  expect(voided.vertices.vertexCount).toBeLessThan(full.vertices.vertexCount);\n});"
+    },
+    {
+      "id": "T-072-09",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Voided lattice output includes connectivity Float32Array with correct length",
+      "code": "it('T-072-09: voided lattice output includes connectivity Float32Array', () => {\n  const result = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'conn-test', voidDensity: 0.3 });\n  expect(result.vertices.connectivity).toBeInstanceOf(Float32Array);\n  expect(result.vertices.connectivity.length).toBe(result.vertices.vertexCount);\n});"
+    },
+    {
+      "id": "T-072-10",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Connectivity values are positive integers (edge count per vertex)",
+      "code": "it('T-072-10: connectivity values are positive integers (edge count per vertex)', () => {\n  const result = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'conn-vals', voidDensity: 0.3 });\n  for (let i = 0; i < result.vertices.connectivity.length; i++) {\n    const v = result.vertices.connectivity[i];\n    expect(Number.isFinite(v)).toBe(true);\n    expect(v).toBeGreaterThanOrEqual(1);\n    expect(v % 1).toBe(0);\n  }\n});"
+    },
+    {
+      "id": "T-072-11",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Full grid (no void) also produces connectivity data",
+      "code": "it('T-072-11: full grid (voidDensity=0) also produces connectivity data', () => {\n  const result = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'full-conn', voidDensity: 0 });\n  expect(result.vertices.connectivity).toBeInstanceOf(Float32Array);\n  expect(result.vertices.connectivity.length).toBe(result.vertices.vertexCount);\n  // Interior vertices of a 3x3x3 grid should have connectivity 6\n  let maxConn = 0;\n  for (let i = 0; i < result.vertices.connectivity.length; i++) {\n    maxConn = Math.max(maxConn, result.vertices.connectivity[i]);\n  }\n  expect(maxConn).toBe(6);\n});"
+    },
+    {
+      "id": "T-072-12",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Voided lattice edge positions are all finite",
+      "code": "it('T-072-12: voided lattice edge positions are all finite', () => {\n  const result = generateCubeLattice({ gridSize: 5, cellSize: 1.0, seed: 'finite-edges', voidDensity: 0.4 });\n  for (let i = 0; i < result.edges.positions.length; i++) {\n    expect(Number.isFinite(result.edges.positions[i])).toBe(true);\n  }\n});"
+    },
+    {
+      "id": "T-072-13",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Void determinism: same seed+voidDensity produces identical edge/vertex counts",
+      "code": "it('T-072-13: void determinism — same seed and voidDensity produce identical results', () => {\n  const a = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'det-void', voidDensity: 0.35 });\n  const b = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'det-void', voidDensity: 0.35 });\n  expect(a.edges.edgeCount).toBe(b.edges.edgeCount);\n  expect(a.vertices.vertexCount).toBe(b.vertices.vertexCount);\n  expect(a.edges.positions).toEqual(b.edges.positions);\n  expect(a.vertices.positions).toEqual(b.vertices.positions);\n});"
+    },
+    {
+      "id": "T-072-14",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Edge array lengths remain consistent after voiding (edgeCount * 2 * 3)",
+      "code": "it('T-072-14: edge array lengths remain consistent after voiding', () => {\n  const result = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'array-len', voidDensity: 0.4 });\n  expect(result.edges.positions.length).toBe(result.edges.edgeCount * 2 * 3);\n  expect(result.edges.randoms.length).toBe(result.edges.edgeCount * 2 * 3);\n});"
+    },
+    {
+      "id": "T-072-15",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Vertex array lengths remain consistent after voiding (vertexCount * 3)",
+      "code": "it('T-072-15: vertex array lengths remain consistent after compaction', () => {\n  const result = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'vtx-len', voidDensity: 0.4 });\n  expect(result.vertices.positions.length).toBe(result.vertices.vertexCount * 3);\n  expect(result.vertices.aRandom.length).toBe(result.vertices.vertexCount * 3);\n});"
+    },
+    {
+      "id": "T-072-16",
+      "file": "tests/visual/generators/cubeLattice.test.ts",
+      "description": "Backward compatibility: calling without seed/jitter/voidDensity still works",
+      "code": "it('T-072-16: backward compatibility — calling without seed/jitter/voidDensity still works', () => {\n  const result = generateCubeLattice({ gridSize: 3, cellSize: 1.0 });\n  expect(result.vertices.vertexCount).toBe(64);\n  expect(result.edges.edgeCount).toBe(144);\n  expect(result.vertices.connectivity).toBeInstanceOf(Float32Array);\n});"
+    },
+    {
+      "id": "T-072-17",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Points geometry has aConnectivity attribute with itemSize 1",
+      "code": "it('T-072-17: Points geometry has aConnectivity attribute with itemSize 1', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'conn-attr-seed', defaultParams);\n  const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const connAttr = (pts.geometry as THREE.BufferGeometry).getAttribute('aConnectivity');\n  expect(connAttr).toBeDefined();\n  expect(connAttr.itemSize).toBe(1);\n  expect(connAttr.count).toBeGreaterThan(0);\n});"
+    },
+    {
+      "id": "T-072-18",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Vertex dot vertex shader declares aConnectivity attribute",
+      "code": "it('T-072-18: vertex dot shader declares aConnectivity attribute', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'conn-shader-seed', defaultParams);\n  const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const vs = (pts.material as THREE.ShaderMaterial).vertexShader;\n  expect(vs).toMatch(/attribute\\s+float\\s+aConnectivity/);\n});"
+    },
+    {
+      "id": "T-072-19",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Vertex dot shader passes vConnectivity varying to fragment shader",
+      "code": "it('T-072-19: vertex dot shader declares vConnectivity varying', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'vconn-seed', defaultParams);\n  const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const vs = (pts.material as THREE.ShaderMaterial).vertexShader;\n  const fs = (pts.material as THREE.ShaderMaterial).fragmentShader;\n  expect(vs).toMatch(/varying\\s+float\\s+vConnectivity/);\n  expect(fs).toMatch(/varying\\s+float\\s+vConnectivity/);\n});"
+    },
+    {
+      "id": "T-072-20",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Edge vertex shader does NOT contain treble micro displacement lines",
+      "code": "it('T-072-20: edge vertex shader does not contain treble micro displacement', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'no-treble-seed', defaultParams);\n  const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;\n  const vs = (line.material as THREE.ShaderMaterial).vertexShader;\n  // trebleJitter positional displacement should be removed\n  expect(vs).not.toMatch(/trebleJitter/);\n});"
+    },
+    {
+      "id": "T-072-21",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Vertex dot vertex shader does NOT contain treble micro displacement",
+      "code": "it('T-072-21: vertex dot shader does not contain treble positional displacement', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'no-treble-vtx', defaultParams);\n  const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const vs = (pts.material as THREE.ShaderMaterial).vertexShader;\n  expect(vs).not.toMatch(/trebleJitter/);\n});"
+    },
+    {
+      "id": "T-072-22",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Edge shader still contains treble in fragment for lightness (not removed)",
+      "code": "it('T-072-22: edge fragment shader still references uTrebleEnergy (lightness preserved)', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'treble-frag-seed', defaultParams);\n  const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;\n  const fs = (line.material as THREE.ShaderMaterial).fragmentShader;\n  expect(fs).toMatch(/uTrebleEnergy/);\n});"
+    },
+    {
+      "id": "T-072-23",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Vertex dot shader still contains treble sparkle in point size calculation",
+      "code": "it('T-072-23: vertex dot shader still contains treble sparkle for point size', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'sparkle-seed', defaultParams);\n  const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const vs = (pts.material as THREE.ShaderMaterial).vertexShader;\n  expect(vs).toMatch(/trebleSparkle/);\n});"
+    },
+    {
+      "id": "T-072-24",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Slow modulation is gated behind bass smoothstep (contains smoothstep near uBassEnergy in slow modulation block)",
+      "code": "it('T-072-24: slow modulation is gated behind bass energy smoothstep', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'gate-seed', defaultParams);\n  const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;\n  const vs = (line.material as THREE.ShaderMaterial).vertexShader;\n  // The slow modulation block should be gated with a smoothstep on bass\n  expect(vs).toMatch(/smoothstep.*uBassEnergy|uBassEnergy.*smoothstep/);\n});"
+    },
+    {
+      "id": "T-072-25",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Bass drift coefficient is reduced from 0.25 to 0.15",
+      "code": "it('T-072-25: bass directional drift uses reduced 0.15 coefficient', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'drift-seed', defaultParams);\n  const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;\n  const vs = (line.material as THREE.ShaderMaterial).vertexShader;\n  // The bass drift line should use 0.15 not 0.25\n  expect(vs).toMatch(/bassDrift\\s*=.*0\\.15/);\n  expect(vs).not.toMatch(/bassDrift\\s*=.*0\\.25/);\n});"
+    },
+    {
+      "id": "T-072-26",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "uBasePointSize default is increased to 0.06",
+      "code": "it('T-072-26: uBasePointSize default is 0.06 (increased from 0.04)', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });\n  sys.init(scene, 'pointsize-seed', defaultParams);\n  const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;\n  const u = (pts.material as THREE.ShaderMaterial).uniforms;\n  expect(u.uBasePointSize.value).toBeCloseTo(0.06, 5);\n});"
+    },
+    {
+      "id": "T-072-27",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "CubeLatticeConfig accepts jitter and voidDensity options",
+      "code": "it('T-072-27: CubeLatticeConfig accepts jitter and voidDensity options', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0, jitter: 0.3, voidDensity: 0.3 });\n  sys.init(scene, 'config-seed', defaultParams);\n  const lines = scene.children.filter((c) => c instanceof THREE.LineSegments);\n  const points = scene.children.filter((c) => c instanceof THREE.Points);\n  expect(lines.length).toBeGreaterThanOrEqual(1);\n  expect(points.length).toBeGreaterThanOrEqual(1);\n});"
+    },
+    {
+      "id": "T-072-28",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "Seed is threaded to generator (different seeds produce different geometry counts with voiding)",
+      "code": "it('T-072-28: seed is threaded to generator — different seeds produce different geometry with voiding', () => {\n  const sceneA = new THREE.Scene();\n  const sysA = createCubeLatticeWireframe({ gridSize: 5, cellSize: 1.0, voidDensity: 0.4 });\n  sysA.init(sceneA, 'seed-A', defaultParams);\n\n  const sceneB = new THREE.Scene();\n  const sysB = createCubeLatticeWireframe({ gridSize: 5, cellSize: 1.0, voidDensity: 0.4 });\n  sysB.init(sceneB, 'seed-B', defaultParams);\n\n  const linesA = sceneA.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;\n  const linesB = sceneB.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;\n  const countA = (linesA.geometry as THREE.BufferGeometry).getAttribute('position').count;\n  const countB = (linesB.geometry as THREE.BufferGeometry).getAttribute('position').count;\n  // Different seeds should likely produce different void patterns and thus different edge counts\n  // (extremely unlikely to be identical with voidDensity=0.4 on a 5x5x5 grid)\n  expect(countA).not.toBe(countB);\n});"
+    },
+    {
+      "id": "T-072-29",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "With voidDensity, edge count is less than the full grid formula",
+      "code": "it('T-072-29: with voidDensity, LineSegments has fewer edges than the full grid', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 5, cellSize: 1.0, voidDensity: 0.4 });\n  sys.init(scene, 'fewer-edges', defaultParams);\n  const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;\n  const edgeVertexCount = (line.geometry as THREE.BufferGeometry).getAttribute('position').count;\n  const fullEdgeCount = 3 * 5 * 6 * 6; // 3*N*(N+1)^2\n  expect(edgeVertexCount).toBeLessThan(fullEdgeCount * 2); // *2 because each edge has 2 vertices\n});"
+    },
+    {
+      "id": "T-072-30",
+      "file": "tests/visual/systems/cubeLatticeWireframe.test.ts",
+      "description": "System still passes existing init/draw/cleanup lifecycle with new config",
+      "code": "it('T-072-30: system passes full lifecycle with jitter and voidDensity config', () => {\n  const scene = new THREE.Scene();\n  const sys = createCubeLatticeWireframe({ gridSize: 4, cellSize: 1.0, jitter: 0.35, voidDensity: 0.3 });\n  sys.init(scene, 'lifecycle-seed', defaultParams);\n  expect(() => sys.draw(scene, makeFrame({ elapsed: 100 }))).not.toThrow();\n  expect(() => sys.draw(scene, makeFrame({ elapsed: 200, params: { bassEnergy: 0.8, trebleEnergy: 0.5 } }))).not.toThrow();\n  sys.setOpacity(0.5);\n  expect(() => sys.cleanup()).not.toThrow();\n});"
+    },
+    {
+      "id": "T-072-31",
+      "file": "tests/visual/quality.test.ts",
+      "description": "QualityProfile includes latticeVoidDensity field",
+      "code": "it('T-072-31: QualityProfile includes latticeVoidDensity field', () => {\n  const signals = makeSignals();\n  const result = computeQuality(signals);\n  expect(result).toHaveProperty('latticeVoidDensity');\n  expect(typeof result.latticeVoidDensity).toBe('number');\n  expect(result.latticeVoidDensity).toBeGreaterThanOrEqual(0);\n  expect(result.latticeVoidDensity).toBeLessThanOrEqual(1);\n});"
+    },
+    {
+      "id": "T-072-32",
+      "file": "tests/visual/quality.test.ts",
+      "description": "QualityProfile includes latticeJitter field",
+      "code": "it('T-072-32: QualityProfile includes latticeJitter field', () => {\n  const signals = makeSignals();\n  const result = computeQuality(signals);\n  expect(result).toHaveProperty('latticeJitter');\n  expect(typeof result.latticeJitter).toBe('number');\n  expect(result.latticeJitter).toBeGreaterThanOrEqual(0);\n  expect(result.latticeJitter).toBeLessThanOrEqual(1);\n});"
+    },
+    {
+      "id": "T-072-33",
+      "file": "tests/visual/quality.test.ts",
+      "description": "latticeVoidDensity per tier: low=0.4, medium=0.3, high=0.25",
+      "code": "it('T-072-33: latticeVoidDensity per tier: low=0.4, medium=0.3, high=0.25', () => {\n  const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));\n  const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));\n  const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));\n\n  expect(low.latticeVoidDensity).toBe(0.4);\n  expect(medium.latticeVoidDensity).toBe(0.3);\n  expect(high.latticeVoidDensity).toBe(0.25);\n});"
+    },
+    {
+      "id": "T-072-34",
+      "file": "tests/visual/quality.test.ts",
+      "description": "latticeJitter per tier: low=0.25, medium=0.3, high=0.35",
+      "code": "it('T-072-34: latticeJitter per tier: low=0.25, medium=0.3, high=0.35', () => {\n  const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));\n  const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));\n  const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));\n\n  expect(low.latticeJitter).toBe(0.25);\n  expect(medium.latticeJitter).toBe(0.3);\n  expect(high.latticeJitter).toBe(0.35);\n});"
+    },
+    {
+      "id": "T-072-35",
+      "file": "tests/visual/quality.test.ts",
+      "description": "latticeVoidDensity decreases from low to high (lower tiers get more voids for perf)",
+      "code": "it('T-072-35: latticeVoidDensity decreases from low to high tier', () => {\n  const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));\n  const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));\n  const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));\n\n  expect(low.latticeVoidDensity).toBeGreaterThan(medium.latticeVoidDensity);\n  expect(medium.latticeVoidDensity).toBeGreaterThan(high.latticeVoidDensity);\n});"
+    },
+    {
+      "id": "T-072-36",
+      "file": "tests/visual/quality.test.ts",
+      "description": "latticeJitter increases from low to high tier",
+      "code": "it('T-072-36: latticeJitter increases from low to high tier', () => {\n  const low = computeQuality(makeSignals({ devicePixelRatio: 1, hardwareConcurrency: 2, deviceMemory: 1, screenWidth: 320, screenHeight: 568, touchCapable: true }));\n  const medium = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4, screenWidth: 390, screenHeight: 844, touchCapable: true }));\n  const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));\n\n  expect(low.latticeJitter).toBeLessThan(medium.latticeJitter);\n  expect(medium.latticeJitter).toBeLessThan(high.latticeJitter);\n});"
+    },
+    {
+      "id": "T-072-37",
+      "file": "tests/visual/quality.test.ts",
+      "description": "extractSystemConfig cubelattice includes jitter and voidDensity",
+      "code": "it('T-072-37: extractSystemConfig cubelattice includes jitter and voidDensity', () => {\n  const high = computeQuality(makeSignals({ devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8, screenWidth: 2560, screenHeight: 1440, touchCapable: false }));\n  const config = extractSystemConfig('cubelattice', high);\n  expect(config.jitter).toBeDefined();\n  expect(config.voidDensity).toBeDefined();\n  expect(config.jitter).toBe(high.latticeJitter);\n  expect(config.voidDensity).toBe(high.latticeVoidDensity);\n});"
+    }
+  ]
+}
