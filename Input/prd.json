@@ -805,6 +805,7 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
+        "US-007",
         "US-039"
       ],
       "split_from": "US-031",
@@ -1450,13 +1451,14 @@
       ],
       "priority": 3,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-065",
         "US-066"
       ],
       "split_from": null,
-      "notes": "Direct adaptation of nw_wrld's CubeGrowth occlusion technique. An InstancedMesh of solid shapes with colorWrite:false writes to the depth buffer without drawing any color. Edge LineSegments then respect this depth buffer, hiding edges that would be behind solid faces. This transforms see-through wireframes into readable 3D objects."
+      "notes": "Direct adaptation of nw_wrld's CubeGrowth occlusion technique. An InstancedMesh of solid shapes with colorWrite:false writes to the depth buffer without drawing any color. Edge LineSegments then respect this depth buffer, hiding edges that would be behind solid faces. This transforms see-through wireframes into readable 3D objects.",
+      "claimed_by": "worker-2"
     },
     {
       "id": "US-071",
@@ -1471,14 +1473,13 @@
         "Visual is recognizably a small number of clean geometric solids, not a tangled web"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-069"
       ],
       "split_from": "US-069",
-      "notes": "User feedback: current implementation looks 'really crappy and convoluted' — multiple lines inside multiple ball shapes. Fewer, larger, clearly separated instances will read as intentional geometry.",
-      "claimed_by": "worker-1"
+      "notes": "User feedback: current implementation looks 'really crappy and convoluted' — multiple lines inside multiple ball shapes. Fewer, larger, clearly separated instances will read as intentional geometry."
     },
     {
       "id": "US-072",
@@ -1540,6 +1541,8 @@
       "passes": false,
       "status": "available",
       "depends_on": [
+        "US-017",
+        "US-035",
         "US-065",
         "US-073"
       ],
