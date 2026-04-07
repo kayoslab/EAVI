@@ -1,0 +1,110 @@
+{
+  "approved": true,
+  "planId": "US-069",
+  "verdict": "Sound plan with minor corrections needed",
+  "corrections": [
+    {
+      "step": 3,
+      "issue": "Plan says add `case 'constellation'` to extractSystemConfig, but no such case currently exists — constellation config is passed directly via ConstellationConfig, not through extractSystemConfig. Adding a case is fine but the plan should note this is a new case, not a modification of an existing one.",
+      "severity": "low",
+      "suggestion": "Clarify this is a new case. Also confirm callers (likely scene.ts or renderLoop.ts) will actually use extractSystemConfig('constellation') instead of passing config fields directly."
+    },
+    {
+      "step": 3,
+      "issue": "COUNT_MINIMUMS for maxTopologyInstances is set to 3, but low tier has maxTopologyInstances: 0 and enableConstellationLines: false. The minimum of 3 would override the 0 during scaleQualityProfile, potentially enabling topologies on low tier unintentionally.",
+      "severity": "medium",
+      "suggestion": "Set COUNT_MINIMUMS for maxTopologyInstances to 0 (like maxConstellationSegments and maxBezierConnections which can be fully disabled). The enableConstellationLines boolean gate should control whether the system runs, not the count minimum."
+    },
+    {
+      "step": 4,
+      "issue": "Plan says init() signature 'stays compatible with Overlay interface' and positions parameter is 'ignored or used as fallback count hint'. This is fine architecturally but the Overlay interface doc says 'composable layers over point-based geometry systems' — worth a brief comment in the code explaining why positions are unused.",
+      "severity": "low",
+      "suggestion": "Add a one-line comment in init() explaining topology vertices are self-generated."
+    },
+    {
+      "step": 4,
+      "issue": "Plan says 'add spreadRadius to ConstellationConfig with default 3.0' but camera orbits at z≈5. With a spread radius of 3.0, some instances could be at the camera boundary. This is a tuning concern, not a blocker.",
+      "severity": "low",
+      "suggestion": "Consider starting with spreadRadius 2.5 or making it relative to the camera's orbit radius. Tunable during implementation."
+    },
+    {
+      "step": 2,
+      "issue": "Reject-and-retry for instance separation is fine for 15 instances, but the plan doesn't specify what happens when retry cap is hit. Silent drop? Place anyway?",
+      "severity": "low",
+      "suggestion": "Specify behavior: place the instance at the last attempted position when retry cap is reached (graceful degradation over missing instances)."
+    }
+  ],
+  "missingConsiderations": [
+    {
+      "area": "Fragment shader uProximityThreshold uniform",
+      "detail": "The fragment shader uses uProximityThreshold for opacity falloff based on aDistance. Since topology edges have fixed lengths (not proximity-based distances), the aDistance attribute semantics change. The plan should specify how aDistance is computed for topology edges — probably normalized by the topology's edge length or set to a constant. Otherwise opacity modulation will be wrong.",
+      "severity": "medium",
+      "recommendation": "In step 4, specify that aDistance for topology edges should be computed as normalized edge length relative to instance scale (or set to a visually reasonable constant like 0.3-0.5) so the fragment shader's proximity-based opacity still produces good results."
+    },
+    {
+      "area": "Session seed propagation",
+      "detail": "The plan references createPRNG but doesn't specify how the session seed reaches the constellation system. Other systems use patterns like createPRNG(seed + ':vol:' + shape). The plan should specify the seed namespace.",
+      "severity": "low",
+      "recommendation": "Use createPRNG(params.seed + ':constellation') consistent with existing patterns."
+    },
+    {
+      "area": "Cleanup of old proximity constants",
+      "detail": "DEFAULT_PROXIMITY_THRESHOLD, DEFAULT_MAX_NEIGHBORS_PER_POINT, and the Connection interface become dead code. Plan step 4 should explicitly note these are removed.",
+      "severity": "low",
+      "recommendation": "Explicitly list removals in step 4 details."
+    }
+  ],
+  "strengths": [
+    "Correctly identifies that shaders operate on world-space positions and need no changes",
+    "Reuses existing subdivideEdges infrastructure for electric arc variant",
+    "Proper use of project's createPRNG for deterministic generation",
+    "Good separation of topology definitions from instance scattering",
+    "Test plan correctly identifies which existing tests to keep vs remove",
+    "Quality tier integration follows established patterns (COUNT_FIELDS, COUNT_MINIMUMS)"
+  ],
+  "risks": [
+    {
+      "risk": "Topology vertex count could exceed maxConstellationSegments unexpectedly — 15 icosahedra = 450 edges = 900 vertices before arc subdivision. With 8 arc subdivisions that's 7200 line segments, well over the high-tier cap of 3000.",
+      "severity": "high",
+      "mitigation": "The plan mentions capping to maxConnections but should specify the capping strategy: either reduce instance count, prefer smaller topologies, or truncate edges per instance proportionally. Recommend: compute total edge budget upfront, then fill instances until budget is exhausted."
+    },
+    {
+      "risk": "Fragment shader uProximityThreshold uniform is set from config.proximityThreshold which is being removed",
+      "severity": "medium",
+      "mitigation": "Replace with a sensible constant or derive from average topology edge length. Must be addressed in step 4."
+    }
+  ],
+  "overallAssessment": "The plan is well-structured and demonstrates good understanding of the existing codebase. Two medium-severity issues need addressing before implementation: (1) the edge budget overflow when many icosahedra are generated with arc subdivision, and (2) the aDistance/uProximityThreshold semantics change. Both are solvable with minor plan amendments. The architectural decision to generate vertices internally while keeping the Overlay interface compatible is sound.",
+  "concerns": [
+    {
+      "step": 3,
+      "issue": "Plan says add `case 'constellation'` to extractSystemConfig, but no such case currently exists — constellation config is passed directly via ConstellationConfig, not through extractSystemConfig. Adding a case is fine but the plan should note this is a new case, not a modification of an existing one.",
+      "severity": "low",
+      "suggestion": "Clarify this is a new case. Also confirm callers (likely scene.ts or renderLoop.ts) will actually use extractSystemConfig('constellation') instead of passing config fields directly."
+    },
+    {
+      "step": 3,
+      "issue": "COUNT_MINIMUMS for maxTopologyInstances is set to 3, but low tier has maxTopologyInstances: 0 and enableConstellationLines: false. The minimum of 3 would override the 0 during scaleQualityProfile, potentially enabling topologies on low tier unintentionally.",
+      "severity": "medium",
+      "suggestion": "Set COUNT_MINIMUMS for maxTopologyInstances to 0 (like maxConstellationSegments and maxBezierConnections which can be fully disabled). The enableConstellationLines boolean gate should control whether the system runs, not the count minimum."
+    },
+    {
+      "step": 4,
+      "issue": "Plan says init() signature 'stays compatible with Overlay interface' and positions parameter is 'ignored or used as fallback count hint'. This is fine architecturally but the Overlay interface doc says 'composable layers over point-based geometry systems' — worth a brief comment in the code explaining why positions are unused.",
+      "severity": "low",
+      "suggestion": "Add a one-line comment in init() explaining topology vertices are self-generated."
+    },
+    {
+      "step": 4,
+      "issue": "Plan says 'add spreadRadius to ConstellationConfig with default 3.0' but camera orbits at z≈5. With a spread radius of 3.0, some instances could be at the camera boundary. This is a tuning concern, not a blocker.",
+      "severity": "low",
+      "suggestion": "Consider starting with spreadRadius 2.5 or making it relative to the camera's orbit radius. Tunable during implementation."
+    },
+    {
+      "step": 2,
+      "issue": "Reject-and-retry for instance separation is fine for 15 instances, but the plan doesn't specify what happens when retry cap is hit. Silent drop? Place anyway?",
+      "severity": "low",
+      "suggestion": "Specify behavior: place the instance at the last attempted position when retry cap is reached (graceful degradation over missing instances)."
+    }
+  ]
+}
