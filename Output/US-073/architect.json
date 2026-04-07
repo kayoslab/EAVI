@@ -1,0 +1,8 @@
+{
+  "verdict": "approve",
+  "risk": "low",
+  "reason": "Purely additive changes following established generator conventions. Adds 2 fields to QualityProfile, 1 case to extractSystemConfig, and 1 new generator file. No existing APIs modified. All imports (createPRNG, hashRandomFromPosition) are stable and already used by 8+ generators.",
+  "suggestions": [],
+  "approved": false,
+  "adr_entry": null
+}
