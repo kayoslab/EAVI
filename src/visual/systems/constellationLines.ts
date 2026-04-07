@@ -10,111 +10,79 @@ import constellationFrag from '../shaders/constellation.frag.glsl?raw';
 import electricArcConstellationVert from '../shaders/electricArcConstellation.vert.glsl?raw';
 import electricArcConstellationFrag from '../shaders/electricArcConstellation.frag.glsl?raw';
 import { subdivideEdges } from '../generators/subdivideEdges';
+import { createPRNG } from '../prng';
+import { generateTopologyInstances, flattenInstances } from '../generators/topologyInstances';
+import type { TopologyInstance } from '../generators/topologyInstances';
 
 const standardVertexShader = noise3dGlsl + '\n' + constellationVert;
 const standardFragmentShader = chromaticDispersionGlsl + '\n' + constellationFrag;
 const arcVertexShader = noise3dGlsl + '\n' + electricArcConstellationVert;
 const arcFragmentShader = chromaticDispersionGlsl + '\n' + electricArcConstellationFrag;
 
-const DEFAULT_PROXIMITY_THRESHOLD = 0.8;
+const DEFAULT_MAX_TOPOLOGY_INSTANCES = 10;
+const DEFAULT_SPREAD_RADIUS = 2.5;
 const DEFAULT_MAX_CONNECTIONS = 3000;
-const DEFAULT_MAX_NEIGHBORS_PER_POINT = 5;
 
 export interface ConstellationConfig {
-  proximityThreshold?: number;
+  maxTopologyInstances?: number;
+  spreadRadius?: number;
   maxConnections?: number;
   enabled?: boolean;
   enableElectricArc?: boolean;
   arcSubdivisions?: number;
+  seed?: string;
 }
 
 export interface ConstellationLines extends Overlay {}
 
-interface Connection {
-  i: number;
-  j: number;
-  distance: number;
-}
-
 /**
- * CPU-side proximity search. Returns pairs of point indices within threshold,
- * bounded by maxConnections globally and maxNeighbors per point.
+ * Build line segment buffers from topology edge tables.
  */
-function findConnections(
-  positions: Float32Array,
-  threshold: number,
+function buildTopologyBuffers(
+  flatPositions: Float32Array,
+  edges: [number, number][],
   maxConnections: number,
-  maxNeighbors: number,
-): Connection[] {
-  const pointCount = Math.floor(positions.length / 3);
-  if (pointCount < 2 || threshold <= 0 || maxConnections <= 0) return [];
-
-  const thresholdSq = threshold * threshold;
-  const connections: Connection[] = [];
-  const neighborCount = new Uint16Array(pointCount);
-
-  for (let i = 0; i < pointCount; i++) {
-    if (connections.length >= maxConnections) break;
-
-    const ix = positions[i * 3];
-    const iy = positions[i * 3 + 1];
-    const iz = positions[i * 3 + 2];
-
-    for (let j = i + 1; j < pointCount; j++) {
-      if (connections.length >= maxConnections) break;
-      if (neighborCount[i] >= maxNeighbors || neighborCount[j] >= maxNeighbors) continue;
-
-      const dx = positions[j * 3] - ix;
-      const dy = positions[j * 3 + 1] - iy;
-      const dz = positions[j * 3 + 2] - iz;
-      const distSq = dx * dx + dy * dy + dz * dz;
-
-      if (distSq <= thresholdSq) {
-        const distance = Math.sqrt(distSq);
-        connections.push({ i, j, distance });
-        neighborCount[i]++;
-        neighborCount[j]++;
-      }
-    }
-  }
-
-  return connections;
-}
-
-/**
- * Build line segment buffers from connections.
- */
-function buildLineBuffers(
-  sourcePositions: Float32Array,
-  connections: Connection[],
-  threshold: number,
 ): { positions: Float32Array; distances: Float32Array; randoms: Float32Array } {
-  const vertexCount = connections.length * 2;
+  const edgeCount = Math.min(edges.length, maxConnections);
+  const vertexCount = edgeCount * 2;
   const positions = new Float32Array(vertexCount * 3);
   const distances = new Float32Array(vertexCount);
   const randoms = new Float32Array(vertexCount * 3);
 
-  for (let c = 0; c < connections.length; c++) {
-    const conn = connections[c];
-    const v0 = c * 2;
-    const v1 = c * 2 + 1;
+  let maxDist = 0;
+  // Pre-compute distances for normalization
+  const edgeDists: number[] = [];
+  for (let e = 0; e < edgeCount; e++) {
+    const [a, b] = edges[e];
+    const dx = flatPositions[b * 3] - flatPositions[a * 3];
+    const dy = flatPositions[b * 3 + 1] - flatPositions[a * 3 + 1];
+    const dz = flatPositions[b * 3 + 2] - flatPositions[a * 3 + 2];
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    edgeDists.push(d);
+    if (d > maxDist) maxDist = d;
+  }
 
-    positions[v0 * 3] = sourcePositions[conn.i * 3];
-    positions[v0 * 3 + 1] = sourcePositions[conn.i * 3 + 1];
-    positions[v0 * 3 + 2] = sourcePositions[conn.i * 3 + 2];
+  for (let e = 0; e < edgeCount; e++) {
+    const [a, b] = edges[e];
+    const v0 = e * 2;
+    const v1 = e * 2 + 1;
 
-    positions[v1 * 3] = sourcePositions[conn.j * 3];
-    positions[v1 * 3 + 1] = sourcePositions[conn.j * 3 + 1];
-    positions[v1 * 3 + 2] = sourcePositions[conn.j * 3 + 2];
+    positions[v0 * 3] = flatPositions[a * 3];
+    positions[v0 * 3 + 1] = flatPositions[a * 3 + 1];
+    positions[v0 * 3 + 2] = flatPositions[a * 3 + 2];
 
-    // Normalized distance (0 = touching, 1 = at threshold)
-    const normDist = threshold > 0 ? conn.distance / threshold : 0;
+    positions[v1 * 3] = flatPositions[b * 3];
+    positions[v1 * 3 + 1] = flatPositions[b * 3 + 1];
+    positions[v1 * 3 + 2] = flatPositions[b * 3 + 2];
+
+    // Normalized distance (0 = shortest edge, 1 = longest)
+    const normDist = maxDist > 0 ? edgeDists[e] / maxDist : 0;
     distances[v0] = normDist;
     distances[v1] = normDist;
 
-    // Per-vertex random values derived from point indices for GPU noise
-    const ri = conn.i * 0.01;
-    const rj = conn.j * 0.01;
+    // Per-vertex random values derived from vertex indices for GPU noise
+    const ri = a * 0.01;
+    const rj = b * 0.01;
     randoms[v0 * 3] = Math.abs(Math.sin(ri * 73.1)) % 1;
     randoms[v0 * 3 + 1] = Math.abs(Math.cos(ri * 91.3)) % 1;
     randoms[v0 * 3 + 2] = Math.abs(Math.sin(ri * 117.7)) % 1;
@@ -128,9 +96,6 @@ function buildLineBuffers(
 
 /**
  * Interpolate per-edge distance values across subdivided vertices.
- * Each original edge has 2 vertices with distance values (d0, d1).
- * After subdivision, each edge becomes subdivisions*2 vertices.
- * We linearly interpolate d0 -> d1 across the sub-segment vertices.
  */
 function interpolateDistances(
   distances: Float32Array,
@@ -159,41 +124,47 @@ function interpolateDistances(
 }
 
 export function createConstellationLines(config?: ConstellationConfig): ConstellationLines {
-  const proximityThreshold = config?.proximityThreshold ?? DEFAULT_PROXIMITY_THRESHOLD;
+  const maxTopologyInstances = config?.maxTopologyInstances ?? DEFAULT_MAX_TOPOLOGY_INSTANCES;
+  const spreadRadius = config?.spreadRadius ?? DEFAULT_SPREAD_RADIUS;
   const maxConnections = config?.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
   const enableElectricArc = config?.enableElectricArc ?? false;
   const arcSubdivisions = config?.arcSubdivisions ?? 5;
+  const seed = config?.seed ?? 'constellation-default';
 
   let linesMesh: THREE.LineSegments | null = null;
   let geometry: THREE.BufferGeometry | null = null;
   let shaderMaterial: THREE.ShaderMaterial | null = null;
   let sceneRef: Scene | null = null;
   let activeVertexCount = 0;
+  let _instances: TopologyInstance[] = [];
 
   return {
     get activeVertexCount() {
       return activeVertexCount;
     },
 
-    init(scene: Scene, positions: Float32Array, params: VisualParams): void {
-      if (!positions || positions.length < 6) return;
+    // Topology vertices are self-generated; positions parameter is accepted but unused.
+    init(scene: Scene, _positions: Float32Array, params: VisualParams): void {
+      if (maxTopologyInstances <= 0) return;
 
-      const connections = findConnections(
-        positions,
-        proximityThreshold,
-        maxConnections,
-        DEFAULT_MAX_NEIGHBORS_PER_POINT,
-      );
+      const rng = createPRNG(seed);
+      _instances = generateTopologyInstances(rng, maxTopologyInstances, spreadRadius);
 
-      if (connections.length === 0) return;
+      if (_instances.length === 0) return;
 
-      const buffers = buildLineBuffers(positions, connections, proximityThreshold);
+      const { positions: flatPositions, edges } = flattenInstances(_instances);
+
+      if (edges.length === 0) return;
+
+      const buffers = buildTopologyBuffers(flatPositions, edges, maxConnections);
+
+      const effectiveEdgeCount = Math.min(edges.length, maxConnections);
 
       geometry = new THREE.BufferGeometry();
 
       if (enableElectricArc && arcSubdivisions > 1) {
         const subdivided = subdivideEdges(buffers.positions, arcSubdivisions);
-        const interpDistances = interpolateDistances(buffers.distances, connections.length, arcSubdivisions);
+        const interpDistances = interpolateDistances(buffers.distances, effectiveEdgeCount, arcSubdivisions);
 
         geometry.setAttribute('position', new THREE.BufferAttribute(subdivided.positions, 3));
         geometry.setAttribute('aDistance', new THREE.BufferAttribute(interpDistances, 1));
@@ -207,7 +178,7 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
         geometry.setAttribute('aDistance', new THREE.BufferAttribute(buffers.distances, 1));
         geometry.setAttribute('aRandom', new THREE.BufferAttribute(buffers.randoms, 3));
 
-        activeVertexCount = connections.length * 2;
+        activeVertexCount = effectiveEdgeCount * 2;
       }
 
       const uniforms: Record<string, { value: unknown }> = {
@@ -219,7 +190,7 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
         uPaletteHue: { value: params.paletteHue },
         uPaletteSaturation: { value: params.paletteSaturation },
         uCadence: { value: params.cadence },
-        uProximityThreshold: { value: proximityThreshold },
+        uProximityThreshold: { value: 1.0 },
         uNoiseFrequency: { value: params.noiseFrequency ?? 1.0 },
         uRadialScale: { value: params.radialScale ?? 1.0 },
         uTwistStrength: { value: params.twistStrength ?? 1.0 },
@@ -319,6 +290,7 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
       shaderMaterial = null;
       sceneRef = null;
       activeVertexCount = 0;
+      _instances = [];
     },
   };
 }
