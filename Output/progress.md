@@ -144,3 +144,5 @@
 
 ## US-066: Add recursive fractal growth wireframe structures
 
+## US-072: Fix boring cube lattice wireframe appearance
+
