@@ -75,8 +75,8 @@ describe('US-069: Topology definitions', () => {
 describe('US-069: Topology instance generation', () => {
   it('T-069-10: generateTopologyInstances produces non-overlapping instances', () => {
     const rng = createPRNG('separation-seed');
-    const instances = generateTopologyInstances(rng, 8, 3.0);
-    const MIN_SEP = 0.8;
+    const instances = generateTopologyInstances(rng, 3, 3.5);
+    const MIN_SEP = 3.0;
     for (let i = 0; i < instances.length; i++) {
       for (let j = i + 1; j < instances.length; j++) {
         const dx = instances[i].position[0] - instances[j].position[0];
@@ -94,15 +94,15 @@ describe('US-069: Topology instance generation', () => {
 
   it('T-069-11: generateTopologyInstances returns correct number of instances', () => {
     const rng = createPRNG('count-seed');
-    const instances = generateTopologyInstances(rng, 5, 3.0);
-    expect(instances.length).toBe(5);
+    const instances = generateTopologyInstances(rng, 3, 3.5);
+    expect(instances.length).toBe(3);
   });
 
   it('T-069-12: generateTopologyInstances is seeded-deterministic', () => {
     const rng1 = createPRNG('determinism');
     const rng2 = createPRNG('determinism');
-    const a = generateTopologyInstances(rng1, 5, 3.0);
-    const b = generateTopologyInstances(rng2, 5, 3.0);
+    const a = generateTopologyInstances(rng1, 3, 3.5);
+    const b = generateTopologyInstances(rng2, 3, 3.5);
     for (let i = 0; i < a.length; i++) {
       expect(a[i].position).toEqual(b[i].position);
       expect(a[i].quaternion).toEqual(b[i].quaternion);
@@ -111,8 +111,8 @@ describe('US-069: Topology instance generation', () => {
   });
 
   it('T-069-13: different seeds produce different layouts', () => {
-    const a = generateTopologyInstances(createPRNG('alpha'), 5, 3.0);
-    const b = generateTopologyInstances(createPRNG('beta'), 5, 3.0);
+    const a = generateTopologyInstances(createPRNG('alpha'), 3, 3.5);
+    const b = generateTopologyInstances(createPRNG('beta'), 3, 3.5);
     const positionsMatch = a.every((inst, i) =>
       inst.position[0] === b[i].position[0] &&
       inst.position[1] === b[i].position[1] &&
@@ -123,7 +123,7 @@ describe('US-069: Topology instance generation', () => {
 
   it('T-069-18: Instance quaternions are unit length', () => {
     const rng = createPRNG('quat-seed');
-    const instances = generateTopologyInstances(rng, 10, 3.0);
+    const instances = generateTopologyInstances(rng, 3, 3.5);
     for (const inst of instances) {
       const [x, y, z, w] = inst.quaternion;
       const len = Math.sqrt(x * x + y * y + z * z + w * w);
@@ -133,17 +133,17 @@ describe('US-069: Topology instance generation', () => {
 
   it('T-069-19: Instance scale values are within expected range (0.3–0.7)', () => {
     const rng = createPRNG('scale-seed');
-    const instances = generateTopologyInstances(rng, 15, 3.0);
+    const instances = generateTopologyInstances(rng, 3, 3.5);
     for (const inst of instances) {
-      expect(inst.scale).toBeGreaterThanOrEqual(0.3);
-      expect(inst.scale).toBeLessThanOrEqual(0.7);
+      expect(inst.scale).toBeGreaterThanOrEqual(1.2);
+      expect(inst.scale).toBeLessThanOrEqual(2.0);
     }
   });
 
   it('T-069-20: Instance positions are within spread radius', () => {
-    const spreadRadius = 3.0;
+    const spreadRadius = 3.5;
     const rng = createPRNG('radius-seed');
-    const instances = generateTopologyInstances(rng, 10, spreadRadius);
+    const instances = generateTopologyInstances(rng, 3, spreadRadius);
     for (const inst of instances) {
       const [x, y, z] = inst.position;
       const dist = Math.sqrt(x * x + y * y + z * z);
@@ -219,7 +219,7 @@ describe('US-069: flattenInstances', () => {
 
   it('T-069-21: each topology instance vertices form a tight cluster', () => {
     const rng = createPRNG('cluster-seed');
-    const instances = generateTopologyInstances(rng, 5, 3.0);
+    const instances = generateTopologyInstances(rng, 3, 3.5);
     const { positions } = flattenInstances(instances);
 
     let offset = 0;
@@ -241,10 +241,58 @@ describe('US-069: flattenInstances', () => {
 
   it('T-069-22: flattenInstances positions contain no NaN or Infinity values', () => {
     const rng = createPRNG('finite-seed');
-    const instances = generateTopologyInstances(rng, 8, 3.0);
+    const instances = generateTopologyInstances(rng, 3, 3.5);
     const { positions } = flattenInstances(instances);
     for (let i = 0; i < positions.length; i++) {
       expect(Number.isFinite(positions[i])).toBe(true);
+    }
+  });
+});
+
+describe('US-071: Topology weight bias', () => {
+  it('T-071-07: pickTopologies weighted selection produces fewer tetrahedra than icosahedra+octahedra', () => {
+    const counts: Record<string, number> = { tetrahedron: 0, octahedron: 0, icosahedron: 0 };
+    for (let i = 0; i < 100; i++) {
+      const rng = createPRNG(`weight-test-${i}`);
+      const picks = pickTopologies(rng, 3);
+      for (const p of picks) counts[p.name]++;
+    }
+    // With weights icosa=0.45, octa=0.45, tetra=0.10:
+    // tetrahedron should be significantly less than octahedron + icosahedron
+    expect(counts.tetrahedron).toBeLessThan(counts.octahedron + counts.icosahedron);
+    // Tetra should be < 20% of total picks (allowing margin over 10% weight)
+    const total = counts.tetrahedron + counts.octahedron + counts.icosahedron;
+    expect(counts.tetrahedron / total).toBeLessThan(0.20);
+  });
+});
+
+describe('US-071: Instance separation enforcement', () => {
+  it('T-071-08: generateTopologyInstances enforces MIN_SEPARATION >= 3.0 between all instance pairs', () => {
+    const NEW_MIN_SEP = 3.0;
+    // Test across multiple seeds to confirm separation constraint
+    for (let trial = 0; trial < 10; trial++) {
+      const rng = createPRNG(`sep-trial-${trial}`);
+      const instances = generateTopologyInstances(rng, 3, 3.5);
+      for (let i = 0; i < instances.length; i++) {
+        for (let j = i + 1; j < instances.length; j++) {
+          const dx = instances[i].position[0] - instances[j].position[0];
+          const dy = instances[i].position[1] - instances[j].position[1];
+          const dz = instances[i].position[2] - instances[j].position[2];
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          expect(dist).toBeGreaterThanOrEqual(NEW_MIN_SEP - 0.01);
+        }
+      }
+    }
+  });
+
+  it('T-071-09: all instance scales are in hero range [1.2, 2.0]', () => {
+    for (let trial = 0; trial < 10; trial++) {
+      const rng = createPRNG(`hero-trial-${trial}`);
+      const instances = generateTopologyInstances(rng, 3, 3.5);
+      for (const inst of instances) {
+        expect(inst.scale).toBeGreaterThanOrEqual(1.2);
+        expect(inst.scale).toBeLessThanOrEqual(2.0);
+      }
     }
   });
 });
