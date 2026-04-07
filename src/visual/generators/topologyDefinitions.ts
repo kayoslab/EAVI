@@ -75,11 +75,26 @@ const ICOSAHEDRON: TopologyDef = {
 
 export const TOPOLOGIES: TopologyDef[] = [TETRAHEDRON, OCTAHEDRON, ICOSAHEDRON];
 
+const TOPOLOGY_WEIGHTS: [TopologyDef, number][] = [
+  [TETRAHEDRON, 0.10],
+  [OCTAHEDRON, 0.45],
+  [ICOSAHEDRON, 0.45],
+];
+
 export function pickTopologies(rng: () => number, count: number): TopologyDef[] {
   const result: TopologyDef[] = [];
   for (let i = 0; i < count; i++) {
-    const idx = Math.floor(rng() * TOPOLOGIES.length);
-    result.push(TOPOLOGIES[idx]);
+    const r = rng();
+    let cumulative = 0;
+    let picked = TOPOLOGIES[0];
+    for (const [def, weight] of TOPOLOGY_WEIGHTS) {
+      cumulative += weight;
+      if (r < cumulative) {
+        picked = def;
+        break;
+      }
+    }
+    result.push(picked);
   }
   return result;
 }

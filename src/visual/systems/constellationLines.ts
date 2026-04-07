@@ -19,8 +19,8 @@ const standardFragmentShader = chromaticDispersionGlsl + '\n' + constellationFra
 const arcVertexShader = noise3dGlsl + '\n' + electricArcConstellationVert;
 const arcFragmentShader = chromaticDispersionGlsl + '\n' + electricArcConstellationFrag;
 
-const DEFAULT_MAX_TOPOLOGY_INSTANCES = 10;
-const DEFAULT_SPREAD_RADIUS = 2.5;
+const DEFAULT_MAX_TOPOLOGY_INSTANCES = 3;
+const DEFAULT_SPREAD_RADIUS = 3.5;
 const DEFAULT_MAX_CONNECTIONS = 3000;
 
 export interface ConstellationConfig {

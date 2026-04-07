@@ -46,7 +46,7 @@ function randomPointInSphere(rng: () => number, radius: number): [number, number
 }
 
 const MAX_PLACEMENT_RETRIES = 50;
-const MIN_SEPARATION = 0.8;
+const MIN_SEPARATION = 3.0;
 
 export function generateTopologyInstances(
   rng: () => number,
@@ -84,7 +84,7 @@ export function generateTopologyInstances(
     }
 
     const quaternion = randomQuaternion(rng);
-    const scale = 0.3 + rng() * 0.4; // 0.3–0.7
+    const scale = 1.2 + rng() * 0.8; // 1.2–2.0
 
     instances.push({ def: defs[i], position, quaternion, scale });
   }

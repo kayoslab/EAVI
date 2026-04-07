@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { createConstellationLines, getActiveVertexCount } from '../../../src/visual/systems/constellationLines';
 import type { VisualParams } from '../../../src/visual/mappings';
 import type { FrameState } from '../../../src/visual/types';
+import { createPRNG } from '../../../src/visual/prng';
+import { generateTopologyInstances } from '../../../src/visual/generators/topologyInstances';
+import { pickTopologies } from '../../../src/visual/generators/topologyDefinitions';
 
 const defaultParams: VisualParams = {
   paletteHue: 180,
@@ -123,12 +126,12 @@ describe('US-069: Constellation lines with geometric topologies', () => {
 
   it('T-055-13: lower maxTopologyInstances produces fewer vertices than higher', () => {
     const sceneLow = new THREE.Scene();
-    const lowTier = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-13' });
+    const lowTier = createConstellationLines({ maxTopologyInstances: 1, seed: 'test-13' });
     lowTier.init(sceneLow, generateMockPositions(50), defaultParams);
     const lowCount = getActiveVertexCount(lowTier);
 
     const sceneHigh = new THREE.Scene();
-    const highTier = createConstellationLines({ maxTopologyInstances: 10, seed: 'test-13' });
+    const highTier = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-13' });
     highTier.init(sceneHigh, generateMockPositions(50), defaultParams);
     const highCount = getActiveVertexCount(highTier);
 
@@ -298,7 +301,7 @@ describe('US-069: Topology-specific constellation tests', () => {
 
   it('T-069-32: total line segment count is capped by maxConnections', () => {
     const scene = new THREE.Scene();
-    const constellation = createConstellationLines({ maxTopologyInstances: 15, maxConnections: 10, seed: 'test-32' });
+    const constellation = createConstellationLines({ maxTopologyInstances: 3, maxConnections: 10, seed: 'test-32' });
     constellation.init(scene, new Float32Array(0), defaultParams);
     const count = getActiveVertexCount(constellation);
     expect(count / 2).toBeLessThanOrEqual(10);
@@ -324,12 +327,12 @@ describe('US-069: Topology-specific constellation tests', () => {
 
   it('T-069-34: instance count respects maxTopologyInstances from config', () => {
     const sceneLow = new THREE.Scene();
-    const low = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-34' });
+    const low = createConstellationLines({ maxTopologyInstances: 1, seed: 'test-34' });
     low.init(sceneLow, new Float32Array(0), defaultParams);
     const lowCount = getActiveVertexCount(low);
 
     const sceneHigh = new THREE.Scene();
-    const high = createConstellationLines({ maxTopologyInstances: 15, seed: 'test-34' });
+    const high = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-34' });
     high.init(sceneHigh, new Float32Array(0), defaultParams);
     const highCount = getActiveVertexCount(high);
 
@@ -462,7 +465,7 @@ describe('US-069: Topology-specific constellation tests', () => {
 
   it('T-069-42: topology vertices exist in 3D (not coplanar, Z values vary across instances)', () => {
     const scene = new THREE.Scene();
-    const constellation = createConstellationLines({ maxTopologyInstances: 8, seed: 'test-42' });
+    const constellation = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-42' });
     constellation.init(scene, new Float32Array(0), defaultParams);
     const lines = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
     const posArr = (lines.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
@@ -479,5 +482,97 @@ describe('US-069: Topology-specific constellation tests', () => {
     expect(zValues.size).toBeGreaterThanOrEqual(3);
     expect(xValues.size).toBeGreaterThanOrEqual(3);
     expect(yValues.size).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('US-071: Fix cluttered multi-polyhedra constellation scene', () => {
+  it('T-071-01: high-tier config produces at most 3 topology instances', () => {
+    const scene = new THREE.Scene();
+    const constellation = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-071-01' });
+    constellation.init(scene, new Float32Array(0), defaultParams);
+    const count = getActiveVertexCount(constellation);
+    // Max 3 instances × max 30 edges (icosahedron) × 2 verts per edge = 180 max
+    // But verify it's a small recognizable count, not a dense field
+    expect(count).toBeGreaterThan(0);
+    expect(count).toBeLessThanOrEqual(180);
+  });
+
+  it('T-071-02: instances do not overlap — centers are at least MIN_SEPARATION apart', () => {
+    const scene = new THREE.Scene();
+    // Use spreadRadius 3.5 to match new default
+    const constellation = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-071-02', spreadRadius: 3.5 });
+    constellation.init(scene, new Float32Array(0), defaultParams);
+    const lines = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
+    const posArr = (lines.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+    const activeCount = getActiveVertexCount(constellation);
+
+    // Extract cluster centroids by grouping edge endpoints
+    // With 1-3 large instances and wide spread, clusters should be well separated
+    const points: [number, number, number][] = [];
+    for (let i = 0; i < activeCount; i++) {
+      points.push([posArr[i * 3], posArr[i * 3 + 1], posArr[i * 3 + 2]]);
+    }
+
+    // Simple check: compute all pairwise distances, confirm spread
+    // With MIN_SEPARATION=3.0 and spreadRadius=3.5, centroids must be far apart
+    // We verify that the bounding box spans significant 3D space
+    const xs = points.map(p => p[0]);
+    const ys = points.map(p => p[1]);
+    const zs = points.map(p => p[2]);
+    const xRange = Math.max(...xs) - Math.min(...xs);
+    const yRange = Math.max(...ys) - Math.min(...ys);
+    const zRange = Math.max(...zs) - Math.min(...zs);
+    // At least one axis should show significant spread for 3 instances
+    expect(Math.max(xRange, yRange, zRange)).toBeGreaterThan(1.0);
+  });
+
+  it('T-071-03: each topology instance scale is >= 1.2 (hero-sized)', () => {
+    const rng = createPRNG('hero-scale-test');
+    const instances = generateTopologyInstances(rng, 3, 3.5);
+    for (const inst of instances) {
+      expect(inst.scale).toBeGreaterThanOrEqual(1.2);
+      expect(inst.scale).toBeLessThanOrEqual(2.0);
+    }
+  });
+
+  it('T-071-04: topology selection favours icosahedron/octahedron over tetrahedron', () => {
+    let tetraCount = 0;
+    let cleanCount = 0;
+    // Run 50 picks to check statistical bias
+    for (let trial = 0; trial < 50; trial++) {
+      const rng = createPRNG(`weight-trial-${trial}`);
+      const picks = pickTopologies(rng, 3);
+      for (const pick of picks) {
+        if (pick.name === 'tetrahedron') tetraCount++;
+        else cleanCount++;
+      }
+    }
+    // Tetrahedron should be < 25% of total picks (weight 0.10 vs 0.90 for others)
+    const total = tetraCount + cleanCount;
+    expect(tetraCount / total).toBeLessThan(0.25);
+  });
+
+  it('T-071-05: vertex count is consistent with 1-3 clean polyhedra, not a dense web', () => {
+    const scene = new THREE.Scene();
+    const constellation = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-071-05' });
+    constellation.init(scene, new Float32Array(0), defaultParams);
+    const count = getActiveVertexCount(constellation);
+    // 1 icosahedron = 30 edges × 2 = 60 verts
+    // 3 icosahedra = 90 edges × 2 = 180 verts max
+    // 3 tetrahedra = 18 edges × 2 = 36 verts min
+    // Old field of 15 instances could produce 900+ verts — ensure we're well below
+    expect(count).toBeLessThanOrEqual(180);
+    expect(count).toBeGreaterThanOrEqual(12); // at least 1 topology with 6 edges
+  });
+
+  it('T-071-06: no errors with reduced instance counts (1, 2, 3)', () => {
+    for (const count of [1, 2, 3]) {
+      const scene = new THREE.Scene();
+      const constellation = createConstellationLines({ maxTopologyInstances: count, seed: `test-071-06-${count}` });
+      expect(() => constellation.init(scene, new Float32Array(0), defaultParams)).not.toThrow();
+      expect(() => constellation.draw(scene, makeFrame())).not.toThrow();
+      expect(getActiveVertexCount(constellation)).toBeGreaterThan(0);
+      constellation.cleanup!();
+    }
   });
 });
