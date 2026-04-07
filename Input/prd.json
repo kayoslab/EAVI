@@ -1458,7 +1458,7 @@
       ],
       "split_from": null,
       "notes": "Direct adaptation of nw_wrld's CubeGrowth occlusion technique. An InstancedMesh of solid shapes with colorWrite:false writes to the depth buffer without drawing any color. Edge LineSegments then respect this depth buffer, hiding edges that would be behind solid faces. This transforms see-through wireframes into readable 3D objects.",
-      "claimed_by": "worker-2"
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-071",
@@ -1515,14 +1515,13 @@
         "Unit-tested with a basic shape/extent assertion or smoke test"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-007"
       ],
       "split_from": null,
-      "notes": "Reference image in docs/59c1980a-68db-41c8-9549-f96245e88049.png shows the target: a wireframe terrain plane with rolling hills. Pure data generator only; rendering system is US-074.",
-      "claimed_by": "worker-3"
+      "notes": "Reference image in docs/59c1980a-68db-41c8-9549-f96245e88049.png shows the target: a wireframe terrain plane with rolling hills. Pure data generator only; rendering system is US-074."
     },
     {
       "id": "US-074",
