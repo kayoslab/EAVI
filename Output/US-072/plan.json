@@ -1,0 +1,140 @@
+{
+  "ticket": "US-072",
+  "title": "Fix boring cube lattice wireframe appearance",
+  "summary": "Rework the cube lattice generator and shaders to break visual uniformity. Add seeded vertex jitter, noise-driven cell voiding, bass-gated wobble, and connectivity-based vertex emphasis to transform the grid into an architectural structure with voids and silhouettes.",
+  "steps": [
+    {
+      "step": 1,
+      "title": "Add seeded vertex jitter to break grid uniformity",
+      "files": ["src/visual/generators/cubeLattice.ts"],
+      "description": "Import `createPRNG` from `../prng`. Accept a `seed` string and `jitter` (0–1) in the generator options. After computing each vertex's base grid position (L54-56), use the PRNG to offset each axis by up to `jitter * 0.35 * cellSize`, producing non-uniform cell shapes. The PRNG ensures determinism per session. `hashRandomFromPosition` remains unchanged (different purpose).",
+      "details": {
+        "insertionPoint": "After L56 (`const z = ...`), before writing to `vertexPositions`",
+        "prngInit": "`const rng = createPRNG(seed + '-lattice-jitter')` before the vertex loop",
+        "jitterFormula": "Each axis: `base + (rng() - 0.5) * jitter * 0.35 * cellSize * 2`",
+        "jitterCap": "0.35 * cellSize maximum displacement prevents cell collapse"
+      }
+    },
+    {
+      "step": 2,
+      "title": "Add noise-driven cell voiding and vertex compaction",
+      "files": ["src/visual/generators/cubeLattice.ts"],
+      "description": "Accept `voidDensity` (0–1) in generator options. After generating all vertices, evaluate a 3D noise mask per cell (NxNxN cells). A cell is voided when `hash(cellCenter) < voidDensity`. For each edge, determine its adjacent cells: an X-axis edge from (ix,iy,iz) to (ix+1,iy,iz) borders cells (ix,iy-1,iz-1), (ix,iy,iz-1), (ix,iy-1,iz), (ix,iy,iz) — up to 4 cells, fewer at boundaries. An edge survives only if at least one adjacent cell is alive. Track vertex connectivity (count of edges referencing each vertex) to produce `aConnectivity` data. After filtering, compact the surviving geometry into new arrays.",
+      "details": {
+        "voidMask": "Boolean array of NxNxN cells. Use PRNG seeded with `seed + '-lattice-void'` for deterministic void placement",
+        "edgeAdjacency": {
+          "xAxis": "Edge (ix,iy,iz)→(ix+1,iy,iz) borders cells with indices: (ix, iy-1, iz-1), (ix, iy, iz-1), (ix, iy-1, iz), (ix, iy, iz) — clamped to [0,N-1]",
+          "yAxis": "Edge (ix,iy,iz)→(ix,iy+1,iz) borders cells: (ix-1, iy, iz-1), (ix, iy, iz-1), (ix-1, iy, iz), (ix, iy, iz) — clamped",
+          "zAxis": "Edge (ix,iy,iz)→(ix,iy,iz+1) borders cells: (ix-1, iy-1, iz), (ix, iy-1, iz), (ix-1, iy, iz), (ix, iy, iz) — clamped"
+        },
+        "vertexCompaction": "After filtering edges, build a Map<number, number> from old vertex index to new compact index. Iterate surviving edges, collect referenced vertex indices into a Set, then assign dense new indices. Rebuild both vertex `positions` and `aRandom` arrays using the remapping. Rebuild edge `positions` and `randoms` arrays from the compacted vertex data. Also produce `aConnectivity` (Float32Array, 1 component per vertex) counting how many surviving edges reference each compacted vertex.",
+        "outputChange": "Add `connectivity: Float32Array` to `CubeLatticeVertexData` interface"
+      }
+    },
+    {
+      "step": 3,
+      "title": "Reduce idle wobble — gate displacement behind bass threshold",
+      "files": [
+        "src/visual/shaders/wireframe.vert.glsl",
+        "src/visual/shaders/wireframeVertex.vert.glsl"
+      ],
+      "description": "Remove treble positional displacement from both vertex shaders (wireframe.vert.glsl L62-66, wireframeVertex.vert.glsl L64-68). Treble remains in fragment lightness (wireframe.frag.glsl L36) and point sparkle (wireframeVertex.vert.glsl L99-100) — no change there. Gate the slow modulation block behind `smoothstep(0.05, 0.3, uBassEnergy)` so it only activates on meaningful bass. Reduce bass directional drift coefficient from 0.25 to 0.15 (L57/L59 in both shaders). The synthetic bass fallback (~0.12–0.22) will still produce gentle motion through the smoothstep gate.",
+      "details": {
+        "removeTrebleJitter": "Delete the 4 lines of treble micro displacement (pos.x/y/z += ...) in both vert shaders",
+        "gateSlowModulation": "Wrap slow modulation contribution with `* smoothstep(0.05, 0.3, uBassEnergy)` so at idle/low-bass the lattice holds its shape",
+        "reduceDrift": "Change `uBassEnergy * 0.25 * ma` to `uBassEnergy * 0.15 * ma` for bass directional drift in both shaders"
+      }
+    },
+    {
+      "step": 4,
+      "title": "Add connectivity-driven vertex emphasis in shaders",
+      "files": [
+        "src/visual/shaders/wireframeVertex.vert.glsl",
+        "src/visual/shaders/wireframeVertex.frag.glsl",
+        "src/visual/systems/cubeLatticeWireframe.ts"
+      ],
+      "description": "Add `attribute float aConnectivity` to the vertex dot vertex shader and a `varying float vConnectivity` passed to the fragment shader. Normalize connectivity by dividing by 6.0 (max edges per interior vertex in 3D lattice; voided lattices will have lower values, handled gracefully). Use normalized connectivity to boost point size (multiply by `1.0 + connectivity * 0.5`) and fragment alpha (multiply by `0.7 + connectivity * 0.3`). Increase `uBasePointSize` default from 0.04 to 0.06 for stronger intersection visibility. In the system file, attach the `aConnectivity` BufferAttribute from the generator output.",
+      "details": {
+        "vertShaderChanges": {
+          "file": "wireframeVertex.vert.glsl",
+          "addAttribute": "attribute float aConnectivity;",
+          "addVarying": "varying float vConnectivity;",
+          "setVarying": "vConnectivity = aConnectivity / 6.0;",
+          "pointSizeBoost": "Multiply pointSize by `(1.0 + vConnectivity * 0.5)` before clamp"
+        },
+        "fragShaderChanges": {
+          "file": "wireframeVertex.frag.glsl",
+          "addVarying": "varying float vConnectivity;",
+          "alphaBoost": "Multiply final alpha by `(0.7 + vConnectivity * 0.3)`"
+        },
+        "systemChanges": {
+          "file": "cubeLatticeWireframe.ts",
+          "setAttribute": "vertexGeometry.setAttribute('aConnectivity', new THREE.BufferAttribute(lattice.vertices.connectivity, 1));",
+          "basePointSize": "Change default from 0.04 to 0.06"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "title": "Thread seed through to the generator",
+      "files": ["src/visual/systems/cubeLatticeWireframe.ts"],
+      "description": "The `init()` method already receives `_seed` at L96. Remove the underscore prefix to use it. Pass `seed` to `generateCubeLattice()` along with the new `jitter` and `voidDensity` config fields. Update `CubeLatticeConfig` interface to include `jitter?: number` and `voidDensity?: number` with sensible defaults (jitter: 0.3, voidDensity: 0.3).",
+      "details": {
+        "configInterface": "Add `jitter?: number` and `voidDensity?: number` to CubeLatticeConfig",
+        "generatorCall": "`generateCubeLattice({ gridSize, cellSize, seed, jitter: config?.jitter ?? 0.3, voidDensity: config?.voidDensity ?? 0.3 })`",
+        "initSignature": "Change `_seed` to `seed` at L96"
+      }
+    },
+    {
+      "step": 6,
+      "title": "Add latticeVoidDensity and latticeJitter to quality profiles",
+      "files": ["src/visual/quality.ts"],
+      "description": "Add `latticeVoidDensity: number` and `latticeJitter: number` to the `QualityProfile` interface. Set tier values: low (0.4 void, 0.25 jitter), medium (0.3 void, 0.3 jitter), high (0.25 void, 0.35 jitter). Lower tiers get more voids (fewer edges = better perf) and less jitter (simpler geometry). Forward both fields through `extractSystemConfig` for 'cubelattice' case.",
+      "details": {
+        "tierValues": {
+          "low": { "latticeVoidDensity": 0.4, "latticeJitter": 0.25 },
+          "medium": { "latticeVoidDensity": 0.3, "latticeJitter": 0.3 },
+          "high": { "latticeVoidDensity": 0.25, "latticeJitter": 0.35 }
+        },
+        "extractSystemConfig": "Add `jitter: profile.latticeJitter` and `voidDensity: profile.latticeVoidDensity` to the cubelattice case return object"
+      }
+    },
+    {
+      "step": 7,
+      "title": "Verification and testing",
+      "files": [],
+      "description": "Build and verify the complete implementation against shader integrity gate and definition of done.",
+      "checks": [
+        "Run `npm run build` — must pass with no errors",
+        "Open dev server — no WebGL shader compile errors, no VALIDATE_STATUS errors in console",
+        "Verify `aConnectivity` attribute is present on vertex geometry (primary risk: attribute declared in shader but not attached to BufferGeometry will cause silent render failure)",
+        "Verify lattice is no longer a uniform NxNxN grid — cells should be visibly non-uniform due to jitter",
+        "Verify voids create interesting silhouettes — not all cells present",
+        "Verify edges are straight-ish at rest — no constant wobble (treble jitter removed)",
+        "Verify bass hits produce visible deformation (smoothstep gate allows bass through)",
+        "Verify vertex dots are visibly emphasized at high-connectivity intersections",
+        "Verify mute toggle and info overlay still work",
+        "Verify no console errors on normal load",
+        "Verify scene renders with and without audio autoplay"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "risk": "aConnectivity attribute mismatch between shader and BufferGeometry",
+      "mitigation": "Step 4 explicitly adds the BufferAttribute in the system file. If the attribute is missing, Three.js will silently fail to render points. Test by checking gl.getAttribLocation returns >= 0.",
+      "severity": "high"
+    },
+    {
+      "risk": "Edge-cell adjacency boundary clamping produces artifacts at grid edges",
+      "mitigation": "Cells at grid boundaries have fewer than 4 adjacent cells. Clamping to [0, N-1] means boundary edges may survive more easily (fewer void neighbors needed to kill them), which actually produces a natural solid-shell effect. If visually undesirable, boundary cells can be force-voided as a follow-up.",
+      "severity": "low"
+    },
+    {
+      "risk": "Vertex compaction reindexing breaks edge data",
+      "mitigation": "Step 2 details the Map<number, number> remapping approach. Both edge positions/randoms and vertex positions/aRandom/aConnectivity must use the compact indices. Unit-testable: verify surviving edge endpoints exist in compacted vertex set.",
+      "severity": "medium"
+    }
+  ],
+  "dependencyOrder": "Steps 1-2 (generator changes) → Step 5 (thread seed/config) → Steps 3-4 (shader changes, can be parallel) → Step 6 (quality profiles) → Step 7 (verification)"
+}

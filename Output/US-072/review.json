@@ -1,0 +1,110 @@
+{
+  "ticket": "US-072",
+  "planVersion": 1,
+  "verdict": "approve_with_notes",
+  "summary": "Plan is structurally sound and covers all acceptance criteria. The generator changes (jitter + voiding + compaction), shader deformation gating, and connectivity emphasis together transform the grid into an architectural structure. Three issues need attention during implementation but none block approval.",
+  "criteria_coverage": {
+    "no_longer_uniform_grid": {
+      "covered": true,
+      "by_steps": [
+        1,
+        2
+      ]
+    },
+    "noise_mask_or_nonuniform_scaling": {
+      "covered": true,
+      "by_steps": [
+        1,
+        2
+      ]
+    },
+    "bounded_edge_displacement": {
+      "covered": true,
+      "by_steps": [
+        3
+      ]
+    },
+    "vertex_emphasis_at_intersections": {
+      "covered": true,
+      "by_steps": [
+        4
+      ]
+    },
+    "shader_integrity_and_quality_scaling": {
+      "covered": true,
+      "by_steps": [
+        6,
+        7
+      ]
+    },
+    "reads_as_architectural": {
+      "covered": true,
+      "by_steps": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  "issues": [
+    {
+      "step": "dependency_order",
+      "severity": "low",
+      "issue": "Dependency order states Steps 3 and 4 can be parallel, but both modify wireframeVertex.vert.glsl. Step 3 removes treble jitter lines and gates slow modulation; Step 4 adds aConnectivity attribute/varying and modifies point size calculation. These edits target different sections of the same file but cannot be truly parallel without merge risk.",
+      "fix": "Execute Step 3 before Step 4, or carefully merge both sets of changes in a single pass over wireframeVertex.vert.glsl."
+    },
+    {
+      "step": 2,
+      "severity": "medium",
+      "issue": "The generateCubeLattice function currently accepts `{ gridSize, cellSize }` as a plain object (no named interface for options). Steps 1, 2, and 5 all add new parameters (seed, jitter, voidDensity) but none explicitly defines the new options interface/type at the generator level. The CubeLatticeConfig in the system file is separate from the generator's input shape.",
+      "fix": "Define a GenerateCubeLatticeOptions interface in cubeLattice.ts: `{ gridSize: number; cellSize: number; seed: string; jitter: number; voidDensity: number }`. Reference this in both the generator function signature and where it's called from the system file."
+    },
+    {
+      "step": 4,
+      "severity": "low",
+      "issue": "Plan increases uBasePointSize from 0.04 to 0.06 AND adds connectivity-based boost (1.0 + connectivity * 0.5 = up to 1.5x). Combined, high-connectivity vertices would render at 0.06 * 1.5 = 0.09 effective base, more than double the current 0.04. This may produce overly large dots, especially at closer camera distances.",
+      "fix": "Consider keeping uBasePointSize at 0.04 or setting it to 0.05, and tuning the connectivity boost range visually. The shader registry default is 0.06 (for point cloud systems at greater camera distances), but the cube lattice is typically closer to camera."
+    }
+  ],
+  "risks_assessment": {
+    "plan_risks_valid": true,
+    "additional_risks": [
+      {
+        "risk": "Vertex compaction invalidates edge random values if hashRandomFromPosition is called on pre-jitter positions",
+        "detail": "Step 1 jitters vertex positions, but edges currently call hashRandomFromPosition on the original grid positions (cubeLattice.ts L114-138). After jitter, the edge endpoint positions stored in the edge arrays must use the jittered vertex positions, not recomputed grid positions. The writeEdge helper at L98 reads from vertexPositions which would already be jittered — this is correct as long as edges are generated AFTER jitter is applied in Step 1.",
+        "severity": "low",
+        "mitigation": "Already handled: jitter modifies vertexPositions in-place before edge generation runs. Just ensure Step 1's jitter is applied before the edge loop at L70+."
+      }
+    ]
+  },
+  "line_number_accuracy": {
+    "cubeLattice_ts_L54_56": "correct — x/y/z computed at L54-56",
+    "wireframe_vert_treble_L62_66": "off_by_one — treble jitter at L63-66 (4 lines not 5)",
+    "wireframeVertex_vert_treble_L64_68": "approximately_correct — same offset structure as wireframe.vert.glsl",
+    "wireframe_vert_bass_drift_L57": "off_by_one — bass drift coefficient at L56",
+    "cubeLatticeWireframe_init_L96": "correct — _seed parameter at init method",
+    "cubeLatticeWireframe_uBasePointSize": "correct — value 0.04 at L91"
+  },
+  "approved": true,
+  "concerns": [
+    {
+      "step": "dependency_order",
+      "severity": "low",
+      "issue": "Dependency order states Steps 3 and 4 can be parallel, but both modify wireframeVertex.vert.glsl. Step 3 removes treble jitter lines and gates slow modulation; Step 4 adds aConnectivity attribute/varying and modifies point size calculation. These edits target different sections of the same file but cannot be truly parallel without merge risk.",
+      "fix": "Execute Step 3 before Step 4, or carefully merge both sets of changes in a single pass over wireframeVertex.vert.glsl."
+    },
+    {
+      "step": 2,
+      "severity": "medium",
+      "issue": "The generateCubeLattice function currently accepts `{ gridSize, cellSize }` as a plain object (no named interface for options). Steps 1, 2, and 5 all add new parameters (seed, jitter, voidDensity) but none explicitly defines the new options interface/type at the generator level. The CubeLatticeConfig in the system file is separate from the generator's input shape.",
+      "fix": "Define a GenerateCubeLatticeOptions interface in cubeLattice.ts: `{ gridSize: number; cellSize: number; seed: string; jitter: number; voidDensity: number }`. Reference this in both the generator function signature and where it's called from the system file."
+    },
+    {
+      "step": 4,
+      "severity": "low",
+      "issue": "Plan increases uBasePointSize from 0.04 to 0.06 AND adds connectivity-based boost (1.0 + connectivity * 0.5 = up to 1.5x). Combined, high-connectivity vertices would render at 0.06 * 1.5 = 0.09 effective base, more than double the current 0.04. This may produce overly large dots, especially at closer camera distances.",
+      "fix": "Consider keeping uBasePointSize at 0.04 or setting it to 0.05, and tuning the connectivity boost range visually. The shader registry default is 0.06 (for point cloud systems at greater camera distances), but the cube lattice is typically closer to camera."
+    }
+  ]
+}
