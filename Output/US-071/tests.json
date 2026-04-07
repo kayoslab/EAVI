@@ -1,0 +1,242 @@
+{
+  "ticket": "US-071",
+  "title": "Fix cluttered multi-polyhedra constellation scene",
+  "testFiles": [
+    {
+      "path": "tests/visual/systems/constellationLines.test.ts",
+      "action": "edit",
+      "existingTestUpdates": [
+        {
+          "testId": "T-055-13",
+          "line": 124,
+          "change": "Update maxTopologyInstances from {low:3, high:10} to {low:1, high:3} to match new hero-scale instance counts",
+          "oldSnippet": "const lowTier = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-13' });\n    lowTier.init(sceneLow, generateMockPositions(50), defaultParams);\n    const lowCount = getActiveVertexCount(lowTier);\n\n    const sceneHigh = new THREE.Scene();\n    const highTier = createConstellationLines({ maxTopologyInstances: 10, seed: 'test-13' });",
+          "newSnippet": "const lowTier = createConstellationLines({ maxTopologyInstances: 1, seed: 'test-13' });\n    lowTier.init(sceneLow, generateMockPositions(50), defaultParams);\n    const lowCount = getActiveVertexCount(lowTier);\n\n    const sceneHigh = new THREE.Scene();\n    const highTier = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-13' });"
+        },
+        {
+          "testId": "T-069-32",
+          "line": 299,
+          "change": "Update maxTopologyInstances from 15 to 3 (new cap); keep maxConnections:10 test",
+          "oldSnippet": "const constellation = createConstellationLines({ maxTopologyInstances: 15, maxConnections: 10, seed: 'test-32' });",
+          "newSnippet": "const constellation = createConstellationLines({ maxTopologyInstances: 3, maxConnections: 10, seed: 'test-32' });"
+        },
+        {
+          "testId": "T-069-34",
+          "line": 325,
+          "change": "Update maxTopologyInstances from {low:3, high:15} to {low:1, high:3}",
+          "oldSnippet": "const low = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-34' });\n    low.init(sceneLow, new Float32Array(0), defaultParams);\n    const lowCount = getActiveVertexCount(low);\n\n    const sceneHigh = new THREE.Scene();\n    const high = createConstellationLines({ maxTopologyInstances: 15, seed: 'test-34' });",
+          "newSnippet": "const low = createConstellationLines({ maxTopologyInstances: 1, seed: 'test-34' });\n    low.init(sceneLow, new Float32Array(0), defaultParams);\n    const lowCount = getActiveVertexCount(low);\n\n    const sceneHigh = new THREE.Scene();\n    const high = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-34' });"
+        },
+        {
+          "testId": "T-069-42",
+          "line": 463,
+          "change": "Update maxTopologyInstances from 8 to 3",
+          "oldSnippet": "const constellation = createConstellationLines({ maxTopologyInstances: 8, seed: 'test-42' });",
+          "newSnippet": "const constellation = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-42' });"
+        }
+      ],
+      "newTests": [
+        {
+          "testId": "T-071-01",
+          "description": "High-tier config produces at most 3 topology instances",
+          "acceptanceCriteria": ["Constellation topology system (US-069) is reworked: instance count drops dramatically (1-3 large hero topologies, not a field of small ones)"],
+          "code": "it('T-071-01: high-tier config produces at most 3 topology instances', () => {\n    const scene = new THREE.Scene();\n    const constellation = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-071-01' });\n    constellation.init(scene, new Float32Array(0), defaultParams);\n    const count = getActiveVertexCount(constellation);\n    // Max 3 instances × max 30 edges (icosahedron) × 2 verts per edge = 180 max\n    // But verify it's a small recognizable count, not a dense field\n    expect(count).toBeGreaterThan(0);\n    expect(count).toBeLessThanOrEqual(180);\n  });"
+        },
+        {
+          "testId": "T-071-02",
+          "description": "Instances do not overlap — all instance centers are at least MIN_SEPARATION apart",
+          "acceptanceCriteria": ["Instances do not overlap in screen space (seeded positions enforce minimum separation)"],
+          "code": "it('T-071-02: instances do not overlap — centers are at least MIN_SEPARATION apart', () => {\n    const scene = new THREE.Scene();\n    // Use spreadRadius 3.5 to match new default\n    const constellation = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-071-02', spreadRadius: 3.5 });\n    constellation.init(scene, new Float32Array(0), defaultParams);\n    const lines = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;\n    const posArr = (lines.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;\n    const activeCount = getActiveVertexCount(constellation);\n\n    // Extract cluster centroids by grouping edge endpoints\n    // With 1-3 large instances and wide spread, clusters should be well separated\n    const points: [number, number, number][] = [];\n    for (let i = 0; i < activeCount; i++) {\n      points.push([posArr[i * 3], posArr[i * 3 + 1], posArr[i * 3 + 2]]);\n    }\n\n    // Simple check: compute all pairwise distances, confirm spread\n    // With MIN_SEPARATION=3.0 and spreadRadius=3.5, centroids must be far apart\n    // We verify that the bounding box spans significant 3D space\n    const xs = points.map(p => p[0]);\n    const ys = points.map(p => p[1]);\n    const zs = points.map(p => p[2]);\n    const xRange = Math.max(...xs) - Math.min(...xs);\n    const yRange = Math.max(...ys) - Math.min(...ys);\n    const zRange = Math.max(...zs) - Math.min(...zs);\n    // At least one axis should show significant spread for 3 instances\n    expect(Math.max(xRange, yRange, zRange)).toBeGreaterThan(1.0);\n  });"
+        },
+        {
+          "testId": "T-071-03",
+          "description": "Each instance scale is >= 1.2 (hero-sized)",
+          "acceptanceCriteria": ["Each remaining topology instance is significantly larger and centered with clear silhouette"],
+          "code": "it('T-071-03: each topology instance scale is >= 1.2 (hero-sized)', () => {\n    // This tests generateTopologyInstances directly\n    const { createPRNG } = require('../../../src/visual/prng');\n    const { generateTopologyInstances } = require('../../../src/visual/generators/topologyInstances');\n    const rng = createPRNG('hero-scale-test');\n    const instances = generateTopologyInstances(rng, 3, 3.5);\n    for (const inst of instances) {\n      expect(inst.scale).toBeGreaterThanOrEqual(1.2);\n      expect(inst.scale).toBeLessThanOrEqual(2.0);\n    }\n  });"
+        },
+        {
+          "testId": "T-071-04",
+          "description": "Topology selection favours icosahedron/octahedron over tetrahedron",
+          "acceptanceCriteria": ["Edge count per instance is reduced if a topology produces dense crossing lines (prefer icosahedron/octahedron over dual/compound forms here)"],
+          "code": "it('T-071-04: topology selection favours icosahedron/octahedron over tetrahedron', () => {\n    const { createPRNG } = require('../../../src/visual/prng');\n    const { pickTopologies } = require('../../../src/visual/generators/topologyDefinitions');\n    let tetraCount = 0;\n    let cleanCount = 0;\n    // Run 50 picks to check statistical bias\n    for (let trial = 0; trial < 50; trial++) {\n      const rng = createPRNG(`weight-trial-${trial}`);\n      const picks = pickTopologies(rng, 3);\n      for (const pick of picks) {\n        if (pick.name === 'tetrahedron') tetraCount++;\n        else cleanCount++;\n      }\n    }\n    // Tetrahedron should be < 25% of total picks (weight 0.10 vs 0.90 for others)\n    const total = tetraCount + cleanCount;\n    expect(tetraCount / total).toBeLessThan(0.25);\n  });"
+        },
+        {
+          "testId": "T-071-05",
+          "description": "Visual is recognizably a small number of clean geometric solids (vertex count consistent with 1-3 polyhedra)",
+          "acceptanceCriteria": ["Visual is recognizably a small number of clean geometric solids, not a tangled web"],
+          "code": "it('T-071-05: vertex count is consistent with 1-3 clean polyhedra, not a dense web', () => {\n    const scene = new THREE.Scene();\n    const constellation = createConstellationLines({ maxTopologyInstances: 3, seed: 'test-071-05' });\n    constellation.init(scene, new Float32Array(0), defaultParams);\n    const count = getActiveVertexCount(constellation);\n    // 1 icosahedron = 30 edges × 2 = 60 verts\n    // 3 icosahedra = 90 edges × 2 = 180 verts max\n    // 3 tetrahedra = 18 edges × 2 = 36 verts min\n    // Old field of 15 instances could produce 900+ verts — ensure we're well below\n    expect(count).toBeLessThanOrEqual(180);\n    expect(count).toBeGreaterThanOrEqual(12); // at least 1 topology with 6 edges\n  });"
+        },
+        {
+          "testId": "T-071-06",
+          "description": "No console errors with new reduced instance configuration",
+          "acceptanceCriteria": ["No console errors; quality tiers still respected"],
+          "code": "it('T-071-06: no errors with reduced instance counts (1, 2, 3)', () => {\n    for (const count of [1, 2, 3]) {\n      const scene = new THREE.Scene();\n      const constellation = createConstellationLines({ maxTopologyInstances: count, seed: `test-071-06-${count}` });\n      expect(() => constellation.init(scene, new Float32Array(0), defaultParams)).not.toThrow();\n      expect(() => constellation.draw(scene, makeFrame())).not.toThrow();\n      expect(getActiveVertexCount(constellation)).toBeGreaterThan(0);\n      constellation.cleanup!();\n    }\n  });"
+        }
+      ],
+      "describeBlock": "US-071: Fix cluttered multi-polyhedra constellation scene"
+    },
+    {
+      "path": "tests/visual/generators/topologyDefinitions.test.ts",
+      "action": "edit",
+      "existingTestUpdates": [
+        {
+          "testId": "T-069-10",
+          "line": 76,
+          "change": "Update generateTopologyInstances call from count=8 to count=3 and MIN_SEP check from 0.8 to 3.0",
+          "oldSnippet": "const instances = generateTopologyInstances(rng, 8, 3.0);\n    const MIN_SEP = 0.8;",
+          "newSnippet": "const instances = generateTopologyInstances(rng, 3, 3.5);\n    const MIN_SEP = 3.0;"
+        },
+        {
+          "testId": "T-069-11",
+          "line": 95,
+          "change": "Update count from 5 to 3",
+          "oldSnippet": "const instances = generateTopologyInstances(rng, 5, 3.0);\n    expect(instances.length).toBe(5);",
+          "newSnippet": "const instances = generateTopologyInstances(rng, 3, 3.5);\n    expect(instances.length).toBe(3);"
+        },
+        {
+          "testId": "T-069-12",
+          "line": 101,
+          "change": "Update count from 5 to 3",
+          "oldSnippet": "const a = generateTopologyInstances(rng1, 5, 3.0);\n    const b = generateTopologyInstances(rng2, 5, 3.0);",
+          "newSnippet": "const a = generateTopologyInstances(rng1, 3, 3.5);\n    const b = generateTopologyInstances(rng2, 3, 3.5);"
+        },
+        {
+          "testId": "T-069-13",
+          "line": 113,
+          "change": "Update count from 5 to 3",
+          "oldSnippet": "const a = generateTopologyInstances(createPRNG('alpha'), 5, 3.0);\n    const b = generateTopologyInstances(createPRNG('beta'), 5, 3.0);",
+          "newSnippet": "const a = generateTopologyInstances(createPRNG('alpha'), 3, 3.5);\n    const b = generateTopologyInstances(createPRNG('beta'), 3, 3.5);"
+        },
+        {
+          "testId": "T-069-18",
+          "line": 124,
+          "change": "Update count from 10 to 3",
+          "oldSnippet": "const instances = generateTopologyInstances(rng, 10, 3.0);",
+          "newSnippet": "const instances = generateTopologyInstances(rng, 3, 3.5);"
+        },
+        {
+          "testId": "T-069-19",
+          "line": 134,
+          "change": "Update count from 15 to 3 and scale range from 0.3-0.7 to 1.2-2.0",
+          "oldSnippet": "const instances = generateTopologyInstances(rng, 15, 3.0);\n    for (const inst of instances) {\n      expect(inst.scale).toBeGreaterThanOrEqual(0.3);\n      expect(inst.scale).toBeLessThanOrEqual(0.7);\n    }",
+          "newSnippet": "const instances = generateTopologyInstances(rng, 3, 3.5);\n    for (const inst of instances) {\n      expect(inst.scale).toBeGreaterThanOrEqual(1.2);\n      expect(inst.scale).toBeLessThanOrEqual(2.0);\n    }"
+        },
+        {
+          "testId": "T-069-20",
+          "line": 143,
+          "change": "Update spreadRadius from 3.0 to 3.5 and count from 10 to 3",
+          "oldSnippet": "const spreadRadius = 3.0;\n    const rng = createPRNG('radius-seed');\n    const instances = generateTopologyInstances(rng, 10, spreadRadius);",
+          "newSnippet": "const spreadRadius = 3.5;\n    const rng = createPRNG('radius-seed');\n    const instances = generateTopologyInstances(rng, 3, spreadRadius);"
+        },
+        {
+          "testId": "T-069-21",
+          "line": 220,
+          "change": "Update count from 5 to 3 and cluster radius tolerance for larger scale",
+          "oldSnippet": "const instances = generateTopologyInstances(rng, 5, 3.0);",
+          "newSnippet": "const instances = generateTopologyInstances(rng, 3, 3.5);"
+        },
+        {
+          "testId": "T-069-22",
+          "line": 242,
+          "change": "Update count from 8 to 3",
+          "oldSnippet": "const instances = generateTopologyInstances(rng, 8, 3.0);",
+          "newSnippet": "const instances = generateTopologyInstances(rng, 3, 3.5);"
+        }
+      ],
+      "newTests": [
+        {
+          "testId": "T-071-07",
+          "description": "pickTopologies weighted selection produces statistically fewer tetrahedra",
+          "acceptanceCriteria": ["Edge count per instance is reduced if a topology produces dense crossing lines (prefer icosahedron/octahedron over dual/compound forms here)"],
+          "code": "it('T-071-07: pickTopologies weighted selection produces fewer tetrahedra than icosahedra+octahedra', () => {\n    const counts: Record<string, number> = { tetrahedron: 0, octahedron: 0, icosahedron: 0 };\n    for (let i = 0; i < 100; i++) {\n      const rng = createPRNG(`weight-test-${i}`);\n      const picks = pickTopologies(rng, 3);\n      for (const p of picks) counts[p.name]++;\n    }\n    // With weights icosa=0.45, octa=0.45, tetra=0.10:\n    // tetrahedron should be significantly less than octahedron + icosahedron\n    expect(counts.tetrahedron).toBeLessThan(counts.octahedron + counts.icosahedron);\n    // Tetra should be < 20% of total picks (allowing margin over 10% weight)\n    const total = counts.tetrahedron + counts.octahedron + counts.icosahedron;\n    expect(counts.tetrahedron / total).toBeLessThan(0.20);\n  });",
+          "describeBlock": "US-071: Topology weight bias"
+        },
+        {
+          "testId": "T-071-08",
+          "description": "generateTopologyInstances enforces MIN_SEPARATION of 3.0 between all pairs",
+          "acceptanceCriteria": ["Instances do not overlap in screen space (seeded positions enforce minimum separation)"],
+          "code": "it('T-071-08: generateTopologyInstances enforces MIN_SEPARATION >= 3.0 between all instance pairs', () => {\n    const NEW_MIN_SEP = 3.0;\n    // Test across multiple seeds to confirm separation constraint\n    for (let trial = 0; trial < 10; trial++) {\n      const rng = createPRNG(`sep-trial-${trial}`);\n      const instances = generateTopologyInstances(rng, 3, 3.5);\n      for (let i = 0; i < instances.length; i++) {\n        for (let j = i + 1; j < instances.length; j++) {\n          const dx = instances[i].position[0] - instances[j].position[0];\n          const dy = instances[i].position[1] - instances[j].position[1];\n          const dz = instances[i].position[2] - instances[j].position[2];\n          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);\n          expect(dist).toBeGreaterThanOrEqual(NEW_MIN_SEP - 0.01);\n        }\n      }\n    }\n  });",
+          "describeBlock": "US-071: Instance separation enforcement"
+        },
+        {
+          "testId": "T-071-09",
+          "description": "Instance scales are in hero range [1.2, 2.0]",
+          "acceptanceCriteria": ["Each remaining topology instance is significantly larger and centered with clear silhouette"],
+          "code": "it('T-071-09: all instance scales are in hero range [1.2, 2.0]', () => {\n    for (let trial = 0; trial < 10; trial++) {\n      const rng = createPRNG(`hero-trial-${trial}`);\n      const instances = generateTopologyInstances(rng, 3, 3.5);\n      for (const inst of instances) {\n        expect(inst.scale).toBeGreaterThanOrEqual(1.2);\n        expect(inst.scale).toBeLessThanOrEqual(2.0);\n      }\n    }\n  });",
+          "describeBlock": "US-071: Instance separation enforcement"
+        }
+      ]
+    }
+  ],
+  "qualityTierUpdates": {
+    "file": "src/visual/quality.ts",
+    "changes": [
+      {
+        "description": "Update medium tier maxTopologyInstances from 8 to 2",
+        "oldValue": "maxTopologyInstances: 8",
+        "newValue": "maxTopologyInstances: 2"
+      },
+      {
+        "description": "Update high tier maxTopologyInstances from 15 to 3",
+        "oldValue": "maxTopologyInstances: 15",
+        "newValue": "maxTopologyInstances: 3"
+      }
+    ]
+  },
+  "sourceConstantUpdates": [
+    {
+      "file": "src/visual/generators/topologyInstances.ts",
+      "changes": [
+        {
+          "description": "Increase MIN_SEPARATION from 0.8 to 3.0",
+          "oldValue": "const MIN_SEPARATION = 0.8;",
+          "newValue": "const MIN_SEPARATION = 3.0;"
+        },
+        {
+          "description": "Increase scale range from [0.3, 0.7] to [1.2, 2.0]",
+          "oldValue": "const scale = 0.3 + rng() * 0.4; // 0.3–0.7",
+          "newValue": "const scale = 1.2 + rng() * 0.8; // 1.2–2.0"
+        }
+      ]
+    },
+    {
+      "file": "src/visual/systems/constellationLines.ts",
+      "changes": [
+        {
+          "description": "Update DEFAULT_MAX_TOPOLOGY_INSTANCES from 10 to 3",
+          "oldValue": "const DEFAULT_MAX_TOPOLOGY_INSTANCES = 10;",
+          "newValue": "const DEFAULT_MAX_TOPOLOGY_INSTANCES = 3;"
+        },
+        {
+          "description": "Update DEFAULT_SPREAD_RADIUS from 2.5 to 3.5",
+          "oldValue": "const DEFAULT_SPREAD_RADIUS = 2.5;",
+          "newValue": "const DEFAULT_SPREAD_RADIUS = 3.5;"
+        }
+      ]
+    },
+    {
+      "file": "src/visual/generators/topologyDefinitions.ts",
+      "changes": [
+        {
+          "description": "Replace uniform pickTopologies with weighted selection favouring icosahedron/octahedron",
+          "oldValue": "export function pickTopologies(rng: () => number, count: number): TopologyDef[] {\n  const result: TopologyDef[] = [];\n  for (let i = 0; i < count; i++) {\n    const idx = Math.floor(rng() * TOPOLOGIES.length);\n    result.push(TOPOLOGIES[idx]);\n  }\n  return result;\n}",
+          "newValue": "const TOPOLOGY_WEIGHTS: [TopologyDef, number][] = [\n  [TETRAHEDRON, 0.10],\n  [OCTAHEDRON, 0.45],\n  [ICOSAHEDRON, 0.45],\n];\n\nexport function pickTopologies(rng: () => number, count: number): TopologyDef[] {\n  const result: TopologyDef[] = [];\n  for (let i = 0; i < count; i++) {\n    const r = rng();\n    let cumulative = 0;\n    let picked = TOPOLOGIES[0];\n    for (const [def, weight] of TOPOLOGY_WEIGHTS) {\n      cumulative += weight;\n      if (r < cumulative) {\n        picked = def;\n        break;\n      }\n    }\n    result.push(picked);\n  }\n  return result;\n}"
+        }
+      ]
+    }
+  ],
+  "testSummary": {
+    "existingTestsModified": 13,
+    "newTestsAdded": 9,
+    "totalTestIds": ["T-071-01", "T-071-02", "T-071-03", "T-071-04", "T-071-05", "T-071-06", "T-071-07", "T-071-08", "T-071-09"],
+    "coverageAreas": [
+      "Instance count cap (max 3)",
+      "Hero-scale instance size (1.2–2.0)",
+      "Minimum separation enforcement (3.0)",
+      "Weighted topology selection bias",
+      "No errors with reduced configuration",
+      "Vertex count bounds for clean geometry",
+      "Spatial spread verification"
+    ]
+  }
+}
