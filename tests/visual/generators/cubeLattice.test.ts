@@ -150,3 +150,134 @@ describe('US-068: Cube lattice generator', () => {
     expect(result.vertices.vertexCount).toBe(8);
   });
 });
+
+describe('US-072: Cube lattice jitter, voiding, and connectivity', () => {
+  it('T-072-01: generateCubeLattice with jitter > 0 produces non-uniform vertex positions', () => {
+    const uniform = generateCubeLattice({ gridSize: 3, cellSize: 1.0 });
+    const jittered = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'test-seed', jitter: 0.5 });
+    let diffCount = 0;
+    for (let i = 0; i < uniform.vertices.positions.length; i++) {
+      if (Math.abs(uniform.vertices.positions[i] - jittered.vertices.positions[i]) > 0.001) {
+        diffCount++;
+      }
+    }
+    expect(diffCount).toBeGreaterThan(0);
+  });
+
+  it('T-072-02: generateCubeLattice with jitter=0 produces positions identical to no-jitter baseline', () => {
+    const baseline = generateCubeLattice({ gridSize: 3, cellSize: 1.0 });
+    const noJitter = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'any-seed', jitter: 0 });
+    expect(noJitter.vertices.positions).toEqual(baseline.vertices.positions);
+  });
+
+  it('T-072-03: jitter is deterministic — same seed and jitter produce identical output', () => {
+    const a = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'det-jitter', jitter: 0.3 });
+    const b = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'det-jitter', jitter: 0.3 });
+    expect(a.vertices.positions).toEqual(b.vertices.positions);
+    expect(a.vertices.aRandom).toEqual(b.vertices.aRandom);
+  });
+
+  it('T-072-04: different seeds produce different jittered positions', () => {
+    const a = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'seed-a', jitter: 0.3 });
+    const b = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'seed-b', jitter: 0.3 });
+    let diffCount = 0;
+    for (let i = 0; i < a.vertices.positions.length; i++) {
+      if (Math.abs(a.vertices.positions[i] - b.vertices.positions[i]) > 0.0001) {
+        diffCount++;
+      }
+    }
+    expect(diffCount).toBeGreaterThan(0);
+  });
+
+  it('T-072-05: jitter displacement is bounded by 0.35 * cellSize per axis', () => {
+    const cellSize = 1.0;
+    const N = 4;
+    const baseline = generateCubeLattice({ gridSize: N, cellSize });
+    const jittered = generateCubeLattice({ gridSize: N, cellSize, seed: 'bound-test', jitter: 1.0 });
+    const maxDisplacement = 0.35 * cellSize;
+    for (let i = 0; i < baseline.vertices.positions.length; i++) {
+      const diff = Math.abs(jittered.vertices.positions[i] - baseline.vertices.positions[i]);
+      expect(diff).toBeLessThanOrEqual(maxDisplacement + 0.001);
+    }
+  });
+
+  it('T-072-06: voidDensity > 0 produces fewer edges than the full grid', () => {
+    const full = generateCubeLattice({ gridSize: 5, cellSize: 1.0 });
+    const voided = generateCubeLattice({ gridSize: 5, cellSize: 1.0, seed: 'void-test', voidDensity: 0.5 });
+    expect(voided.edges.edgeCount).toBeLessThan(full.edges.edgeCount);
+  });
+
+  it('T-072-07: voidDensity=0 preserves all edges (no cells voided)', () => {
+    const full = generateCubeLattice({ gridSize: 4, cellSize: 1.0 });
+    const noVoid = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'no-void', voidDensity: 0 });
+    expect(noVoid.edges.edgeCount).toBe(full.edges.edgeCount);
+  });
+
+  it('T-072-08: voided lattice has fewer vertices than the full grid (vertex compaction)', () => {
+    const full = generateCubeLattice({ gridSize: 5, cellSize: 1.0 });
+    const voided = generateCubeLattice({ gridSize: 5, cellSize: 1.0, seed: 'compact-test', voidDensity: 0.5 });
+    expect(voided.vertices.vertexCount).toBeLessThan(full.vertices.vertexCount);
+  });
+
+  it('T-072-09: voided lattice output includes connectivity Float32Array', () => {
+    const result = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'conn-test', voidDensity: 0.3 });
+    expect(result.vertices.connectivity).toBeInstanceOf(Float32Array);
+    expect(result.vertices.connectivity.length).toBe(result.vertices.vertexCount);
+  });
+
+  it('T-072-10: connectivity values are positive integers (edge count per vertex)', () => {
+    const result = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'conn-vals', voidDensity: 0.3 });
+    for (let i = 0; i < result.vertices.connectivity.length; i++) {
+      const v = result.vertices.connectivity[i];
+      expect(Number.isFinite(v)).toBe(true);
+      expect(v).toBeGreaterThanOrEqual(1);
+      expect(v % 1).toBe(0);
+    }
+  });
+
+  it('T-072-11: full grid (voidDensity=0) also produces connectivity data', () => {
+    const result = generateCubeLattice({ gridSize: 3, cellSize: 1.0, seed: 'full-conn', voidDensity: 0 });
+    expect(result.vertices.connectivity).toBeInstanceOf(Float32Array);
+    expect(result.vertices.connectivity.length).toBe(result.vertices.vertexCount);
+    let maxConn = 0;
+    for (let i = 0; i < result.vertices.connectivity.length; i++) {
+      maxConn = Math.max(maxConn, result.vertices.connectivity[i]);
+    }
+    expect(maxConn).toBe(6);
+  });
+
+  it('T-072-12: voided lattice edge positions are all finite', () => {
+    const result = generateCubeLattice({ gridSize: 5, cellSize: 1.0, seed: 'finite-edges', voidDensity: 0.4 });
+    for (let i = 0; i < result.edges.positions.length; i++) {
+      expect(Number.isFinite(result.edges.positions[i])).toBe(true);
+    }
+  });
+
+  it('T-072-13: void determinism — same seed and voidDensity produce identical results', () => {
+    const a = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'det-void', voidDensity: 0.35 });
+    const b = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'det-void', voidDensity: 0.35 });
+    expect(a.edges.edgeCount).toBe(b.edges.edgeCount);
+    expect(a.vertices.vertexCount).toBe(b.vertices.vertexCount);
+    expect(a.edges.positions).toEqual(b.edges.positions);
+    expect(a.vertices.positions).toEqual(b.vertices.positions);
+  });
+
+  it('T-072-14: edge array lengths remain consistent after voiding', () => {
+    const result = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'array-len', voidDensity: 0.4 });
+    expect(result.edges.positions.length).toBe(result.edges.edgeCount * 2 * 3);
+    expect(result.edges.randoms.length).toBe(result.edges.edgeCount * 2 * 3);
+  });
+
+  it('T-072-15: vertex array lengths remain consistent after compaction', () => {
+    const result = generateCubeLattice({ gridSize: 4, cellSize: 1.0, seed: 'vtx-len', voidDensity: 0.4 });
+    expect(result.vertices.positions.length).toBe(result.vertices.vertexCount * 3);
+    expect(result.vertices.aRandom.length).toBe(result.vertices.vertexCount * 3);
+  });
+
+  it('T-072-16: backward compatibility — calling without seed/jitter/voidDensity still works', () => {
+    const result = generateCubeLattice({ gridSize: 3, cellSize: 1.0 });
+    expect(result.vertices.vertexCount).toBe(64);
+    expect(result.edges.edgeCount).toBe(144);
+    expect(result.vertices.connectivity).toBeInstanceOf(Float32Array);
+  });
+});

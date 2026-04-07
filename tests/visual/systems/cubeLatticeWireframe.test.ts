@@ -427,3 +427,146 @@ describe('US-068: Cube lattice wireframe system', () => {
     expect(u1).toBeLessThan(u2);
   });
 });
+
+describe('US-072: Cube lattice wireframe system enhancements', () => {
+  it('T-072-17: Points geometry has aConnectivity attribute with itemSize 1', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'conn-attr-seed', defaultParams);
+    const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const connAttr = (pts.geometry as THREE.BufferGeometry).getAttribute('aConnectivity');
+    expect(connAttr).toBeDefined();
+    expect(connAttr.itemSize).toBe(1);
+    expect(connAttr.count).toBeGreaterThan(0);
+  });
+
+  it('T-072-18: vertex dot shader declares aConnectivity attribute', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'conn-shader-seed', defaultParams);
+    const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const vs = (pts.material as THREE.ShaderMaterial).vertexShader;
+    expect(vs).toMatch(/attribute\s+float\s+aConnectivity/);
+  });
+
+  it('T-072-19: vertex dot shader declares vConnectivity varying', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'vconn-seed', defaultParams);
+    const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const vs = (pts.material as THREE.ShaderMaterial).vertexShader;
+    const fs = (pts.material as THREE.ShaderMaterial).fragmentShader;
+    expect(vs).toMatch(/varying\s+float\s+vConnectivity/);
+    expect(fs).toMatch(/varying\s+float\s+vConnectivity/);
+  });
+
+  it('T-072-20: edge vertex shader does not contain treble micro displacement', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'no-treble-seed', defaultParams);
+    const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
+    const vs = (line.material as THREE.ShaderMaterial).vertexShader;
+    expect(vs).not.toMatch(/trebleJitter/);
+  });
+
+  it('T-072-21: vertex dot shader does not contain treble positional displacement', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'no-treble-vtx', defaultParams);
+    const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const vs = (pts.material as THREE.ShaderMaterial).vertexShader;
+    expect(vs).not.toMatch(/trebleJitter/);
+  });
+
+  it('T-072-22: edge fragment shader still references uTrebleEnergy (lightness preserved)', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'treble-frag-seed', defaultParams);
+    const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
+    const fs = (line.material as THREE.ShaderMaterial).fragmentShader;
+    expect(fs).toMatch(/uTrebleEnergy/);
+  });
+
+  it('T-072-23: vertex dot shader still contains treble sparkle for point size', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'sparkle-seed', defaultParams);
+    const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const vs = (pts.material as THREE.ShaderMaterial).vertexShader;
+    expect(vs).toMatch(/trebleSparkle/);
+  });
+
+  it('T-072-24: slow modulation is gated behind bass energy smoothstep', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'gate-seed', defaultParams);
+    const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
+    const vs = (line.material as THREE.ShaderMaterial).vertexShader;
+    expect(vs).toMatch(/smoothstep.*uBassEnergy|uBassEnergy.*smoothstep/);
+  });
+
+  it('T-072-25: bass directional drift uses reduced 0.15 coefficient', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'drift-seed', defaultParams);
+    const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
+    const vs = (line.material as THREE.ShaderMaterial).vertexShader;
+    expect(vs).toMatch(/bassDrift\s*=.*0\.15/);
+    expect(vs).not.toMatch(/bassDrift\s*=.*0\.25/);
+  });
+
+  it('T-072-26: uBasePointSize default is 0.06 (increased from 0.04)', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
+    sys.init(scene, 'pointsize-seed', defaultParams);
+    const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const u = (pts.material as THREE.ShaderMaterial).uniforms;
+    expect(u.uBasePointSize.value).toBeCloseTo(0.06, 5);
+  });
+
+  it('T-072-27: CubeLatticeConfig accepts jitter and voidDensity options', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0, jitter: 0.3, voidDensity: 0.3 });
+    sys.init(scene, 'config-seed', defaultParams);
+    const lines = scene.children.filter((c) => c instanceof THREE.LineSegments);
+    const points = scene.children.filter((c) => c instanceof THREE.Points);
+    expect(lines.length).toBeGreaterThanOrEqual(1);
+    expect(points.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('T-072-28: seed is threaded to generator — different seeds produce different geometry with voiding', () => {
+    const sceneA = new THREE.Scene();
+    const sysA = createCubeLatticeWireframe({ gridSize: 5, cellSize: 1.0, voidDensity: 0.4 });
+    sysA.init(sceneA, 'seed-A', defaultParams);
+
+    const sceneB = new THREE.Scene();
+    const sysB = createCubeLatticeWireframe({ gridSize: 5, cellSize: 1.0, voidDensity: 0.4 });
+    sysB.init(sceneB, 'seed-B', defaultParams);
+
+    const linesA = sceneA.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
+    const linesB = sceneB.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
+    const countA = (linesA.geometry as THREE.BufferGeometry).getAttribute('position').count;
+    const countB = (linesB.geometry as THREE.BufferGeometry).getAttribute('position').count;
+    expect(countA).not.toBe(countB);
+  });
+
+  it('T-072-29: with voidDensity, LineSegments has fewer edges than the full grid', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 5, cellSize: 1.0, voidDensity: 0.4 });
+    sys.init(scene, 'fewer-edges', defaultParams);
+    const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
+    const edgeVertexCount = (line.geometry as THREE.BufferGeometry).getAttribute('position').count;
+    const fullEdgeCount = 3 * 5 * 6 * 6; // 3*N*(N+1)^2
+    expect(edgeVertexCount).toBeLessThan(fullEdgeCount * 2);
+  });
+
+  it('T-072-30: system passes full lifecycle with jitter and voidDensity config', () => {
+    const scene = new THREE.Scene();
+    const sys = createCubeLatticeWireframe({ gridSize: 4, cellSize: 1.0, jitter: 0.35, voidDensity: 0.3 });
+    sys.init(scene, 'lifecycle-seed', defaultParams);
+    expect(() => sys.draw(scene, makeFrame({ elapsed: 100 }))).not.toThrow();
+    expect(() => sys.draw(scene, makeFrame({ elapsed: 200, params: { bassEnergy: 0.8, trebleEnergy: 0.5 } }))).not.toThrow();
+    sys.setOpacity(0.5);
+    expect(() => sys.cleanup()).not.toThrow();
+  });
+});

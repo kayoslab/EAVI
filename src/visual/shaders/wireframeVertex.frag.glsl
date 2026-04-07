@@ -1,5 +1,6 @@
 // Wireframe vertex dot fragment shader
 // US-065: Soft circular points with wireframe palette coloring and fog
+// US-072: Added connectivity-driven alpha emphasis
 
 uniform float uOpacity;
 uniform float uBassEnergy;
@@ -12,6 +13,7 @@ uniform float uDispersion;
 
 varying float vFogFactor;
 varying float vDepth;
+varying float vConnectivity;
 
 // HSL to RGB conversion
 vec3 hsl2rgb(float h, float s, float l) {
@@ -57,8 +59,11 @@ void main() {
   vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);
   color = mix(color, fogTint, vFogFactor * 0.5);
 
+  // Connectivity-driven alpha emphasis
+  float connectivityAlpha = 0.7 + vConnectivity * 0.3;
+
   // Combine all alpha factors
-  float alpha = pointAlpha * bassAlpha * (1.0 - vFogFactor * 0.85) * uOpacity;
+  float alpha = pointAlpha * bassAlpha * (1.0 - vFogFactor * 0.85) * uOpacity * connectivityAlpha;
 
   gl_FragColor = vec4(color, alpha);
 }

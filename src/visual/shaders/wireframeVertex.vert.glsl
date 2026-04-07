@@ -1,5 +1,6 @@
 // Wireframe vertex dot shader
 // US-065: Points at polyhedron vertices with identical deformation to edge shader
+// US-072: Removed treble micro displacement, gated slow modulation, added connectivity emphasis
 
 uniform float uTime;
 uniform float uBassEnergy;
@@ -22,9 +23,11 @@ uniform vec2 uPointerPos;
 uniform float uBasePointSize;
 
 attribute vec3 aRandom;
+attribute float aConnectivity;
 
 varying float vFogFactor;
 varying float vDepth;
+varying float vConnectivity;
 
 const float TAU = 6.283185307;
 
@@ -32,6 +35,9 @@ void main() {
   vec3 pos = position;
   float t = uTime;
   float ma = uMotionAmplitude;
+
+  // Pass connectivity to fragment shader (normalized by max 6 edges per interior vertex)
+  vConnectivity = aConnectivity / 6.0;
 
   // --- Structural: radial scale ---
   pos *= uRadialScale;
@@ -56,21 +62,16 @@ void main() {
   );
 
   // Bass directional drift
-  float bassDrift = uBassEnergy * 0.25 * ma;
+  float bassDrift = uBassEnergy * 0.15 * ma;
   pos.x += sin(t * 0.0004 + aRandom.x * 11.0) * bassDrift;
   pos.y += cos(t * 0.0003 + aRandom.y * 13.0) * bassDrift;
   pos.z += sin(t * 0.0005 + aRandom.z * 7.0) * bassDrift;
 
-  // --- Treble micro displacement ---
-  float trebleJitter = uTrebleEnergy * 0.12 * ma;
-  pos.x += sin(t * 0.011 + aRandom.x * 7.3) * trebleJitter;
-  pos.y += cos(t * 0.013 + aRandom.y * 5.7) * trebleJitter;
-  pos.z += sin(t * 0.009 + aRandom.z * 3.1) * trebleJitter;
-
-  // --- Optional slow modulation ---
+  // --- Optional slow modulation (gated behind bass energy) ---
   if (uEnableSlowModulation > 0.5) {
+    float bassGate = smoothstep(0.05, 0.3, uBassEnergy);
     float slowNoise = fbm3(pos * 0.3 + vec3(t * 0.00001), uNoiseOctaves);
-    pos += normalize(pos + vec3(0.001)) * slowNoise * 0.15 * ma;
+    pos += normalize(pos + vec3(0.001)) * slowNoise * 0.15 * ma * bassGate;
   }
 
   // --- Optional pointer repulsion ---
@@ -95,11 +96,12 @@ void main() {
   // Compute fog factor
   vFogFactor = smoothstep(uFogNear, uFogFar, depth);
 
-  // --- Point size with treble sparkle ---
+  // --- Point size with treble sparkle and connectivity emphasis ---
   float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
   float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.35;
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
-  float pointSize = uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay;
+  float connectivityBoost = 1.0 + vConnectivity * 0.5;
+  float pointSize = uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay * connectivityBoost;
   gl_PointSize = clamp(pointSize, 2.5, 48.0);
 
   gl_Position = projectionMatrix * mvPosition;
