@@ -1,0 +1,22 @@
+{
+  "verdict": "APPROVE",
+  "risk": "low",
+  "notes": [
+    "All changes are scoped to the existing constellation topology pipeline — no new modules, interfaces, or dependencies introduced",
+    "Instance count reduction (8/15 → 2/3), scale increase (0.3–0.7 → 1.2–2.0), and separation increase (0.8 → 3.0) are proportional parameter changes within existing generator infrastructure",
+    "Weighted topology selection replaces uniform random in pickTopologies() — same function signature, same PRNG contract, no API change",
+    "DEFAULT_SPREAD_RADIUS (2.5 → 3.5) and DEFAULT_MAX_TOPOLOGY_INSTANCES (10 → 3) are internal defaults only consumed by constellationLines.ts",
+    "Test updates are mechanical: adjusting hardcoded config values to match new ranges, plus 4 new acceptance-criteria tests",
+    "Risk of vertices exceeding fog far plane (uFogFar=8.0) is real but manageable — max extent is spreadRadius(3.5) + scale(2.0) × icosahedron radius(~1.0) = ~5.5, well within 8.0",
+    "PRNG determinism break is acceptable and expected for a visual rework ticket",
+    "No new shared interfaces, no cross-system coupling changes, no dependency additions"
+  ],
+  "changeFootprint": {
+    "production": 4,
+    "test": 2,
+    "total": 6
+  },
+  "architecturalImpact": "none — parameter tuning and weighted selection within existing generator/system boundary",
+  "approved": false,
+  "adr_entry": null
+}
