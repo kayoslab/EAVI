@@ -1357,13 +1357,14 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-007",
         "US-065"
       ],
       "split_from": "US-057",
-      "notes": "Direct adaptation of nw_wrld's CubeGrowth technique: explicit CUBE_VERTICES (8 corners) and CUBE_EDGES (12 index pairs), each instance transformed by a 4x4 matrix from the recursive growth algorithm. All instances merged into one LineSegments draw call. Optional depth-occlusion via invisible instanced occluder meshes (colorWrite:false, depthWrite:true)."
+      "notes": "Direct adaptation of nw_wrld's CubeGrowth technique: explicit CUBE_VERTICES (8 corners) and CUBE_EDGES (12 index pairs), each instance transformed by a 4x4 matrix from the recursive growth algorithm. All instances merged into one LineSegments draw call. Optional depth-occlusion via invisible instanced occluder meshes (colorWrite:false, depthWrite:true).",
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-067",
@@ -1426,8 +1427,8 @@
         "Instance count adapts to quality tier"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-007",
         "US-055",

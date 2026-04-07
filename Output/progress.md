@@ -140,3 +140,5 @@
 
 ## US-064: Remove instanced micro-geometry system
 
+## US-069: Rework constellation lines to form recognizable geometric topologies
+
