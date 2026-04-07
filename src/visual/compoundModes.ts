@@ -47,6 +47,13 @@ export const COMPOUND_MODE_DEFS: CompoundModeDef[] = [
       { systemName: 'cubelattice', isPrimary: false },
     ],
   },
+  {
+    name: 'pointcloud+fractalgrowth',
+    layers: [
+      { systemName: 'pointcloud', isPrimary: true },
+      { systemName: 'fractalgrowth', isPrimary: false },
+    ],
+  },
 ];
 
 export type SystemFactory = (config: Record<string, unknown>) => GeometrySystem;
@@ -64,6 +71,7 @@ function primaryCountForSystem(systemName: string, config: Record<string, unknow
 
     case 'wirepolyhedra': return (config.maxPolyhedra as number) ?? 0;
     case 'cubelattice': return (config.gridSize as number) ?? 0;
+    case 'fractalgrowth': return (config.maxEdgesPerShape as number) ?? 0;
     default: return 0;
   }
 }

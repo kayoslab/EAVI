@@ -1,0 +1,121 @@
+{
+  "ticket": "US-066",
+  "title": "Add recursive fractal growth wireframe structures",
+  "summary": "Create a cube-growth fractal generator inspired by nw_wrld's CubeGrowth technique. A seed cube spawns child cubes on its faces recursively (3-5 levels deep), with noise-driven branching for session uniqueness. All cube instances are merged into a single vertex buffer (Points) and a single edge-line buffer (LineSegments), following the US-065 wireframe pattern. The structure is audio-reactive via existing shader infrastructure.",
+  "depends_on": ["US-007", "US-065"],
+  "files": {
+    "new": [
+      {
+        "path": "src/visual/generators/cubeGrowth.ts",
+        "purpose": "Pure geometry generator: recursive cube-growth algorithm producing merged vertex and edge buffers"
+      },
+      {
+        "path": "src/visual/systems/fractalGrowthWireframe.ts",
+        "purpose": "GeometrySystem wrapper: creates Three.js Points + LineSegments meshes from cubeGrowth output, wires audio-reactive shaders"
+      }
+    ],
+    "modified": [
+      {
+        "path": "src/visual/quality.ts",
+        "reason": "Add 'fractalgrowth' case to extractSystemConfig; add maxFractalCubes budget field if needed"
+      },
+      {
+        "path": "src/visual/compoundModes.ts",
+        "reason": "Add compound mode pairing (e.g. 'pointcloud+fractalgrowth') and register in primaryCountForSystem"
+      },
+      {
+        "path": "src/main.ts",
+        "reason": "Instantiate fractalGrowthWireframe system, add to singleEntries rotation and systemRegistry"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": 1,
+      "title": "Implement cubeGrowth generator",
+      "file": "src/visual/generators/cubeGrowth.ts",
+      "description": "Create the recursive cube-growth geometry generator.",
+      "details": [
+        "Define CUBE_VERTICES: 8 corner positions of a unit cube as a const array of [x,y,z] tuples",
+        "Define CUBE_EDGES: 12 index pairs referencing CUBE_VERTICES (the 12 edges of a cube)",
+        "Implement CubeGrowthConfig interface: { seed: string, depth: number, maxVertices: number, maxEdges: number }",
+        "Implement CubeGrowthOutput interface: { vertexPositions: Float32Array, edgePositions: Float32Array, vertexRandoms: Float32Array, edgeRandoms: Float32Array, vertexCount: number, edgeCount: number }",
+        "Implement generateCubeGrowth(config): recursive algorithm that starts from a seed cube at origin, then for each face of the current cube, uses seeded noise (createPRNG) to decide whether to spawn a child cube on that face (probability decreasing with depth)",
+        "Each cube instance is transformed by a 4x4 matrix: translate to face center + scale down by ~0.5-0.7 per level",
+        "Collect all cube instances' 8 vertices into a single merged vertex Float32Array (N*8*3 floats)",
+        "Collect all cube instances' 12 edges into a single merged edge Float32Array as LineSegments pairs (N*12*2*3 floats)",
+        "Generate per-vertex aRandom values using position-based deterministic hash (matching US-065 pattern)",
+        "Respect maxVertices and maxEdges budgets — stop recursing when budget is exhausted",
+        "Normalize final structure to TARGET_RADIUS (2.5) using the same normalizeToRadius pattern from fractalGeometry.ts",
+        "Validate all values are finite"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Implement fractalGrowthWireframe system",
+      "file": "src/visual/systems/fractalGrowthWireframe.ts",
+      "description": "Create the GeometrySystem that renders the cube-growth structure as Points + LineSegments.",
+      "details": [
+        "Follow wireframePolyhedra.ts pattern exactly: import same shaders (noise3d.glsl, wireframe.vert.glsl, wireframe.frag.glsl, wireframeVertex.vert/frag)",
+        "Define FractalGrowthConfig interface: { maxFractalDepth?: number, noiseOctaves?: 1|2|3, enablePointerRepulsion?: boolean, enableSlowModulation?: boolean, maxEdgesPerShape?: number }",
+        "Implement createFractalGrowthWireframe(config) returning GeometrySystem & { cleanup(), setOpacity() }",
+        "In init(): call generateCubeGrowth with seed + ':fractalgrowth', depth from config (clamped 3-5), budget from maxEdgesPerShape",
+        "Create single BufferGeometry for edges with position + aRandom attributes → LineSegments mesh",
+        "Create single BufferGeometry for vertices with position + aRandom attributes → Points mesh (use extractUniqueVertices or use the vertex buffer directly since cube vertices are already unique per instance)",
+        "Use createEdgeUniforms / createVertexDotUniforms pattern from wireframePolyhedra.ts for ShaderMaterial setup",
+        "Additive blending, transparent, depthWrite: false",
+        "In draw(): update all shader uniforms from FrameState (uTime, uBassEnergy, uTrebleEnergy, uMotionAmplitude, uPointerDisturbance, uPointerPos, palette, cadence, displacement, etc.)",
+        "In cleanup(): dispose geometry + material, remove from scene",
+        "In setOpacity(): update uOpacity uniform on both materials"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Register system in quality tier config",
+      "file": "src/visual/quality.ts",
+      "description": "Add extractSystemConfig case for the new system.",
+      "details": [
+        "Add 'fractalgrowth' case to extractSystemConfig switch returning { maxFractalDepth, noiseOctaves, enablePointerRepulsion, enableSlowModulation, maxEdgesPerShape }",
+        "maxFractalDepth maps from profile.maxFractalDepth (already exists: low=3, medium=4, high=6, but clamp to 5 max for this system)",
+        "maxEdgesPerShape from profile.maxEdgesPerShape (low=30, medium=480, high=1920)",
+        "Add 'fractalgrowth' to primaryCountForSystem in compoundModes.ts returning maxEdgesPerShape"
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Wire into main.ts rotation and registry",
+      "file": "src/main.ts",
+      "description": "Instantiate the system and add to mode rotation.",
+      "details": [
+        "Import createFractalGrowthWireframe",
+        "Create instance with quality-derived config (same pattern as wireframe/cubeLattice)",
+        "Add SingleRotationEntry { kind: 'single', name: 'fractalgrowth', system, maxPoints: <edgeBudget> }",
+        "Add 'fractalgrowth' factory to systemRegistry for compound mode support",
+        "Optionally add a compound mode pairing in compoundModes.ts (e.g. 'pointcloud+fractalgrowth')"
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Build verification and smoke test",
+      "description": "Verify the implementation meets Definition of Done.",
+      "details": [
+        "Run npm run build — must pass with no errors",
+        "Load in browser — verify no console errors (especially no shader compile errors or WebGL validation errors)",
+        "Verify fractal structure renders as 3D wireframe with visible depth/parallax",
+        "Verify audio reactivity: bass drives macro displacement, treble drives fine jitter",
+        "Verify each session produces different growth patterns (refresh twice, compare)",
+        "Verify structure scales with quality tier (low tier = fewer cubes/edges, high = more)",
+        "Verify mute toggle and info overlay still work",
+        "Verify no localStorage/cookies/analytics used"
+      ]
+    }
+  ],
+  "architecture_notes": {
+    "generator_vs_system_split": "Generator (cubeGrowth.ts) is pure math — produces Float32Arrays with no Three.js dependency. System (fractalGrowthWireframe.ts) handles Three.js objects, shaders, and per-frame uniform updates. This matches the existing generators/ vs systems/ pattern.",
+    "single_draw_call": "All cube instances are merged into one vertex buffer and one edge buffer before creating geometry. This means one Points draw call and one LineSegments draw call total, not per-cube.",
+    "cube_growth_algorithm": "Start with seed cube at origin. For each of 6 faces, seeded RNG decides spawn probability (decreasing with depth). Child cube is positioned at parent face center, scaled down. Recurse. This produces organic tree-like structures of connected cubes.",
+    "noise_driven_branching": "Use createPRNG(seed + ':face:' + faceIndex + ':depth:' + d) for deterministic but unique branching per session. Branching probability ~0.6 at depth 1, decreasing by ~0.15 per level.",
+    "budget_control": "maxEdgesPerShape from quality tier controls total edge count. Generator tracks running count and stops spawning when budget is hit. Low tier: ~30 edges (2-3 cubes), Medium: ~480 (up to ~40 cubes), High: ~1920 (up to ~160 cubes).",
+    "shader_reuse": "Reuse existing wireframe.vert.glsl and wireframeVertex.vert.glsl shaders — they already handle bass/treble displacement via FBM noise. No new shader code needed."
+  }
+}

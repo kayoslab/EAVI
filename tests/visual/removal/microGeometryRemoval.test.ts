@@ -34,7 +34,7 @@ const highSignals: BrowserSignals = {
 };
 
 function createMockRegistry(): Record<string, (config: Record<string, unknown>) => GeometrySystem> {
-  const names = ['pointcloud', 'wirepolyhedra', 'particles', 'crystal', 'flowribbon', 'ribbon', 'cubelattice'];
+  const names = ['pointcloud', 'wirepolyhedra', 'particles', 'crystal', 'flowribbon', 'ribbon', 'cubelattice', 'fractalgrowth'];
   const registry: Record<string, (config: Record<string, unknown>) => GeometrySystem> = {};
   for (const name of names) {
     registry[name] = vi.fn(() => ({ init: vi.fn(), draw: vi.fn(), cleanup: vi.fn(), setOpacity: vi.fn() }));
@@ -105,7 +105,7 @@ describe('US-064: QualityProfile regression', () => {
 
 describe('US-064: CompoundModes regression', () => {
   it('T-064-08: COMPOUND_MODE_DEFS defines exactly 3 compound modes', () => {
-    expect(COMPOUND_MODE_DEFS.length).toBe(3);
+    expect(COMPOUND_MODE_DEFS.length).toBe(4);
     for (const def of COMPOUND_MODE_DEFS) {
       expect(typeof def.name).toBe('string');
       expect(def.layers.length).toBe(2);
@@ -132,18 +132,18 @@ describe('US-064: CompoundModes regression', () => {
     }
   });
 
-  it('T-064-12: buildCompoundEntries returns 3 entries on medium tier', () => {
+  it('T-064-12: buildCompoundEntries returns 4 entries on medium tier', () => {
     const profile = computeQuality(mediumSignals);
     const registry = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
-    expect(entries.length).toBe(3);
+    expect(entries.length).toBe(4);
   });
 
-  it('T-064-13: buildCompoundEntries returns 3 entries on high tier', () => {
+  it('T-064-13: buildCompoundEntries returns 4 entries on high tier', () => {
     const profile = computeQuality(highSignals);
     const registry = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
-    expect(entries.length).toBe(3);
+    expect(entries.length).toBe(4);
   });
 
   it('T-064-20: each remaining compound mode has exactly one primary layer', () => {
