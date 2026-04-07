@@ -1,0 +1,86 @@
+{
+  "ticket": "US-073",
+  "title": "Add wireframe terrain heightfield generator",
+  "overview": "Create a pure data generator that produces an MxN planar grid mesh with Y-heights set by layered FBM noise (sin/cos based, consistent with codebase patterns). Outputs flat Float32Array positions and edge pairs for LineSegments rendering. Grid resolution adapts to quality tier. Deterministic per session seed.",
+  "depends_on": ["US-007"],
+  "files": {
+    "create": [
+      "src/visual/generators/terrainHeightfield.ts",
+      "tests/visual/generators/terrainHeightfield.test.ts"
+    ],
+    "modify": [
+      "src/visual/quality.ts"
+    ]
+  },
+  "steps": [
+    {
+      "id": 1,
+      "action": "modify",
+      "file": "src/visual/quality.ts",
+      "description": "Add terrain quality fields to QualityProfile and wire into tier system",
+      "details": [
+        "Add `terrainRows: number` and `terrainCols: number` to QualityProfile interface",
+        "Set tier values: low={terrainRows:20, terrainCols:30}, medium={terrainRows:40, terrainCols:60}, high={terrainRows:60, terrainCols:90}",
+        "Add 'terrainRows' and 'terrainCols' to COUNT_FIELDS array (10→12 entries)",
+        "Add COUNT_MINIMUMS entries: terrainRows:8, terrainCols:8",
+        "Add 'terrain' case to extractSystemConfig switch returning {rows: profile.terrainRows, cols: profile.terrainCols, noiseOctaves: profile.noiseOctaves}"
+      ]
+    },
+    {
+      "id": 2,
+      "action": "create",
+      "file": "src/visual/generators/terrainHeightfield.ts",
+      "description": "Implement the terrain heightfield generator",
+      "details": [
+        "Import createPRNG from '../prng' and hashRandomFromPosition from './subdivideEdges'",
+        "Export interface TerrainHeightfieldResult with: positions: Float32Array, randoms: Float32Array, edgeCount: number, rows: number, cols: number",
+        "Export function generateTerrainHeightfield(opts: { rows: number, cols: number, seed: string, width?: number, depth?: number, heightScale?: number, octaves?: number }): TerrainHeightfieldResult",
+        "Default extents: width=10, depth=10, heightScale=2.0, octaves=3",
+        "Create (rows+1)*(cols+1) vertex grid on XZ plane centered at origin",
+        "Implement seeded FBM height function using sin/cos layered noise (consistent with hashRandomFromPosition pattern): for each octave, accumulate amplitude * sin(freq*x*p1 + freq*z*p2 + seedOffset) * cos(freq*x*p3 + freq*z*p4 + seedOffset) with frequency doubling and amplitude halving per octave. Prime coefficients (73.1, 91.3, etc.) sourced per octave from seed via createPRNG",
+        "Vertex Y = fbm(x, z, seed, octaves) * heightScale",
+        "Compute edge count: rows*(cols+1) + cols*(rows+1) — horizontal edges + vertical edges",
+        "Build flat Float32Array for edge pairs: each edge = 6 floats (x0,y0,z0, x1,y1,z1). Horizontal edges connect (i,j)→(i,j+1), vertical edges connect (i,j)→(i+1,j)",
+        "Build randoms Float32Array using hashRandomFromPosition for each edge endpoint (edgeCount*2*3 floats)",
+        "All output deterministic for same seed+rows+cols"
+      ]
+    },
+    {
+      "id": 3,
+      "action": "create",
+      "file": "tests/visual/generators/terrainHeightfield.test.ts",
+      "description": "Unit tests covering all acceptance criteria",
+      "details": [
+        "Import generateTerrainHeightfield from source, describe block: 'US-073: Wireframe terrain heightfield generator'",
+        "T-073-01: Vertex count equals (rows+1)*(cols+1) — verify positions.length === vertexCount*6... actually positions is edge-pair based. Verify edge positions length equals edgeCount*2*3",
+        "T-073-02: Edge count equals rows*(cols+1) + cols*(rows+1) for multiple grid sizes",
+        "T-073-03: All position values are finite",
+        "T-073-04: All random values are finite and in [0, 1)",
+        "T-073-05: Randoms array length equals edgeCount * 2 * 3",
+        "T-073-06: Output is deterministic — same seed+params produces identical positions",
+        "T-073-07: Different seeds produce different positions",
+        "T-073-08: Heights (Y values) are not all zero — terrain has visible hills/valleys",
+        "T-073-09: Heights vary — min Y !== max Y, range is meaningful relative to heightScale",
+        "T-073-10: Grid extents — X positions span approximately [-width/2, width/2], Z spans approximately [-depth/2, depth/2]"
+      ]
+    }
+  ],
+  "implementation_notes": {
+    "noise_approach": "Sin/cos layered FBM using prime coefficients, consistent with hashRandomFromPosition pattern already in codebase. No external noise library needed. Seed-derived offsets via createPRNG ensure determinism and per-session variation.",
+    "output_format": "Flat Float32Array edge pairs matching polyhedraEdges/cubeLattice convention: positions has 6 floats per edge (2 endpoints × vec3), randoms has 6 floats per edge (hashRandomFromPosition per endpoint). This is directly consumable by Three.js LineSegments with BufferGeometry.",
+    "quality_scaling": "Grid resolution (rows×cols) scales via COUNT_FIELDS/scaleQualityProfile mechanism. Low tier ~20×30=600 cells, medium ~40×60=2400, high ~60×90=5400. COUNT_MINIMUMS floor at 8×8=64 cells.",
+    "edge_formula": "Total edges = rows*(cols+1) + cols*(rows+1). Horizontal: (rows+1) rows of cols edges each = cols*(rows+1). Vertical: (cols+1) columns of rows edges each = rows*(cols+1)."
+  },
+  "verification": {
+    "build": "npm run build must pass with no type errors",
+    "tests": "npx vitest run tests/visual/generators/terrainHeightfield.test.ts — all 10 tests pass",
+    "acceptance_criteria_mapping": {
+      "MxN grid with seeded extents": "steps 1-2, T-073-02, T-073-10",
+      "Layered noise hills/valleys": "step 2 FBM, T-073-08, T-073-09",
+      "Vertex positions and edge index pairs": "step 2 output format, T-073-01, T-073-02",
+      "Grid resolution adapts to quality tier": "step 1 quality profile fields",
+      "Deterministic per session seed": "step 2 createPRNG, T-073-06, T-073-07",
+      "Unit-tested": "step 3, 10 tests"
+    }
+  }
+}
