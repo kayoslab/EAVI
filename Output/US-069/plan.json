@@ -1,0 +1,195 @@
+{
+  "id": "US-069",
+  "title": "Rework constellation lines to form recognizable geometric topologies",
+  "summary": "Replace the proximity-threshold connection algorithm in constellationLines.ts with explicit geometric topology placement. Instead of connecting nearby points from the underlying point cloud, the system will generate its own vertices at known polyhedron positions and connect them via edge lookup tables. Multiple small topology instances (tetrahedra, octahedra, icosahedra) are scattered in 3D with seeded transforms.",
+  "steps": [
+    {
+      "step": 1,
+      "title": "Create topology definitions module",
+      "file": "src/visual/generators/topologyDefinitions.ts",
+      "action": "create",
+      "description": "Define unit-geometry vertex tables and edge index tables for each topology type. Each definition includes a name, a Float32Array of vertex positions (unit scale, centered at origin), and an edge list as pairs of vertex indices.",
+      "details": [
+        "Export a `TopologyDef` interface: `{ name: string; vertices: number[][]; edges: [number, number][] }`",
+        "Define TETRAHEDRON: 4 vertices, 6 edges",
+        "Define OCTAHEDRON: 6 vertices, 12 edges",
+        "Define ICOSAHEDRON: 12 vertices, 30 edges",
+        "Export `TOPOLOGIES: TopologyDef[]` array containing all three",
+        "Export a helper `pickTopologies(rng: () => number, count: number): TopologyDef[]` that selects `count` topologies from the array with seeded randomness, allowing repeats"
+      ]
+    },
+    {
+      "step": 2,
+      "title": "Create topology instance scattering generator",
+      "file": "src/visual/generators/topologyInstances.ts",
+      "action": "create",
+      "description": "Generate scattered topology instances in 3D space. Each instance has a topology type, position, orientation (quaternion), and scale. Outputs flat Float32Array of world-space vertices and a connection index list.",
+      "details": [
+        "Export `TopologyInstance` interface: `{ def: TopologyDef; position: [number, number, number]; quaternion: [number, number, number, number]; scale: number }`",
+        "Export `generateTopologyInstances(rng: () => number, count: number, spreadRadius: number): TopologyInstance[]` — places instances with seeded positions in a sphere of given radius, random orientations via seeded quaternion generation, and scale variation (0.3–0.7)",
+        "Export `flattenInstances(instances: TopologyInstance[]): { positions: Float32Array; edges: [number, number][] }` — transforms each instance's unit vertices to world space and remaps edge indices with per-instance vertex offset",
+        "Ensure instances don't overlap by enforcing minimum separation distance (reject-and-retry with cap)",
+        "Use the project's existing `createPRNG` from `src/visual/prng.ts` for all randomness"
+      ]
+    },
+    {
+      "step": 3,
+      "title": "Update quality profile for topology instance counts",
+      "file": "src/visual/quality.ts",
+      "action": "modify",
+      "description": "Add `maxTopologyInstances` field to QualityProfile and set per-tier values. Add a `constellation` case to `extractSystemConfig`.",
+      "details": [
+        "Add `maxTopologyInstances: number` to the `QualityProfile` interface",
+        "Low tier: `maxTopologyInstances: 0` (constellation disabled), keep `enableConstellationLines: false`",
+        "Medium tier: `maxTopologyInstances: 8`",
+        "High tier: `maxTopologyInstances: 15`",
+        "Add `case 'constellation'` to `extractSystemConfig()` returning `{ maxTopologyInstances, maxConstellationSegments, enableElectricArc, arcSubdivisions, enableConstellationLines }`",
+        "Add `maxTopologyInstances` to the `COUNT_MINIMUMS` map in `scaleQualityProfile` with minimum 3"
+      ]
+    },
+    {
+      "step": 4,
+      "title": "Rework constellationLines.ts to use topology instances",
+      "file": "src/visual/systems/constellationLines.ts",
+      "action": "modify",
+      "description": "Replace the proximity-based `findConnections` + `buildLineBuffers` pipeline with topology-based vertex/edge generation. The system now generates its own geometry instead of receiving positions from the point cloud.",
+      "details": [
+        "Update `ConstellationConfig` interface: remove `proximityThreshold`, add `maxTopologyInstances: number` (default 10), add `spreadRadius: number` (default 3.0)",
+        "Remove `findConnections()` function entirely",
+        "Replace `buildLineBuffers()` with `buildTopologyBuffers(instances: TopologyInstance[]): { positions: Float32Array; distances: Float32Array; randoms: Float32Array }` that constructs line-segment pairs from the topology edge tables, computing per-edge normalized distances and seeded random values",
+        "Update `init()`: instead of receiving external positions, call `generateTopologyInstances()` with seeded PRNG and `maxTopologyInstances` from config, then call `flattenInstances()` and `buildTopologyBuffers()` to produce geometry",
+        "The `init()` signature stays compatible with Overlay interface (positions parameter is ignored or used as fallback count hint)",
+        "Cap total line segments to `maxConnections` (from quality tier's `maxConstellationSegments`)",
+        "Keep existing shader material setup, uniform updates, and electric arc subdivision path intact",
+        "Store instance metadata for potential future per-instance animation"
+      ]
+    },
+    {
+      "step": 5,
+      "title": "Ensure audio reactivity displaces topology vertices",
+      "file": "src/visual/shaders/constellation.vert.glsl",
+      "action": "verify-and-adjust",
+      "description": "The existing vertex shader already applies bass-driven noise displacement and treble micro-jitter. Verify that this continues to work with topology-placed vertices. Edges will naturally follow because LineSegments vertex pairs are displaced identically to their source positions.",
+      "details": [
+        "Verify that `uBassEnergy`-driven radial expansion and FBM displacement still applies correctly to topology vertices (it should, since the shader operates on world-space positions regardless of how they were generated)",
+        "Verify that `uTrebleEnergy` micro-jitter works per-vertex",
+        "No shader changes expected unless testing reveals issues — the displacement is position-based, not topology-aware",
+        "Confirm that the breathing scale and drift rotation uniforms still produce visible per-instance motion since instances are at different world positions"
+      ]
+    },
+    {
+      "step": 6,
+      "title": "Update electric arc subdivision for topology edges",
+      "file": "src/visual/generators/subdivideEdges.ts",
+      "action": "verify",
+      "description": "The existing `subdivideEdges()` function operates on LineSegments position arrays generically. Verify it works unchanged with topology-generated line segments.",
+      "details": [
+        "No code changes expected — the function takes position pairs and subdivides them regardless of how edges were determined",
+        "Verify via test that arc subdivision produces correct sub-segments for topology edges"
+      ]
+    },
+    {
+      "step": 7,
+      "title": "Update constellation tests",
+      "file": "tests/visual/systems/constellationLines.test.ts",
+      "action": "modify",
+      "description": "Rewrite tests to verify topology-based behavior instead of proximity-based behavior.",
+      "details": [
+        "Remove proximity-threshold tests (T-055-03, T-055-04 style tests that verify distance-based connection logic)",
+        "Add test: topology instances are generated with correct vertex counts (e.g., 4 per tetrahedron, 6 per octahedron, 12 per icosahedron)",
+        "Add test: edge count matches topology definition (6 for tetra, 12 for octa, 30 for icosa)",
+        "Add test: total line segment count = sum of instance edge counts (capped by maxConstellationSegments)",
+        "Add test: instance positions are seeded-deterministic (same seed → same layout)",
+        "Add test: instance count respects quality tier's `maxTopologyInstances`",
+        "Add test: each topology instance's vertices are recognizably clustered (bounding sphere check per instance)",
+        "Keep existing tests that verify: shader material setup, energy uniform modulation, cleanup/disposal, blending settings, 3D positioning, opacity control",
+        "Add test: with zero maxTopologyInstances, no geometry is created"
+      ]
+    },
+    {
+      "step": 8,
+      "title": "Add unit tests for topology definitions and instance generation",
+      "file": "tests/visual/generators/topologyDefinitions.test.ts",
+      "action": "create",
+      "description": "Test the topology definition data and instance scattering logic independently.",
+      "details": [
+        "Test: each topology's edge indices are within vertex array bounds",
+        "Test: each topology's vertex array has correct length (tetra=4, octa=6, icosa=12)",
+        "Test: each topology's edge count matches expected (tetra=6, octa=12, icosa=30)",
+        "Test: `pickTopologies` returns correct count with seeded determinism",
+        "Test: `generateTopologyInstances` produces non-overlapping instances",
+        "Test: `flattenInstances` world-space positions differ from unit positions (transform applied)",
+        "Test: `flattenInstances` edge remapping is correct (offset by cumulative vertex count)",
+        "Test: quaternion-based rotation produces unit-length quaternions"
+      ]
+    },
+    {
+      "step": 9,
+      "title": "Build verification and integration test",
+      "action": "verify",
+      "description": "Run build and full test suite to confirm no regressions.",
+      "details": [
+        "Run `npm run build` — must pass with no errors",
+        "Run full test suite — all tests must pass",
+        "Manual verification: load in browser, confirm multiple recognizable geometric shapes are visible as connected dot-and-line structures floating in 3D space",
+        "Verify shapes respond to audio (vertices breathe/displace with bass, shimmer with treble)",
+        "Verify different quality tiers show different instance counts",
+        "Verify no console errors or WebGL validation errors"
+      ]
+    }
+  ],
+  "keyDecisions": [
+    {
+      "decision": "Constellation system generates its own vertices instead of using point cloud positions",
+      "rationale": "The current system receives positions from the point cloud and connects nearby ones. Topologies require vertices at specific relative positions, so the system must own vertex placement. The Overlay interface's `init(positions)` parameter will be ignored."
+    },
+    {
+      "decision": "Keep existing shader infrastructure unchanged",
+      "rationale": "The vertex shader applies displacement based on world-space position, not connection topology. Bass-driven FBM noise and treble jitter will naturally deform topology vertices, and since LineSegments pairs share vertex data, edges follow automatically."
+    },
+    {
+      "decision": "Three topology types: tetrahedron, octahedron, icosahedron",
+      "rationale": "These are the most visually recognizable Platonic solids at small scale. Cube and dodecahedron could be added later but these three give good variety in vertex/edge density."
+    },
+    {
+      "decision": "Instance scattering uses reject-and-retry for separation",
+      "rationale": "With max 15 instances in a radius-3 sphere, collision is infrequent. Poisson disk sampling would be overkill. A simple retry loop with a cap (e.g., 50 attempts) is sufficient and keeps the code minimal."
+    }
+  ],
+  "risks": [
+    {
+      "risk": "Overlay interface expects `init(scene, positions, params)` but we want to ignore positions",
+      "mitigation": "Keep the signature compatible. Accept positions but generate topology vertices internally. Document that positions parameter is unused for this overlay."
+    },
+    {
+      "risk": "Existing tests tightly coupled to proximity logic may be numerous to update",
+      "mitigation": "Step 7 explicitly identifies which tests to remove vs keep. Core shader/material/cleanup tests remain valid."
+    },
+    {
+      "risk": "Small topology instances may be hard to see at default camera distance",
+      "mitigation": "Tune instance scale (0.3–0.7) and spread radius during implementation. The camera orbits at z≈5 with harmonic offsets, so a spread radius of 3.0 should keep instances visible."
+    }
+  ],
+  "filesToCreate": [
+    "src/visual/generators/topologyDefinitions.ts",
+    "src/visual/generators/topologyInstances.ts",
+    "tests/visual/generators/topologyDefinitions.test.ts"
+  ],
+  "filesToModify": [
+    "src/visual/systems/constellationLines.ts",
+    "src/visual/quality.ts",
+    "tests/visual/systems/constellationLines.test.ts"
+  ],
+  "filesToVerify": [
+    "src/visual/shaders/constellation.vert.glsl",
+    "src/visual/shaders/electricArcConstellation.vert.glsl",
+    "src/visual/generators/subdivideEdges.ts"
+  ],
+  "estimatedComplexity": "medium-high",
+  "dependencies": {
+    "US-007": "Session seed system — used for deterministic topology selection and instance placement",
+    "US-055": "Current constellation system — being reworked in place",
+    "US-065": "Quality tier system — controls instance counts per tier"
+  },
+  "reviewer_corrections": "{\"step\":3,\"issue\":\"Plan says add `case 'constellation'` to extractSystemConfig, but no such case currently exists — constellation config is passed directly via ConstellationConfig, not through extractSystemConfig. Adding a case is fine but the plan should note this is a new case, not a modification of an existing one.\",\"severity\":\"low\",\"suggestion\":\"Clarify this is a new case. Also confirm callers (likely scene.ts or renderLoop.ts) will actually use extractSystemConfig('constellation') instead of passing config fields directly.\"}; {\"step\":3,\"issue\":\"COUNT_MINIMUMS for maxTopologyInstances is set to 3, but low tier has maxTopologyInstances: 0 and enableConstellationLines: false. The minimum of 3 would override the 0 during scaleQualityProfile, potentially enabling topologies on low tier unintentionally.\",\"severity\":\"medium\",\"suggestion\":\"Set COUNT_MINIMUMS for maxTopologyInstances to 0 (like maxConstellationSegments and maxBezierConnections which can be fully disabled). The enableConstellationLines boolean gate should control whether the system runs, not the count minimum.\"}; {\"step\":4,\"issue\":\"Plan says init() signature 'stays compatible with Overlay interface' and positions parameter is 'ignored or used as fallback count hint'. This is fine architecturally but the Overlay interface doc says 'composable layers over point-based geometry systems' — worth a brief comment in the code explaining why positions are unused.\",\"severity\":\"low\",\"suggestion\":\"Add a one-line comment in init() explaining topology vertices are self-generated.\"}; {\"step\":4,\"issue\":\"Plan says 'add spreadRadius to ConstellationConfig with default 3.0' but camera orbits at z≈5. With a spread radius of 3.0, some instances could be at the camera boundary. This is a tuning concern, not a blocker.\",\"severity\":\"low\",\"suggestion\":\"Consider starting with spreadRadius 2.5 or making it relative to the camera's orbit radius. Tunable during implementation.\"}; {\"step\":2,\"issue\":\"Reject-and-retry for instance separation is fine for 15 instances, but the plan doesn't specify what happens when retry cap is hit. Silent drop? Place anyway?\",\"severity\":\"low\",\"suggestion\":\"Specify behavior: place the instance at the last attempted position when retry cap is reached (graceful degradation over missing instances).\"}"
+}
