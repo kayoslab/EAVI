@@ -1356,15 +1356,14 @@
         "Structure is audio-reactive (vertices displaced by bass/treble)"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-007",
         "US-065"
       ],
       "split_from": "US-057",
-      "notes": "Direct adaptation of nw_wrld's CubeGrowth technique: explicit CUBE_VERTICES (8 corners) and CUBE_EDGES (12 index pairs), each instance transformed by a 4x4 matrix from the recursive growth algorithm. All instances merged into one LineSegments draw call. Optional depth-occlusion via invisible instanced occluder meshes (colorWrite:false, depthWrite:true).",
-      "claimed_by": "worker-1"
+      "notes": "Direct adaptation of nw_wrld's CubeGrowth technique: explicit CUBE_VERTICES (8 corners) and CUBE_EDGES (12 index pairs), each instance transformed by a 4x4 matrix from the recursive growth algorithm. All instances merged into one LineSegments draw call. Optional depth-occlusion via invisible instanced occluder meshes (colorWrite:false, depthWrite:true)."
     },
     {
       "id": "US-067",

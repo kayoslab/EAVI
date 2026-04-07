@@ -142,3 +142,5 @@
 
 ## US-069: Rework constellation lines to form recognizable geometric topologies
 
+## US-066: Add recursive fractal growth wireframe structures
+
