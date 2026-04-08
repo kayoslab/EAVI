@@ -92,3 +92,12 @@ export const WIREPOLYHEDRA_VERTEX_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
   { name: 'aRandom', itemSize: 3 },
 ];
+
+export const OCCLUDER_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'position', itemSize: 3 },
+  { name: 'aRandom', itemSize: 3 },
+];
+
+export const OCCLUDER_INSTANCED_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'position', itemSize: 3 },
+];

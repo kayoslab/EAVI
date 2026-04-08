@@ -46,6 +46,9 @@ export interface CubeGrowthOutput {
   edgeRandoms: Float32Array;
   vertexCount: number;
   edgeCount: number;
+  instanceOffsets: Float32Array;
+  instanceScales: Float32Array;
+  normScale: number;
 }
 
 const TARGET_RADIUS = 2.5;
@@ -172,13 +175,28 @@ export function generateCubeGrowth(config: CubeGrowthConfig): CubeGrowthOutput {
     }
   }
 
+  // Compute normalization scale before normalizing
+  const normScale = computeNormScale(vertexPositions, vertexCount, TARGET_RADIUS);
+
   // Normalize to TARGET_RADIUS
   normalizeToRadius(vertexPositions, vertexCount, TARGET_RADIUS);
   normalizeToRadius(edgePositions, edgeCount * 2, TARGET_RADIUS);
 
+  // Build instance transform arrays (normalized)
+  const instanceOffsets = new Float32Array(cubeCount * 3);
+  const instanceScales = new Float32Array(cubeCount);
+  for (let c = 0; c < cubeCount; c++) {
+    const inst = instances[c];
+    instanceOffsets[c * 3] = inst.ox * normScale;
+    instanceOffsets[c * 3 + 1] = inst.oy * normScale;
+    instanceOffsets[c * 3 + 2] = inst.oz * normScale;
+    instanceScales[c] = inst.scale * normScale;
+  }
+
   // Validate finite
   validateFinite(vertexPositions);
   validateFinite(edgePositions);
+  validateFinite(instanceOffsets);
 
   // Generate per-vertex randoms using deterministic hash
   const vertexRandoms = new Float32Array(vertexCount * 3);
@@ -201,7 +219,24 @@ export function generateCubeGrowth(config: CubeGrowthConfig): CubeGrowthOutput {
     edgeRandoms,
     vertexCount,
     edgeCount,
+    instanceOffsets,
+    instanceScales,
+    normScale,
   };
+}
+
+function computeNormScale(arr: Float32Array, vertexCount: number, radius: number): number {
+  if (vertexCount === 0) return 1;
+  let maxDist = 0;
+  for (let i = 0; i < vertexCount; i++) {
+    const x = arr[i * 3];
+    const y = arr[i * 3 + 1];
+    const z = arr[i * 3 + 2];
+    const d = Math.sqrt(x * x + y * y + z * z);
+    if (d > maxDist) maxDist = d;
+  }
+  if (maxDist < 1e-10) return 1;
+  return radius / maxDist;
 }
 
 function normalizeToRadius(arr: Float32Array, vertexCount: number, radius: number): void {

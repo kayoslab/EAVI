@@ -9,6 +9,7 @@ import wireframeFrag from '../shaders/wireframe.frag.glsl?raw';
 import wireframeVertexVert from '../shaders/wireframeVertex.vert.glsl?raw';
 import wireframeVertexFrag from '../shaders/wireframeVertex.frag.glsl?raw';
 import { generateCubeGrowth } from '../generators/cubeGrowth';
+import { createInstancedCubeOccluder, syncOccluderUniforms } from '../occluder';
 
 const standardVertexShader = noise3dGlsl + '\n' + wireframeVert;
 const standardFragmentShader = chromaticDispersionGlsl + '\n' + wireframeFrag;
@@ -21,6 +22,7 @@ export interface FractalGrowthConfig {
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
   maxEdgesPerShape?: number;
+  enableOcclusion?: boolean;
 }
 
 export function createFractalGrowthWireframe(config?: FractalGrowthConfig): GeometrySystem & {
@@ -32,9 +34,11 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
   const enablePointerRepulsion = config?.enablePointerRepulsion ?? true;
   const enableSlowModulation = config?.enableSlowModulation ?? true;
   const maxEdgesPerShape = config?.maxEdgesPerShape ?? 480;
+  const enableOcclusion = config?.enableOcclusion ?? false;
 
   let edgeMesh: THREE.LineSegments | null = null;
   let vertexMesh: THREE.Points | null = null;
+  let occluderMesh: THREE.InstancedMesh | null = null;
   let sceneRef: Scene | null = null;
 
   function createEdgeUniforms(params: VisualParams): Record<string, { value: unknown }> {
@@ -115,6 +119,7 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
+        ...(enableOcclusion ? { depthTest: true } : {}),
       });
 
       edgeMesh = new THREE.LineSegments(edgeGeometry, edgeMaterial);
@@ -132,10 +137,24 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
+        ...(enableOcclusion ? { depthTest: true } : {}),
       });
 
       vertexMesh = new THREE.Points(vertexGeometry, vertexMaterial);
       scene.add(vertexMesh);
+
+      // --- Occluder InstancedMesh (optional) ---
+      if (enableOcclusion) {
+        edgeMesh.renderOrder = 0;
+        vertexMesh.renderOrder = 0;
+        occluderMesh = createInstancedCubeOccluder(
+          growth.instanceOffsets,
+          growth.instanceScales,
+          growth.normScale,
+          createEdgeUniforms(params),
+        );
+        scene.add(occluderMesh);
+      }
     },
 
     draw(_scene: Scene, frame: FrameState): void {
@@ -189,6 +208,11 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       vu.uDisplacementScale.value = motionAmplitude * structureComplexity;
       vu.uDispersion.value = frame.params.dispersion ?? 0.0;
       vu.uBreathScale.value = breathScale;
+
+      // Sync occluder uniforms
+      if (occluderMesh) {
+        syncOccluderUniforms(occluderMesh, eu);
+      }
     },
 
     setOpacity(opacity: number): void {
@@ -212,9 +236,15 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
           vertexMesh.geometry.dispose();
           (vertexMesh.material as THREE.Material).dispose();
         }
+        if (occluderMesh) {
+          sceneRef.remove(occluderMesh);
+          occluderMesh.geometry.dispose();
+          (occluderMesh.material as THREE.Material).dispose();
+        }
       }
       edgeMesh = null;
       vertexMesh = null;
+      occluderMesh = null;
       sceneRef = null;
     },
   };
