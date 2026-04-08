@@ -150,3 +150,5 @@
 
 ## US-073: Add wireframe terrain heightfield generator
 
+## US-074: Add terrain heightfield render system with audio reactivity
+
