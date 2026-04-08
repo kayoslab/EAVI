@@ -1677,6 +1677,177 @@
       ],
       "split_from": null,
       "notes": "User has explicitly rejected these visuals twice. Remove them from the experience rather than attempting another fix."
+    },
+    {
+      "id": "US-081",
+      "title": "Apply vibrant tri-stop palette to all legacy modes",
+      "description": "As a user, I want every visual mode (not just terrain) to share the vivid deep-blue → magenta → orange palette family from US-079 so the experience feels visually unified and bright.",
+      "acceptanceCriteria": [
+        "particles, ribbon, pointcloud, crystal, flowribbon, fractalgrowth modes all consume the vibrant spatial gradient (US-079) by default",
+        "Per-mode color logic that previously hard-coded muted/grey tones is removed",
+        "Colors stay gamma-correct under bloom and do not clip to white",
+        "No console errors; all modes still render a stable first frame"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-079"],
+      "split_from": null,
+      "notes": "Pure palette/colour wiring ticket — no geometry changes."
+    },
+    {
+      "id": "US-082",
+      "title": "Rebuild particleField as curl-noise vector flow",
+      "description": "As a user, I want the 'particles' mode to read as a coherent 3D swirling vector field rather than random scatter, so it looks intentional and geometric.",
+      "acceptanceCriteria": [
+        "Particles advect along a curl-noise / divergence-free vector field in 3D",
+        "Field has visible large-scale structure (vortices, sheets) — not isotropic noise",
+        "Bass modulates field strength; treble modulates particle size/sparkle",
+        "Uses vibrant palette (US-081); runs at target FPS on mid tier",
+        "No console errors, stable first frame"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-081"],
+      "split_from": null,
+      "notes": "Replace randomised positions with integrated flow."
+    },
+    {
+      "id": "US-083",
+      "title": "Rebuild ribbonField as parametric surface ribbons",
+      "description": "As a user, I want the 'ribbon' mode to show long coherent ribbons sweeping across a parametric surface (helicoid / Möbius / torus knot family) rather than disconnected fragments.",
+      "acceptanceCriteria": [
+        "Ribbons follow a chosen parametric curve family seeded per visit",
+        "At least one variant has visible self-intersection / depth parallax",
+        "Bass deforms the host surface; treble drives ribbon shimmer",
+        "Vibrant palette applied (US-081); no console errors"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-081"],
+      "split_from": null,
+      "notes": "Geometric, not noise-based."
+    },
+    {
+      "id": "US-084",
+      "title": "Restructure pointCloud to a recognisable parametric form",
+      "description": "As a user, I want the 'pointcloud' mode to sample a recognisable mathematical surface (supershape, gyroid, or Clifford torus) so it reads as a 3D object instead of a fog of dots.",
+      "acceptanceCriteria": [
+        "Points are sampled on a parametric/implicit surface (one variant minimum)",
+        "Camera framing puts the form clearly in frame (not distant speck)",
+        "Bass drives macro deformation of the surface; treble drives point sparkle",
+        "Vibrant palette applied (US-081); stable first frame, no console errors"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-081"],
+      "split_from": null,
+      "notes": "Address user feedback that point clouds look distant and uninteresting."
+    },
+    {
+      "id": "US-085",
+      "title": "Rebuild crystalField as lattice-aligned faceted cluster",
+      "description": "As a user, I want the 'crystal' mode to show a clustered group of faceted crystals aligned to a shared lattice axis, instead of random scattered points.",
+      "acceptanceCriteria": [
+        "Crystals are placed on a shared lattice and share an orientation basis",
+        "Faceted look (flat shaded edges or point-strip facets) is visible",
+        "Bass drives lattice pulse; treble drives facet shimmer",
+        "Vibrant palette applied (US-081); no console errors"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-081"],
+      "split_from": null,
+      "notes": null
+    },
+    {
+      "id": "US-086",
+      "title": "Overhaul flowRibbonField with long sweeping curves and depth fade",
+      "description": "As a user, I want the 'flowribbon' mode to show a small number of long, sweeping curves with clear depth fade, instead of many short noisy strands.",
+      "acceptanceCriteria": [
+        "Reduce ribbon count, increase per-ribbon length so curves sweep across the frame",
+        "Distance-based alpha/size fade for cinematic depth",
+        "Bass modulates curve amplitude; treble modulates ribbon thickness",
+        "Vibrant palette applied (US-081); no console errors"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-081"],
+      "split_from": null,
+      "notes": null
+    },
+    {
+      "id": "US-087",
+      "title": "Rebuild fractalGrowthWireframe as recursive 3D structure",
+      "description": "As a user, I want the 'fractalgrowth' mode to render a true recursive 3D structure (L-system tree, Menger fragment, or Apollonian packing) with visible depth, not flat wobbly cubes.",
+      "acceptanceCriteria": [
+        "One recursive 3D structure variant implemented (L-system / Menger / Apollonian)",
+        "Visible depth and parallax — not screen-aligned",
+        "Bass drives growth pulse; treble drives edge sparkle",
+        "Vibrant palette applied (US-081); shaders compile cleanly; no validation errors"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-081"],
+      "split_from": null,
+      "notes": "Directly addresses 'wobbly cubes' feedback."
+    },
+    {
+      "id": "US-088",
+      "title": "Apply DoF + bloom uniformly across all modes",
+      "description": "As a user, I want every mode to benefit from the cinematic DoF (US-078) and bloom pass (US-077) used by the terrain mode.",
+      "acceptanceCriteria": [
+        "DoF focus uniform plumbed into all point shaders (particles, pointcloud, crystal, flowribbon)",
+        "Bloom post pass active for every mode in rotation",
+        "No mode disables post unless WebGL2 is unavailable",
+        "Stable FPS on mid tier; no console errors"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-077", "US-078"],
+      "split_from": null,
+      "notes": null
+    },
+    {
+      "id": "US-089",
+      "title": "Per-mode camera framing pass",
+      "description": "As a user, I want each mode framed at an interesting distance so the subject fills the frame, instead of looking small and distant.",
+      "acceptanceCriteria": [
+        "Each mode declares a target framing radius/offset; camera motion (cameraMotion.ts) honours it",
+        "No mode renders the primary form smaller than ~50% of the shorter viewport axis at rest",
+        "Camera still drifts/orbits per existing motion rules",
+        "No clipping of the form against near/far planes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-082", "US-083", "US-084", "US-085", "US-086", "US-087"],
+      "split_from": null,
+      "notes": "Addresses 'renders look fairly distant' feedback."
+    },
+    {
+      "id": "US-090",
+      "title": "Rebalance rotation weights after overhaul",
+      "description": "As a user, I want rotation weights tuned so the strongest overhauled modes dominate and any still-weak mode is dropped.",
+      "acceptanceCriteria": [
+        "Terrain (US-076), overhauled pointcloud (US-084), and overhauled fractalgrowth (US-087) each get above-average weight",
+        "Any mode that fails its overhaul ticket is removed from rotation",
+        "Rotation still contains at least 4 distinct modes",
+        "No dead imports, no console errors"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-082", "US-083", "US-084", "US-085", "US-086", "US-087"],
+      "split_from": null,
+      "notes": null
     }
   ]
 }
