@@ -1540,8 +1540,8 @@
         "Quality tiers reduce grid density rather than canvas size"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-017",
         "US-035",
@@ -1549,8 +1549,7 @@
         "US-073"
       ],
       "split_from": null,
-      "notes": "Matches the docs/ reference image. This is the headline new visual.",
-      "claimed_by": "worker-1"
+      "notes": "Matches the docs/ reference image. This is the headline new visual."
     },
     {
       "id": "US-075",
