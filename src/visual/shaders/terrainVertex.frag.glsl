@@ -1,5 +1,5 @@
-// Terrain heightfield vertex (Points) fragment shader
-// US-074: Soft circular terrain vertex dots with fog
+// Terrain dense particle wave sheet fragment shader
+// US-076: Soft glowing round sprite with additive blending
 
 uniform float uOpacity;
 uniform float uBassEnergy;
@@ -34,12 +34,13 @@ void main() {
   float dist = length(center);
   if (dist > 0.5) discard;
 
-  float pointAlpha = 1.0 - smoothstep(0.3, 0.5, dist);
+  // Smoother center glow for soft glowing dot appearance
+  float pointAlpha = 1.0 - smoothstep(0.0, 0.5, dist);
 
   float hue = mod(uPaletteHue, 360.0) / 360.0;
   if (hue < 0.0) hue += 1.0;
 
-  float lightness = 0.55 + uTrebleEnergy * 0.2;
+  float lightness = 0.6 + uTrebleEnergy * 0.2;
   vec3 hslColor = hsl2rgb(hue, uPaletteSaturation * 0.65, lightness);
   vec3 color = mix(hslColor, vVertexColor, uHasVertexColor);
 

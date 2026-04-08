@@ -161,6 +161,7 @@ geoPromise.then((geo) => {
   const terrain = createTerrainHeightfield({
     rows: quality.terrainRows,
     cols: quality.terrainCols,
+    pointCount: quality.terrainPointCount,
     noiseOctaves: quality.noiseOctaves,
   });
   // Build single-mode rotation entries
