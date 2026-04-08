@@ -27,6 +27,8 @@ export interface CubeLatticeEdgeData {
 export interface CubeLatticeResult {
   vertices: CubeLatticeVertexData;
   edges: CubeLatticeEdgeData;
+  cellOffsets: Float32Array;
+  cellScale: number;
 }
 
 /**
@@ -237,6 +239,28 @@ export function generateCubeLattice(opts: {
     edgeRandoms[base + 5] = r1c;
   }
 
+  // Build cell offsets for alive cells (centered at origin)
+  let aliveCount = 0;
+  for (let i = 0; i < cellCount; i++) {
+    if (cellAlive[i] === 1) aliveCount++;
+  }
+
+  const cellOffsets = new Float32Array(aliveCount * 3);
+  let ci = 0;
+  for (let cz = 0; cz < N; cz++) {
+    for (let cy = 0; cy < N; cy++) {
+      for (let cx = 0; cx < N; cx++) {
+        if (cellAlive[cellIndex(cx, cy, cz)] === 1) {
+          // Cell center = (cx + 0.5) * cellSize - offset
+          cellOffsets[ci * 3] = (cx + 0.5) * cellSize - offset;
+          cellOffsets[ci * 3 + 1] = (cy + 0.5) * cellSize - offset;
+          cellOffsets[ci * 3 + 2] = (cz + 0.5) * cellSize - offset;
+          ci++;
+        }
+      }
+    }
+  }
+
   return {
     vertices: {
       positions: compactPositions,
@@ -249,5 +273,7 @@ export function generateCubeLattice(opts: {
       randoms: edgeRandoms,
       edgeCount: compactEdgeCount,
     },
+    cellOffsets,
+    cellScale: cellSize,
   };
 }
