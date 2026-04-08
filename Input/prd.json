@@ -1571,6 +1571,100 @@
       ],
       "split_from": null,
       "notes": "Reference image shows blue → purple → orange gradient across the terrain. Implement as an opt-in vertex-color path so other systems (e.g. cube lattice, fractal growth) can adopt later without breakage."
+    },
+    {
+      "id": "US-076",
+      "title": "Replace wireframe terrain with dense particle wave sheet",
+      "description": "As a user, I want the terrain mode to look like the docs/ reference image: a dense cloud of thousands of glowing points forming a flowing wave surface, not a wireframe grid with visible line edges.",
+      "acceptanceCriteria": [
+        "Terrain system (US-074) no longer renders LineSegments grid edges; only Points",
+        "Point count is high (low tier ~20k, mid ~60k, high ~120k) sampled across the heightfield extent",
+        "Points are not locked to grid intersections — jittered XZ within cell so no visible rows/columns",
+        "Point size is small (~1.5–3 px) with additive blending and soft round sprite (alpha falloff)",
+        "Heightfield height is animated continuously (time-based) so waves visibly roll across the surface even without audio",
+        "Camera framing is low-angle skimming the surface toward a horizon (matches reference)",
+        "Bass scales wave amplitude; treble adds fine point shimmer",
+        "Shader integrity gate passes; no WebGL errors; quality tiers reduce point count, not canvas size"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-074"],
+      "split_from": "US-074",
+      "notes": "Reference shows soft glowing dots forming a wave — this is the headline visual. No grid lines."
+    },
+    {
+      "id": "US-077",
+      "title": "Add bloom postprocessing pass",
+      "description": "As a user, I want bright points and edges to glow softly so the scene has the luminous quality of the reference image.",
+      "acceptanceCriteria": [
+        "EffectComposer pipeline added with RenderPass + UnrealBloomPass (or equivalent)",
+        "Bloom strength/threshold/radius tuned so dim points glow faintly and bright peaks bloom strongly",
+        "Bloom is disabled on the lowest quality tier for performance",
+        "Resize handler updates composer size",
+        "All existing modes still render correctly through the composer",
+        "No WebGL errors; first-frame stable"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-076"],
+      "split_from": null,
+      "notes": "The reference's signature look is bloom + bokeh. Without this, the scene cannot match the target."
+    },
+    {
+      "id": "US-078",
+      "title": "Add depth-of-field bokeh for foreground particles",
+      "description": "As a user, I want particles closer to the camera to render as soft out-of-focus bokeh circles so the scene has the cinematic depth of the reference image.",
+      "acceptanceCriteria": [
+        "Particle point shader scales sprite size and reduces alpha based on distance from a focus plane (cheap fake DoF, not a full Bokeh pass)",
+        "Foreground points become large soft circles; mid-distance points are crisp; far points are small",
+        "Effect works on the terrain wave sheet (US-076) and does not break other point modes",
+        "Focus distance is a uniform that can be modulated subtly over time",
+        "No console errors, runs at target FPS on mid tier"
+      ],
+      "priority": 2,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-076"],
+      "split_from": null,
+      "notes": "Cheap shader-side fake DoF is sufficient — no need for real circle-of-confusion pass."
+    },
+    {
+      "id": "US-079",
+      "title": "Tune spatial gradient to vibrant tri-stop palette",
+      "description": "As a user, I want the terrain colors to be vivid deep-blue → magenta → orange like the reference, not muted or washed out.",
+      "acceptanceCriteria": [
+        "Spatial gradient (US-075) gains a 'vibrant' palette family with stops approximating #1b2a8a, #6a1bbf, #d83a8a, #ff7a2a (or seeded variants)",
+        "Stops are placed across the terrain X axis so distinct color zones are visible at rest",
+        "Colors are gamma-correct and remain saturated under bloom (avoid clipping to white)",
+        "Terrain mode (US-076) uses this palette by default",
+        "Other modes that opt in remain unaffected"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-075", "US-076"],
+      "split_from": "US-075",
+      "notes": "Bright saturated stops are essential — current gradient reads as flat."
+    },
+    {
+      "id": "US-080",
+      "title": "Retire or rebuild unsatisfying legacy modes",
+      "description": "As a user, I do not want the rotation to include the cluttered multi-polyhedra constellation or the boring cube lattice modes, even after their previous fix attempts, because they still detract from the experience.",
+      "acceptanceCriteria": [
+        "ModeManager rotation no longer includes the constellation-polyhedra mode (US-069/US-071) and the cube lattice mode (US-068/US-072)",
+        "Their source files are either deleted or left unregistered with a comment explaining why",
+        "Rotation weights are rebalanced so terrain wave sheet (US-076), point cloud, and one or two other strong modes dominate",
+        "No dead imports, no console errors",
+        "App still has at least 3 distinct visual modes in rotation"
+      ],
+      "priority": 1,
+      "passes": false,
+      "status": "available",
+      "depends_on": ["US-076"],
+      "split_from": null,
+      "notes": "User has explicitly rejected these visuals twice. Remove them from the experience rather than attempting another fix."
     }
   ]
 }
