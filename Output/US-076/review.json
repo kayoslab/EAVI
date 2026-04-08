@@ -1,0 +1,1 @@
+{"approved":true,"concerns":["Step 7 / main.ts line 177: the `maxPoints` in the single-mode entry `{ kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1) }` must be updated to `quality.terrainPointCount`. The plan omits this, which would leave the mode rotation system with an incorrect point budget."]}
