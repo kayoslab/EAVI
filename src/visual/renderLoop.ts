@@ -24,6 +24,7 @@ export interface LoopDeps {
   placeholderAmbient?: AmbientLight | null;
   placeholderDirectional?: DirectionalLight | null;
   quality?: QualityProfile | null;
+  composer?: { render(): void } | null;
   errorCollector?: ShaderErrorCollector | null;
   onDebugFrame?: ((data: { fps: number; modeName: string; pointCount: number; bass: number; treble: number; shaderStatus: 'pass' | 'fail' | 'pending'; optionalAttrs: string[]; qualityTier: string }) => void) | null;
   getModeName?: (() => string) | null;
@@ -261,7 +262,11 @@ export function startLoop(
     }
 
     // Render
-    renderer.render(scene, camera);
+    if (d.composer) {
+      d.composer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
 
     // Debug instrumentation
     d.onDebugFrame?.({
