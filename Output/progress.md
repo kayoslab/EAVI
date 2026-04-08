@@ -154,3 +154,5 @@
 
 ## US-070: Add depth-occluded wireframe rendering
 
+## US-075: Add spatial gradient palette for position-based vertex coloring
+
