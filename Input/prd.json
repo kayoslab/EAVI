@@ -622,6 +622,7 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
+        "US-007",
         "US-030"
       ],
       "split_from": "US-026",
@@ -1089,7 +1090,8 @@
         "US-007",
         "US-035",
         "US-041",
-        "US-046"
+        "US-046",
+        "US-048"
       ],
       "split_from": null,
       "notes": "Use Three.js EdgesGeometry or manual edge arrays for clean wireframe lines. Vertex shader should apply noise-based displacement to edge vertices. This is the foundation for line-based visual modes."
@@ -1139,7 +1141,8 @@
       "depends_on": [
         "US-007",
         "US-041",
-        "US-047"
+        "US-047",
+        "US-048"
       ],
       "split_from": null,
       "notes": "Use InstancedMesh with a custom ShaderMaterial. Instance matrices are updated per frame from a Float32Array. Wireframe overlay on instances (EdgesGeometry) is a bonus but not required for this ticket."
@@ -1458,7 +1461,7 @@
       ],
       "split_from": null,
       "notes": "Direct adaptation of nw_wrld's CubeGrowth occlusion technique. An InstancedMesh of solid shapes with colorWrite:false writes to the depth buffer without drawing any color. Edge LineSegments then respect this depth buffer, hiding edges that would be behind solid faces. This transforms see-through wireframes into readable 3D objects.",
-      "claimed_by": "worker-1"
+      "claimed_by": "worker-2"
     },
     {
       "id": "US-071",
@@ -1547,7 +1550,7 @@
       ],
       "split_from": null,
       "notes": "Matches the docs/ reference image. This is the headline new visual.",
-      "claimed_by": "worker-3"
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-075",
