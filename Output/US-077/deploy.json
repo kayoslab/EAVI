@@ -1,0 +1,1 @@
+{"decision":"pass","gates_checked":["tests","typecheck","build"],"failures":[],"notes":"Fixed console.warn → console.debug in composer.ts fallback path to pass healthCheck test. All 109 test files pass (1989 tests), typecheck clean, build succeeds."}

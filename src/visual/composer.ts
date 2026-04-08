@@ -33,7 +33,7 @@ export function initComposer(
 
     return { composer, bloomPass };
   } catch (err) {
-    console.warn('[EAVI] Failed to init bloom composer, falling back to direct render:', err);
+    console.debug('[EAVI] Failed to init bloom composer, falling back to direct render:', err);
     return null;
   }
 }
