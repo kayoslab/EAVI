@@ -27,6 +27,7 @@ import { createCubeLatticeWireframe } from './visual/systems/cubeLatticeWirefram
 import { createFractalGrowthWireframe } from './visual/systems/fractalGrowthWireframe';
 import { createTerrainHeightfield } from './visual/systems/terrainHeightfield';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
+import { initComposer } from './visual/composer';
 
 // Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
 const quickTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -95,11 +96,17 @@ geoPromise.then((geo) => {
   const quality = computeQuality(signals);
   console.debug('[EAVI] quality tier:', quality.tier);
 
+  // Init bloom postprocessing (null on low tier)
+  const composerResult = initComposer(renderer, scene, camera, quality);
+  if (composerResult) {
+    deps.composer = composerResult.composer;
+  }
+
   // Apply resolution scale to renderer and resize handler
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * quality.resolutionScale);
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   cleanupResize();
-  cleanupResize = attachResizeHandler(renderer, camera, quality.resolutionScale);
+  cleanupResize = attachResizeHandler(renderer, camera, quality.resolutionScale, composerResult?.composer ?? null);
 
   // Create geometry systems with quality-driven config
   const particles = createParticleField({
