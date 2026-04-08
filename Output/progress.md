@@ -152,3 +152,5 @@
 
 ## US-074: Add terrain heightfield render system with audio reactivity
 
+## US-070: Add depth-occluded wireframe rendering
+

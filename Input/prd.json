@@ -1453,15 +1453,14 @@
         "Works with recursive growth, lattice, and topology-based wireframe systems"
       ],
       "priority": 3,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-065",
         "US-066"
       ],
       "split_from": null,
-      "notes": "Direct adaptation of nw_wrld's CubeGrowth occlusion technique. An InstancedMesh of solid shapes with colorWrite:false writes to the depth buffer without drawing any color. Edge LineSegments then respect this depth buffer, hiding edges that would be behind solid faces. This transforms see-through wireframes into readable 3D objects.",
-      "claimed_by": "worker-2"
+      "notes": "Direct adaptation of nw_wrld's CubeGrowth occlusion technique. An InstancedMesh of solid shapes with colorWrite:false writes to the depth buffer without drawing any color. Edge LineSegments then respect this depth buffer, hiding edges that would be behind solid faces. This transforms see-through wireframes into readable 3D objects."
     },
     {
       "id": "US-071",
@@ -1565,13 +1564,14 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-008",
         "US-074"
       ],
       "split_from": null,
-      "notes": "Reference image shows blue → purple → orange gradient across the terrain. Implement as an opt-in vertex-color path so other systems (e.g. cube lattice, fractal growth) can adopt later without breakage."
+      "notes": "Reference image shows blue → purple → orange gradient across the terrain. Implement as an opt-in vertex-color path so other systems (e.g. cube lattice, fractal growth) can adopt later without breakage.",
+      "claimed_by": "worker-3"
     }
   ]
 }
