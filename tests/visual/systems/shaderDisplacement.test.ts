@@ -298,9 +298,9 @@ describe('US-041: Shader-based vertex displacement — particleField ShaderMater
     const sizeAttr = geo.getAttribute('size');
     expect(sizeAttr).toBeDefined();
     expect(sizeAttr.itemSize).toBe(1);
-    const hueOffsetAttr = geo.getAttribute('aHueOffset');
-    expect(hueOffsetAttr).toBeDefined();
-    expect(hueOffsetAttr.itemSize).toBe(1);
+    const vertexColorAttr = geo.getAttribute('aVertexColor');
+    expect(vertexColorAttr).toBeDefined();
+    expect(vertexColorAttr.itemSize).toBe(3);
     const randomAttr = geo.getAttribute('aRandom');
     expect(randomAttr).toBeDefined();
     expect(randomAttr.itemSize).toBe(3);
@@ -329,13 +329,13 @@ describe('US-041: Shader-based vertex displacement — particleField ShaderMater
     expect(mat.uniforms.uPaletteHue.value).toBe(240);
   });
 
-  it('T-041-24: particleField vertex shader contains HSL to RGB conversion (hsl2rgb)', () => {
+  it('T-041-24: particleField vertex shader uses vibrant vertex color attribute', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'hsl-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const mat = points.material as THREE.ShaderMaterial;
-    expect(mat.vertexShader).toContain('hsl2rgb');
+    expect(mat.vertexShader).toContain('aVertexColor');
   });
 
   it('T-041-34: particleField vertex shader contains uBassEnergy multiplied with curl3 for macro displacement', () => {

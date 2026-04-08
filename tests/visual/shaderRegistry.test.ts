@@ -35,8 +35,7 @@ describe('US-063: Shader registry — flow ribbon attributes', () => {
     expect(Array.isArray(FLOWRIBBON_ATTRIBUTES)).toBe(true);
     const names = FLOWRIBBON_ATTRIBUTES.map((a: AttributeSpec) => a.name);
     expect(names).toContain('position');
-    expect(names).toContain('color');
-    expect(names).toContain('aHueOffset');
+    expect(names).toContain('aVertexColor');
     expect(names).toContain('aRandom');
   });
 

@@ -156,11 +156,11 @@ describe('US-009: ParticleField geometry system', () => {
     const mat = points.material as THREE.ShaderMaterial;
     expect(mat.uniforms.uPaletteHue).toBeDefined();
     expect(mat.uniforms.uPaletteSaturation).toBeDefined();
-    // Per-point hue offset is in buffer attribute
+    // Per-point vibrant vertex color is in buffer attribute
     const geo = points.geometry as THREE.BufferGeometry;
-    const hueAttr = geo.getAttribute('aHueOffset');
-    expect(hueAttr).toBeDefined();
-    expect(hueAttr.itemSize).toBe(1);
+    const colorAttr = geo.getAttribute('aVertexColor');
+    expect(colorAttr).toBeDefined();
+    expect(colorAttr.itemSize).toBe(3);
   });
 
   it('T-030-06: draw() updates shader uniforms (GPU-side displacement, no CPU buffer mutation)', () => {
@@ -420,11 +420,10 @@ describe('US-050: ParticleField geometry attribute validation', () => {
     expect(geo.getAttribute('position').itemSize).toBe(3);
     expect(geo.getAttribute('size')).toBeDefined();
     expect(geo.getAttribute('size').itemSize).toBe(1);
-    expect(geo.getAttribute('aHueOffset')).toBeDefined();
-    expect(geo.getAttribute('aHueOffset').itemSize).toBe(1);
+    expect(geo.getAttribute('aVertexColor')).toBeDefined();
+    expect(geo.getAttribute('aVertexColor').itemSize).toBe(3);
     expect(geo.getAttribute('aRandom')).toBeDefined();
     expect(geo.getAttribute('aRandom').itemSize).toBe(3);
-    expect(geo.getAttribute('color')).toBeFalsy();
   });
 
   it('T-050-21: position buffer contains only finite values after init', () => {
@@ -444,7 +443,7 @@ describe('US-050: ParticleField geometry attribute validation', () => {
     field.init(scene, 'all-finite-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const geo = points.geometry as THREE.BufferGeometry;
-    for (const name of ['size', 'aHueOffset', 'aRandom']) {
+    for (const name of ['size', 'aVertexColor', 'aRandom']) {
       const arr = geo.getAttribute(name).array as Float32Array;
       for (let i = 0; i < arr.length; i++) {
         expect(Number.isFinite(arr[i])).toBe(true);

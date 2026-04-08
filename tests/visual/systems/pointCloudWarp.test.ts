@@ -77,15 +77,15 @@ describe('US-032: Audio-driven 3D warp shader for point cloud', () => {
     expect(aRandom.count).toBe(getPointCount(cloud));
   });
 
-  it('T-032-03: aHueOffset attribute is present with 1 component per point', () => {
+  it('T-032-03: aVertexColor attribute is present with 3 components per point', () => {
     const scene = new THREE.Scene();
     const cloud = createPointCloud();
     cloud.init(scene, 'hueoffset-seed', defaultParams);
     const geo = getGeometry(scene);
-    const aHueOffset = geo.getAttribute('aHueOffset');
-    expect(aHueOffset).toBeDefined();
-    expect(aHueOffset.itemSize).toBe(1);
-    expect(aHueOffset.count).toBe(getPointCount(cloud));
+    const aVertexColor = geo.getAttribute('aVertexColor');
+    expect(aVertexColor).toBeDefined();
+    expect(aVertexColor.itemSize).toBe(3);
+    expect(aVertexColor.count).toBe(getPointCount(cloud));
   });
 
   it('T-032-04: Uniforms update correctly when draw() is called with varying bassEnergy values', () => {

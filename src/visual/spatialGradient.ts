@@ -167,6 +167,15 @@ export function sampleGradient(palette: SpatialGradientPalette, t: number): { r:
   return { r: last.r, g: last.g, b: last.b };
 }
 
+export function computeVibrantVertexColors(
+  positions: Float32Array,
+  seed: string,
+  axis?: 'x' | 'z' | 'radial',
+): Float32Array {
+  const palette = createSpatialGradient(0, 0, seed, { mode: 'vibrant' });
+  return computeVertexColors(positions, palette, { axis: axis ?? 'x' });
+}
+
 export function computeVertexColors(
   positions: Float32Array,
   palette: SpatialGradientPalette,

@@ -26,30 +26,15 @@ uniform float uFocusDistance;
 uniform float uDofStrength;
 
 attribute float size;
-attribute float aHueOffset;
 attribute vec3 aRandom;
+attribute vec3 aVertexColor;
 
 varying vec3 vColor;
+varying vec3 vVertexColor;
 varying float vDepth;
 varying float vCoC;
 
 const float TAU = 6.283185307;
-
-// HSL to RGB conversion
-vec3 hsl2rgb(float h, float s, float l) {
-  float c = (1.0 - abs(2.0 * l - 1.0)) * s;
-  float hp = h * 6.0;
-  float x = c * (1.0 - abs(mod(hp, 2.0) - 1.0));
-  float m = l - c * 0.5;
-  vec3 rgb;
-  if (hp < 1.0) rgb = vec3(c, x, 0.0);
-  else if (hp < 2.0) rgb = vec3(x, c, 0.0);
-  else if (hp < 3.0) rgb = vec3(0.0, c, x);
-  else if (hp < 4.0) rgb = vec3(0.0, x, c);
-  else if (hp < 5.0) rgb = vec3(x, 0.0, c);
-  else rgb = vec3(c, 0.0, x);
-  return rgb + m;
-}
 
 void main() {
   vec3 pos = position;
@@ -127,13 +112,11 @@ void main() {
 
   gl_Position = projectionMatrix * mvPosition;
 
-  // --- Color computation ---
-  float hue = mod(uPaletteHue + aHueOffset, 360.0) / 360.0;
-  if (hue < 0.0) hue += 1.0;
-  float lightness = 0.6;
-  // Treble-modulated sparkle
+  // --- Color from vibrant vertex color attribute ---
+  vVertexColor = aVertexColor;
+  float brightness = 1.0;
   if (uTrebleEnergy > 0.5) {
-    lightness += sin(t * 0.02 + aRandom.x * 1.3) * 0.15 * uTrebleEnergy;
+    brightness += sin(t * 0.02 + aRandom.x * 1.3) * 0.15 * uTrebleEnergy;
   }
-  vColor = hsl2rgb(hue, uPaletteSaturation, lightness);
+  vColor = aVertexColor * brightness;
 }

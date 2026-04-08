@@ -212,12 +212,12 @@ describe('US-031: PointCloud geometry system', () => {
     expect(mat.uniforms.uPaletteHue.value).toBe(180);
   });
 
-  it('T-031-16: has color buffer attribute and ShaderMaterial with vertex/fragment shaders', () => {
+  it('T-031-16: has aVertexColor buffer attribute and ShaderMaterial with vertex/fragment shaders', () => {
     const scene = new THREE.Scene();
     const cloud = createPointCloud();
     cloud.init(scene, 'color-buf-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
-    const colorAttr = (points.geometry as THREE.BufferGeometry).getAttribute('color');
+    const colorAttr = (points.geometry as THREE.BufferGeometry).getAttribute('aVertexColor');
     expect(colorAttr).toBeDefined();
     expect(colorAttr.itemSize).toBe(3);
     const mat = points.material as THREE.ShaderMaterial;
@@ -366,7 +366,7 @@ describe('US-050: PointCloud geometry attribute validation', () => {
     expect(pointsMeshes.length).toBe(1);
   });
 
-  it('T-050-15: geometry has all required attributes after init: position(3), color(3), size(1), aHueOffset(1), aRandom(3)', () => {
+  it('T-050-15: geometry has all required attributes after init: position(3), size(1), aRandom(3), aVertexColor(3)', () => {
     const scene = new THREE.Scene();
     const cloud = createPointCloud();
     cloud.init(scene, 'attr-seed', defaultParams);
@@ -374,12 +374,10 @@ describe('US-050: PointCloud geometry attribute validation', () => {
     const geo = points.geometry as THREE.BufferGeometry;
     expect(geo.getAttribute('position')).toBeDefined();
     expect(geo.getAttribute('position').itemSize).toBe(3);
-    expect(geo.getAttribute('color')).toBeDefined();
-    expect(geo.getAttribute('color').itemSize).toBe(3);
+    expect(geo.getAttribute('aVertexColor')).toBeDefined();
+    expect(geo.getAttribute('aVertexColor').itemSize).toBe(3);
     expect(geo.getAttribute('size')).toBeDefined();
     expect(geo.getAttribute('size').itemSize).toBe(1);
-    expect(geo.getAttribute('aHueOffset')).toBeDefined();
-    expect(geo.getAttribute('aHueOffset').itemSize).toBe(1);
     expect(geo.getAttribute('aRandom')).toBeDefined();
     expect(geo.getAttribute('aRandom').itemSize).toBe(3);
   });
@@ -401,7 +399,7 @@ describe('US-050: PointCloud geometry attribute validation', () => {
     cloud.init(scene, 'all-finite-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const geo = points.geometry as THREE.BufferGeometry;
-    for (const name of ['color', 'size', 'aHueOffset', 'aRandom']) {
+    for (const name of ['aVertexColor', 'size', 'aRandom']) {
       const arr = geo.getAttribute(name).array as Float32Array;
       for (let i = 0; i < arr.length; i++) {
         expect(Number.isFinite(arr[i])).toBe(true);
