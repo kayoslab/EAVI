@@ -8,6 +8,7 @@ uniform float uDispersion;
 
 varying vec3 vColor;
 varying float vDepth;
+varying float vCoC;
 
 void main() {
   vec2 center = gl_PointCoord - vec2(0.5);
@@ -15,8 +16,11 @@ void main() {
 
   if (dist > 0.5) discard;
 
-  // Sharper falloff than pointWarp — step edge for faceted appearance
-  float alpha = 1.0 - smoothstep(0.35, 0.45, dist);
+  // Sharper falloff — CoC-dependent bokeh softness
+  float innerEdge = mix(0.35, 0.05, vCoC);
+  float outerEdge = mix(0.45, 0.5, vCoC);
+  float alpha = 1.0 - smoothstep(innerEdge, outerEdge, dist);
+  alpha *= mix(1.0, 0.35, vCoC);
 
   // Chromatic dispersion: per-channel gl_PointCoord offset
   vec3 color = chromaticPoint(vColor, gl_PointCoord, uDispersion);

@@ -124,6 +124,8 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
       uFogFar: { value: 8.0 },
       uDispersion: { value: 0.0 },
       uBasePointSize: { value: 0.04 },
+      uFocusDistance: { value: 5.0 },
+      uDofStrength: { value: 0.6 },
     };
   }
 
@@ -282,6 +284,10 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
 
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
 
+      // DoF focus distance modulation
+      const baseFocus = 5.0;
+      const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
+
       for (const pair of meshPairs) {
         // Update edge uniforms
         const eu = (pair.edges.material as THREE.ShaderMaterial).uniforms;
@@ -326,6 +332,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
         vu.uDisplacementScale.value = motionAmplitude * structureComplexity;
         vu.uDispersion.value = frame.params.dispersion ?? 0.0;
         vu.uBreathScale.value = breathScale;
+        vu.uFocusDistance.value = baseFocus + focusDrift;
 
         // Sync occluder uniforms
         if (pair.occluder) {
