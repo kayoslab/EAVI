@@ -1648,16 +1648,15 @@
         "Other modes that opt in remain unaffected"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-075",
         "US-076",
         "US-077"
       ],
       "split_from": "US-075",
-      "notes": "Bright saturated stops are essential — current gradient reads as flat.",
-      "claimed_by": "worker-3"
+      "notes": "Bright saturated stops are essential — current gradient reads as flat."
     },
     {
       "id": "US-080",

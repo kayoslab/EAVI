@@ -164,3 +164,5 @@
 
 ## US-078: Add depth-of-field bokeh for foreground particles
 
+## US-079: Tune spatial gradient to vibrant tri-stop palette
+
