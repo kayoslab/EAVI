@@ -10,6 +10,7 @@ import terrainVertexVert from '../shaders/terrainVertex.vert.glsl?raw';
 import terrainVertexFrag from '../shaders/terrainVertex.frag.glsl?raw';
 import { generateTerrainHeightfield } from '../generators/terrainHeightfield';
 import { extractUniqueVertices } from '../generators/extractVertices';
+import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 
 const edgeVertexShader = noise3dGlsl + '\n' + terrainVert;
 const edgeFragmentShader = chromaticDispersionGlsl + '\n' + terrainFrag;
@@ -50,6 +51,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       uNoiseOctaves: { value: noiseOctaves },
       uFogNear: { value: 3.0 },
       uFogFar: { value: 12.0 },
+      uHasVertexColor: { value: 1.0 },
     };
   }
 
@@ -88,10 +90,15 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
         seed: seed + ':terrain',
       });
 
+      // --- Spatial gradient palette ---
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed);
+
       // --- Edge LineSegments mesh ---
       const edgeGeometry = new THREE.BufferGeometry();
       edgeGeometry.setAttribute('position', new THREE.BufferAttribute(terrainData.positions, 3));
       edgeGeometry.setAttribute('aRandom', new THREE.BufferAttribute(terrainData.randoms, 3));
+      const edgeColors = computeVertexColors(terrainData.positions, gradient, { axis: 'x', itemStride: 6 });
+      edgeGeometry.setAttribute('aVertexColor', new THREE.BufferAttribute(edgeColors, 3));
 
       const edgeMaterial = new THREE.ShaderMaterial({
         vertexShader: edgeVertexShader,
@@ -109,6 +116,8 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       const vertexGeometry = new THREE.BufferGeometry();
       vertexGeometry.setAttribute('position', new THREE.BufferAttribute(vertexData.positions, 3));
       vertexGeometry.setAttribute('aRandom', new THREE.BufferAttribute(vertexData.aRandom, 3));
+      const vertexColors = computeVertexColors(vertexData.positions, gradient, { axis: 'x', itemStride: 3 });
+      vertexGeometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
       const vertexMaterial = new THREE.ShaderMaterial({
         vertexShader: vertexDotVertShader,
