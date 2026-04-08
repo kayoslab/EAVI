@@ -9,7 +9,10 @@ uniform float uPaletteSaturation;
 uniform float uFogNear;
 uniform float uFogFar;
 
+uniform float uHasVertexColor;
+
 varying float vFogFactor;
+varying vec3 vVertexColor;
 
 vec3 hsl2rgb(float h, float s, float l) {
   float c = (1.0 - abs(2.0 * l - 1.0)) * s;
@@ -37,7 +40,8 @@ void main() {
   if (hue < 0.0) hue += 1.0;
 
   float lightness = 0.55 + uTrebleEnergy * 0.2;
-  vec3 color = hsl2rgb(hue, uPaletteSaturation * 0.65, lightness);
+  vec3 hslColor = hsl2rgb(hue, uPaletteSaturation * 0.65, lightness);
+  vec3 color = mix(hslColor, vVertexColor, uHasVertexColor);
 
   color = chromaticPoint(color, gl_PointCoord, 0.0);
 

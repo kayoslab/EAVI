@@ -14,8 +14,10 @@ uniform float uPointerDisturbance;
 uniform vec2 uPointerPos;
 
 attribute vec3 aRandom;
+attribute vec3 aVertexColor;
 
 varying float vFogFactor;
+varying vec3 vVertexColor;
 
 void main() {
   vec3 pos = position;
@@ -47,6 +49,8 @@ void main() {
   float atmosphericDecay = exp(-0.06 * max(depth - uFogNear, 0.0));
   float pointSize = 0.04 * (2200.0 / depth) * trebleSparkle * atmosphericDecay;
   gl_PointSize = clamp(pointSize, 2.0, 40.0);
+
+  vVertexColor = aVertexColor;
 
   gl_Position = projectionMatrix * mvPosition;
 }

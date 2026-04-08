@@ -14,8 +14,10 @@ uniform float uPointerDisturbance;
 uniform vec2 uPointerPos;
 
 attribute vec3 aRandom;
+attribute vec3 aVertexColor;
 
 varying float vFogFactor;
+varying vec3 vVertexColor;
 
 void main() {
   vec3 pos = position;
@@ -41,6 +43,8 @@ void main() {
   float depth = max(0.25, -mvPosition.z);
 
   vFogFactor = smoothstep(uFogNear, uFogFar, depth);
+
+  vVertexColor = aVertexColor;
 
   gl_Position = projectionMatrix * mvPosition;
 }
