@@ -27,24 +27,10 @@ export interface CompoundRotationEntry {
 
 export const COMPOUND_MODE_DEFS: CompoundModeDef[] = [
   {
-    name: 'cloud+wireframe',
-    layers: [
-      { systemName: 'pointcloud', isPrimary: true },
-      { systemName: 'wirepolyhedra', isPrimary: false },
-    ],
-  },
-  {
     name: 'particles+flowribbon',
     layers: [
       { systemName: 'particles', isPrimary: true },
       { systemName: 'flowribbon', isPrimary: false },
-    ],
-  },
-  {
-    name: 'pointcloud+cubelattice',
-    layers: [
-      { systemName: 'pointcloud', isPrimary: true },
-      { systemName: 'cubelattice', isPrimary: false },
     ],
   },
   {
@@ -69,8 +55,6 @@ function primaryCountForSystem(systemName: string, config: Record<string, unknow
     case 'ribbon':
     case 'flowribbon': return (config.maxPoints as number) ?? 0;
 
-    case 'wirepolyhedra': return (config.maxPolyhedra as number) ?? 0;
-    case 'cubelattice': return (config.gridSize as number) ?? 0;
     case 'fractalgrowth': return (config.maxEdgesPerShape as number) ?? 0;
     default: return 0;
   }
