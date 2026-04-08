@@ -1587,9 +1587,11 @@
         "Shader integrity gate passes; no WebGL errors; quality tiers reduce point count, not canvas size"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
-      "depends_on": ["US-074"],
+      "passes": true,
+      "status": "pass",
+      "depends_on": [
+        "US-074"
+      ],
       "split_from": "US-074",
       "notes": "Reference shows soft glowing dots forming a wave — this is the headline visual. No grid lines."
     },
@@ -1608,7 +1610,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-076"],
+      "depends_on": [
+        "US-076"
+      ],
       "split_from": null,
       "notes": "The reference's signature look is bloom + bokeh. Without this, the scene cannot match the target."
     },
@@ -1626,7 +1630,9 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-076"],
+      "depends_on": [
+        "US-076"
+      ],
       "split_from": null,
       "notes": "Cheap shader-side fake DoF is sufficient — no need for real circle-of-confusion pass."
     },
@@ -1644,7 +1650,11 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-075", "US-076"],
+      "depends_on": [
+        "US-075",
+        "US-076",
+        "US-077"
+      ],
       "split_from": "US-075",
       "notes": "Bright saturated stops are essential — current gradient reads as flat."
     },
@@ -1662,7 +1672,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-076"],
+      "depends_on": [
+        "US-076"
+      ],
       "split_from": null,
       "notes": "User has explicitly rejected these visuals twice. Remove them from the experience rather than attempting another fix."
     }

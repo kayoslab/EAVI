@@ -156,3 +156,5 @@
 
 ## US-075: Add spatial gradient palette for position-based vertex coloring
 
+## US-076: Replace wireframe terrain with dense particle wave sheet
+
