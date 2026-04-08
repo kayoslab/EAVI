@@ -4,22 +4,18 @@ import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
-import terrainVert from '../shaders/terrain.vert.glsl?raw';
-import terrainFrag from '../shaders/terrain.frag.glsl?raw';
 import terrainVertexVert from '../shaders/terrainVertex.vert.glsl?raw';
 import terrainVertexFrag from '../shaders/terrainVertex.frag.glsl?raw';
-import { generateTerrainHeightfield } from '../generators/terrainHeightfield';
-import { extractUniqueVertices } from '../generators/extractVertices';
+import { generateTerrainParticleSheet } from '../generators/terrainParticleSheet';
 import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 
-const edgeVertexShader = noise3dGlsl + '\n' + terrainVert;
-const edgeFragmentShader = chromaticDispersionGlsl + '\n' + terrainFrag;
 const vertexDotVertShader = noise3dGlsl + '\n' + terrainVertexVert;
 const vertexDotFragShader = chromaticDispersionGlsl + '\n' + terrainVertexFrag;
 
 export interface TerrainHeightfieldConfig {
   rows?: number;
   cols?: number;
+  pointCount?: number;
   noiseOctaves?: 1 | 2 | 3;
 }
 
@@ -29,10 +25,10 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
 } {
   const rows = config?.rows ?? 40;
   const cols = config?.cols ?? 60;
+  const pointCount = config?.pointCount ?? 60000;
   const noiseOctaves = config?.noiseOctaves ?? 3;
 
-  let edgeMesh: THREE.LineSegments | null = null;
-  let vertexMesh: THREE.Points | null = null;
+  let pointsMesh: THREE.Points | null = null;
   let sceneRef: Scene | null = null;
 
   function createUniforms(params: VisualParams): Record<string, { value: unknown }> {
@@ -84,42 +80,22 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
     init(scene: Scene, seed: string, params: VisualParams): void {
       sceneRef = scene;
 
-      const terrainData = generateTerrainHeightfield({
+      const sheetData = generateTerrainParticleSheet({
         rows,
         cols,
+        pointCount,
         seed: seed + ':terrain',
       });
 
-      // --- Spatial gradient palette ---
       const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed);
 
-      // --- Edge LineSegments mesh ---
-      const edgeGeometry = new THREE.BufferGeometry();
-      edgeGeometry.setAttribute('position', new THREE.BufferAttribute(terrainData.positions, 3));
-      edgeGeometry.setAttribute('aRandom', new THREE.BufferAttribute(terrainData.randoms, 3));
-      const edgeColors = computeVertexColors(terrainData.positions, gradient, { axis: 'x', itemStride: 6 });
-      edgeGeometry.setAttribute('aVertexColor', new THREE.BufferAttribute(edgeColors, 3));
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(sheetData.positions, 3));
+      geometry.setAttribute('aRandom', new THREE.BufferAttribute(sheetData.randoms, 3));
+      const vertexColors = computeVertexColors(sheetData.positions, gradient, { axis: 'x', itemStride: 3 });
+      geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
-      const edgeMaterial = new THREE.ShaderMaterial({
-        vertexShader: edgeVertexShader,
-        fragmentShader: edgeFragmentShader,
-        uniforms: createUniforms(params),
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-
-      edgeMesh = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-
-      // --- Vertex Points mesh ---
-      const vertexData = extractUniqueVertices(terrainData.positions);
-      const vertexGeometry = new THREE.BufferGeometry();
-      vertexGeometry.setAttribute('position', new THREE.BufferAttribute(vertexData.positions, 3));
-      vertexGeometry.setAttribute('aRandom', new THREE.BufferAttribute(vertexData.aRandom, 3));
-      const vertexColors = computeVertexColors(vertexData.positions, gradient, { axis: 'x', itemStride: 3 });
-      vertexGeometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
-
-      const vertexMaterial = new THREE.ShaderMaterial({
+      const material = new THREE.ShaderMaterial({
         vertexShader: vertexDotVertShader,
         fragmentShader: vertexDotFragShader,
         uniforms: createUniforms(params),
@@ -128,55 +104,39 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
         depthWrite: false,
       });
 
-      vertexMesh = new THREE.Points(vertexGeometry, vertexMaterial);
+      pointsMesh = new THREE.Points(geometry, material);
 
-      // --- Position for perspective depth (terrain receding toward horizon) ---
-      const terrainPosition = new THREE.Vector3(0, -2, -3);
-      const terrainRotation = new THREE.Euler(-Math.PI * 0.3, 0, 0);
+      const terrainPosition = new THREE.Vector3(0, -1.5, -2);
+      const terrainRotation = new THREE.Euler(-Math.PI * 0.38, 0, 0);
 
-      edgeMesh.position.copy(terrainPosition);
-      edgeMesh.rotation.copy(terrainRotation);
-      vertexMesh.position.copy(terrainPosition);
-      vertexMesh.rotation.copy(terrainRotation);
+      pointsMesh.position.copy(terrainPosition);
+      pointsMesh.rotation.copy(terrainRotation);
 
-      scene.add(edgeMesh);
-      scene.add(vertexMesh);
+      scene.add(pointsMesh);
     },
 
     draw(_scene: Scene, frame: FrameState): void {
-      if (!edgeMesh || !vertexMesh) return;
+      if (!pointsMesh) return;
 
-      const eu = (edgeMesh.material as THREE.ShaderMaterial).uniforms;
-      updateUniforms(eu, frame);
-
-      const vu = (vertexMesh.material as THREE.ShaderMaterial).uniforms;
+      const vu = (pointsMesh.material as THREE.ShaderMaterial).uniforms;
       updateUniforms(vu, frame);
     },
 
     setOpacity(opacity: number): void {
-      if (edgeMesh) {
-        (edgeMesh.material as THREE.ShaderMaterial).uniforms.uOpacity.value = opacity;
-      }
-      if (vertexMesh) {
-        (vertexMesh.material as THREE.ShaderMaterial).uniforms.uOpacity.value = opacity;
+      if (pointsMesh) {
+        (pointsMesh.material as THREE.ShaderMaterial).uniforms.uOpacity.value = opacity;
       }
     },
 
     cleanup(): void {
       if (sceneRef) {
-        if (edgeMesh) {
-          sceneRef.remove(edgeMesh);
-          edgeMesh.geometry.dispose();
-          (edgeMesh.material as THREE.Material).dispose();
-        }
-        if (vertexMesh) {
-          sceneRef.remove(vertexMesh);
-          vertexMesh.geometry.dispose();
-          (vertexMesh.material as THREE.Material).dispose();
+        if (pointsMesh) {
+          sceneRef.remove(pointsMesh);
+          pointsMesh.geometry.dispose();
+          (pointsMesh.material as THREE.Material).dispose();
         }
       }
-      edgeMesh = null;
-      vertexMesh = null;
+      pointsMesh = null;
       sceneRef = null;
     },
   };

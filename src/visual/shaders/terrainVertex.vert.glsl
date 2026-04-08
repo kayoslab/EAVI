@@ -1,5 +1,5 @@
-// Terrain heightfield vertex (Points) shader
-// US-074: Audio-reactive terrain vertices with treble shimmer
+// Terrain dense particle wave sheet vertex shader
+// US-076: Continuous wave animation + bass amplitude + treble shimmer
 
 uniform float uTime;
 uniform float uBassEnergy;
@@ -24,9 +24,11 @@ void main() {
   float t = uTime;
   float ma = uMotionAmplitude;
 
-  // --- Bass macro displacement: rolling wave across terrain ---
-  float bassWave = fbm3(vec3(pos.x * 0.15, pos.z * 0.15, t * 0.0002 * uCadence), uNoiseOctaves);
-  pos.y += bassWave * uBassEnergy * ma * 1.5;
+  // --- Continuous time-based wave (rolls even without audio) ---
+  float baseWave = fbm3(vec3(pos.x * 0.15, pos.z * 0.15, t * 0.0003 * uCadence), uNoiseOctaves);
+  // Bass SCALES wave amplitude
+  float bassScale = 1.0 + uBassEnergy * 1.5;
+  pos.y += baseWave * ma * bassScale;
 
   // --- Treble fine vertex jitter ---
   float jitter = snoise(pos * 3.0 + vec3(t * 0.003)) * uTrebleEnergy * ma * 0.15;
@@ -43,12 +45,12 @@ void main() {
 
   vFogFactor = smoothstep(uFogNear, uFogFar, depth);
 
-  // --- Point size with treble shimmer ---
+  // --- Small dense point size with treble shimmer ---
   float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
   float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.5;
   float atmosphericDecay = exp(-0.06 * max(depth - uFogNear, 0.0));
-  float pointSize = 0.04 * (2200.0 / depth) * trebleSparkle * atmosphericDecay;
-  gl_PointSize = clamp(pointSize, 2.0, 40.0);
+  float pointSize = 2.5 * (1200.0 / depth) * trebleSparkle * atmosphericDecay;
+  gl_PointSize = clamp(pointSize, 1.0, 6.0);
 
   vVertexColor = aVertexColor;
 
