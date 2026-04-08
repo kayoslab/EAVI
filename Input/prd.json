@@ -1628,14 +1628,13 @@
         "No console errors, runs at target FPS on mid tier"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-076"
       ],
       "split_from": null,
-      "notes": "Cheap shader-side fake DoF is sufficient — no need for real circle-of-confusion pass.",
-      "claimed_by": "worker-1"
+      "notes": "Cheap shader-side fake DoF is sufficient — no need for real circle-of-confusion pass."
     },
     {
       "id": "US-079",
