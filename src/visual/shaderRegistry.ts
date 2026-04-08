@@ -29,6 +29,7 @@ export const COMMON_UNIFORMS: UniformSpec[] = [
   { name: 'uEnableSlowModulation', type: 'float', defaultValue: 1.0 },
   { name: 'uDisplacementScale', type: 'float', defaultValue: 0.5 },
   { name: 'uHasSizeAttr', type: 'float', defaultValue: 0.0 },
+  { name: 'uHasVertexColor', type: 'float', defaultValue: 0.0 },
   { name: 'uFogNear', type: 'float', defaultValue: 3.0 },
   { name: 'uFogFar', type: 'float', defaultValue: 8.0 },
   { name: 'uDispersion', type: 'float', defaultValue: 0.0 },
@@ -38,22 +39,20 @@ export const COMMON_UNIFORMS: UniformSpec[] = [
 
 export const POINTCLOUD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
-  { name: 'color', itemSize: 3 },
-  { name: 'aHueOffset', itemSize: 1 },
   { name: 'aRandom', itemSize: 3 },
+  { name: 'aVertexColor', itemSize: 3 },
 ];
 
 export const PARTICLEFIELD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
-  { name: 'aHueOffset', itemSize: 1 },
   { name: 'aRandom', itemSize: 3 },
+  { name: 'aVertexColor', itemSize: 3 },
 ];
 
 export const RIBBONFIELD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
-  { name: 'color', itemSize: 3 },
-  { name: 'aHueOffset', itemSize: 1 },
   { name: 'aRandom', itemSize: 3 },
+  { name: 'aVertexColor', itemSize: 3 },
 ];
 
 export const OPTIONAL_POINTCLOUD_ATTRIBUTES: AttributeSpec[] = [
@@ -70,9 +69,8 @@ export const OPTIONAL_RIBBONFIELD_ATTRIBUTES: AttributeSpec[] = [
 
 export const FLOWRIBBON_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
-  { name: 'color', itemSize: 3 },
-  { name: 'aHueOffset', itemSize: 1 },
   { name: 'aRandom', itemSize: 3 },
+  { name: 'aVertexColor', itemSize: 3 },
 ];
 
 export const OPTIONAL_FLOWRIBBON_ATTRIBUTES: AttributeSpec[] = [

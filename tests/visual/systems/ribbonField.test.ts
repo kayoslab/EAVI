@@ -141,17 +141,13 @@ describe('US-034: RibbonField geometry system', () => {
     expect(posAttr).toBeDefined();
     expect(posAttr.itemSize).toBe(3);
 
-    const colorAttr = geo.getAttribute('color');
-    expect(colorAttr).toBeDefined();
-    expect(colorAttr.itemSize).toBe(3);
+    const vertexColorAttr = geo.getAttribute('aVertexColor');
+    expect(vertexColorAttr).toBeDefined();
+    expect(vertexColorAttr.itemSize).toBe(3);
 
     const sizeAttr = geo.getAttribute('size');
     expect(sizeAttr).toBeDefined();
     expect(sizeAttr.itemSize).toBe(1);
-
-    const hueOffsetAttr = geo.getAttribute('aHueOffset');
-    expect(hueOffsetAttr).toBeDefined();
-    expect(hueOffsetAttr.itemSize).toBe(1);
 
     const randomAttr = geo.getAttribute('aRandom');
     expect(randomAttr).toBeDefined();
@@ -340,7 +336,7 @@ describe('US-050: RibbonField geometry attribute validation', () => {
     expect(pointsMeshes.length).toBe(1);
   });
 
-  it('T-050-25: geometry has all required attributes after init: position(3), color(3), size(1), aHueOffset(1), aRandom(3)', () => {
+  it('T-050-25: geometry has all required attributes after init: position(3), size(1), aRandom(3), aVertexColor(3)', () => {
     const scene = new THREE.Scene();
     const ribbon = createRibbonField();
     ribbon.init(scene, 'attr-seed', defaultParams);
@@ -348,12 +344,10 @@ describe('US-050: RibbonField geometry attribute validation', () => {
     const geo = points.geometry as THREE.BufferGeometry;
     expect(geo.getAttribute('position')).toBeDefined();
     expect(geo.getAttribute('position').itemSize).toBe(3);
-    expect(geo.getAttribute('color')).toBeDefined();
-    expect(geo.getAttribute('color').itemSize).toBe(3);
+    expect(geo.getAttribute('aVertexColor')).toBeDefined();
+    expect(geo.getAttribute('aVertexColor').itemSize).toBe(3);
     expect(geo.getAttribute('size')).toBeDefined();
     expect(geo.getAttribute('size').itemSize).toBe(1);
-    expect(geo.getAttribute('aHueOffset')).toBeDefined();
-    expect(geo.getAttribute('aHueOffset').itemSize).toBe(1);
     expect(geo.getAttribute('aRandom')).toBeDefined();
     expect(geo.getAttribute('aRandom').itemSize).toBe(3);
   });
@@ -375,7 +369,7 @@ describe('US-050: RibbonField geometry attribute validation', () => {
     ribbon.init(scene, 'all-finite-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const geo = points.geometry as THREE.BufferGeometry;
-    for (const name of ['color', 'size', 'aHueOffset', 'aRandom']) {
+    for (const name of ['aVertexColor', 'size', 'aRandom']) {
       const arr = geo.getAttribute(name).array as Float32Array;
       for (let i = 0; i < arr.length; i++) {
         expect(Number.isFinite(arr[i])).toBe(true);

@@ -109,10 +109,8 @@ describe('US-063: FlowRibbonField geometry system', () => {
     const geo = points.geometry as THREE.BufferGeometry;
     expect(geo.getAttribute('position')).toBeDefined();
     expect(geo.getAttribute('position').itemSize).toBe(3);
-    expect(geo.getAttribute('color')).toBeDefined();
-    expect(geo.getAttribute('color').itemSize).toBe(3);
-    expect(geo.getAttribute('aHueOffset')).toBeDefined();
-    expect(geo.getAttribute('aHueOffset').itemSize).toBe(1);
+    expect(geo.getAttribute('aVertexColor')).toBeDefined();
+    expect(geo.getAttribute('aVertexColor').itemSize).toBe(3);
     expect(geo.getAttribute('aRandom')).toBeDefined();
     expect(geo.getAttribute('aRandom').itemSize).toBe(3);
   });
@@ -135,7 +133,7 @@ describe('US-063: FlowRibbonField geometry system', () => {
     flow.init(scene, 'finite-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const geo = points.geometry as THREE.BufferGeometry;
-    for (const name of ['position', 'color', 'aHueOffset', 'aRandom']) {
+    for (const name of ['position', 'aVertexColor', 'aRandom']) {
       const arr = geo.getAttribute(name).array as Float32Array;
       for (let i = 0; i < arr.length; i++) {
         expect(Number.isFinite(arr[i])).toBe(true);

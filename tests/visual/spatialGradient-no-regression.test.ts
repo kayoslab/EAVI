@@ -13,12 +13,9 @@ import {
   WIREPOLYHEDRA_VERTEX_ATTRIBUTES,
 } from '../../src/visual/shaderRegistry';
 
-describe('US-075: No regression — other systems do not gain aVertexColor', () => {
+describe('US-075: No regression — non-visual systems do not gain aVertexColor', () => {
+  // US-081: pointCloud, particleField, ribbonField, flowRibbon now use aVertexColor
   const systemSpecs = [
-    { name: 'pointCloud', required: POINTCLOUD_ATTRIBUTES, optional: OPTIONAL_POINTCLOUD_ATTRIBUTES },
-    { name: 'particleField', required: PARTICLEFIELD_ATTRIBUTES, optional: OPTIONAL_PARTICLEFIELD_ATTRIBUTES },
-    { name: 'ribbonField', required: RIBBONFIELD_ATTRIBUTES, optional: OPTIONAL_RIBBONFIELD_ATTRIBUTES },
-    { name: 'flowRibbon', required: FLOWRIBBON_ATTRIBUTES, optional: OPTIONAL_FLOWRIBBON_ATTRIBUTES },
     { name: 'constellation', required: CONSTELLATION_ATTRIBUTES, optional: [] },
     { name: 'wirePolyhedra', required: WIREPOLYHEDRA_ATTRIBUTES, optional: [] },
     { name: 'wirePolyhedraVertex', required: WIREPOLYHEDRA_VERTEX_ATTRIBUTES, optional: [] },

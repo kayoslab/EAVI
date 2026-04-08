@@ -324,7 +324,7 @@ describe('T-049-07: Fragment shader uniforms are subset of vertex shader uniform
       const fragUniforms = parseGlslUniforms(sys.fragSource);
 
       // Known fragment-only uniforms
-      const fragmentOnly = new Set(['uOpacity', 'uFogFar', 'uDispersion']);
+      const fragmentOnly = new Set(['uOpacity', 'uFogFar', 'uDispersion', 'uHasVertexColor']);
 
       for (const u of fragUniforms) {
         const inVert = vertUniforms.has(u.name);
@@ -361,23 +361,21 @@ describe('T-049-09: Runtime geometry validation catches missing attributes', () 
   it('validateGeometryAttributes returns ok: false for missing attribute', () => {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
-    geometry.setAttribute('size', new THREE.BufferAttribute(new Float32Array([1]), 1));
     geometry.setAttribute('aRandom', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
-    // Deliberately omit aHueOffset
+    // Deliberately omit aVertexColor
 
     const result = validateGeometryAttributes(geometry, POINTCLOUD_ATTRIBUTES);
     expect(result.ok).toBe(false);
     const missingErrors = result.errors.filter((e) => e.reason.includes('missing'));
     expect(missingErrors.length).toBeGreaterThan(0);
-    expect(missingErrors.some((e) => e.attribute === 'aHueOffset')).toBe(true);
+    expect(missingErrors.some((e) => e.attribute === 'aVertexColor')).toBe(true);
   });
 
   it('validateGeometryAttributes returns ok: false for wrong itemSize', () => {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));
     geometry.setAttribute('size', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3)); // wrong: should be 1
-    geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(new Float32Array([0]), 1));
+    geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));
     geometry.setAttribute('aRandom', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
 
     const result = validateGeometryAttributes(geometry, POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES);
