@@ -1563,15 +1563,14 @@
         "No regression in modes that do not opt in"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-008",
         "US-074"
       ],
       "split_from": null,
-      "notes": "Reference image shows blue → purple → orange gradient across the terrain. Implement as an opt-in vertex-color path so other systems (e.g. cube lattice, fractal growth) can adopt later without breakage.",
-      "claimed_by": "worker-3"
+      "notes": "Reference image shows blue → purple → orange gradient across the terrain. Implement as an opt-in vertex-color path so other systems (e.g. cube lattice, fractal growth) can adopt later without breakage."
     }
   ]
 }
