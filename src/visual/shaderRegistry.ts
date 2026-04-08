@@ -83,6 +83,15 @@ export const CONSTELLATION_ATTRIBUTES: AttributeSpec[] = [
   { name: 'aRandom', itemSize: 3 },
 ];
 
+export const TERRAIN_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'position', itemSize: 3 },
+  { name: 'aRandom', itemSize: 3 },
+];
+
+export const OPTIONAL_TERRAIN_ATTRIBUTES: AttributeSpec[] = [
+  { name: 'aVertexColor', itemSize: 3 },
+];
+
 export const WIREPOLYHEDRA_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
   { name: 'aRandom', itemSize: 3 },
