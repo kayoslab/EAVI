@@ -11,13 +11,14 @@ import electricArcVert from '../shaders/electricArc.vert.glsl?raw';
 import electricArcFrag from '../shaders/electricArc.frag.glsl?raw';
 import wireframeVertexVert from '../shaders/wireframeVertex.vert.glsl?raw';
 import wireframeVertexFrag from '../shaders/wireframeVertex.frag.glsl?raw';
-import { generatePolyhedronEdges, selectShape, selectGenerationMode } from '../generators/polyhedraEdges';
+import { generatePolyhedronEdges, selectShape, selectGenerationMode, createBaseGeometry } from '../generators/polyhedraEdges';
 import type { GenerationMode } from '../generators/polyhedraEdges';
 import { generateGeodesicEdges, maxGeodesicLevel } from '../generators/geodesicSphere';
 import { generateNestedEdges } from '../generators/nestedSolids';
 import { generateDualEdges } from '../generators/dualPolyhedra';
-import { subdivideEdges } from '../generators/subdivideEdges';
+import { subdivideEdges, hashRandomFromPosition } from '../generators/subdivideEdges';
 import { extractUniqueVertices } from '../generators/extractVertices';
+import { createOccluderMaterial, syncOccluderUniforms } from '../occluder';
 
 const standardVertexShader = noise3dGlsl + '\n' + wireframeVert;
 const standardFragmentShader = chromaticDispersionGlsl + '\n' + wireframeFrag;
@@ -31,6 +32,7 @@ const DEFAULT_MAX_POLYHEDRA = 6;
 interface MeshPair {
   edges: THREE.LineSegments;
   vertices: THREE.Points;
+  occluder?: THREE.Mesh;
 }
 
 export interface WireframePolyhedraConfig {
@@ -42,6 +44,7 @@ export interface WireframePolyhedraConfig {
   arcSubdivisions?: number;
   generationMode?: GenerationMode;
   maxEdgesPerShape?: number;
+  enableOcclusion?: boolean;
 }
 
 export function createWireframePolyhedra(config?: WireframePolyhedraConfig): GeometrySystem & {
@@ -56,6 +59,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
   const arcSubdivisions = config?.arcSubdivisions ?? 5;
   const configGenerationMode = config?.generationMode;
   const maxEdgesPerShape = config?.maxEdgesPerShape ?? 480;
+  const enableOcclusion = config?.enableOcclusion ?? false;
 
   let meshPairs: MeshPair[] = [];
   let sceneRef: Scene | null = null;
@@ -191,6 +195,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
           transparent: true,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
+          ...(enableOcclusion ? { depthTest: true } : {}),
         });
 
         const edgeMesh = new THREE.LineSegments(edgeGeometry, edgeMaterial);
@@ -208,6 +213,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
           transparent: true,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
+          ...(enableOcclusion ? { depthTest: true } : {}),
         });
 
         const vertexMesh = new THREE.Points(vertexGeometry, vertexMaterial);
@@ -227,9 +233,38 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
         edgeMesh.rotation.set(rx, ry, rz);
         vertexMesh.rotation.set(rx, ry, rz);
 
+        // --- Occluder mesh (optional) ---
+        let occluder: THREE.Mesh | undefined;
+        if (enableOcclusion) {
+          edgeMesh.renderOrder = 0;
+          vertexMesh.renderOrder = 0;
+
+          const occluderGeometry = createBaseGeometry(shape, 0.3);
+          // Add aRandom attribute computed from vertex positions
+          const occPositions = occluderGeometry.getAttribute('position');
+          const occRandomArr = new Float32Array(occPositions.count * 3);
+          for (let v = 0; v < occPositions.count; v++) {
+            const vx = occPositions.getX(v);
+            const vy = occPositions.getY(v);
+            const vz = occPositions.getZ(v);
+            const [r0, r1, r2] = hashRandomFromPosition(vx, vy, vz);
+            occRandomArr[v * 3] = r0;
+            occRandomArr[v * 3 + 1] = r1;
+            occRandomArr[v * 3 + 2] = r2;
+          }
+          occluderGeometry.setAttribute('aRandom', new THREE.BufferAttribute(occRandomArr, 3));
+
+          const occMaterial = createOccluderMaterial(standardVertexShader, createEdgeUniforms(params));
+          occluder = new THREE.Mesh(occluderGeometry, occMaterial);
+          occluder.renderOrder = -1;
+          occluder.position.set(px, py, pz);
+          occluder.rotation.set(rx, ry, rz);
+          scene.add(occluder);
+        }
+
         scene.add(edgeMesh);
         scene.add(vertexMesh);
-        meshPairs.push({ edges: edgeMesh, vertices: vertexMesh });
+        meshPairs.push({ edges: edgeMesh, vertices: vertexMesh, occluder });
       }
     },
 
@@ -291,6 +326,11 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
         vu.uDisplacementScale.value = motionAmplitude * structureComplexity;
         vu.uDispersion.value = frame.params.dispersion ?? 0.0;
         vu.uBreathScale.value = breathScale;
+
+        // Sync occluder uniforms
+        if (pair.occluder) {
+          syncOccluderUniforms(pair.occluder, eu);
+        }
       }
     },
 
@@ -310,6 +350,11 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
           sceneRef.remove(pair.vertices);
           pair.vertices.geometry.dispose();
           (pair.vertices.material as THREE.Material).dispose();
+          if (pair.occluder) {
+            sceneRef.remove(pair.occluder);
+            pair.occluder.geometry.dispose();
+            (pair.occluder.material as THREE.Material).dispose();
+          }
         }
       }
       meshPairs = [];
