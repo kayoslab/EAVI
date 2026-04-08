@@ -1,3 +1,4 @@
+// RETIRED (US-080). Generator unused since cube lattice mode was retired.
 /**
  * Cube lattice generator.
  * Produces an NxNxN grid of cube wireframes with shared/merged vertices

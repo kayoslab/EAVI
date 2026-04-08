@@ -1,3 +1,5 @@
+// RETIRED from rotation (US-080). Rejected twice by user (US-068/US-072).
+// Left unregistered intentionally — kept as reference only.
 import * as THREE from 'three';
 import type { Scene } from 'three';
 import type { VisualParams } from '../mappings';
