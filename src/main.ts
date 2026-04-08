@@ -25,6 +25,7 @@ import { createConstellationLines } from './visual/systems/constellationLines';
 import { createBezierCurveWeb } from './visual/systems/bezierCurveWeb';
 import { createCubeLatticeWireframe } from './visual/systems/cubeLatticeWireframe';
 import { createFractalGrowthWireframe } from './visual/systems/fractalGrowthWireframe';
+import { createTerrainHeightfield } from './visual/systems/terrainHeightfield';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
 
 // Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
@@ -157,6 +158,11 @@ geoPromise.then((geo) => {
     enableSlowModulation: quality.enableSlowModulation,
     maxEdgesPerShape: quality.maxEdgesPerShape,
   });
+  const terrain = createTerrainHeightfield({
+    rows: quality.terrainRows,
+    cols: quality.terrainCols,
+    noiseOctaves: quality.noiseOctaves,
+  });
   // Build single-mode rotation entries
   const singleEntries: SingleRotationEntry[] = [
     { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles },
@@ -168,6 +174,7 @@ geoPromise.then((geo) => {
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints },
     { kind: 'single', name: 'cubelattice', system: cubeLattice, maxPoints: quality.latticeGridSize ** 3 },
     { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape },
+    { kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1) },
   ];
 
   // Build compound mode entries (empty on low tier)
@@ -181,6 +188,7 @@ geoPromise.then((geo) => {
     flowribbon: (cfg) => createFlowRibbonField(cfg as Parameters<typeof createFlowRibbonField>[0]),
     cubelattice: (cfg) => createCubeLatticeWireframe(cfg as Parameters<typeof createCubeLatticeWireframe>[0]),
     fractalgrowth: (cfg) => createFractalGrowthWireframe(cfg as Parameters<typeof createFractalGrowthWireframe>[0]),
+    terrain: (cfg) => createTerrainHeightfield(cfg as Parameters<typeof createTerrainHeightfield>[0]),
   };
   const compoundEntries = buildCompoundEntries(quality, systemRegistry);
 
