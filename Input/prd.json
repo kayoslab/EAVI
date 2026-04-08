@@ -1650,14 +1650,15 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-075",
         "US-076",
         "US-077"
       ],
       "split_from": "US-075",
-      "notes": "Bright saturated stops are essential — current gradient reads as flat."
+      "notes": "Bright saturated stops are essential — current gradient reads as flat.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-080",
@@ -1671,14 +1672,13 @@
         "App still has at least 3 distinct visual modes in rotation"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-076"
       ],
       "split_from": null,
-      "notes": "User has explicitly rejected these visuals twice. Remove them from the experience rather than attempting another fix.",
-      "claimed_by": "worker-2"
+      "notes": "User has explicitly rejected these visuals twice. Remove them from the experience rather than attempting another fix."
     }
   ]
 }

@@ -160,3 +160,5 @@
 
 ## US-077: Add bloom postprocessing pass
 
+## US-080: Retire or rebuild unsatisfying legacy modes
+
