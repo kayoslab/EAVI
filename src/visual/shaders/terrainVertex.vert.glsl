@@ -10,6 +10,8 @@ uniform float uCadence;
 uniform int uNoiseOctaves;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uFocusDistance;
+uniform float uDofStrength;
 uniform float uPointerDisturbance;
 uniform vec2 uPointerPos;
 
@@ -18,6 +20,7 @@ attribute vec3 aVertexColor;
 
 varying float vFogFactor;
 varying vec3 vVertexColor;
+varying float vCoC;
 
 void main() {
   vec3 pos = position;
@@ -45,12 +48,19 @@ void main() {
 
   vFogFactor = smoothstep(uFogNear, uFogFar, depth);
 
+  // --- DoF circle-of-confusion ---
+  float coc = abs(depth - uFocusDistance) / uFocusDistance;
+  coc = clamp(coc * uDofStrength, 0.0, 1.0);
+  vCoC = coc;
+
   // --- Small dense point size with treble shimmer ---
   float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
   float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.5;
   float atmosphericDecay = exp(-0.06 * max(depth - uFogNear, 0.0));
   float pointSize = 2.5 * (1200.0 / depth) * trebleSparkle * atmosphericDecay;
-  gl_PointSize = clamp(pointSize, 1.0, 6.0);
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  pointSize *= bokehScale;
+  gl_PointSize = clamp(pointSize, 1.0, 20.0);
 
   vVertexColor = aVertexColor;
 

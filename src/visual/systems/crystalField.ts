@@ -125,6 +125,8 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
         uDispersion: { value: 0.0 },
+        uFocusDistance: { value: 5.0 },
+        uDofStrength: { value: 0.6 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
@@ -174,6 +176,11 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       // Breathing scale
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
       u.uBreathScale.value = breathScale;
+
+      // DoF focus distance modulation
+      const baseFocus = 5.0;
+      const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
+      u.uFocusDistance.value = baseFocus + focusDrift;
 
       // Two-axis rotation: Y drift + bass, X cadence-driven tilt
       const driftPeriod = 20000;
