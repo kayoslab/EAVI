@@ -235,17 +235,13 @@ describe('US-044: CrystalField geometry system', () => {
     expect(posAttr).toBeDefined();
     expect(posAttr.itemSize).toBe(3);
 
-    const colorAttr = geo.getAttribute('color');
-    expect(colorAttr).toBeDefined();
-    expect(colorAttr.itemSize).toBe(3);
+    const vertexColorAttr = geo.getAttribute('aVertexColor');
+    expect(vertexColorAttr).toBeDefined();
+    expect(vertexColorAttr.itemSize).toBe(3);
 
     const sizeAttr = geo.getAttribute('size');
     expect(sizeAttr).toBeDefined();
     expect(sizeAttr.itemSize).toBe(1);
-
-    const hueOffsetAttr = geo.getAttribute('aHueOffset');
-    expect(hueOffsetAttr).toBeDefined();
-    expect(hueOffsetAttr.itemSize).toBe(1);
 
     const randomAttr = geo.getAttribute('aRandom');
     expect(randomAttr).toBeDefined();

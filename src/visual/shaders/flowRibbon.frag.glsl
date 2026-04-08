@@ -4,8 +4,10 @@
 uniform float uOpacity;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uHasVertexColor;
 
 varying vec3 vColor;
+varying vec3 vVertexColor;
 varying float vFogDepth;
 varying float vElongation;
 varying float vCoC;
@@ -25,14 +27,21 @@ void main() {
   float alpha = smoothstep(0.5, innerFade, dist);
   alpha *= mix(1.0, 0.35, vCoC);
 
+  // Vibrant vertex color with fallback
+  vec3 baseColor = mix(vColor, vVertexColor, uHasVertexColor);
+
   // Atmospheric depth fog
   float fogFactor = smoothstep(uFogNear, uFogFar, vFogDepth);
 
   // Depth-based color desaturation (cool shift)
-  vec3 color = vColor;
+  vec3 color = baseColor;
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
   vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);
   color = mix(color, fogTint, fogFactor * 0.5);
+
+  // Soft luminance cap to prevent bloom clipping
+  lum = dot(color, vec3(0.299, 0.587, 0.114));
+  color *= min(1.0, 0.85 / max(lum, 0.001));
 
   // Fog alpha attenuation
   float fogAlpha = alpha * (1.0 - fogFactor * 0.85) * uOpacity;

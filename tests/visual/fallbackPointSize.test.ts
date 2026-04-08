@@ -129,9 +129,8 @@ describe('US-051: Fallback point-size path', () => {
     it('validates ok when geometry has all required attrs but no optional size', () => {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));
-      geo.setAttribute('aHueOffset', new THREE.BufferAttribute(new Float32Array([0.1]), 1));
       geo.setAttribute('aRandom', new THREE.BufferAttribute(new Float32Array([0.1, 0.2, 0.3]), 3));
+      geo.setAttribute('aVertexColor', new THREE.BufferAttribute(new Float32Array([1, 1, 1]), 3));
 
       // Validate against required-only attrs (size excluded)
       const result = validateGeometryAttributes(geo, POINTCLOUD_ATTRIBUTES);

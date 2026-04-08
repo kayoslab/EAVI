@@ -9,6 +9,7 @@ import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import flowRibbonVert from '../shaders/flowRibbon.vert.glsl?raw';
 import fragmentShader from '../shaders/flowRibbon.frag.glsl?raw';
 import { computeAdaptiveCount } from './pointCloud';
+import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 
 const vertexShader = noise3dGlsl + '\n' + flowRibbonVert;
 
@@ -64,12 +65,8 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       const sourceCount = Math.ceil(effectiveCount / trailLength);
 
       const positionsArr = new Float32Array(effectiveCount * 3);
-      const colorsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
-      const hueOffsetsArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
-
-      const color = new THREE.Color();
 
       let idx = 0;
       for (let s = 0; s < sourceCount && idx < effectiveCount; s++) {
@@ -87,16 +84,6 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
           positionsArr[idx * 3] = sx;
           positionsArr[idx * 3 + 1] = sy;
           positionsArr[idx * 3 + 2] = sz;
-
-          // Per-point hue offset
-          hueOffsetsArr[idx] = (rng() - 0.5) * 40;
-
-          // Initial colors
-          const hue = ((params.paletteHue + hueOffsetsArr[idx]) % 360 + 360) % 360;
-          color.setHSL(hue / 360, params.paletteSaturation, 0.6);
-          colorsArr[idx * 3] = color.r;
-          colorsArr[idx * 3 + 1] = color.g;
-          colorsArr[idx * 3 + 2] = color.b;
 
           // Per-point size variation
           sizesArr[idx] = 0.03 + rng() * 0.04;
@@ -122,12 +109,15 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
 
       basePositions = Float32Array.from(positionsArr);
 
+      // Vibrant spatial gradient vertex colors
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const vertexColors = computeVertexColors(positionsArr, gradient, { axis: 'radial' });
+
       geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positionsArr, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(colorsArr, 3));
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
-      geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
+      geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
       const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_FLOWRIBBON_ATTRIBUTES);
       if (!validation.ok) {
@@ -159,6 +149,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uHasSizeAttr: { value: 1.0 },
+        uHasVertexColor: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
         uFlowScale: { value: 1.0 },
