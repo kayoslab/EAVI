@@ -11,6 +11,12 @@ export interface SpatialGradientPalette {
   stops: GradientStop[];
 }
 
+export type PaletteMode = 'seeded' | 'vibrant';
+
+export interface SpatialGradientOptions {
+  mode?: PaletteMode;
+}
+
 function fnv1a(str: string): number {
   let hash = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {
@@ -49,11 +55,56 @@ function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: n
   };
 }
 
+// sRGB → linear conversion (gamma 2.2)
+function srgbToLinear(c: number): number {
+  return Math.pow(Math.max(0, Math.min(1, c)), 2.2);
+}
+
+// Reference vibrant stops in sRGB [0,1], converted to linear at palette creation
+const VIBRANT_SRGB_STOPS = [
+  { r: 0x1b / 255, g: 0x2a / 255, b: 0x8a / 255, position: 0.0 },   // #1b2a8a deep blue
+  { r: 0x6a / 255, g: 0x1b / 255, b: 0xbf / 255, position: 0.33 },   // #6a1bbf purple
+  { r: 0xd8 / 255, g: 0x3a / 255, b: 0x8a / 255, position: 0.67 },   // #d83a8a magenta
+  { r: 0xff / 255, g: 0x7a / 255, b: 0x2a / 255, position: 1.0 },    // #ff7a2a orange
+];
+
+function createVibrantGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':vibrant');
+  const rng = seededRandom(hash);
+
+  const stops: GradientStop[] = VIBRANT_SRGB_STOPS.map((ref) => {
+    // Convert sRGB reference to linear, then apply small seeded perturbation
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+
+    // ±10% perturbation per channel (clamped to [0,1])
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.2 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+
+    return {
+      r: perturb(rLin),
+      g: perturb(gLin),
+      b: perturb(bLin),
+      position: ref.position,
+    };
+  });
+
+  return { stops };
+}
+
 export function createSpatialGradient(
   paletteHue: number,
   paletteSaturation: number,
   seed: string,
+  options?: SpatialGradientOptions,
 ): SpatialGradientPalette {
+  if (options?.mode === 'vibrant') {
+    return createVibrantGradient(seed);
+  }
+
   const hash = fnv1a(seed + ':spatialGradient');
   const rng = seededRandom(hash);
 

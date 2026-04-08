@@ -87,7 +87,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
         seed: seed + ':terrain',
       });
 
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed);
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
 
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(sheetData.positions, 3));
