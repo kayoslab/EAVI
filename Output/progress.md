@@ -158,3 +158,5 @@
 
 ## US-076: Replace wireframe terrain with dense particle wave sheet
 
+## US-077: Add bloom postprocessing pass
+
