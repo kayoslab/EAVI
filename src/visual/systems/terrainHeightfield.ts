@@ -48,6 +48,8 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       uFogNear: { value: 3.0 },
       uFogFar: { value: 12.0 },
       uHasVertexColor: { value: 1.0 },
+      uFocusDistance: { value: 5.0 },
+      uDofStrength: { value: 0.6 },
     };
   }
 
@@ -74,6 +76,11 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
     uniforms.uPaletteSaturation.value = paletteSaturation;
     uniforms.uCadence.value = cadence;
     uniforms.uNoiseFrequency.value = noiseFrequency;
+
+    // DoF focus distance modulation
+    const baseFocus = 5.0;
+    const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
+    uniforms.uFocusDistance.value = baseFocus + focusDrift;
   }
 
   return {

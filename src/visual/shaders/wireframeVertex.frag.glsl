@@ -14,6 +14,7 @@ uniform float uDispersion;
 varying float vFogFactor;
 varying float vDepth;
 varying float vConnectivity;
+varying float vCoC;
 
 // HSL to RGB conversion
 vec3 hsl2rgb(float h, float s, float l) {
@@ -37,8 +38,10 @@ void main() {
   float dist = length(center);
   if (dist > 0.5) discard;
 
-  // Soft edge falloff
-  float pointAlpha = 1.0 - smoothstep(0.3, 0.5, dist);
+  // Soft edge falloff — CoC-dependent for bokeh softness
+  float innerEdge = mix(0.3, 0.05, vCoC);
+  float pointAlpha = 1.0 - smoothstep(innerEdge, 0.5, dist);
+  pointAlpha *= mix(1.0, 0.35, vCoC);
 
   float hue = mod(uPaletteHue, 360.0) / 360.0;
   if (hue < 0.0) hue += 1.0;

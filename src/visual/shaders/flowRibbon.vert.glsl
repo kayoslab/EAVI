@@ -22,6 +22,8 @@ uniform float uEnableSlowModulation;
 uniform float uDisplacementScale;
 uniform float uHasSizeAttr;
 uniform float uFogNear;
+uniform float uFocusDistance;
+uniform float uDofStrength;
 uniform float uFlowScale;
 
 attribute float size;
@@ -31,6 +33,7 @@ attribute vec3 aRandom;
 varying vec3 vColor;
 varying float vFogDepth;
 varying float vElongation;
+varying float vCoC;
 
 const float TAU = 6.283185307;
 
@@ -113,12 +116,19 @@ void main() {
   float depth = max(0.25, -mvPosition.z);
   vFogDepth = depth;
 
+  // --- DoF circle-of-confusion ---
+  float coc = abs(depth - uFocusDistance) / uFocusDistance;
+  coc = clamp(coc * uDofStrength, 0.0, 1.0);
+  vCoC = coc;
+
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
   // Elongate point size based on flow speed
   float elongationBoost = 1.0 + speed * 2.0;
   float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * elongationBoost * atmosphericDecay;
-  gl_PointSize = clamp(pointSize, 2.5, 64.0);
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  pointSize *= bokehScale;
+  gl_PointSize = clamp(pointSize, 2.5, 96.0);
 
   gl_Position = projectionMatrix * mvPosition;
 

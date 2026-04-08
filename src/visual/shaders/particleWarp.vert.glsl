@@ -22,6 +22,8 @@ uniform float uEnableSlowModulation;
 uniform float uDisplacementScale;
 uniform float uHasSizeAttr;
 uniform float uFogNear;
+uniform float uFocusDistance;
+uniform float uDofStrength;
 
 attribute float size;
 attribute float aHueOffset;
@@ -29,6 +31,7 @@ attribute vec3 aRandom;
 
 varying vec3 vColor;
 varying float vDepth;
+varying float vCoC;
 
 const float TAU = 6.283185307;
 
@@ -109,10 +112,18 @@ void main() {
   float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
   float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.35;
 
+  // --- DoF circle-of-confusion ---
+  float coc = abs(depth - uFocusDistance) / uFocusDistance;
+  coc = clamp(coc * uDofStrength, 0.0, 1.0);
+  vCoC = coc;
+
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
   float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay;
-  gl_PointSize = clamp(pointSize, 2.5, 48.0);
+  // Bokeh size scaling: foreground gets large soft circles, background slight increase
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  pointSize *= bokehScale;
+  gl_PointSize = clamp(pointSize, 2.5, 96.0);
 
   gl_Position = projectionMatrix * mvPosition;
 
