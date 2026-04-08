@@ -162,3 +162,5 @@
 
 ## US-080: Retire or rebuild unsatisfying legacy modes
 
+## US-078: Add depth-of-field bokeh for foreground particles
+
