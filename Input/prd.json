@@ -1689,9 +1689,11 @@
         "No console errors; all modes still render a stable first frame"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "available",
-      "depends_on": ["US-079"],
+      "passes": true,
+      "status": "pass",
+      "depends_on": [
+        "US-079"
+      ],
       "split_from": null,
       "notes": "Pure palette/colour wiring ticket — no geometry changes."
     },
@@ -1709,7 +1711,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-081"],
+      "depends_on": [
+        "US-081"
+      ],
       "split_from": null,
       "notes": "Replace randomised positions with integrated flow."
     },
@@ -1726,7 +1730,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-081"],
+      "depends_on": [
+        "US-081"
+      ],
       "split_from": null,
       "notes": "Geometric, not noise-based."
     },
@@ -1743,7 +1749,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-081"],
+      "depends_on": [
+        "US-081"
+      ],
       "split_from": null,
       "notes": "Address user feedback that point clouds look distant and uninteresting."
     },
@@ -1760,7 +1768,9 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-081"],
+      "depends_on": [
+        "US-081"
+      ],
       "split_from": null,
       "notes": null
     },
@@ -1777,7 +1787,9 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-081"],
+      "depends_on": [
+        "US-081"
+      ],
       "split_from": null,
       "notes": null
     },
@@ -1794,7 +1806,9 @@
       "priority": 1,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-081"],
+      "depends_on": [
+        "US-081"
+      ],
       "split_from": null,
       "notes": "Directly addresses 'wobbly cubes' feedback."
     },
@@ -1811,7 +1825,16 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-077", "US-078"],
+      "depends_on": [
+        "US-077",
+        "US-078",
+        "US-082",
+        "US-083",
+        "US-084",
+        "US-085",
+        "US-086",
+        "US-087"
+      ],
       "split_from": null,
       "notes": null
     },
@@ -1828,7 +1851,14 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-082", "US-083", "US-084", "US-085", "US-086", "US-087"],
+      "depends_on": [
+        "US-082",
+        "US-083",
+        "US-084",
+        "US-085",
+        "US-086",
+        "US-087"
+      ],
       "split_from": null,
       "notes": "Addresses 'renders look fairly distant' feedback."
     },
@@ -1845,7 +1875,14 @@
       "priority": 2,
       "passes": false,
       "status": "available",
-      "depends_on": ["US-082", "US-083", "US-084", "US-085", "US-086", "US-087"],
+      "depends_on": [
+        "US-082",
+        "US-083",
+        "US-084",
+        "US-085",
+        "US-086",
+        "US-087"
+      ],
       "split_from": null,
       "notes": null
     }

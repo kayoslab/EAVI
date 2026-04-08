@@ -166,3 +166,5 @@
 
 ## US-079: Tune spatial gradient to vibrant tri-stop palette
 
+## US-081: Apply vibrant tri-stop palette to all legacy modes
+
