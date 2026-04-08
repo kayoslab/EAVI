@@ -1538,7 +1538,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-017",
         "US-035",
@@ -1546,7 +1546,8 @@
         "US-073"
       ],
       "split_from": null,
-      "notes": "Matches the docs/ reference image. This is the headline new visual."
+      "notes": "Matches the docs/ reference image. This is the headline new visual.",
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-075",
