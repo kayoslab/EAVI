@@ -24,7 +24,7 @@ export function selectGenerationMode(seed: string, tier: QualityTier): Generatio
   return GENERATION_MODES[idx];
 }
 
-function createBaseGeometry(shape: PolyhedronShape, radius: number): THREE.BufferGeometry {
+export function createBaseGeometry(shape: PolyhedronShape, radius: number): THREE.BufferGeometry {
   switch (shape) {
     case 'icosahedron': return new THREE.IcosahedronGeometry(radius, 0);
     case 'octahedron': return new THREE.OctahedronGeometry(radius, 0);
