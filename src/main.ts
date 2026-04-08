@@ -15,15 +15,12 @@ import { createParticleField } from './visual/systems/particleField';
 import { createRibbonField } from './visual/systems/ribbonField';
 import { createPointCloud } from './visual/systems/pointCloud';
 import { createCrystalField } from './visual/systems/crystalField';
-
-import { createWireframePolyhedra } from './visual/systems/wireframePolyhedra';
 import { createFlowRibbonField } from './visual/systems/flowRibbonField';
 import { createModeManager } from './visual/modeManager';
 import type { RotationEntry, SingleRotationEntry } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
 import { createBezierCurveWeb } from './visual/systems/bezierCurveWeb';
-import { createCubeLatticeWireframe } from './visual/systems/cubeLatticeWireframe';
 import { createFractalGrowthWireframe } from './visual/systems/fractalGrowthWireframe';
 import { createTerrainHeightfield } from './visual/systems/terrainHeightfield';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
@@ -128,25 +125,9 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
   });
-  const wireframe = createWireframePolyhedra({
-    maxPolyhedra: quality.maxPolyhedra,
-    noiseOctaves: quality.noiseOctaves,
-    enablePointerRepulsion: quality.enablePointerRepulsion,
-    enableSlowModulation: quality.enableSlowModulation,
-    enableElectricArc: quality.enableElectricArc,
-    arcSubdivisions: quality.arcSubdivisions,
-    maxEdgesPerShape: quality.maxEdgesPerShape,
-  });
   const flowRibbon = createFlowRibbonField({
     maxPoints: quality.maxFlowRibbonPoints,
     enableSparkle: quality.enableSparkle,
-    noiseOctaves: quality.noiseOctaves,
-    enablePointerRepulsion: quality.enablePointerRepulsion,
-    enableSlowModulation: quality.enableSlowModulation,
-  });
-  const cubeLattice = createCubeLatticeWireframe({
-    gridSize: quality.latticeGridSize,
-    cellSize: quality.latticeCellSize,
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
@@ -170,10 +151,7 @@ geoPromise.then((geo) => {
     { kind: 'single', name: 'ribbon', system: ribbon, maxPoints: quality.maxRibbonPoints },
     { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints },
     { kind: 'single', name: 'crystal', system: crystal, maxPoints: Math.round(quality.maxPoints * 0.8) },
-
-    { kind: 'single', name: 'wirepolyhedra', system: wireframe, maxPoints: quality.maxPolyhedra },
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints },
-    { kind: 'single', name: 'cubelattice', system: cubeLattice, maxPoints: quality.latticeGridSize ** 3 },
     { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape },
     { kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1) },
   ];
@@ -184,10 +162,7 @@ geoPromise.then((geo) => {
     ribbon: (cfg) => createRibbonField(cfg as Parameters<typeof createRibbonField>[0]),
     pointcloud: (cfg) => createPointCloud(cfg as Parameters<typeof createPointCloud>[0]),
     crystal: (cfg) => createCrystalField(cfg as Parameters<typeof createCrystalField>[0]),
-
-    wirepolyhedra: (cfg) => createWireframePolyhedra(cfg as Parameters<typeof createWireframePolyhedra>[0]),
     flowribbon: (cfg) => createFlowRibbonField(cfg as Parameters<typeof createFlowRibbonField>[0]),
-    cubelattice: (cfg) => createCubeLatticeWireframe(cfg as Parameters<typeof createCubeLatticeWireframe>[0]),
     fractalgrowth: (cfg) => createFractalGrowthWireframe(cfg as Parameters<typeof createFractalGrowthWireframe>[0]),
     terrain: (cfg) => createTerrainHeightfield(cfg as Parameters<typeof createTerrainHeightfield>[0]),
   };
