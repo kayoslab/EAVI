@@ -5,6 +5,7 @@ import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
 import { POINTCLOUD_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES } from '../shaderRegistry';
+import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import pointWarpVert from '../shaders/pointWarp.vert.glsl?raw';
@@ -86,12 +87,8 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         seed: seed + ':pointcloud',
       });
 
-      const colorsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
-      const hueOffsetsArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
-
-      const color = new THREE.Color();
 
       for (let i = 0; i < effectiveCount; i++) {
         let x = positionsArr[i * 3];
@@ -119,16 +116,6 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         positionsArr[i * 3 + 1] = y;
         positionsArr[i * 3 + 2] = z;
 
-        // Per-point hue offset for color variation
-        hueOffsetsArr[i] = (rng() - 0.5) * 40;
-
-        // Initial colors
-        const hue = ((params.paletteHue + hueOffsetsArr[i]) % 360 + 360) % 360;
-        color.setHSL(hue / 360, params.paletteSaturation, 0.6);
-        colorsArr[i * 3] = color.r;
-        colorsArr[i * 3 + 1] = color.g;
-        colorsArr[i * 3 + 2] = color.b;
-
         // Per-point size variation
         sizesArr[i] = 0.03 + rng() * 0.04;
 
@@ -140,12 +127,15 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
 
       basePositions = Float32Array.from(positionsArr);
 
+      // Vibrant spatial gradient vertex colors
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const vertexColors = computeVertexColors(positionsArr, gradient, { axis: 'x' });
+
       geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positionsArr, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(colorsArr, 3));
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
-      geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
+      geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
       const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_POINTCLOUD_ATTRIBUTES);
       if (!validation.ok) {
@@ -177,6 +167,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uHasSizeAttr: { value: 1.0 },
+        uHasVertexColor: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
         uDispersion: { value: 0.0 },

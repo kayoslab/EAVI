@@ -24,6 +24,7 @@ uniform vec2 uPointerPos;
 attribute vec3 aRandom;
 
 varying float vFogFactor;
+varying vec3 vWorldPos;
 
 const float TAU = 6.283185307;
 
@@ -87,6 +88,8 @@ void main() {
 
   // Compute fog factor in vertex shader for fragment use
   vFogFactor = smoothstep(uFogNear, uFogFar, depth);
+
+  vWorldPos = pos;
 
   gl_Position = projectionMatrix * mvPosition;
 }

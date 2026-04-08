@@ -10,6 +10,7 @@ import crystalWarpFrag from '../shaders/crystalWarp.frag.glsl?raw';
 import { generateVolumetricPoints } from '../generators/volumetricPoints';
 import type { VolumetricShape } from '../generators/volumetricPoints';
 import { computeAdaptiveCount } from './pointCloud';
+import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 
 const vertexShader = noise3dGlsl + '\n' + crystalWarpVert;
 const fragmentShader = chromaticDispersionGlsl + '\n' + crystalWarpFrag;
@@ -68,22 +69,10 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
         seed: seed + ':crystal',
       });
 
-      const colorsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
-      const hueOffsetsArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
 
-      const color = new THREE.Color();
-
       for (let i = 0; i < effectiveCount; i++) {
-        hueOffsetsArr[i] = (rng() - 0.5) * 40;
-
-        const hue = ((params.paletteHue + hueOffsetsArr[i]) % 360 + 360) % 360;
-        color.setHSL(hue / 360, params.paletteSaturation, 0.6);
-        colorsArr[i * 3] = color.r;
-        colorsArr[i * 3 + 1] = color.g;
-        colorsArr[i * 3 + 2] = color.b;
-
         sizesArr[i] = 0.03 + rng() * 0.04;
 
         aRandomArr[i * 3] = rng();
@@ -93,12 +82,15 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
 
       basePositions = Float32Array.from(positionsArr);
 
+      // Vibrant spatial gradient vertex colors
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const vertexColors = computeVertexColors(positionsArr, gradient, { axis: 'radial' });
+
       geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positionsArr, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(colorsArr, 3));
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
-      geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
+      geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
       const uniforms = {
         uTime: { value: 0.0 },
@@ -122,6 +114,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uHasSizeAttr: { value: 1.0 },
+        uHasVertexColor: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
         uDispersion: { value: 0.0 },

@@ -1,5 +1,6 @@
 // Wireframe polyhedra fragment shader
 // US-054: Depth fog, palette-based coloring, audio-reactive alpha
+// US-081: Tri-stop vibrant gradient replaces HSL coloring
 
 uniform float uOpacity;
 uniform float uBassEnergy;
@@ -11,31 +12,38 @@ uniform float uFogFar;
 uniform float uDispersion;
 
 varying float vFogFactor;
+varying vec3 vWorldPos;
 
-// HSL to RGB conversion
-vec3 hsl2rgb(float h, float s, float l) {
-  float c = (1.0 - abs(2.0 * l - 1.0)) * s;
-  float hp = h * 6.0;
-  float x = c * (1.0 - abs(mod(hp, 2.0) - 1.0));
-  float m = l - c * 0.5;
-  vec3 rgb;
-  if (hp < 1.0) rgb = vec3(c, x, 0.0);
-  else if (hp < 2.0) rgb = vec3(x, c, 0.0);
-  else if (hp < 3.0) rgb = vec3(0.0, c, x);
-  else if (hp < 4.0) rgb = vec3(0.0, x, c);
-  else if (hp < 5.0) rgb = vec3(x, 0.0, c);
-  else rgb = vec3(c, 0.0, x);
-  return rgb + m;
+// Tri-stop vibrant gradient: deep blue → purple → magenta → orange (linear space)
+vec3 triStopGradient(float t) {
+  vec3 stop0 = vec3(0.014, 0.032, 0.222);  // deep blue
+  vec3 stop1 = vec3(0.125, 0.014, 0.445);  // purple
+  vec3 stop2 = vec3(0.582, 0.052, 0.222);  // magenta
+  vec3 stop3 = vec3(1.000, 0.186, 0.028);  // orange
+  float tc = clamp(t, 0.0, 1.0);
+  if (tc < 0.33) {
+    float f = tc / 0.33;
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(stop0, stop1, f);
+  } else if (tc < 0.67) {
+    float f = (tc - 0.33) / 0.34;
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(stop1, stop2, f);
+  } else {
+    float f = (tc - 0.67) / 0.33;
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(stop2, stop3, f);
+  }
 }
 
 void main() {
-  float hue = mod(uPaletteHue, 360.0) / 360.0;
-  if (hue < 0.0) hue += 1.0;
+  // Spatial gradient based on normalized world position
+  float spatialT = clamp((vWorldPos.x + 3.0) / 6.0, 0.0, 1.0);
 
   // Base lightness with treble shimmer
-  float lightness = 0.55 + uTrebleEnergy * 0.15;
+  float brightness = 1.0 + uTrebleEnergy * 0.15;
 
-  vec3 color = hsl2rgb(hue, uPaletteSaturation * 0.7, lightness);
+  vec3 color = triStopGradient(spatialT) * brightness;
 
   // Chromatic dispersion: multiplicative RGB channel shift
   color = chromaticLine(color, uDispersion);
@@ -47,6 +55,10 @@ void main() {
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
   vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);
   color = mix(color, fogTint, vFogFactor * 0.5);
+
+  // Soft luminance cap to prevent bloom clipping
+  lum = dot(color, vec3(0.299, 0.587, 0.114));
+  color *= min(1.0, 0.85 / max(lum, 0.001));
 
   // Combine all alpha factors
   float alpha = bassAlpha * (1.0 - vFogFactor * 0.85) * uOpacity;

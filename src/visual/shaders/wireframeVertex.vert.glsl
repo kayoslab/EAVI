@@ -31,6 +31,7 @@ varying float vFogFactor;
 varying float vDepth;
 varying float vConnectivity;
 varying float vCoC;
+varying vec3 vWorldPos;
 
 const float TAU = 6.283185307;
 
@@ -98,6 +99,8 @@ void main() {
 
   // Compute fog factor
   vFogFactor = smoothstep(uFogNear, uFogFar, depth);
+
+  vWorldPos = pos;
 
   // --- DoF circle-of-confusion ---
   float coc = abs(depth - uFocusDistance) / uFocusDistance;

@@ -5,6 +5,7 @@ import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
 import { validateGeometryAttributes } from '../geometryValidator';
 import { PARTICLEFIELD_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES } from '../shaderRegistry';
+import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import particleWarpVert from '../shaders/particleWarp.vert.glsl?raw';
@@ -74,7 +75,6 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       storedParticles = [];
       const positionsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
-      const hueOffsetsArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
 
       for (let i = 0; i < effectiveCount; i++) {
@@ -86,7 +86,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
         positionsArr[i * 3 + 2] = (rng() - 0.5) * 4;
 
         sizesArr[i] = 0.03 + rng() * 0.04;
-        hueOffsetsArr[i] = (rng() - 0.5) * 30;
+        const hueOffset = (rng() - 0.5) * 30;
 
         storedParticles.push({
           x: px,
@@ -94,7 +94,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
           vx: 0,
           vy: 0,
           size: sizesArr[i],
-          hueOffset: hueOffsetsArr[i],
+          hueOffset,
         });
 
         aRandomArr[i * 3] = rng();
@@ -102,11 +102,15 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
         aRandomArr[i * 3 + 2] = rng();
       }
 
+      // Vibrant spatial gradient vertex colors
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const vertexColors = computeVertexColors(positionsArr, gradient, { axis: 'x' });
+
       geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(positionsArr, 3));
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
-      geometry.setAttribute('aHueOffset', new THREE.BufferAttribute(hueOffsetsArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
+      geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
       const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_PARTICLEFIELD_ATTRIBUTES);
       if (!validation.ok) {
@@ -138,6 +142,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
         uEnableSlowModulation: { value: enableSlowModulation ? 1.0 : 0.0 },
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uHasSizeAttr: { value: 1.0 },
+        uHasVertexColor: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
         uDispersion: { value: 0.0 },
