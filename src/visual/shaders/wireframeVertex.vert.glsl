@@ -21,6 +21,8 @@ uniform float uEnablePointerRepulsion;
 uniform float uPointerDisturbance;
 uniform vec2 uPointerPos;
 uniform float uBasePointSize;
+uniform float uFocusDistance;
+uniform float uDofStrength;
 
 attribute vec3 aRandom;
 attribute float aConnectivity;
@@ -28,6 +30,7 @@ attribute float aConnectivity;
 varying float vFogFactor;
 varying float vDepth;
 varying float vConnectivity;
+varying float vCoC;
 
 const float TAU = 6.283185307;
 
@@ -96,13 +99,20 @@ void main() {
   // Compute fog factor
   vFogFactor = smoothstep(uFogNear, uFogFar, depth);
 
+  // --- DoF circle-of-confusion ---
+  float coc = abs(depth - uFocusDistance) / uFocusDistance;
+  coc = clamp(coc * uDofStrength, 0.0, 1.0);
+  vCoC = coc;
+
   // --- Point size with treble sparkle and connectivity emphasis ---
   float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
   float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.35;
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float connectivityBoost = 1.0 + vConnectivity * 0.5;
   float pointSize = uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay * connectivityBoost;
-  gl_PointSize = clamp(pointSize, 2.5, 48.0);
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  pointSize *= bokehScale;
+  gl_PointSize = clamp(pointSize, 2.5, 96.0);
 
   gl_Position = projectionMatrix * mvPosition;
 }

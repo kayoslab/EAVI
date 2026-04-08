@@ -8,6 +8,7 @@ uniform float uDispersion;
 
 varying vec3 vColor;
 varying float vDepth;
+varying float vCoC;
 
 void main() {
   // Circular point shape from gl_PointCoord
@@ -17,8 +18,10 @@ void main() {
   // Discard outside radius
   if (dist > 0.5) discard;
 
-  // Soft edge falloff for antialiased points
-  float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
+  // Soft edge falloff — CoC-dependent for bokeh softness
+  float innerEdge = mix(0.3, 0.05, vCoC);
+  float alpha = 1.0 - smoothstep(innerEdge, 0.5, dist);
+  alpha *= mix(1.0, 0.35, vCoC);
 
   // Chromatic dispersion: per-channel gl_PointCoord offset
   vec3 color = chromaticPoint(vColor, gl_PointCoord, uDispersion);

@@ -8,6 +8,7 @@ uniform float uFogFar;
 varying vec3 vColor;
 varying float vFogDepth;
 varying float vElongation;
+varying float vCoC;
 
 void main() {
   // Elongated elliptical point shape
@@ -19,8 +20,10 @@ void main() {
   // Discard outside radius
   if (dist > 0.5) discard;
 
-  // Soft edge falloff — wider gradient for smoky tendril look
-  float alpha = smoothstep(0.5, 0.25, dist);
+  // Soft edge falloff — CoC-dependent bokeh softness
+  float innerFade = mix(0.25, 0.05, vCoC);
+  float alpha = smoothstep(0.5, innerFade, dist);
+  alpha *= mix(1.0, 0.35, vCoC);
 
   // Atmospheric depth fog
   float fogFactor = smoothstep(uFogNear, uFogFar, vFogDepth);

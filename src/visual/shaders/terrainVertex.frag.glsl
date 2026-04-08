@@ -13,6 +13,7 @@ uniform float uHasVertexColor;
 
 varying float vFogFactor;
 varying vec3 vVertexColor;
+varying float vCoC;
 
 vec3 hsl2rgb(float h, float s, float l) {
   float c = (1.0 - abs(2.0 * l - 1.0)) * s;
@@ -34,8 +35,10 @@ void main() {
   float dist = length(center);
   if (dist > 0.5) discard;
 
-  // Smoother center glow for soft glowing dot appearance
-  float pointAlpha = 1.0 - smoothstep(0.0, 0.5, dist);
+  // Smoother center glow — CoC-dependent for bokeh softness
+  float innerEdge = mix(0.0, 0.0, vCoC);
+  float pointAlpha = 1.0 - smoothstep(innerEdge, 0.5, dist);
+  pointAlpha *= mix(1.0, 0.35, vCoC);
 
   float hue = mod(uPaletteHue, 360.0) / 360.0;
   if (hue < 0.0) hue += 1.0;
