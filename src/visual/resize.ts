@@ -12,6 +12,7 @@ export function attachResizeHandler(
   renderer: WebGLRenderer,
   camera: PerspectiveCamera,
   resolutionScale?: number,
+  composer?: { setSize(width: number, height: number): void } | null,
 ): () => void {
   const scale = resolutionScale ?? 1.0;
 
@@ -21,6 +22,7 @@ export function attachResizeHandler(
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * scale);
     renderer.setSize(width, height, false);
+    composer?.setSize(width, height);
   };
 
   window.addEventListener('resize', onResize);
