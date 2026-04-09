@@ -7,13 +7,14 @@ import { validateGeometryAttributes } from '../geometryValidator';
 import { RIBBONFIELD_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES } from '../shaderRegistry';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
-import ribbonWarpVert from '../shaders/ribbonWarp.vert.glsl?raw';
-import ribbonWarpFrag from '../shaders/ribbonWarp.frag.glsl?raw';
+import parametricRibbonVert from '../shaders/parametricRibbon.vert.glsl?raw';
+import parametricRibbonFrag from '../shaders/parametricRibbon.frag.glsl?raw';
 import { computeAdaptiveCount } from './pointCloud';
 import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
+import { selectCurveFamily, getSampler } from './parametricCurves';
 
-const vertexShader = noise3dGlsl + '\n' + ribbonWarpVert;
-const fragmentShader = chromaticDispersionGlsl + '\n' + ribbonWarpFrag;
+const vertexShader = noise3dGlsl + '\n' + parametricRibbonVert;
+const fragmentShader = chromaticDispersionGlsl + '\n' + parametricRibbonFrag;
 
 const DEFAULT_MAX_POINTS = 1000;
 
@@ -60,6 +61,10 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
 
       effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
+      // Select parametric surface family from seed
+      const family = selectCurveFamily(seed);
+      const sampler = getSampler(family);
+
       // Determine ribbon band count: 3-5 seeded
       const bandCount = 3 + Math.floor(rng() * 3); // 3, 4, or 5
       const pointsPerBand = Math.ceil(effectiveCount / bandCount);
@@ -67,43 +72,32 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       const positionsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
+      const aCurveParamArr = new Float32Array(effectiveCount);
 
       let idx = 0;
       for (let band = 0; band < bandCount && idx < effectiveCount; band++) {
-        // Each band has its own helical parameters (seeded)
-        const helixRadius = 1.2 + rng() * 1.6;   // 1.2 to 2.8
-        const helixPitch = 1.0 + rng() * 3.0;     // vertical rise per revolution
-        const phaseOffset = rng() * Math.PI * 2;   // angular offset
-        const freqX = 1.0 + rng() * 2.0;           // Lissajous-like frequency ratios
-        const freqZ = 1.0 + rng() * 2.0;
-        const ribbonWidth = 0.15 + rng() * 0.25;   // perpendicular spread
+        // Each band sits at a different v-offset on the parametric surface
+        const vOffset = band / bandCount;
+        const vSpread = 0.02 + rng() * 0.03; // narrow v-spread for ribbon width
+        const ribbonWidth = 0.15 + rng() * 0.25;
 
         const bandPoints = Math.min(pointsPerBand, effectiveCount - idx);
 
         for (let p = 0; p < bandPoints; p++) {
-          const t = p / Math.max(1, bandPoints - 1); // 0..1 along band
+          const u = p / Math.max(1, bandPoints - 1); // 0..1 along band
+          const v = vOffset + (rng() - 0.5) * vSpread; // v with narrow spread
 
-          // Parametric helix/spiral curve
-          const angle = t * Math.PI * 4 + phaseOffset; // 2 full revolutions
-          const cx = helixRadius * Math.cos(angle * freqX);
-          const cy = (t - 0.5) * helixPitch * 2;
-          const cz = helixRadius * Math.sin(angle * freqZ);
+          const sample = sampler(u, v, seed);
 
-          // Perpendicular spread — approximate tangent and spread normal to it
-          const spreadAngle = rng() * Math.PI * 2;
-          const spreadDist = rng() * ribbonWidth;
+          let x = sample.position[0];
+          let y = sample.position[1];
+          let z = sample.position[2];
 
-          // Simple perpendicular offset (cross with up vector approximation)
-          const tx = -Math.sin(angle * freqX) * freqX;
-          const tz = Math.cos(angle * freqZ) * freqZ;
-          const tLen = Math.sqrt(tx * tx + tz * tz) + 0.001;
-          // Normal in XZ plane (perpendicular to tangent)
-          const nx = -tz / tLen;
-          const nz = tx / tLen;
-
-          let x = cx + nx * Math.cos(spreadAngle) * spreadDist;
-          let y = cy + Math.sin(spreadAngle) * spreadDist;
-          let z = cz + nz * Math.cos(spreadAngle) * spreadDist;
+          // Perpendicular spread using surface normal
+          const spreadDist = (rng() - 0.5) * ribbonWidth;
+          x += sample.normal[0] * spreadDist;
+          y += sample.normal[1] * spreadDist;
+          z += sample.normal[2] * spreadDist;
 
           // Lattice snapping for high structureComplexity
           if (params.structureComplexity > 0.7) {
@@ -125,6 +119,9 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
           positionsArr[idx * 3] = x;
           positionsArr[idx * 3 + 1] = y;
           positionsArr[idx * 3 + 2] = z;
+
+          // Normalized u-parameter for GPU-side length-aware effects
+          aCurveParamArr[idx] = u;
 
           // Per-point size variation
           sizesArr[idx] = 0.03 + rng() * 0.04;
@@ -149,6 +146,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
       geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
+      geometry.setAttribute('aCurveParam', new THREE.BufferAttribute(aCurveParamArr, 1));
 
       const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES);
       if (!validation.ok) {
