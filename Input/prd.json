@@ -1728,8 +1728,8 @@
         "Vibrant palette applied (US-081); no console errors"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "fail",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-081"
       ],
