@@ -13,7 +13,7 @@ import defaultFragShader from '../shaders/pointWarp.frag.glsl?raw';
 import voronoiFragShader from '../shaders/voronoiCell.frag.glsl?raw';
 
 const vertexShader = noise3dGlsl + '\n' + pointWarpVert;
-import { generateVolumetricPoints, VOLUMETRIC_SHAPES } from '../generators/volumetricPoints';
+import { generateVolumetricPoints, VOLUMETRIC_SHAPES, PARAMETRIC_SHAPES } from '../generators/volumetricPoints';
 import type { VolumetricShape } from '../generators/volumetricPoints';
 
 const DEFAULT_MAX_POINTS = 1200;
@@ -61,6 +61,9 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
   let shaderMaterial: THREE.ShaderMaterial | null = null;
   let sceneRef: Scene | null = null;
   let basePositions: Float32Array | null = null;
+  let isParametric = false;
+  let baseFocusDistance = 5.0;
+  let meshBaseZ = 0;
 
   return {
     get pointCount() {
@@ -76,9 +79,34 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
 
       effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
-      // Select volumetric shape deterministically from seed
-      const shapeIndex = Math.floor(rng() * VOLUMETRIC_SHAPES.length) % VOLUMETRIC_SHAPES.length;
-      const shape: VolumetricShape = VOLUMETRIC_SHAPES[shapeIndex];
+      // Weighted shape selection: parametric shapes get ~70% on medium/high tier
+      const isLowTier = maxPoints <= 200;
+      const originalShapes = VOLUMETRIC_SHAPES.filter(
+        (s) => !(PARAMETRIC_SHAPES as readonly string[]).includes(s),
+      );
+      let shape: VolumetricShape;
+      if (isLowTier) {
+        // Low tier: only original shapes
+        const idx = Math.floor(rng() * originalShapes.length) % originalShapes.length;
+        shape = originalShapes[idx];
+      } else {
+        // Medium/high: 70% parametric, 30% original
+        const roll = rng();
+        if (roll < 0.7) {
+          const idx = Math.floor(rng() * PARAMETRIC_SHAPES.length) % PARAMETRIC_SHAPES.length;
+          shape = PARAMETRIC_SHAPES[idx];
+        } else {
+          const idx = Math.floor(rng() * originalShapes.length) % originalShapes.length;
+          shape = originalShapes[idx];
+        }
+      }
+
+      isParametric = (PARAMETRIC_SHAPES as readonly string[]).includes(shape);
+
+      // Apply 1.5x point budget multiplier for parametric shapes
+      if (isParametric) {
+        effectiveCount = Math.min(Math.floor(effectiveCount * 1.5), maxPoints);
+      }
 
       // Generate base volumetric positions
       const positionsArr = generateVolumetricPoints({
@@ -157,7 +185,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uPaletteSaturation: { value: params.paletteSaturation },
         uCadence: { value: params.cadence },
         uBreathScale: { value: 1.0 },
-        uBasePointSize: { value: 0.06 * (1 + params.structureComplexity * 0.5) },
+        uBasePointSize: { value: 0.06 * (1 + params.structureComplexity * 0.5) * (isParametric ? 1.3 : 1.0) },
         uNoiseFrequency: { value: 1.0 },
         uRadialScale: { value: 1.0 },
         uTwistStrength: { value: 1.0 },
@@ -168,10 +196,10 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uHasSizeAttr: { value: 1.0 },
         uHasVertexColor: { value: 1.0 },
-        uFogNear: { value: 3.0 },
-        uFogFar: { value: 8.0 },
+        uFogNear: { value: isParametric ? 1.5 : 3.0 },
+        uFogFar: { value: isParametric ? 6.0 : 8.0 },
         uDispersion: { value: 0.0 },
-        uFocusDistance: { value: 5.0 },
+        uFocusDistance: { value: isParametric ? 3.5 : 5.0 },
         uDofStrength: { value: 0.6 },
       };
 
@@ -189,6 +217,17 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       });
 
       pointsMesh = new THREE.Points(geometry, shaderMaterial);
+
+      // Bring parametric shapes closer to camera
+      if (isParametric) {
+        meshBaseZ = -1.5;
+        pointsMesh.position.z = meshBaseZ;
+        baseFocusDistance = 3.5;
+      } else {
+        meshBaseZ = 0;
+        baseFocusDistance = 5.0;
+      }
+
       scene.add(pointsMesh);
       sceneRef = scene;
     },
@@ -216,7 +255,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
+      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5) * (isParametric ? 1.3 : 1.0);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;
@@ -232,10 +271,9 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
       u.uBreathScale.value = breathScale;
 
-      // DoF focus distance modulation
-      const baseFocus = 5.0;
+      // DoF focus distance modulation (shape-aware)
       const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
-      u.uFocusDistance.value = baseFocus + focusDrift;
+      u.uFocusDistance.value = baseFocusDistance + focusDrift;
 
       // Mesh-level rotation — single matrix op, kept on CPU
       const driftPeriod = 20000;
@@ -246,9 +284,9 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const bassRotation = bassEnergy * motionAmplitude * 0.1;
       pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
 
-      // Z-axis breathing
+      // Z-axis breathing (additive to base offset)
       const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
-      pointsMesh.position.z = zBreath;
+      pointsMesh.position.z = meshBaseZ + zBreath;
     },
 
     setOpacity(opacity: number): void {
