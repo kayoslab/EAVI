@@ -1,5 +1,5 @@
 // Audio-driven 3D particle field vertex shader
-// US-041: GPU-side curl noise displacement for sculptural deformation
+// US-082: CPU owns macro flow (curl advection), GPU owns micro detail (treble)
 
 uniform float uTime;
 uniform float uBassEnergy;
@@ -19,7 +19,6 @@ uniform float uFieldSpread;
 uniform int uNoiseOctaves;
 uniform float uEnablePointerRepulsion;
 uniform float uEnableSlowModulation;
-uniform float uDisplacementScale;
 uniform float uHasSizeAttr;
 uniform float uFogNear;
 uniform float uFocusDistance;
@@ -28,15 +27,18 @@ uniform float uDofStrength;
 attribute float size;
 attribute vec3 aRandom;
 attribute vec3 aVertexColor;
+attribute float aAlpha;
 
 varying vec3 vColor;
 varying vec3 vVertexColor;
 varying float vDepth;
 varying float vCoC;
+varying float vAlpha;
 
 const float TAU = 6.283185307;
 
 void main() {
+  // Position is CPU-uploaded (already advected along curl field)
   vec3 pos = position;
   float t = uTime;
   float ma = uMotionAmplitude;
@@ -44,16 +46,7 @@ void main() {
   // --- Structural: radial scale ---
   pos *= uRadialScale;
 
-  // --- Bass macro deformation via curl noise ---
-  // Curl noise produces divergence-free flow — sculptural, swirling displacement
-  vec3 curlDisp = curl3(pos * 0.4 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
-  pos += curlDisp * uBassEnergy * uDisplacementScale * 0.35;
-
-  // Radial expansion driven by bass
-  float expansion = 1.0 + uBassEnergy * 0.2 * ma;
-  pos *= expansion;
-
-  // --- Treble micro displacement ---
+  // --- Treble micro displacement (GPU micro-detail) ---
   float trebleJitter = uTrebleEnergy * 0.12 * ma;
   pos.x += sin(t * 0.011 + aRandom.x * 7.3) * trebleJitter;
   pos.y += cos(t * 0.013 + aRandom.y * 5.7) * trebleJitter;
@@ -111,6 +104,9 @@ void main() {
   gl_PointSize = clamp(pointSize, 2.5, 96.0);
 
   gl_Position = projectionMatrix * mvPosition;
+
+  // --- Fade-in alpha from CPU recycling ---
+  vAlpha = aAlpha;
 
   // --- Color from vibrant vertex color attribute ---
   vVertexColor = aVertexColor;

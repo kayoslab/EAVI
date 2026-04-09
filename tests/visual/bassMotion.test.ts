@@ -160,10 +160,9 @@ describe('US-018: Map bass response to macro motion', () => {
     });
     expect(result0.uniforms.uBassEnergy.value).toBe(0.8);
 
-    // uDisplacementScale should be non-zero when bass + motion active
-    expect(result0.uniforms.uDisplacementScale.value).toBe(
-      bassParams.motionAmplitude * bassParams.structureComplexity,
-    );
+    // US-082: uDisplacementScale removed — bass now drives CPU advection, not GPU displacement
+    // uBassEnergy is still set for potential GPU reference
+    expect(result0.uniforms.uBassEnergy.value).toBe(0.8);
 
     // Cumulative rotation with bass should exceed no-bass
     expect(cumulativeRotationBass).toBeGreaterThan(cumulativeRotationNoBass);
@@ -350,9 +349,10 @@ describe('US-018: Map bass response to macro motion', () => {
     expect(fullResult.uniforms.uMotionAmplitude.value).toBe(1.0);
     expect(reducedResult.uniforms.uMotionAmplitude.value).toBe(0.2);
 
-    // uDisplacementScale = motionAmplitude * structureComplexity
-    expect(reducedResult.uniforms.uDisplacementScale.value).toBeLessThan(
-      fullResult.uniforms.uDisplacementScale.value,
+    // US-082: uDisplacementScale removed — bass drives CPU advection
+    // motionAmplitude still attenuates mesh rotation and GPU micro-detail
+    expect(reducedResult.uniforms.uMotionAmplitude.value).toBeLessThan(
+      fullResult.uniforms.uMotionAmplitude.value,
     );
 
     // Cumulative rotation should be smaller for reduced motion

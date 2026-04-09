@@ -223,7 +223,7 @@ describe('US-041: Shader-based vertex displacement — particleField ShaderMater
     expect(mat.uniforms.uTime.value).toBe(1500);
   });
 
-  it('T-041-10: particleField draw() does not modify position buffer (GPU handles displacement)', () => {
+  it('T-041-10: particleField draw() updates position buffer via CPU advection (US-082)', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'no-cpu-seed', defaultParams);
@@ -231,14 +231,17 @@ describe('US-041: Shader-based vertex displacement — particleField ShaderMater
     const geo = points.geometry as THREE.BufferGeometry;
     const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
     const posBefore = Float32Array.from(posAttr.array as Float32Array);
-    const versionBefore = posAttr.version;
     field.draw(scene, makeFrame({ time: 1000, elapsed: 1000, params: { ...defaultParams, bassEnergy: 1.0, trebleEnergy: 1.0 } }));
     const posAfter = Float32Array.from(posAttr.array as Float32Array);
-    expect(posAfter).toEqual(posBefore);
-    expect(posAttr.version).toBe(versionBefore);
+    // US-082: CPU advection now updates position buffer each frame
+    let anyChanged = false;
+    for (let i = 0; i < posBefore.length; i++) {
+      if (posBefore[i] !== posAfter[i]) { anyChanged = true; break; }
+    }
+    expect(anyChanged).toBe(true);
   });
 
-  it('T-041-17: particleField vertex shader uses uTime inside curl3/noise for time-evolving displacement', () => {
+  it('T-041-17: particleField vertex shader uses uTime for time-evolving micro-detail (US-082: curl moved to CPU)', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'particle-time-seed', defaultParams);
@@ -246,10 +249,10 @@ describe('US-041: Shader-based vertex displacement — particleField ShaderMater
     const mat = points.material as THREE.ShaderMaterial;
     const vs = mat.vertexShader;
     const mainBody = vs.substring(vs.indexOf('void main'));
-    const curlCalls = mainBody.match(/curl3\([^)]+\)/g) || [];
-    expect(curlCalls.length).toBeGreaterThan(0);
-    const hasTimeRef = curlCalls.some(call => /uTime|\bt\b/.test(call));
-    expect(hasTimeRef).toBe(true);
+    // US-082: curl3 macro displacement moved to CPU; GPU retains treble micro-detail via snoise/fbm3
+    expect(mainBody).toContain('snoise');
+    // Time reference still used for treble jitter and slow modulation
+    expect(mainBody).toMatch(/uTime|\bt\b/);
   });
 
   it('T-041-18: particleField has uNoiseOctaves uniform for quality-tier gated FBM complexity', () => {
@@ -338,20 +341,21 @@ describe('US-041: Shader-based vertex displacement — particleField ShaderMater
     expect(mat.vertexShader).toContain('aVertexColor');
   });
 
-  it('T-041-34: particleField vertex shader contains uBassEnergy multiplied with curl3 for macro displacement', () => {
+  it('T-041-34: particleField vertex shader retains treble micro-detail (US-082: bass/curl moved to CPU)', () => {
     const scene = new THREE.Scene();
     const field = createParticleField();
     field.init(scene, 'bass-curl-seed', defaultParams);
     const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const mat = points.material as THREE.ShaderMaterial;
     const vs = mat.vertexShader;
-    expect(vs).toContain('curl3');
-    expect(vs).toContain('uBassEnergy');
+    // US-082: curl3 macro displacement moved to CPU advection loop
+    // GPU retains treble-driven micro-detail (snoise jitter, sparkle)
+    expect(vs).toContain('uTrebleEnergy');
+    expect(vs).toContain('snoise');
     const mainBody = vs.substring(vs.indexOf('void main'));
-    expect(mainBody).toContain('curl3');
-    expect(mainBody).toContain('uBassEnergy');
-    // Verify bass energy scales curl displacement in main body
-    expect(mainBody).toMatch(/curl3.*uBassEnergy|uBassEnergy.*curl3/s);
+    expect(mainBody).toContain('uTrebleEnergy');
+    // curl3 is still available in the prepended noise library but not called in main
+    expect(vs).toContain('curl3');
   });
 
   it('T-041-35: particleField vertex shader modulates gl_PointSize by uTrebleEnergy for sparkle effect', () => {

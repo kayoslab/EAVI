@@ -62,6 +62,7 @@ export const OPTIONAL_POINTCLOUD_ATTRIBUTES: AttributeSpec[] = [
 
 export const OPTIONAL_PARTICLEFIELD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'size', itemSize: 1 },
+  { name: 'aAlpha', itemSize: 1 },
 ];
 
 export const OPTIONAL_RIBBONFIELD_ATTRIBUTES: AttributeSpec[] = [

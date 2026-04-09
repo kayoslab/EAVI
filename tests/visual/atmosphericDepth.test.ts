@@ -509,8 +509,11 @@ describe('T-046-25: Depth cue fog effect is consistent across all four geometry 
     }
 
     const fogBlocks = fragShaders.map((s) => extractFogBlock(s.src));
-    for (let i = 1; i < fogBlocks.length; i++) {
-      expect(fogBlocks[i]).toBe(fogBlocks[0]);
+    // US-082: particleField fogAlpha includes vAlpha multiplier for CPU-side fade-in.
+    // Normalise by stripping the vAlpha term to verify the core fog algorithm matches.
+    const normalised = fogBlocks.map((b) => b.replace(/ \* vAlpha/g, ''));
+    for (let i = 1; i < normalised.length; i++) {
+      expect(normalised[i]).toBe(normalised[0]);
     }
   });
 });
