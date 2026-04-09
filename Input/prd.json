@@ -1709,8 +1709,8 @@
         "No console errors, stable first frame"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "fail",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-081"
       ],
