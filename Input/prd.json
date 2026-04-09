@@ -1710,7 +1710,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-081"
       ],
@@ -1729,7 +1729,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-081"
       ],
@@ -1748,7 +1748,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-081"
       ],
@@ -1767,7 +1767,7 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-081"
       ],
@@ -1786,7 +1786,7 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-081"
       ],
@@ -1805,7 +1805,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "available",
+      "status": "fail",
       "depends_on": [
         "US-081"
       ],
