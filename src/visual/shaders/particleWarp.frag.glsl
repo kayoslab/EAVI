@@ -11,6 +11,7 @@ varying vec3 vColor;
 varying vec3 vVertexColor;
 varying float vDepth;
 varying float vCoC;
+varying float vAlpha;
 
 void main() {
   // Circular point shape from gl_PointCoord
@@ -44,7 +45,8 @@ void main() {
   color *= min(1.0, 0.85 / max(lum, 0.001));
 
   // Fog alpha attenuation (capped at 85% to keep far points ghostly)
-  float fogAlpha = alpha * (1.0 - fogFactor * 0.85) * uOpacity;
+  // Multiply by vAlpha for CPU-side fade-in on respawned particles
+  float fogAlpha = alpha * vAlpha * (1.0 - fogFactor * 0.85) * uOpacity;
 
   gl_FragColor = vec4(color, fogAlpha);
 }

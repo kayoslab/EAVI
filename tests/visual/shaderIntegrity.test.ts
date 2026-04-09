@@ -301,17 +301,21 @@ describe('T-049-05: GLSL attribute types match BufferAttribute itemSize', () => 
 });
 
 describe('T-049-06: Uniform declarations are consistent across all vertex shaders', () => {
-  it('all three vertex shaders declare identical uniform sets', () => {
+  it('all three vertex shaders share a common uniform core', () => {
     const uniformSets = SHADER_SYSTEMS.map((sys) => {
       const uniforms = parseGlslUniforms(sys.vertSource);
-      return uniforms
-        .map((u) => `${u.type} ${u.name}`)
-        .sort()
-        .join('\n');
+      return new Set(uniforms.map((u) => `${u.type} ${u.name}`));
     });
 
-    expect(uniformSets[0]).toBe(uniformSets[1]);
-    expect(uniformSets[1]).toBe(uniformSets[2]);
+    // US-082: particleField removed uDisplacementScale (bass drives CPU advection).
+    // Verify pointCloud and ribbonField still match, and particleField is a subset
+    // (missing only uDisplacementScale).
+    const [pc, pf, rf] = uniformSets;
+    expect([...pc].sort().join('\n')).toBe([...rf].sort().join('\n'));
+
+    // particleField should have all uniforms except uDisplacementScale
+    const pfDiff = [...pc].filter((u) => !pf.has(u));
+    expect(pfDiff).toEqual(['float uDisplacementScale']);
   });
 });
 
