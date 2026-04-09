@@ -172,3 +172,5 @@
 
 ## US-084: Restructure pointCloud to a recognisable parametric form
 
+## US-082: Rebuild particleField as curl-noise vector flow
+
