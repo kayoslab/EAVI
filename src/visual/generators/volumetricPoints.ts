@@ -7,7 +7,10 @@ export type VolumetricShape =
   | 'noiseLattice'
   | 'spiralField'
   | 'crystalCluster'
-  | 'geode';
+  | 'geode'
+  | 'supershape'
+  | 'cliffordTorus'
+  | 'gyroid';
 
 export interface VolumetricConfig {
   shape: VolumetricShape;
@@ -23,6 +26,15 @@ export const VOLUMETRIC_SHAPES: readonly VolumetricShape[] = [
   'spiralField',
   'crystalCluster',
   'geode',
+  'supershape',
+  'cliffordTorus',
+  'gyroid',
+];
+
+export const PARAMETRIC_SHAPES: readonly VolumetricShape[] = [
+  'supershape',
+  'cliffordTorus',
+  'gyroid',
 ];
 
 export function generateVolumetricPoints(config: VolumetricConfig): Float32Array {
@@ -53,6 +65,15 @@ export function generateVolumetricPoints(config: VolumetricConfig): Float32Array
       break;
     case 'geode':
       fillGeode(rng, positions, pointCount);
+      break;
+    case 'supershape':
+      fillSupershape(rng, positions, pointCount);
+      break;
+    case 'cliffordTorus':
+      fillCliffordTorus(rng, positions, pointCount);
+      break;
+    case 'gyroid':
+      fillGyroid(rng, positions, pointCount);
       break;
   }
 
@@ -168,6 +189,96 @@ function fillCrystalCluster(rng: () => number, out: Float32Array, count: number)
     out[i * 3] = cluster.x + r * Math.sin(phi) * Math.cos(theta);
     out[i * 3 + 1] = cluster.y + r * Math.sin(phi) * Math.sin(theta);
     out[i * 3 + 2] = cluster.z + r * Math.cos(phi);
+  }
+}
+
+function fillSupershape(rng: () => number, out: Float32Array, count: number): void {
+  const m = 3 + rng() * 5; // m ∈ [3,8]
+  const n1 = 0.5 + rng() * 1.5; // n1 ∈ [0.5,2]
+  const n2 = 0.5 + rng() * 1.5;
+  const n3 = 0.5 + rng() * 1.5;
+  const radius = 2.0;
+
+  function superRadius(angle: number): number {
+    const a = 1, b = 1;
+    const t1 = Math.abs(Math.cos(m * angle / 4) / a);
+    const t2 = Math.abs(Math.sin(m * angle / 4) / b);
+    const r = Math.pow(Math.pow(t1, n2) + Math.pow(t2, n3), -1 / n1);
+    return r;
+  }
+
+  for (let i = 0; i < count; i++) {
+    const theta = rng() * Math.PI * 2;
+    const phi = Math.acos(2 * rng() - 1);
+    const r1 = superRadius(theta);
+    const r2 = superRadius(phi);
+    const r = radius * r1 * r2;
+    out[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    out[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    out[i * 3 + 2] = r * Math.cos(phi);
+  }
+}
+
+function fillCliffordTorus(rng: () => number, out: Float32Array, count: number): void {
+  const R = 1.5;
+  const r = 0.6;
+  for (let i = 0; i < count; i++) {
+    const u = rng() * Math.PI * 2;
+    const v = rng() * Math.PI * 2;
+    out[i * 3] = (R + r * Math.cos(v)) * Math.cos(u);
+    out[i * 3 + 1] = (R + r * Math.cos(v)) * Math.sin(u);
+    out[i * 3 + 2] = r * Math.sin(v);
+  }
+}
+
+function fillGyroid(rng: () => number, out: Float32Array, count: number): void {
+  const scale = 2.0 / Math.PI; // maps [-pi,pi] to ~[-2,2]
+  const threshold = 0.15;
+  const maxIterations = count * 20; // cap rejection sampling
+  let accepted = 0;
+  let iterations = 0;
+
+  // Store last accepted point for fallback
+  let lastX = 0, lastY = 0, lastZ = 0;
+
+  while (accepted < count && iterations < maxIterations) {
+    iterations++;
+    const x = (rng() * 2 - 1) * Math.PI;
+    const y = (rng() * 2 - 1) * Math.PI;
+    const z = (rng() * 2 - 1) * Math.PI;
+    const f = Math.cos(x) * Math.sin(y) + Math.cos(y) * Math.sin(z) + Math.cos(z) * Math.sin(x);
+
+    if (Math.abs(f) < threshold) {
+      // Newton step along gradient to project onto surface
+      const gx = -Math.sin(x) * Math.sin(y) + Math.cos(z) * Math.cos(x);
+      const gy = Math.cos(x) * Math.cos(y) - Math.sin(y) * Math.sin(z);
+      const gz = Math.cos(y) * Math.cos(z) - Math.sin(z) * Math.sin(x);
+      const gradLen2 = gx * gx + gy * gy + gz * gz;
+
+      let px = x, py = y, pz = z;
+      if (gradLen2 > 1e-8) {
+        const step = f / gradLen2;
+        px -= gx * step;
+        py -= gy * step;
+        pz -= gz * step;
+      }
+
+      lastX = px * scale;
+      lastY = py * scale;
+      lastZ = pz * scale;
+      out[accepted * 3] = lastX;
+      out[accepted * 3 + 1] = lastY;
+      out[accepted * 3 + 2] = lastZ;
+      accepted++;
+    }
+  }
+
+  // Fill remaining with last accepted point (fallback)
+  while (accepted < count) {
+    out[accepted * 3] = lastX + (rng() - 0.5) * 0.01;
+    out[accepted * 3 + 1] = lastY + (rng() - 0.5) * 0.01;
+    out[accepted * 3 + 2] = lastZ + (rng() - 0.5) * 0.01;
+    accepted++;
   }
 }
 
