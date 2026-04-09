@@ -168,3 +168,5 @@
 
 ## US-081: Apply vibrant tri-stop palette to all legacy modes
 
+## US-083: Rebuild ribbonField as parametric surface ribbons
+
