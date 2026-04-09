@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import { createRibbonField, getPointCount, getPointPositions } from '../../../src/visual/systems/ribbonField';
+import { RIBBONFIELD_ATTRIBUTES, OPTIONAL_RIBBONFIELD_ATTRIBUTES } from '../../../src/visual/shaderRegistry';
 import type { VisualParams } from '../../../src/visual/mappings';
 import type { FrameState } from '../../../src/visual/types';
 
@@ -391,6 +392,317 @@ describe('US-050: RibbonField geometry attribute validation', () => {
       for (let i = 0; i < posArr.length; i++) {
         expect(Number.isFinite(posArr[i])).toBe(true);
       }
+    }
+  });
+});
+
+describe('US-083: Parametric surface ribbons — geometry', () => {
+  it('T-083-15: geometry has aCurveParam attribute with itemSize 1', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'curve-param-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const curveParam = geo.getAttribute('aCurveParam');
+    expect(curveParam).toBeDefined();
+    expect(curveParam.itemSize).toBe(1);
+  });
+
+  it('T-083-16: aCurveParam values are all in [0, 1] range', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'range-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const arr = geo.getAttribute('aCurveParam').array as Float32Array;
+    for (let i = 0; i < arr.length; i++) {
+      expect(arr[i]).toBeGreaterThanOrEqual(0);
+      expect(arr[i]).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('T-083-17: aCurveParam values are monotonically non-decreasing within each band', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField({ maxPoints: 500 });
+    ribbon.init(scene, 'mono-seed', { ...defaultParams, density: 0.8 });
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const curveArr = geo.getAttribute('aCurveParam').array as Float32Array;
+    const count = getPointCount(ribbon);
+
+    // Within a band, aCurveParam should be non-decreasing.
+    // When a new band starts, it resets to 0. Detect band boundaries by a decrease.
+    let bandStart = 0;
+    for (let i = 1; i < count; i++) {
+      if (curveArr[i] < curveArr[i - 1]) {
+        // New band started — verify previous band was monotonic
+        for (let j = bandStart + 1; j < i; j++) {
+          expect(curveArr[j]).toBeGreaterThanOrEqual(curveArr[j - 1]);
+        }
+        bandStart = i;
+      }
+    }
+    // Verify last band
+    for (let j = bandStart + 1; j < count; j++) {
+      expect(curveArr[j]).toBeGreaterThanOrEqual(curveArr[j - 1]);
+    }
+  });
+
+  it('T-083-18: aCurveParam contains only finite values', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'finite-curve-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const arr = geo.getAttribute('aCurveParam').array as Float32Array;
+    for (let i = 0; i < arr.length; i++) {
+      expect(Number.isFinite(arr[i])).toBe(true);
+    }
+  });
+
+  it('T-083-19: ribbons have 3D depth parallax (z-range >= 2 units)', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'parallax-seed', { ...defaultParams, density: 0.8 });
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+    const count = getPointCount(ribbon);
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < count; i++) {
+      const z = posArr[i * 3 + 2];
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+    // Parametric surfaces must span enough depth for visible parallax
+    expect(maxZ - minZ).toBeGreaterThanOrEqual(2.0);
+  });
+
+  it('T-083-20: same seed produces same geometry (determinism preserved after rebuild)', () => {
+    const scene = new THREE.Scene();
+
+    const a = createRibbonField();
+    a.init(scene, 'deterministic-seed', defaultParams);
+    const posA = getPointPositions(a);
+
+    const b = createRibbonField();
+    b.init(scene, 'deterministic-seed', defaultParams);
+    const posB = getPointPositions(b);
+
+    expect(posA).toEqual(posB);
+  });
+
+  it('T-083-21: different seeds produce different geometry', () => {
+    const scene = new THREE.Scene();
+
+    const a = createRibbonField();
+    a.init(scene, 'seed-alpha', defaultParams);
+
+    const b = createRibbonField();
+    b.init(scene, 'seed-beta', defaultParams);
+
+    expect(getPointPositions(a)).not.toEqual(getPointPositions(b));
+  });
+
+  it('T-083-22: different seeds can select different parametric surface families', () => {
+    // With enough seeds, the seeded family selection should produce variety
+    const families = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      const scene = new THREE.Scene();
+      const ribbon = createRibbonField();
+      ribbon.init(scene, `family-diversity-${i}`, defaultParams);
+      const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+      const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+      // Characterize the geometry by its z-extent pattern to detect different families
+      // Different families produce structurally distinct point distributions
+      const count = getPointCount(ribbon);
+      let sumX = 0, sumY = 0, sumZ = 0;
+      for (let j = 0; j < Math.min(count, 50); j++) {
+        sumX += Math.abs(posArr[j * 3]);
+        sumY += Math.abs(posArr[j * 3 + 1]);
+        sumZ += Math.abs(posArr[j * 3 + 2]);
+      }
+      // Round to bucket similar shapes together
+      const key = `${Math.round(sumX * 10)}-${Math.round(sumY * 10)}-${Math.round(sumZ * 10)}`;
+      families.add(key);
+    }
+    // We should see structural variety — at least 2 distinct shape signatures
+    expect(families.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('T-083-23: low-tier quality (maxPoints=200) still produces at least 2 bands', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField({ maxPoints: 200 });
+    ribbon.init(scene, 'low-tier-seed', { ...defaultParams, density: 0.6 });
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const curveArr = geo.getAttribute('aCurveParam').array as Float32Array;
+    const count = getPointCount(ribbon);
+
+    // Count band resets (where aCurveParam drops back toward 0)
+    let bandCount = 1;
+    for (let i = 1; i < count; i++) {
+      if (curveArr[i] < curveArr[i - 1] - 0.01) {
+        bandCount++;
+      }
+    }
+    expect(bandCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('T-083-24: positions contain only finite values across all parametric families', () => {
+    // Run with many seeds to exercise different family paths
+    const seeds = ['finite-a', 'finite-b', 'finite-c', 'finite-d', 'finite-e'];
+    for (const seed of seeds) {
+      const scene = new THREE.Scene();
+      const ribbon = createRibbonField();
+      ribbon.init(scene, seed, defaultParams);
+      const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+      const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+      for (let i = 0; i < posArr.length; i++) {
+        expect(Number.isFinite(posArr[i]), `seed=${seed} index=${i}`).toBe(true);
+      }
+    }
+  });
+});
+
+describe('US-083: Parametric surface ribbons — shader registry', () => {
+  it('T-083-25: RIBBONFIELD_ATTRIBUTES includes aCurveParam with itemSize 1', () => {
+    const curveParam = RIBBONFIELD_ATTRIBUTES.find((a) => a.name === 'aCurveParam');
+    expect(curveParam).toBeDefined();
+    expect(curveParam!.itemSize).toBe(1);
+  });
+
+  it('T-083-26: RIBBONFIELD_ATTRIBUTES still includes position, aRandom, aVertexColor', () => {
+    const names = RIBBONFIELD_ATTRIBUTES.map((a) => a.name);
+    expect(names).toContain('position');
+    expect(names).toContain('aRandom');
+    expect(names).toContain('aVertexColor');
+  });
+
+  it('T-083-27: OPTIONAL_RIBBONFIELD_ATTRIBUTES still includes size', () => {
+    const sizeSpec = OPTIONAL_RIBBONFIELD_ATTRIBUTES.find((a) => a.name === 'size');
+    expect(sizeSpec).toBeDefined();
+    expect(sizeSpec!.itemSize).toBe(1);
+  });
+});
+
+describe('US-083: Parametric surface ribbons — draw and audio reactivity', () => {
+  it('T-083-28: draw does not throw with zero audio energy (stable static shape)', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    const params = {
+      ...defaultParams,
+      bassEnergy: 0,
+      trebleEnergy: 0,
+      pointerDisturbance: 0,
+    };
+    ribbon.init(scene, 'static-seed', params);
+
+    expect(() => ribbon.draw(scene, makeFrame({ params }))).not.toThrow();
+    // Verify mesh is still present (didn't get removed or error)
+    const points = scene.children.filter((c) => c instanceof THREE.Points);
+    expect(points.length).toBe(1);
+  });
+
+  it('T-083-29: bass energy maps to uBassEnergy uniform (surface deformation)', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'bass-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+
+    ribbon.draw(scene, makeFrame({ params: { ...defaultParams, bassEnergy: 0.8 } }));
+    expect(mat.uniforms.uBassEnergy.value).toBe(0.8);
+  });
+
+  it('T-083-30: treble energy maps to uTrebleEnergy uniform (ribbon shimmer)', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'treble-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+
+    ribbon.draw(scene, makeFrame({ params: { ...defaultParams, trebleEnergy: 0.6 } }));
+    expect(mat.uniforms.uTrebleEnergy.value).toBe(0.6);
+  });
+
+  it('T-083-31: vertex shader source contains aCurveParam attribute declaration', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'shader-attr-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+    expect(mat.vertexShader).toContain('aCurveParam');
+  });
+
+  it('T-083-32: fragment shader source contains vCurveParam varying', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'frag-vary-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+    expect(mat.fragmentShader).toContain('vCurveParam');
+  });
+
+  it('T-083-33: draw does not throw at boundary params (full range stress test)', () => {
+    const scene = new THREE.Scene();
+    const combos: Partial<VisualParams>[] = [
+      { bassEnergy: 0, trebleEnergy: 0, density: 0, motionAmplitude: 0.2 },
+      { bassEnergy: 1, trebleEnergy: 1, density: 1, motionAmplitude: 1 },
+      { curveSoftness: 0, structureComplexity: 0 },
+      { curveSoftness: 1, structureComplexity: 1 },
+      { bassEnergy: 1, trebleEnergy: 0, pointerDisturbance: 0 },
+      { bassEnergy: 0, trebleEnergy: 1, pointerDisturbance: 1 },
+    ];
+
+    for (const combo of combos) {
+      const params = { ...defaultParams, ...combo };
+      const ribbon = createRibbonField();
+      ribbon.init(scene, 'boundary-083-seed', params);
+      expect(() => ribbon.draw(scene, makeFrame({ params }))).not.toThrow();
+    }
+  });
+
+  it('T-083-34: cleanup still works correctly after parametric rebuild', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'cleanup-083-seed', defaultParams);
+    expect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(1);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geoDisposeSpy = vi.spyOn(points.geometry, 'dispose');
+    const matDisposeSpy = vi.spyOn(points.material as THREE.Material, 'dispose');
+    ribbon.cleanup!();
+    expect(scene.children.filter((c) => c instanceof THREE.Points).length).toBe(0);
+    expect(geoDisposeSpy).toHaveBeenCalled();
+    expect(matDisposeSpy).toHaveBeenCalled();
+  });
+
+  it('T-083-35: material retains additive blending with transparency and depthWrite disabled', () => {
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'blend-083-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+    expect(mat.blending).toBe(THREE.AdditiveBlending);
+    expect(mat.transparent).toBe(true);
+    expect(mat.depthWrite).toBe(false);
+  });
+
+  it('T-083-36: no localStorage or cookie access during parametric ribbon operations', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem');
+    const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+    const cookieGet = vi.fn().mockReturnValue('');
+    Object.defineProperty(document, 'cookie', {
+      get: cookieGet,
+      configurable: true,
+    });
+
+    const scene = new THREE.Scene();
+    const ribbon = createRibbonField();
+    ribbon.init(scene, 'privacy-083-seed', defaultParams);
+    ribbon.draw(scene, makeFrame());
+
+    expect(getItemSpy).not.toHaveBeenCalled();
+    expect(cookieGet).not.toHaveBeenCalled();
+
+    getItemSpy.mockRestore();
+    if (cookieDescriptor) {
+      Object.defineProperty(document, 'cookie', cookieDescriptor);
     }
   });
 });

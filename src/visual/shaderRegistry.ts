@@ -53,6 +53,7 @@ export const RIBBONFIELD_ATTRIBUTES: AttributeSpec[] = [
   { name: 'position', itemSize: 3 },
   { name: 'aRandom', itemSize: 3 },
   { name: 'aVertexColor', itemSize: 3 },
+  { name: 'aCurveParam', itemSize: 1 },
 ];
 
 export const OPTIONAL_POINTCLOUD_ATTRIBUTES: AttributeSpec[] = [
