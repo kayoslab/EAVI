@@ -170,3 +170,5 @@
 
 ## US-083: Rebuild ribbonField as parametric surface ribbons
 
+## US-084: Restructure pointCloud to a recognisable parametric form
+
