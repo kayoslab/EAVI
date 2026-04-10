@@ -22,9 +22,9 @@ export function generateTerrainParticleSheet(opts: {
     cols: _cols,
     pointCount,
     seed,
-    width = 10,
-    depth = 10,
-    heightScale = 2.0,
+    width = 14,
+    depth = 14,
+    heightScale = 4.0,
     octaves = 3,
   } = opts;
   void _rows;
@@ -36,26 +36,26 @@ export function generateTerrainParticleSheet(opts: {
   const octaveParams: { p1: number; p2: number; p3: number; p4: number; offset: number }[] = [];
   for (let o = 0; o < octaves; o++) {
     octaveParams.push({
-      p1: rng() * 100 + 10,
-      p2: rng() * 100 + 10,
-      p3: rng() * 100 + 10,
-      p4: rng() * 100 + 10,
-      offset: rng() * 1000,
+      p1: rng() * 3.0 + 1.0,
+      p2: rng() * 3.0 + 1.0,
+      p3: rng() * 3.0 + 1.0,
+      p4: rng() * 3.0 + 1.0,
+      offset: rng() * 100,
     });
   }
 
   function fbm(x: number, z: number): number {
     let value = 0;
     let amplitude = 1;
-    let frequency = 1;
+    let frequency = 0.06; // low base frequency for broad rolling hills
     for (let o = 0; o < octaves; o++) {
       const p = octaveParams[o];
       value +=
         amplitude *
         Math.sin(frequency * x * p.p1 + frequency * z * p.p2 + p.offset) *
         Math.cos(frequency * x * p.p3 + frequency * z * p.p4 + p.offset);
-      frequency *= 2;
-      amplitude *= 0.5;
+      frequency *= 2.2;
+      amplitude *= 0.45;
     }
     return value;
   }

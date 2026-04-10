@@ -78,8 +78,8 @@ void main() {
 
   // Depth-based color desaturation (cool shift)
   float lum = dot(cellColor, vec3(0.299, 0.587, 0.114));
-  vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);
-  cellColor = mix(cellColor, fogTint, fogFactor * 0.5);
+  vec3 fogTint = vec3(lum * 0.7, lum * 0.75, lum * 0.85);
+  cellColor = mix(cellColor, fogTint, fogFactor * 0.25);
 
   // Fog alpha attenuation (capped at 85% to keep far points ghostly)
   float fogAlpha = alpha * (1.0 - fogFactor * 0.85) * uOpacity;

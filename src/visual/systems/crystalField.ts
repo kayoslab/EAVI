@@ -15,8 +15,8 @@ import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 const vertexShader = noise3dGlsl + '\n' + crystalWarpVert;
 const fragmentShader = chromaticDispersionGlsl + '\n' + crystalWarpFrag;
 
-const DEFAULT_MAX_POINTS = 1200;
-const CRYSTAL_SHAPES: VolumetricShape[] = ['crystalCluster', 'geode'];
+const DEFAULT_MAX_POINTS = 6400;
+const CRYSTAL_SHAPES: VolumetricShape[] = ['crystalCluster', 'geode', 'noiseLattice', 'spiralField'];
 
 export interface CrystalFieldConfig {
   maxPoints?: number;
@@ -83,7 +83,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       basePositions = Float32Array.from(positionsArr);
 
       // Vibrant spatial gradient vertex colors
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant', familyHint: 'crystal' });
       const vertexColors = computeVertexColors(positionsArr, gradient, { axis: 'radial' });
 
       geometry = new THREE.BufferGeometry();
@@ -158,7 +158,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
+      u.uBasePointSize.value = 0.08 * (1 + structureComplexity * 0.5);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;
@@ -166,8 +166,10 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
-      // Breathing scale
-      const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
+      // Breathing scale (two harmonics)
+      const breathScale = 1
+        + Math.sin(elapsed * 0.0004) * 0.08 * motionAmplitude
+        + Math.sin(elapsed * 0.00015) * 0.05 * motionAmplitude;
       u.uBreathScale.value = breathScale;
 
       // DoF focus distance modulation
@@ -175,18 +177,19 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
       u.uFocusDistance.value = baseFocus + focusDrift;
 
-      // Two-axis rotation: Y drift + bass, X cadence-driven tilt
-      const driftPeriod = 20000;
-      const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.15 * motionAmplitude;
-      const bassRotation = bassEnergy * motionAmplitude * 0.1;
-      pointsMesh.rotation.y = driftAngle + bassRotation * Math.sin(elapsed * 0.0003);
+      // Multi-axis rotation
+      const yDrift = Math.sin(elapsed / 20000 * Math.PI * 2) * 0.15 * motionAmplitude;
+      pointsMesh.rotation.y = yDrift + bassEnergy * motionAmplitude * 0.1 * Math.sin(elapsed * 0.0003);
+      pointsMesh.rotation.x = Math.sin(elapsed / 35000 * Math.PI * 2) * 0.12 * motionAmplitude;
+      pointsMesh.rotation.z = Math.sin(elapsed / 50000 * Math.PI * 2) * 0.08 * motionAmplitude;
 
-      // X-axis tilt for sculptural tumbling
-      const tiltAngle = Math.sin(elapsed / 25000 * Math.PI * 2) * 0.1 * motionAmplitude;
-      pointsMesh.rotation.x = tiltAngle + bassEnergy * 0.05 * Math.cos(elapsed * 0.00025);
+      // Slow scale pulsing
+      const scalePulse = 1.0 + Math.sin(elapsed / 20000 * Math.PI * 2) * 0.1 * motionAmplitude;
+      pointsMesh.scale.setScalar(scalePulse);
 
-      // Z-axis breathing
-      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
+      // Z-axis breathing (two harmonics)
+      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude
+        + Math.sin(elapsed / 30000 * Math.PI * 2) * 0.2 * motionAmplitude;
       pointsMesh.position.z = zBreath;
     },
 

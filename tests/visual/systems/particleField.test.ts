@@ -331,11 +331,11 @@ describe('US-009: ParticleField geometry system', () => {
       expect(getParticleCount(field)).toBeLessThanOrEqual(150);
     });
 
-    it('T-025-13: createParticleField without config defaults to 600 max particles', () => {
+    it('T-025-13: createParticleField without config defaults to 3000 max particles', () => {
       const scene = new THREE.Scene();
       const field = createParticleField();
       field.init(scene, 'default-seed', { ...defaultParams, density: 1.0, structureComplexity: 1.0 });
-      expect(getParticleCount(field)).toBeLessThanOrEqual(600);
+      expect(getParticleCount(field)).toBeLessThanOrEqual(3000);
       expect(getParticleCount(field)).toBeGreaterThan(150);
     });
 

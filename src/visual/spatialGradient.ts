@@ -11,10 +11,11 @@ export interface SpatialGradientPalette {
   stops: GradientStop[];
 }
 
-export type PaletteMode = 'seeded' | 'vibrant';
+export type PaletteMode = 'seeded' | 'vibrant' | 'terrain';
 
 export interface SpatialGradientOptions {
   mode?: PaletteMode;
+  familyHint?: string;
 }
 
 function fnv1a(str: string): number {
@@ -60,19 +61,75 @@ function srgbToLinear(c: number): number {
   return Math.pow(Math.max(0, Math.min(1, c)), 2.2);
 }
 
-// Reference vibrant stops in sRGB [0,1], converted to linear at palette creation
-const VIBRANT_SRGB_STOPS = [
-  { r: 0x1b / 255, g: 0x2a / 255, b: 0x8a / 255, position: 0.0 },   // #1b2a8a deep blue
-  { r: 0x6a / 255, g: 0x1b / 255, b: 0xbf / 255, position: 0.33 },   // #6a1bbf purple
-  { r: 0xd8 / 255, g: 0x3a / 255, b: 0x8a / 255, position: 0.67 },   // #d83a8a magenta
-  { r: 0xff / 255, g: 0x7a / 255, b: 0x2a / 255, position: 1.0 },    // #ff7a2a orange
+// 8 distinct palette families in sRGB [0,1], seed-selected for visual diversity
+const PALETTE_FAMILIES = [
+  // 0: Original Vibrant (deep blue -> purple -> magenta -> orange)
+  [
+    { r: 0x1b / 255, g: 0x2a / 255, b: 0x8a / 255, position: 0.0 },
+    { r: 0x6a / 255, g: 0x1b / 255, b: 0xbf / 255, position: 0.33 },
+    { r: 0xd8 / 255, g: 0x3a / 255, b: 0x8a / 255, position: 0.67 },
+    { r: 0xff / 255, g: 0x7a / 255, b: 0x2a / 255, position: 1.0 },
+  ],
+  // 1: Deep Ocean (navy -> teal -> cyan -> mint)
+  [
+    { r: 0x0a / 255, g: 0x1a / 255, b: 0x3f / 255, position: 0.0 },
+    { r: 0x0d / 255, g: 0x6e / 255, b: 0x6e / 255, position: 0.33 },
+    { r: 0x00 / 255, g: 0xc9 / 255, b: 0xdb / 255, position: 0.67 },
+    { r: 0x7a / 255, g: 0xff / 255, b: 0xd4 / 255, position: 1.0 },
+  ],
+  // 2: Sunset Blaze (deep red -> coral -> gold -> warm white)
+  [
+    { r: 0x8b / 255, g: 0x10 / 255, b: 0x10 / 255, position: 0.0 },
+    { r: 0xe8 / 255, g: 0x4a / 255, b: 0x2a / 255, position: 0.33 },
+    { r: 0xff / 255, g: 0xb3 / 255, b: 0x1a / 255, position: 0.67 },
+    { r: 0xff / 255, g: 0xe8 / 255, b: 0xc8 / 255, position: 1.0 },
+  ],
+  // 3: Northern Aurora (dark green -> emerald -> cyan -> violet)
+  [
+    { r: 0x05 / 255, g: 0x2e / 255, b: 0x1a / 255, position: 0.0 },
+    { r: 0x1a / 255, g: 0xc9 / 255, b: 0x5a / 255, position: 0.33 },
+    { r: 0x00 / 255, g: 0xe5 / 255, b: 0xd0 / 255, position: 0.67 },
+    { r: 0x9b / 255, g: 0x59 / 255, b: 0xf0 / 255, position: 1.0 },
+  ],
+  // 4: Electric Neon (hot pink -> electric blue -> lime -> white)
+  [
+    { r: 0xff / 255, g: 0x10 / 255, b: 0x7a / 255, position: 0.0 },
+    { r: 0x00 / 255, g: 0x7b / 255, b: 0xff / 255, position: 0.33 },
+    { r: 0x39 / 255, g: 0xff / 255, b: 0x14 / 255, position: 0.67 },
+    { r: 0xf0 / 255, g: 0xf0 / 255, b: 0xff / 255, position: 1.0 },
+  ],
+  // 5: Earth Tones (burnt sienna -> ochre -> olive -> sand)
+  [
+    { r: 0x8b / 255, g: 0x3a / 255, b: 0x1a / 255, position: 0.0 },
+    { r: 0xcc / 255, g: 0x7a / 255, b: 0x22 / 255, position: 0.33 },
+    { r: 0x6b / 255, g: 0x8e / 255, b: 0x23 / 255, position: 0.67 },
+    { r: 0xf4 / 255, g: 0xd0 / 255, b: 0x8a / 255, position: 1.0 },
+  ],
+  // 6: Monochrome Ice (charcoal -> silver -> cool white -> pale blue)
+  [
+    { r: 0x2a / 255, g: 0x2e / 255, b: 0x35 / 255, position: 0.0 },
+    { r: 0x8a / 255, g: 0x93 / 255, b: 0xa0 / 255, position: 0.33 },
+    { r: 0xd8 / 255, g: 0xe0 / 255, b: 0xea / 255, position: 0.67 },
+    { r: 0xa8 / 255, g: 0xd8 / 255, b: 0xf0 / 255, position: 1.0 },
+  ],
+  // 7: Tropical (magenta -> orange -> yellow -> lime)
+  [
+    { r: 0xd4 / 255, g: 0x1a / 255, b: 0x8a / 255, position: 0.0 },
+    { r: 0xff / 255, g: 0x6b / 255, b: 0x1a / 255, position: 0.33 },
+    { r: 0xff / 255, g: 0xd7 / 255, b: 0x00 / 255, position: 0.67 },
+    { r: 0x7a / 255, g: 0xff / 255, b: 0x3a / 255, position: 1.0 },
+  ],
 ];
 
-function createVibrantGradient(seed: string): SpatialGradientPalette {
-  const hash = fnv1a(seed + ':vibrant');
+function createVibrantGradient(seed: string, familyHint?: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':vibrant' + (familyHint ?? ''));
   const rng = seededRandom(hash);
 
-  const stops: GradientStop[] = VIBRANT_SRGB_STOPS.map((ref) => {
+  // Select palette family based on seed
+  const familyIndex = Math.floor((hash / 0xffffffff) * PALETTE_FAMILIES.length) % PALETTE_FAMILIES.length;
+  const selectedFamily = PALETTE_FAMILIES[familyIndex];
+
+  const stops: GradientStop[] = selectedFamily.map((ref) => {
     // Convert sRGB reference to linear, then apply small seeded perturbation
     const rLin = srgbToLinear(ref.r);
     const gLin = srgbToLinear(ref.g);
@@ -95,14 +152,43 @@ function createVibrantGradient(seed: string): SpatialGradientPalette {
   return { stops };
 }
 
+// Terrain-specific height-based palette: valley (cool) -> ridge (warm)
+const TERRAIN_SRGB_STOPS = [
+  { r: 0x12 / 255, g: 0x1a / 255, b: 0x5c / 255, position: 0.0 },   // deep blue-indigo (valley)
+  { r: 0x0d / 255, g: 0x7a / 255, b: 0x8c / 255, position: 0.3 },   // teal-cyan (lower slopes)
+  { r: 0xd4 / 255, g: 0x8a / 255, b: 0x1a / 255, position: 0.65 },  // warm amber (upper slopes)
+  { r: 0xff / 255, g: 0x6a / 255, b: 0x3a / 255, position: 1.0 },   // bright orange-coral (ridges)
+];
+
+function createTerrainGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':terrain');
+  const rng = seededRandom(hash);
+
+  const stops: GradientStop[] = TERRAIN_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.15 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+
+  return { stops };
+}
+
 export function createSpatialGradient(
   paletteHue: number,
   paletteSaturation: number,
   seed: string,
   options?: SpatialGradientOptions,
 ): SpatialGradientPalette {
+  if (options?.mode === 'terrain') {
+    return createTerrainGradient(seed);
+  }
   if (options?.mode === 'vibrant') {
-    return createVibrantGradient(seed);
+    return createVibrantGradient(seed, options?.familyHint);
   }
 
   const hash = fnv1a(seed + ':spatialGradient');
@@ -179,7 +265,7 @@ export function computeVibrantVertexColors(
 export function computeVertexColors(
   positions: Float32Array,
   palette: SpatialGradientPalette,
-  opts?: { axis?: 'x' | 'z' | 'radial'; itemStride?: number },
+  opts?: { axis?: 'x' | 'y' | 'z' | 'radial'; itemStride?: number },
 ): Float32Array {
   const vertexCount = positions.length / 3;
   if (vertexCount === 0) return new Float32Array(0);
@@ -190,6 +276,7 @@ export function computeVertexColors(
   function getValue(idx: number): number {
     const base = idx * 3;
     if (axis === 'x') return positions[base];
+    if (axis === 'y') return positions[base + 1];
     if (axis === 'z') return positions[base + 2];
     // radial: distance in xz-plane
     const x = positions[base];

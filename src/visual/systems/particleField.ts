@@ -18,9 +18,9 @@ import type { CurlLUT, Vec3 } from '../curlLUT';
 const vertexShader = noise3dGlsl + '\n' + particleWarpVert;
 const fragmentShader = chromaticDispersionGlsl + '\n' + particleWarpFrag;
 
-const DEFAULT_MAX_PARTICLES = 600;
+const DEFAULT_MAX_PARTICLES = 3000;
 const FADE_FRAMES = 30;
-const BASE_SPEED = 0.03; // units/ms — particles always drift
+const BASE_SPEED = 0.05; // units/ms — particles always drift
 const MAX_SPEED = 0.15;  // units/ms — velocity magnitude clamp
 
 // Field bounds for recycling
@@ -189,7 +189,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       curlLut = buildCurlLUT(numericSeed, 32);
 
       // Create attractors (2-4 seeded positions)
-      const attractorCount = 2 + Math.floor(rng() * 3); // 2-4
+      const attractorCount = 3 + Math.floor(rng() * 3); // 3-5
       attractors = [];
       for (let i = 0; i < attractorCount; i++) {
         attractors.push({
@@ -198,7 +198,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
             y: (rng() - 0.5) * 5,
             z: (rng() - 0.5) * 3,
           },
-          strength: 1.5 + rng() * 1.5,
+          strength: 2.0 + rng() * 2.0,
           radius: 1.0 + rng() * 1.5,
           phase: rng() * Math.PI * 2,
         });
@@ -243,7 +243,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       }
 
       // Vibrant spatial gradient vertex colors
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant', familyHint: 'particle' });
       const vertexColors = computeVertexColors(positionsArr, gradient, { axis: 'x' });
 
       geometry = new THREE.BufferGeometry();
@@ -347,14 +347,16 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
+      u.uBasePointSize.value = 0.08 * (1 + structureComplexity * 0.5);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
-      const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
+      const breathScale = 1
+        + Math.sin(elapsed * 0.0004) * 0.08 * motionAmplitude
+        + Math.sin(elapsed * 0.00015) * 0.05 * motionAmplitude;
       u.uBreathScale.value = breathScale;
 
       // DoF focus distance modulation
@@ -362,15 +364,17 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
       u.uFocusDistance.value = baseFocus + focusDrift;
 
-      // Mesh-level rotation
-      const driftPeriod = 22000;
-      const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.15 * motionAmplitude;
-      pointsMesh.rotation.y = driftAngle;
+      // Multi-axis rotation
+      const yDrift = Math.sin(elapsed / 22000 * Math.PI * 2) * 0.15 * motionAmplitude;
+      const xTilt = Math.sin(elapsed / 40000 * Math.PI * 2) * 0.12 * motionAmplitude;
+      const zRoll = Math.sin(elapsed / 60000 * Math.PI * 2) * 0.08 * motionAmplitude;
+      pointsMesh.rotation.y = yDrift + bassEnergy * motionAmplitude * 0.1 * Math.sin(elapsed * 0.0003);
+      pointsMesh.rotation.x = xTilt;
+      pointsMesh.rotation.z = zRoll;
 
-      const bassRotation = bassEnergy * motionAmplitude * 0.1;
-      pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
-
-      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
+      // Z-axis breathing (two harmonics)
+      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude
+        + Math.sin(elapsed / 30000 * Math.PI * 2) * 0.2 * motionAmplitude;
       pointsMesh.position.z = zBreath;
     },
 

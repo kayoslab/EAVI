@@ -70,9 +70,13 @@ void main() {
     pos.x * sinT + pos.z * cosT
   );
 
+  // --- Always-on gentle shape evolution (audio-independent) ---
+  float autoMorph = sin(t * 0.00008 + aRandom.x * TAU) * 0.05;
+  pos += normalize(pos + vec3(0.001)) * autoMorph;
+
   // --- Time evolution (slow modulation) ---
   if (uEnableSlowModulation > 0.5) {
-    float slowDrift = sin(t * 0.00012 + aRandom.y * TAU) * 0.05 * ma;
+    float slowDrift = sin(t * 0.00012 + aRandom.y * TAU) * 0.10 * ma;
     pos += curl3(pos * 0.3 + vec3(t * 0.00003), max(1, uNoiseOctaves - 1)) * slowDrift;
   }
 

@@ -16,7 +16,7 @@ import { selectCurveFamily, getSampler } from './parametricCurves';
 const vertexShader = noise3dGlsl + '\n' + parametricRibbonVert;
 const fragmentShader = chromaticDispersionGlsl + '\n' + parametricRibbonFrag;
 
-const DEFAULT_MAX_POINTS = 1000;
+const DEFAULT_MAX_POINTS = 5000;
 
 const REQUIRED_ATTRIBUTES = RIBBONFIELD_ATTRIBUTES;
 
@@ -66,7 +66,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       const sampler = getSampler(family);
 
       // Determine ribbon band count: 3-5 seeded
-      const bandCount = 3 + Math.floor(rng() * 3); // 3, 4, or 5
+      const bandCount = 4 + Math.floor(rng() * 4); // 4, 5, 6, or 7
       const pointsPerBand = Math.ceil(effectiveCount / bandCount);
 
       const positionsArr = new Float32Array(effectiveCount * 3);
@@ -79,7 +79,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
         // Each band sits at a different v-offset on the parametric surface
         const vOffset = band / bandCount;
         const vSpread = 0.02 + rng() * 0.03; // narrow v-spread for ribbon width
-        const ribbonWidth = 0.15 + rng() * 0.25;
+        const ribbonWidth = 0.2 + rng() * 0.35;
 
         const bandPoints = Math.min(pointsPerBand, effectiveCount - idx);
 
@@ -138,7 +138,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       basePositions = Float32Array.from(positionsArr);
 
       // Vibrant spatial gradient vertex colors
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant', familyHint: 'ribbon' });
       const vertexColors = computeVertexColors(positionsArr, gradient, { axis: 'z' });
 
       geometry = new THREE.BufferGeometry();
@@ -223,7 +223,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
+      u.uBasePointSize.value = 0.08 * (1 + structureComplexity * 0.5);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;
@@ -231,8 +231,10 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
-      // Time-based breathing scale
-      const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
+      // Time-based breathing scale (two harmonics)
+      const breathScale = 1
+        + Math.sin(elapsed * 0.0004) * 0.08 * motionAmplitude
+        + Math.sin(elapsed * 0.00015) * 0.05 * motionAmplitude;
       u.uBreathScale.value = breathScale;
 
       // DoF focus distance modulation
@@ -240,17 +242,17 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
       u.uFocusDistance.value = baseFocus + focusDrift;
 
-      // Mesh-level Y-axis drift rotation
-      const driftPeriod = 25000;
-      const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.2 * motionAmplitude;
-      pointsMesh.rotation.y = driftAngle;
+      // Multi-axis rotation
+      const yDrift = Math.sin(elapsed / 25000 * Math.PI * 2) * 0.15 * motionAmplitude;
+      const xTilt = Math.sin(elapsed / 40000 * Math.PI * 2) * 0.12 * motionAmplitude;
+      const zRoll = Math.sin(elapsed / 60000 * Math.PI * 2) * 0.08 * motionAmplitude;
+      pointsMesh.rotation.y = yDrift + bassEnergy * motionAmplitude * 0.1 * Math.sin(elapsed * 0.0003);
+      pointsMesh.rotation.x = xTilt;
+      pointsMesh.rotation.z = zRoll;
 
-      // Bass-driven macro rotation offset
-      const bassRotation = bassEnergy * motionAmplitude * 0.12;
-      pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
-
-      // Z-axis breathing
-      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
+      // Z-axis breathing (two harmonics)
+      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude
+        + Math.sin(elapsed / 30000 * Math.PI * 2) * 0.2 * motionAmplitude;
       pointsMesh.position.z = zBreath;
     },
 

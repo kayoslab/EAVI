@@ -60,14 +60,14 @@ function buildHarmonics(seed: string): CameraHarmonics {
   }
 
   const h: CameraHarmonics = {
-    // Position harmonics: periods 30-120s, amplitudes 0.3-0.5 per harmonic
-    posX: makeHarmonics(0.3, 0.5, 30000, 120000, 3),
-    posY: makeHarmonics(0.3, 0.5, 30000, 120000, 3),
-    posZ: makeHarmonics(0.2, 0.4, 40000, 120000, 3),
-    // Look-target harmonics: periods 40-100s, amplitudes 0.1-0.3
-    lookX: makeHarmonics(0.1, 0.3, 40000, 100000, 2),
-    lookY: makeHarmonics(0.1, 0.3, 40000, 100000, 2),
-    lookZ: makeHarmonics(0.05, 0.15, 50000, 100000, 2),
+    // Position harmonics: periods 60-240s, amplitudes 0.1-0.2 per harmonic (calm drift)
+    posX: makeHarmonics(0.1, 0.2, 60000, 240000, 2),
+    posY: makeHarmonics(0.1, 0.2, 60000, 240000, 2),
+    posZ: makeHarmonics(0.08, 0.15, 80000, 240000, 2),
+    // Look-target harmonics: periods 80-200s, amplitudes 0.05-0.15
+    lookX: makeHarmonics(0.05, 0.15, 80000, 200000, 2),
+    lookY: makeHarmonics(0.05, 0.15, 80000, 200000, 2),
+    lookZ: makeHarmonics(0.03, 0.08, 100000, 200000, 2),
   };
 
   harmonicCache.set(seed, h);
@@ -97,7 +97,7 @@ export function updateCamera(
   const h = harmonicCache.get(activeSeed);
   if (!h) return;
 
-  const bassScale = 1 + bassEnergy * 0.15;
+  const bassScale = 1 + bassEnergy * 0.05;
 
   const offsetX =
     evalAxis(h.posX, elapsedMs) * motionAmplitude * bassScale;

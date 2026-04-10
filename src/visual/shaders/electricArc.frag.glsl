@@ -53,8 +53,8 @@ void main() {
 
   // Depth-based color desaturation
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
-  vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);
-  color = mix(color, fogTint, vFogFactor * 0.5);
+  vec3 fogTint = vec3(lum * 0.7, lum * 0.75, lum * 0.85);
+  color = mix(color, fogTint, vFogFactor * 0.25);
 
   // Combine all alpha factors
   float alpha = bassAlpha * (1.0 - vFogFactor * 0.85) * uOpacity;

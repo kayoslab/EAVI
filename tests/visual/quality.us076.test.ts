@@ -32,7 +32,7 @@ describe('US-076: Quality profile — terrainPointCount', () => {
       devicePixelRatio: 1,
     }));
     expect(profile.tier).toBe('low');
-    expect(profile.terrainPointCount).toBe(20000);
+    expect(profile.terrainPointCount).toBe(40000);
   });
 
   it('T-076-Q03: medium tier has terrainPointCount ~60000', () => {
@@ -45,7 +45,7 @@ describe('US-076: Quality profile — terrainPointCount', () => {
       devicePixelRatio: 1.5,
     }));
     expect(profile.tier).toBe('medium');
-    expect(profile.terrainPointCount).toBe(60000);
+    expect(profile.terrainPointCount).toBe(100000);
   });
 
   it('T-076-Q04: high tier has terrainPointCount ~120000', () => {
@@ -58,7 +58,7 @@ describe('US-076: Quality profile — terrainPointCount', () => {
       devicePixelRatio: 2,
     }));
     expect(profile.tier).toBe('high');
-    expect(profile.terrainPointCount).toBe(120000);
+    expect(profile.terrainPointCount).toBe(200000);
   });
 
   it('T-076-Q05: extractSystemConfig("terrain") includes pointCount', () => {

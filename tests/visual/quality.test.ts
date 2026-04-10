@@ -34,7 +34,7 @@ describe('US-025: Quality tier computation', () => {
     });
     const result = computeQuality(signals);
     expect(result.tier).toBe('high');
-    expect(result.maxParticles).toBe(1000);
+    expect(result.maxParticles).toBe(3000);
     expect(result.resolutionScale).toBe(1.0);
     expect(result.enableSparkle).toBe(true);
     expect(result.shaderComplexity).toBe('high');
@@ -54,7 +54,7 @@ describe('US-025: Quality tier computation', () => {
     });
     const result = computeQuality(signals);
     expect(result.tier).toBe('medium');
-    expect(result.maxParticles).toBe(550);
+    expect(result.maxParticles).toBe(1500);
     expect(result.resolutionScale).toBe(0.75);
     expect(result.enableSparkle).toBe(true);
     expect(result.shaderComplexity).toBe('medium');
@@ -74,7 +74,7 @@ describe('US-025: Quality tier computation', () => {
     });
     const result = computeQuality(signals);
     expect(result.tier).toBe('low');
-    expect(result.maxParticles).toBe(150);
+    expect(result.maxParticles).toBe(400);
     expect(result.resolutionScale).toBe(0.5);
     expect(result.enableSparkle).toBe(false);
     expect(result.shaderComplexity).toBe('low');
@@ -156,7 +156,7 @@ describe('US-025: Quality tier computation', () => {
     for (const signals of variants) {
       const result = computeQuality(signals);
       expect(result.maxParticles).toBeGreaterThanOrEqual(100);
-      expect(result.maxParticles).toBeLessThanOrEqual(1000);
+      expect(result.maxParticles).toBeLessThanOrEqual(3000);
       expect(result.resolutionScale).toBeGreaterThanOrEqual(0.25);
       expect(result.resolutionScale).toBeLessThanOrEqual(1.0);
       expect(['low', 'medium', 'high']).toContain(result.tier);
@@ -186,7 +186,7 @@ const defaultParams: VisualParams = {
 };
 
 describe('US-025: Quality integration tests', () => {
-  it('T-025-22: low-tier quality profile produces particle field with <= 150 particles end-to-end', () => {
+  it('T-025-22: low-tier quality profile produces particle field with <= 400 particles end-to-end', () => {
     const signals = makeSignals({
       devicePixelRatio: 1,
       hardwareConcurrency: 2,
@@ -197,12 +197,12 @@ describe('US-025: Quality integration tests', () => {
     });
     const quality = computeQuality(signals);
     expect(quality.tier).toBe('low');
-    expect(quality.maxParticles).toBe(150);
+    expect(quality.maxParticles).toBe(400);
 
     const scene = new THREE.Scene();
     const field = createParticleField({ maxParticles: quality.maxParticles });
     field.init(scene, 'integration-seed', { ...defaultParams, density: 1.0, structureComplexity: 1.0 });
-    expect(getParticleCount(field)).toBeLessThanOrEqual(150);
+    expect(getParticleCount(field)).toBeLessThanOrEqual(400);
   });
 
   it('T-025-23: low-tier quality profile produces ribbon field with <= maxRibbonPoints end-to-end', () => {
@@ -216,12 +216,12 @@ describe('US-025: Quality integration tests', () => {
     });
     const quality = computeQuality(signals);
     expect(quality.tier).toBe('low');
-    expect(quality.maxRibbonPoints).toBe(200);
+    expect(quality.maxRibbonPoints).toBe(500);
 
     const scene = new THREE.Scene();
     const field = createRibbonField({ maxPoints: quality.maxRibbonPoints, noiseOctaves: quality.noiseOctaves, enablePointerRepulsion: quality.enablePointerRepulsion, enableSlowModulation: quality.enableSlowModulation });
     field.init(scene, 'ribbon-integration-seed', { ...defaultParams, density: 1.0 });
-    expect(getRibbonPointCount(field)).toBeLessThanOrEqual(200);
+    expect(getRibbonPointCount(field)).toBeLessThanOrEqual(500);
   });
 
   it('T-025-24: quality scaling does not introduce localStorage or cookie access', () => {
@@ -430,27 +430,27 @@ describe('US-025: Quality integration tests', () => {
     });
     const result = computeQuality(signals);
     expect(result.tier).toBe('low');
-    expect(result.maxEdgesPerShape).toBe(30);
+    expect(result.maxEdgesPerShape).toBe(60);
   });
 
-  it('T-066-63: medium tier maxEdgesPerShape is 480 (constrains fractalgrowth to ~40 cubes)', () => {
+  it('T-066-63: medium tier maxEdgesPerShape is 960 (constrains fractalgrowth to ~80 cubes)', () => {
     const signals = makeSignals({
       devicePixelRatio: 2, hardwareConcurrency: 4, deviceMemory: 4,
       screenWidth: 390, screenHeight: 844, touchCapable: true,
     });
     const result = computeQuality(signals);
     expect(result.tier).toBe('medium');
-    expect(result.maxEdgesPerShape).toBe(480);
+    expect(result.maxEdgesPerShape).toBe(960);
   });
 
-  it('T-066-64: high tier maxEdgesPerShape is 1920 (constrains fractalgrowth to ~160 cubes)', () => {
+  it('T-066-64: high tier maxEdgesPerShape is 3840 (constrains fractalgrowth to ~320 cubes)', () => {
     const signals = makeSignals({
       devicePixelRatio: 2, hardwareConcurrency: 16, deviceMemory: 8,
       screenWidth: 2560, screenHeight: 1440, touchCapable: false,
     });
     const result = computeQuality(signals);
     expect(result.tier).toBe('high');
-    expect(result.maxEdgesPerShape).toBe(1920);
+    expect(result.maxEdgesPerShape).toBe(3840);
   });
 
   it('T-066-65: maxFractalDepth per tier: low=3, medium=4, high=6', () => {

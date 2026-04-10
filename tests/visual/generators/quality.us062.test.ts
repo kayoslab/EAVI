@@ -69,19 +69,19 @@ describe('US-062: QualityProfile maxEdgesPerShape', () => {
     expect(typeof profile.maxEdgesPerShape).toBe('number');
   });
 
-  it('T-062-60: low tier maxEdgesPerShape is 30 (plain shapes only)', () => {
+  it('T-062-60: low tier maxEdgesPerShape is 60 (plain shapes only)', () => {
     const profile = computeQuality(lowSignals());
-    expect(profile.maxEdgesPerShape).toBe(30);
+    expect(profile.maxEdgesPerShape).toBe(60);
   });
 
-  it('T-062-61: medium tier maxEdgesPerShape is 480 (allows geodesic level 2)', () => {
+  it('T-062-61: medium tier maxEdgesPerShape is 960 (allows geodesic level 2)', () => {
     const profile = computeQuality(mediumSignals());
-    expect(profile.maxEdgesPerShape).toBe(480);
+    expect(profile.maxEdgesPerShape).toBe(960);
   });
 
-  it('T-062-62: high tier maxEdgesPerShape is 1920 (allows geodesic level 3)', () => {
+  it('T-062-62: high tier maxEdgesPerShape is 3840 (allows geodesic level 3)', () => {
     const profile = computeQuality(highSignals());
-    expect(profile.maxEdgesPerShape).toBe(1920);
+    expect(profile.maxEdgesPerShape).toBe(3840);
   });
 
   it('T-062-63: maxEdgesPerShape increases with tier', () => {
