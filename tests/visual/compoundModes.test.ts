@@ -380,7 +380,7 @@ describe('US-066: Fractal growth compound mode and config', () => {
     const lowProfile = makeLowProfile();
     const config = extractSystemConfig('fractalgrowth', lowProfile);
     expect(config.maxEdgesPerShape).toBe(lowProfile.maxEdgesPerShape);
-    expect(config.maxEdgesPerShape).toBe(30);
+    expect(config.maxEdgesPerShape).toBe(60);
   });
 
   it('T-066-57: primaryCountForSystem returns maxEdgesPerShape for fractalgrowth', () => {

@@ -297,12 +297,12 @@ describe('US-018: Map bass response to macro motion', () => {
       // With ma=1.0, max is ~0.15 + 0.1 = 0.25
       expect(Math.abs(result.mesh.rotation.y)).toBeLessThanOrEqual(0.35);
 
-      // Mesh position.z: breath (±0.3*ma)
-      expect(Math.abs(result.mesh.position.z)).toBeLessThanOrEqual(0.35);
+      // Mesh position.z: breath (±0.3*ma + ±0.2*ma = ±0.5*ma)
+      expect(Math.abs(result.mesh.position.z)).toBeLessThanOrEqual(0.55);
 
-      // uBreathScale: 1 ± 0.03*ma
-      expect(result.uniforms.uBreathScale.value).toBeGreaterThanOrEqual(0.97);
-      expect(result.uniforms.uBreathScale.value).toBeLessThanOrEqual(1.03);
+      // uBreathScale: 1 ± (0.08+0.05)*ma = 1 ± 0.13*ma
+      expect(result.uniforms.uBreathScale.value).toBeGreaterThanOrEqual(0.87);
+      expect(result.uniforms.uBreathScale.value).toBeLessThanOrEqual(1.13);
     }
   });
 
@@ -491,10 +491,10 @@ describe('US-018: Map bass response to macro motion', () => {
         Math.pow(cam1.position.z - 5, 2),
       );
 
-      // bass=1.0 should scale by 1.15x
+      // bass=1.0 should scale by 1.05x
       expect(offset1).toBeGreaterThan(offset0);
       if (offset0 > 0.001) {
-        expect(offset1 / offset0).toBeCloseTo(1.15, 1);
+        expect(offset1 / offset0).toBeCloseTo(1.05, 1);
       }
 
       // Camera with bass=0.5

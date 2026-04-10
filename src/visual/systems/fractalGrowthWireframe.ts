@@ -92,7 +92,7 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       uFogNear: { value: 3.0 },
       uFogFar: { value: 8.0 },
       uDispersion: { value: 0.0 },
-      uBasePointSize: { value: 0.04 },
+      uBasePointSize: { value: 0.06 },
     };
   }
 
@@ -169,7 +169,20 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       const pointerX = (frame.pointerX ?? 0.5) - 0.5;
       const pointerY = (frame.pointerY ?? 0.5) - 0.5;
 
-      const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
+      const breathScale = 1
+        + Math.sin(elapsed * 0.0004) * 0.08 * motionAmplitude
+        + Math.sin(elapsed * 0.00015) * 0.05 * motionAmplitude;
+
+      // Multi-axis rotation
+      const yDrift = Math.sin(elapsed / 30000 * Math.PI * 2) * 0.2 * motionAmplitude;
+      const xTilt = Math.sin(elapsed / 45000 * Math.PI * 2) * 0.15 * motionAmplitude;
+      const zRoll = Math.sin(elapsed / 55000 * Math.PI * 2) * 0.1 * motionAmplitude;
+      const yRot = yDrift + bassEnergy * motionAmplitude * 0.08;
+      edgeMesh.rotation.set(xTilt, yRot, zRoll);
+      vertexMesh.rotation.set(xTilt, yRot, zRoll);
+      if (occluderMesh) {
+        occluderMesh.rotation.set(xTilt, yRot, zRoll);
+      }
 
       // Update edge uniforms
       const eu = (edgeMesh.material as THREE.ShaderMaterial).uniforms;

@@ -99,17 +99,19 @@ describe('US-081: computeVibrantVertexColors helper', () => {
     expect(dist).toBeGreaterThan(0.05);
   });
 
-  it('T-081-05: vibrant vertex colors use the deep-blue→orange gradient (first vertex bluer, last redder)', () => {
+  it('T-081-05: vibrant vertex colors produce distinct colors at opposite ends of the gradient', () => {
     const positions = new Float32Array([
-      -5, 0, 0,  // t=0 → deep blue
-       5, 0, 0,  // t=1 → orange
+      -5, 0, 0,  // t=0
+       5, 0, 0,  // t=1
     ]);
     const palette = createSpatialGradient(180, 0.5, 'direction-seed', { mode: 'vibrant' });
     const colors = computeVertexColors(positions, palette, { axis: 'x' });
-    // First vertex: blue channel > red channel (deep blue)
-    expect(colors[2]).toBeGreaterThan(colors[0]); // b > r for deep blue
-    // Last vertex: red channel > blue channel (orange)
-    expect(colors[3]).toBeGreaterThan(colors[5]); // r > b for orange
+    // With 8 palette families, first/last stops may not be blue/orange.
+    // Instead verify the two ends are visually distinct.
+    const r0 = colors[0], g0 = colors[1], b0 = colors[2];
+    const r1 = colors[3], g1 = colors[4], b1 = colors[5];
+    const dist = Math.sqrt((r1 - r0) ** 2 + (g1 - g0) ** 2 + (b1 - b0) ** 2);
+    expect(dist).toBeGreaterThan(0.05);
   });
 
   it('T-081-06: vibrant vertex colors support radial axis mapping', () => {

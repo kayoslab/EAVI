@@ -50,7 +50,7 @@ void main() {
 
   // Quantized noise displacement — faceted/angular character
   float rawNoise = fbm3(pos * 0.5 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
-  float quantized = floor(rawNoise * 4.0) / 4.0;
+  float quantized = floor(rawNoise * 6.0) / 6.0;
   vec3 noiseDir = normalize(pos + vec3(0.001));
   pos += noiseDir * quantized * (1.0 + uBassEnergy * 0.6) * uDisplacementScale * 0.3;
 
@@ -85,14 +85,19 @@ void main() {
   pos.y += cos(t * 0.013 + aRandom.y * 5.7) * trebleJitter;
   pos.z += sin(t * 0.009 + aRandom.z * 3.1) * trebleJitter;
 
+  // Always-on gentle shape evolution (audio-independent)
+  float autoMorph = sin(t * 0.00008 + aRandom.x * TAU) * 0.05;
+  pos += normalize(pos + vec3(0.001)) * autoMorph;
+
   // Slow modulation
   if (uEnableSlowModulation > 0.5) {
-    float slowMod = sin(t * 0.00015 + aRandom.x * TAU) * 0.08 * ma;
-    float slowMod2 = cos(t * 0.0001 + aRandom.y * TAU) * 0.06 * ma;
+    float slowMod = sin(t * 0.00012 + aRandom.x * TAU) * 0.15 * ma;
+    float slowMod2 = cos(t * 0.00008 + aRandom.y * TAU) * 0.12 * ma;
+    float slowMod3 = sin(t * 0.0001 + aRandom.z * TAU) * 0.10 * ma;
     float nf = uNoiseFrequency;
     pos.x += slowMod * fbm3(vec3(pos.x * nf, pos.y * nf, t * 0.00005 * uCadence), uNoiseOctaves);
     pos.y += slowMod2 * fbm3(vec3(pos.y * nf, pos.z * nf, t * 0.00006 * uCadence), uNoiseOctaves);
-    pos.z += slowMod * fbm3(vec3(pos.z * nf, pos.x * nf, t * 0.00004 * uCadence), uNoiseOctaves);
+    pos.z += slowMod3 * fbm3(vec3(pos.z * nf, pos.x * nf, t * 0.00004 * uCadence), uNoiseOctaves);
   }
 
   // Pointer repulsion

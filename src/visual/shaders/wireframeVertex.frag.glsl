@@ -67,12 +67,12 @@ void main() {
 
   // Depth-based color desaturation (cool shift)
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
-  vec3 fogTint = vec3(lum * 0.6, lum * 0.65, lum * 0.8);
-  color = mix(color, fogTint, vFogFactor * 0.5);
+  vec3 fogTint = vec3(lum * 0.7, lum * 0.75, lum * 0.85);
+  color = mix(color, fogTint, vFogFactor * 0.25);
 
   // Soft luminance cap to prevent bloom clipping
   lum = dot(color, vec3(0.299, 0.587, 0.114));
-  color *= min(1.0, 0.85 / max(lum, 0.001));
+  color *= min(1.0, 0.95 / max(lum, 0.001));
 
   // Connectivity-driven alpha emphasis
   float connectivityAlpha = 0.7 + vConnectivity * 0.3;

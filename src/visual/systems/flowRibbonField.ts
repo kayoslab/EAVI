@@ -13,7 +13,7 @@ import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 
 const vertexShader = noise3dGlsl + '\n' + flowRibbonVert;
 
-const DEFAULT_MAX_POINTS = 1000;
+const DEFAULT_MAX_POINTS = 5000;
 
 const REQUIRED_ATTRIBUTES = FLOWRIBBON_ATTRIBUTES;
 
@@ -61,7 +61,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       // Streamline-based initial geometry:
       // Seed source points randomly in a sphere, then generate short trail points
       // by iteratively advecting along a simple pseudo-curl to form natural tendril clusters.
-      const trailLength = 6; // points per streamline
+      const trailLength = 12; // points per streamline
       const sourceCount = Math.ceil(effectiveCount / trailLength);
 
       const positionsArr = new Float32Array(effectiveCount * 3);
@@ -73,7 +73,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
         // Random source point in a sphere
         const theta = rng() * Math.PI * 2;
         const phi = Math.acos(2 * rng() - 1);
-        const r = 1.0 + rng() * 2.0;
+        const r = 1.5 + rng() * 2.5;
         let sx = r * Math.sin(phi) * Math.cos(theta);
         let sy = r * Math.sin(phi) * Math.sin(theta);
         let sz = r * Math.cos(phi);
@@ -97,7 +97,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
 
           // Advect along a simple pseudo-curl field (CPU-side approximation)
           // Uses seeded noise-like displacement to create natural streamline clustering
-          const advectStep = 0.3;
+          const advectStep = 0.45;
           const nx = Math.sin(sy * 2.1 + sz * 0.7) * advectStep;
           const ny = Math.sin(sz * 1.9 + sx * 0.8) * advectStep;
           const nz = Math.sin(sx * 2.3 + sy * 0.6) * advectStep;
@@ -110,7 +110,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       basePositions = Float32Array.from(positionsArr);
 
       // Vibrant spatial gradient vertex colors
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant', familyHint: 'flowribbon' });
       const vertexColors = computeVertexColors(positionsArr, gradient, { axis: 'radial' });
 
       geometry = new THREE.BufferGeometry();
@@ -194,15 +194,17 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
+      u.uBasePointSize.value = 0.08 * (1 + structureComplexity * 0.5);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
 
-      // Time-based breathing scale
-      const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;
+      // Time-based breathing scale (two harmonics)
+      const breathScale = 1
+        + Math.sin(elapsed * 0.0004) * 0.08 * motionAmplitude
+        + Math.sin(elapsed * 0.00015) * 0.05 * motionAmplitude;
       u.uBreathScale.value = breathScale;
 
       // DoF focus distance modulation
@@ -210,17 +212,17 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
       u.uFocusDistance.value = baseFocus + focusDrift;
 
-      // Mesh-level Y-axis drift rotation
-      const driftPeriod = 25000;
-      const driftAngle = Math.sin(elapsed / driftPeriod * Math.PI * 2) * 0.2 * motionAmplitude;
-      pointsMesh.rotation.y = driftAngle;
+      // Multi-axis rotation
+      const yDrift = Math.sin(elapsed / 25000 * Math.PI * 2) * 0.15 * motionAmplitude;
+      const xTilt = Math.sin(elapsed / 40000 * Math.PI * 2) * 0.12 * motionAmplitude;
+      const zRoll = Math.sin(elapsed / 60000 * Math.PI * 2) * 0.08 * motionAmplitude;
+      pointsMesh.rotation.y = yDrift + bassEnergy * motionAmplitude * 0.1 * Math.sin(elapsed * 0.0003);
+      pointsMesh.rotation.x = xTilt;
+      pointsMesh.rotation.z = zRoll;
 
-      // Bass-driven macro rotation offset
-      const bassRotation = bassEnergy * motionAmplitude * 0.12;
-      pointsMesh.rotation.y += bassRotation * Math.sin(elapsed * 0.0003);
-
-      // Z-axis breathing
-      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude;
+      // Z-axis breathing (two harmonics)
+      const zBreath = Math.sin(elapsed / 15000 * Math.PI * 2) * 0.3 * motionAmplitude
+        + Math.sin(elapsed / 30000 * Math.PI * 2) * 0.2 * motionAmplitude;
       pointsMesh.position.z = zBreath;
     },
 

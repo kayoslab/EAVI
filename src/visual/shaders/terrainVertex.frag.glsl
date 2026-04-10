@@ -52,10 +52,10 @@ void main() {
   float bassAlpha = 0.4 + uBassEnergy * 0.6;
 
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
-  vec3 fogTint = vec3(lum * 0.5, lum * 0.55, lum * 0.7);
-  color = mix(color, fogTint, vFogFactor * 0.6);
+  vec3 fogTint = vec3(lum * 0.7, lum * 0.75, lum * 0.85);
+  color = mix(color, fogTint, vFogFactor * 0.3);
 
-  float alpha = pointAlpha * bassAlpha * (1.0 - vFogFactor * 0.9) * uOpacity;
+  float alpha = pointAlpha * bassAlpha * (1.0 - vFogFactor * 0.7) * uOpacity;
 
   gl_FragColor = vec4(color, alpha);
 }

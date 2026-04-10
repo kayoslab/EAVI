@@ -94,12 +94,12 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
         seed: seed + ':terrain',
       });
 
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'vibrant' });
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'terrain' });
 
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(sheetData.positions, 3));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(sheetData.randoms, 3));
-      const vertexColors = computeVertexColors(sheetData.positions, gradient, { axis: 'x', itemStride: 3 });
+      const vertexColors = computeVertexColors(sheetData.positions, gradient, { axis: 'y', itemStride: 3 });
       geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
       const material = new THREE.ShaderMaterial({
