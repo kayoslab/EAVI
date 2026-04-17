@@ -10,6 +10,7 @@
  */
 
 import type { PerspectiveCamera } from 'three';
+import type { FramingConfig } from './types';
 import { createPRNG } from './prng';
 
 interface Harmonic {
@@ -63,7 +64,7 @@ function buildHarmonics(seed: string): CameraHarmonics {
     // Position harmonics: periods 60-240s, amplitudes 0.1-0.2 per harmonic (calm drift)
     posX: makeHarmonics(0.1, 0.2, 60000, 240000, 2),
     posY: makeHarmonics(0.1, 0.2, 60000, 240000, 2),
-    posZ: makeHarmonics(0.08, 0.15, 80000, 240000, 2),
+    posZ: makeHarmonics(0.1, 0.2, 60000, 200000, 3),
     // Look-target harmonics: periods 80-200s, amplitudes 0.05-0.15
     lookX: makeHarmonics(0.05, 0.15, 80000, 200000, 2),
     lookY: makeHarmonics(0.05, 0.15, 80000, 200000, 2),
@@ -92,10 +93,16 @@ export function updateCamera(
   elapsedMs: number,
   bassEnergy: number,
   motionAmplitude: number,
+  framing?: FramingConfig,
 ): void {
   if (!activeSeed) return;
   const h = harmonicCache.get(activeSeed);
   if (!h) return;
+
+  const baseZ = framing?.targetDistance ?? BASE_Z;
+  const lookOffX = framing?.lookOffset?.[0] ?? 0;
+  const lookOffY = framing?.lookOffset?.[1] ?? 0;
+  const lookOffZ = framing?.lookOffset?.[2] ?? 0;
 
   const bassScale = 1 + bassEnergy * 0.05;
 
@@ -109,12 +116,12 @@ export function updateCamera(
   camera.position.set(
     BASE_X + offsetX,
     BASE_Y + offsetY,
-    BASE_Z + offsetZ,
+    baseZ + offsetZ,
   );
 
-  const lookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude;
-  const lookY = evalAxis(h.lookY, elapsedMs) * motionAmplitude;
-  const lookZ = evalAxis(h.lookZ, elapsedMs) * motionAmplitude;
+  const lookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude + lookOffX;
+  const lookY = evalAxis(h.lookY, elapsedMs) * motionAmplitude + lookOffY;
+  const lookZ = evalAxis(h.lookZ, elapsedMs) * motionAmplitude + lookOffZ;
 
   camera.lookAt(lookX, lookY, lookZ);
 }
