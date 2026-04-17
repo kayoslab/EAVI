@@ -1825,7 +1825,7 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-077",
         "US-078",
@@ -1837,7 +1837,8 @@
         "US-087"
       ],
       "split_from": null,
-      "notes": null
+      "notes": null,
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-089",
@@ -1850,8 +1851,8 @@
         "No clipping of the form against near/far planes"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "available",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-042",
         "US-082",
@@ -1876,7 +1877,7 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "available",
+      "status": "in_progress",
       "depends_on": [
         "US-080",
         "US-082",
@@ -1887,7 +1888,8 @@
         "US-087"
       ],
       "split_from": null,
-      "notes": null
+      "notes": null,
+      "claimed_by": "worker-2"
     }
   ]
 }
