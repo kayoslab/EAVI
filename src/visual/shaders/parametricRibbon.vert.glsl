@@ -88,9 +88,9 @@ void main() {
 
   // Standard treble micro jitter
   float trebleJitter = uTrebleEnergy * 0.08 * ma;
-  pos.x += sin(t * 0.013 + aRandom.x * 9.1) * trebleJitter;
-  pos.y += cos(t * 0.015 + aRandom.y * 7.3) * trebleJitter;
-  pos.z += sin(t * 0.011 + aRandom.z * 5.7) * trebleJitter;
+  pos.x += sin(t * 0.006 * uCadence + aRandom.x * 9.1) * trebleJitter;
+  pos.y += cos(t * 0.007 * uCadence + aRandom.y * 7.3) * trebleJitter;
+  pos.z += sin(t * 0.005 * uCadence + aRandom.z * 5.7) * trebleJitter;
 
   // --- Time evolution (slow modulation via simplex FBM) ---
   if (uEnableSlowModulation > 0.5) {
@@ -133,10 +133,10 @@ void main() {
 
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
-  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay;
-  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  float pointSize = sizeMultiplier * uBasePointSize * (1200.0 / depth) * trebleSparkle * atmosphericDecay;
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.5) : (1.0 + coc * 0.5);
   pointSize *= bokehScale;
-  gl_PointSize = clamp(pointSize, 2.5, 96.0);
+  gl_PointSize = clamp(pointSize, 2.5, 40.0);
 
   gl_Position = projectionMatrix * mvPosition;
 

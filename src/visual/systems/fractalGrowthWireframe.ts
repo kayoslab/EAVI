@@ -199,7 +199,7 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       eu.uRadialScale.value = radialScale;
       eu.uTwistStrength.value = twistStrength;
       eu.uFieldSpread.value = fieldSpread;
-      eu.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      eu.uDisplacementScale.value = Math.min(motionAmplitude * structureComplexity, 0.4);
       eu.uDispersion.value = frame.params.dispersion ?? 0.0;
       eu.uBreathScale.value = breathScale;
 
@@ -218,7 +218,7 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       vu.uRadialScale.value = radialScale;
       vu.uTwistStrength.value = twistStrength;
       vu.uFieldSpread.value = fieldSpread;
-      vu.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      vu.uDisplacementScale.value = Math.min(motionAmplitude * structureComplexity, 0.4);
       vu.uDispersion.value = frame.params.dispersion ?? 0.0;
       vu.uBreathScale.value = breathScale;
 

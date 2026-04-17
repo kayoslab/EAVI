@@ -118,10 +118,10 @@ void main() {
   float trebleSize = 0.6 + uTrebleEnergy * 0.8;
   // Elongate point size based on flow speed
   float elongationBoost = 1.0 + speed * 2.0;
-  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * elongationBoost * atmosphericDecay * trebleSize;
-  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  float pointSize = sizeMultiplier * uBasePointSize * (1200.0 / depth) * elongationBoost * atmosphericDecay * trebleSize;
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.5) : (1.0 + coc * 0.5);
   pointSize *= bokehScale;
-  gl_PointSize = clamp(pointSize, 2.5, 96.0);
+  gl_PointSize = clamp(pointSize, 2.5, 40.0);
 
   gl_Position = projectionMatrix * mvPosition;
 

@@ -33,12 +33,12 @@ export type GeoClass =
 // ---------------------------------------------------------------------------
 
 const paletteFamilies: Record<GeoClass, PaletteFamily> = {
-  tropical:     { id: 'tropical',     hueCenter: 30,  hueRange: 40, saturationBase: 0.70, warmth: 'warm' },
-  northern:     { id: 'northern',     hueCenter: 180, hueRange: 50, saturationBase: 0.45, warmth: 'cool' },
-  southern:     { id: 'southern',     hueCenter: 280, hueRange: 50, saturationBase: 0.55, warmth: 'cool' },
-  oceanic:      { id: 'oceanic',      hueCenter: 210, hueRange: 40, saturationBase: 0.50, warmth: 'cool' },
-  continental:  { id: 'continental',  hueCenter: 45,  hueRange: 40, saturationBase: 0.55, warmth: 'warm' },
-  temperate:    { id: 'temperate',    hueCenter: 120, hueRange: 50, saturationBase: 0.50, warmth: 'neutral' },
+  tropical:     { id: 'tropical',     hueCenter: 30,  hueRange: 90,  saturationBase: 0.70, warmth: 'warm' },
+  northern:     { id: 'northern',     hueCenter: 180, hueRange: 100, saturationBase: 0.45, warmth: 'cool' },
+  southern:     { id: 'southern',     hueCenter: 280, hueRange: 100, saturationBase: 0.55, warmth: 'cool' },
+  oceanic:      { id: 'oceanic',      hueCenter: 210, hueRange: 80,  saturationBase: 0.50, warmth: 'cool' },
+  continental:  { id: 'continental',  hueCenter: 45,  hueRange: 90,  saturationBase: 0.55, warmth: 'warm' },
+  temperate:    { id: 'temperate',    hueCenter: 120, hueRange: 100, saturationBase: 0.50, warmth: 'neutral' },
   unknown:      { id: 'unknown',      hueCenter: 180, hueRange: 360, saturationBase: 0.55, warmth: 'neutral' },
 };
 

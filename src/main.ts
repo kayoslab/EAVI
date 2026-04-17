@@ -174,7 +174,7 @@ geoPromise.then((geo) => {
     { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape, weight: 2,
       framing: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
     { kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1), weight: 2,
-      framing: { targetDistance: 6.0, lookOffset: [0, 1.5, 0], nearClip: 0.1, farClip: 80 } },
+      framing: { targetDistance: 14.0, lookOffset: [0, 3.0, 0], nearClip: 0.1, farClip: 100 } },
   ];
 
   // Build compound mode entries (empty on low tier)

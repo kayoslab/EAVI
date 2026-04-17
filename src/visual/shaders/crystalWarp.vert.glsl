@@ -63,7 +63,7 @@ void main() {
 
   // Treble-driven facet shimmer: per-point displacement along facet normal
   if (uHasFacetNormal > 0.5) {
-    float shimmerPhase = sin(uTime * 0.015 + aRandom.x * 6.28);
+    float shimmerPhase = sin(uTime * 0.007 * uCadence + aRandom.x * 6.28);
     pos += aFacetNormal * shimmerPhase * uTrebleEnergy * uFacetShimmer * 0.08;
   }
 
@@ -100,9 +100,9 @@ void main() {
 
   // Treble micro displacement
   float trebleJitter = uTrebleEnergy * 0.12 * ma;
-  pos.x += sin(t * 0.011 + aRandom.x * 7.3) * trebleJitter;
-  pos.y += cos(t * 0.013 + aRandom.y * 5.7) * trebleJitter;
-  pos.z += sin(t * 0.009 + aRandom.z * 3.1) * trebleJitter;
+  pos.x += sin(t * 0.005 * uCadence + aRandom.x * 7.3) * trebleJitter;
+  pos.y += cos(t * 0.006 * uCadence + aRandom.y * 5.7) * trebleJitter;
+  pos.z += sin(t * 0.004 * uCadence + aRandom.z * 3.1) * trebleJitter;
 
   // Always-on gentle shape evolution (audio-independent)
   float autoMorph = sin(t * 0.00008 + aRandom.x * TAU) * 0.05;
@@ -145,10 +145,10 @@ void main() {
 
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
-  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay;
-  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  float pointSize = sizeMultiplier * uBasePointSize * (1200.0 / depth) * trebleSparkle * atmosphericDecay;
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.5) : (1.0 + coc * 0.5);
   pointSize *= bokehScale;
-  gl_PointSize = clamp(pointSize, 2.5, 96.0);
+  gl_PointSize = clamp(pointSize, 2.5, 40.0);
 
   gl_Position = projectionMatrix * mvPosition;
 
