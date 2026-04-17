@@ -10,6 +10,7 @@ export interface CompoundLayerDef {
 export interface CompoundModeDef {
   name: string;
   layers: [CompoundLayerDef, CompoundLayerDef];
+  weight?: number;
 }
 
 export interface CompoundLayerEntry {
@@ -23,6 +24,7 @@ export interface CompoundRotationEntry {
   layers: [CompoundLayerEntry, CompoundLayerEntry];
   primaryLayerIndex: 0 | 1;
   maxPoints: number;
+  weight?: number;
 }
 
 export const COMPOUND_MODE_DEFS: CompoundModeDef[] = [
@@ -39,6 +41,7 @@ export const COMPOUND_MODE_DEFS: CompoundModeDef[] = [
       { systemName: 'pointcloud', isPrimary: true },
       { systemName: 'fractalgrowth', isPrimary: false },
     ],
+    weight: 2,
   },
 ];
 
@@ -89,6 +92,7 @@ export function buildCompoundEntries(
       layers: layerEntries,
       primaryLayerIndex: primaryIndex,
       maxPoints: totalPoints,
+      ...(def.weight !== undefined ? { weight: def.weight } : {}),
     };
   });
 }
