@@ -57,10 +57,10 @@ void main() {
   // Bass-driven macro noise displacement
   float bassNoise = fbm3(pos * 0.5 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
   vec3 bassNoiseDir = normalize(pos + vec3(0.001));
-  pos += bassNoiseDir * bassNoise * uBassEnergy * uDisplacementScale * 0.3;
+  pos += bassNoiseDir * bassNoise * uBassEnergy * uDisplacementScale * 0.15;
 
   // Twist around Y axis
-  float twistAngle = uBassEnergy * sin(t * 0.0003 + aRandom.x * TAU) * 0.3 * ma * uTwistStrength;
+  float twistAngle = uBassEnergy * sin(t * 0.0003) * 0.15 * ma * uTwistStrength;
   float cosT = cos(twistAngle);
   float sinT = sin(twistAngle);
   pos = vec3(
@@ -70,7 +70,7 @@ void main() {
   );
 
   // Bass directional drift
-  float bassDrift = uBassEnergy * 0.15 * ma;
+  float bassDrift = uBassEnergy * 0.08 * ma;
   pos.x += sin(t * 0.0004 + aRandom.x * 11.0) * bassDrift;
   pos.y += cos(t * 0.0003 + aRandom.y * 13.0) * bassDrift;
   pos.z += sin(t * 0.0005 + aRandom.z * 7.0) * bassDrift;
@@ -87,8 +87,8 @@ void main() {
     vec2 screenPos = pos.xy;
     vec2 diff = screenPos - uPointerPos;
     float dist = length(diff) + 0.001;
-    float repulse = uPointerDisturbance * 0.3 / (dist * dist + 0.5);
-    pos.xy += normalize(diff) * repulse * 0.1;
+    float repulse = uPointerDisturbance * 0.15 / (dist * dist + 0.5);
+    pos.xy += normalize(diff) * repulse * 0.05;
   }
 
   // --- Structural: field spread ---
@@ -118,10 +118,10 @@ void main() {
   trebleSparkle *= (1.0 + uTrebleEnergy * aRandom.y * 0.5);
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float connectivityBoost = 1.0 + vConnectivity * 0.5;
-  float pointSize = uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay * connectivityBoost;
-  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  float pointSize = uBasePointSize * (1200.0 / depth) * trebleSparkle * atmosphericDecay * connectivityBoost;
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.5) : (1.0 + coc * 0.5);
   pointSize *= bokehScale;
-  gl_PointSize = clamp(pointSize, 2.5, 96.0);
+  gl_PointSize = clamp(pointSize, 2.5, 40.0);
 
   gl_Position = projectionMatrix * mvPosition;
 }

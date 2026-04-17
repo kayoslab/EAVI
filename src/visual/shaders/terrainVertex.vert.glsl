@@ -28,9 +28,9 @@ void main() {
   float ma = uMotionAmplitude;
 
   // --- Continuous time-based wave (rolls even without audio) ---
-  float baseWave = fbm3(vec3(pos.x * 0.06, pos.z * 0.06, t * 0.0002 * uCadence), uNoiseOctaves);
+  float baseWave = fbm3(vec3(pos.x * 0.06, pos.z * 0.06, t * 0.00008 * uCadence), uNoiseOctaves);
   // Bass SCALES wave amplitude
-  float bassScale = 1.0 + uBassEnergy * 1.5;
+  float bassScale = 1.0 + uBassEnergy * 0.6;
   pos.y += baseWave * ma * bassScale;
 
   // --- Treble fine vertex jitter ---
@@ -56,11 +56,11 @@ void main() {
   // --- Small dense point size with treble shimmer ---
   float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
   float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.5;
-  float atmosphericDecay = exp(-0.06 * max(depth - uFogNear, 0.0));
-  float pointSize = 4.0 * (1800.0 / depth) * trebleSparkle * atmosphericDecay;
-  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  float atmosphericDecay = exp(-0.03 * max(depth - uFogNear, 0.0));
+  float pointSize = 2.0 * (800.0 / depth) * trebleSparkle * atmosphericDecay;
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.5) : (1.0 + coc * 0.5);
   pointSize *= bokehScale;
-  gl_PointSize = clamp(pointSize, 1.0, 32.0);
+  gl_PointSize = clamp(pointSize, 1.0, 12.0);
 
   vVertexColor = aVertexColor;
 

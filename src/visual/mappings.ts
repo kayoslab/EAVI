@@ -104,8 +104,8 @@ function geoToPalette(
   const hueOffset = (h % 1000) / 1000; // 0-1
   const hue = ((family.hueCenter - family.hueRange / 2 + hueOffset * family.hueRange) % 360 + 360) % 360;
 
-  // Saturation: family base ± 0.1, clamped to 0.3-0.8
-  const satOffset = (((h >>> 8) % 1000) / 1000) * 0.2 - 0.1; // -0.1 to +0.1
+  // Saturation: family base ± 0.2, clamped to 0.3-0.8
+  const satOffset = (((h >>> 8) % 1000) / 1000) * 0.4 - 0.2; // -0.2 to +0.2
   const saturation = Math.max(0.3, Math.min(0.8, family.saturationBase + satOffset));
 
   return { hue, saturation };
@@ -319,9 +319,9 @@ function structuralBase(seed: string): Pick<VisualParams, 'noiseFrequency' | 'ra
   const h = simpleHash(seed + ':struct');
   const h2 = simpleHash(seed + ':struct2');
   return {
-    noiseFrequency: 0.7 + ((h % 1000) / 1000) * 0.6,           // [0.7, 1.3]
-    radialScale: 0.85 + (((h >>> 8) % 1000) / 1000) * 0.3,     // [0.85, 1.15]
-    twistStrength: 0.5 + ((h2 % 1000) / 1000) * 1.0,            // [0.5, 1.5]
-    fieldSpread: 0.9 + (((h2 >>> 8) % 1000) / 1000) * 0.2,     // [0.9, 1.1]
+    noiseFrequency: 0.4 + ((h % 1000) / 1000) * 1.4,           // [0.4, 1.8]
+    radialScale: 0.6 + (((h >>> 8) % 1000) / 1000) * 0.8,     // [0.6, 1.4]
+    twistStrength: 0.2 + ((h2 % 1000) / 1000) * 2.0,            // [0.2, 2.2]
+    fieldSpread: 0.75 + (((h2 >>> 8) % 1000) / 1000) * 0.55,   // [0.75, 1.3]
   };
 }

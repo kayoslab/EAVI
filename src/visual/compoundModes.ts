@@ -36,7 +36,7 @@ const SYSTEM_FRAMING: Record<string, FramingConfig> = {
   crystal: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 },
   flowribbon: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 },
   fractalgrowth: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 },
-  terrain: { targetDistance: 6.0, lookOffset: [0, 1.5, 0], nearClip: 0.1, farClip: 80 },
+  terrain: { targetDistance: 14.0, lookOffset: [0, 3.0, 0], nearClip: 0.1, farClip: 100 },
 };
 
 const DEFAULT_COMPOUND_FRAMING: FramingConfig = {

@@ -46,8 +46,8 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       uCadence: { value: params.cadence },
       uNoiseFrequency: { value: params.noiseFrequency },
       uNoiseOctaves: { value: noiseOctaves },
-      uFogNear: { value: 3.0 },
-      uFogFar: { value: 12.0 },
+      uFogNear: { value: 8.0 },
+      uFogFar: { value: 40.0 },
       uHasVertexColor: { value: 1.0 },
       uFocusDistance: { value: 5.0 },
       uDofStrength: { value: config?.dofStrength ?? 0.6 },
@@ -114,8 +114,8 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
 
       pointsMesh = new THREE.Points(geometry, material);
 
-      const terrainPosition = new THREE.Vector3(0, -1.5, -2);
-      const terrainRotation = new THREE.Euler(-Math.PI * 0.38, 0, 0);
+      const terrainPosition = new THREE.Vector3(0, -3.0, -8);
+      const terrainRotation = new THREE.Euler(-Math.PI * 0.14, 0, 0);
 
       pointsMesh.position.copy(terrainPosition);
       pointsMesh.rotation.copy(terrainRotation);

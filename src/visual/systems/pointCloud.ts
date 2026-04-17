@@ -24,10 +24,10 @@ const DEFAULT_MAX_POINTS = 8000;
  * with a minimum floor of 24 points for visible volumetric shape.
  */
 export function computeAdaptiveCount(density: number, structureComplexity: number, maxPoints: number): number {
-  if (density === 0) return 24;
+  if (density === 0) return 200;
   const baseCount = Math.floor(density * maxPoints);
   const scaled = Math.floor(baseCount * (0.6 + structureComplexity * 0.4));
-  return Math.max(24, Math.min(scaled, maxPoints));
+  return Math.max(200, Math.min(scaled, maxPoints));
 }
 
 const REQUIRED_ATTRIBUTES = POINTCLOUD_ATTRIBUTES;
@@ -186,7 +186,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uPaletteSaturation: { value: params.paletteSaturation },
         uCadence: { value: params.cadence },
         uBreathScale: { value: 1.0 },
-        uBasePointSize: { value: 0.06 * (1 + params.structureComplexity * 0.5) * (isParametric ? 1.3 : 1.0) },
+        uBasePointSize: { value: 0.06 * (1 + params.structureComplexity * 0.5) * (isParametric ? 1.1 : 1.0) },
         uNoiseFrequency: { value: 1.0 },
         uRadialScale: { value: 1.0 },
         uTwistStrength: { value: 1.0 },
@@ -256,7 +256,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5) * (isParametric ? 1.3 : 1.0);
+      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5) * (isParametric ? 1.1 : 1.0);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;

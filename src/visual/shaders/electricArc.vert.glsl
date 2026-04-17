@@ -68,9 +68,9 @@ void main() {
 
   // --- Treble micro displacement ---
   float trebleJitter = uTrebleEnergy * 0.12 * ma;
-  pos.x += sin(t * 0.011 + aRandom.x * 7.3) * trebleJitter;
-  pos.y += cos(t * 0.013 + aRandom.y * 5.7) * trebleJitter;
-  pos.z += sin(t * 0.009 + aRandom.z * 3.1) * trebleJitter;
+  pos.x += sin(t * 0.005 * uCadence + aRandom.x * 7.3) * trebleJitter;
+  pos.y += cos(t * 0.006 * uCadence + aRandom.y * 5.7) * trebleJitter;
+  pos.z += sin(t * 0.004 * uCadence + aRandom.z * 3.1) * trebleJitter;
 
   // --- Optional slow modulation ---
   if (uEnableSlowModulation > 0.5) {

@@ -56,43 +56,43 @@ function buildCurves(seed: string): CurveParams {
   }
 
   const curves: CurveParams = {
-    // paletteHue: slow drift ±15-30 degrees, primary period ~90-180s, secondary ~30-60s
+    // paletteHue: drift ±25-50 degrees, period ~55-110s
     paletteHue: harmonics(
-      7, 15, // amplitude per harmonic (degrees), sums to ~15-30
-      (2 * Math.PI) / 180000, (2 * Math.PI) / 90000, // freq range: periods 90-180s
+      11, 23, // amplitude per harmonic (degrees), sums to ~25-50
+      (2 * Math.PI) / 108000, (2 * Math.PI) / 54000, // freq range: periods 54-108s
       3,
     ),
-    // cadence: medium oscillation ±0.1-0.2, period ~20-50s
+    // cadence: medium oscillation ±0.15-0.3, period ~12-30s
     cadence: harmonics(
-      0.03, 0.07, // amplitude per harmonic, sums to ~0.1-0.2
-      (2 * Math.PI) / 50000, (2 * Math.PI) / 20000, // freq range: periods 20-50s
+      0.05, 0.10, // amplitude per harmonic, sums to ~0.15-0.3
+      (2 * Math.PI) / 30000, (2 * Math.PI) / 12000, // freq range: periods 12-30s
       3,
     ),
-    // paletteSaturation: very slow drift ±0.05-0.15, period ~120-300s
+    // paletteSaturation: slow drift ±0.08-0.22, period ~72-180s
     paletteSaturation: harmonics(
-      0.02, 0.05, // amplitude per harmonic, sums to ~0.05-0.15
-      (2 * Math.PI) / 300000, (2 * Math.PI) / 120000, // freq range: periods 120-300s
+      0.03, 0.08, // amplitude per harmonic, sums to ~0.08-0.22
+      (2 * Math.PI) / 180000, (2 * Math.PI) / 72000, // freq range: periods 72-180s
       3,
     ),
     // Structural evolution curves
     noiseFrequency: harmonics(
-      0.05, 0.15, // amplitude per harmonic, sums to ~0.15-0.45
-      (2 * Math.PI) / 180000, (2 * Math.PI) / 60000, // periods 60-180s
+      0.08, 0.22, // amplitude per harmonic, sums to ~0.22-0.66
+      (2 * Math.PI) / 108000, (2 * Math.PI) / 36000, // periods 36-108s
       3,
     ),
     radialScale: harmonics(
-      0.03, 0.08, // amplitude per harmonic, sums to ~0.09-0.24
-      (2 * Math.PI) / 200000, (2 * Math.PI) / 80000, // periods 80-200s
+      0.05, 0.12, // amplitude per harmonic, sums to ~0.14-0.36
+      (2 * Math.PI) / 120000, (2 * Math.PI) / 48000, // periods 48-120s
       3,
     ),
     twistStrength: harmonics(
-      0.1, 0.25, // amplitude per harmonic, sums to ~0.3-0.75
-      (2 * Math.PI) / 120000, (2 * Math.PI) / 45000, // periods 45-120s
+      0.15, 0.38, // amplitude per harmonic, sums to ~0.45-1.1
+      (2 * Math.PI) / 72000, (2 * Math.PI) / 27000, // periods 27-72s
       3,
     ),
     fieldSpread: harmonics(
-      0.02, 0.06, // amplitude per harmonic, sums to ~0.06-0.18
-      (2 * Math.PI) / 240000, (2 * Math.PI) / 100000, // periods 100-240s
+      0.03, 0.09, // amplitude per harmonic, sums to ~0.09-0.27
+      (2 * Math.PI) / 144000, (2 * Math.PI) / 60000, // periods 60-144s
       3,
     ),
   };

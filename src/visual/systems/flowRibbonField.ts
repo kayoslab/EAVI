@@ -200,7 +200,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.10 * (1 + structureComplexity * 0.5);
+      u.uBasePointSize.value = 0.06 * (1 + structureComplexity * 0.5);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;

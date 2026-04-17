@@ -48,9 +48,9 @@ void main() {
 
   // --- Treble micro displacement (GPU micro-detail) ---
   float trebleJitter = uTrebleEnergy * 0.12 * ma;
-  pos.x += sin(t * 0.011 + aRandom.x * 7.3) * trebleJitter;
-  pos.y += cos(t * 0.013 + aRandom.y * 5.7) * trebleJitter;
-  pos.z += sin(t * 0.009 + aRandom.z * 3.1) * trebleJitter;
+  pos.x += sin(t * 0.005 * uCadence + aRandom.x * 7.3) * trebleJitter;
+  pos.y += cos(t * 0.006 * uCadence + aRandom.y * 5.7) * trebleJitter;
+  pos.z += sin(t * 0.004 * uCadence + aRandom.z * 3.1) * trebleJitter;
 
   // Treble fine-grain noise displacement
   float trebleFine = snoise(pos * 3.0 * uNoiseFrequency + vec3(t * 0.002)) * uTrebleEnergy * 0.08 * ma;
@@ -97,11 +97,11 @@ void main() {
 
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
-  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay;
+  float pointSize = sizeMultiplier * uBasePointSize * (1200.0 / depth) * trebleSparkle * atmosphericDecay;
   // Bokeh size scaling: foreground gets large soft circles, background slight increase
-  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.5) : (1.0 + coc * 0.5);
   pointSize *= bokehScale;
-  gl_PointSize = clamp(pointSize, 2.5, 96.0);
+  gl_PointSize = clamp(pointSize, 2.5, 40.0);
 
   gl_Position = projectionMatrix * mvPosition;
 
