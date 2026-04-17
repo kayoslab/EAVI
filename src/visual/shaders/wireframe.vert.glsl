@@ -40,6 +40,10 @@ void main() {
   float expansion = 1.0 + uBassEnergy * 0.25 * ma;
   pos *= expansion;
 
+  // --- Bass growth pulse: tips expand more than trunk (aRandom.y = depthRatio) ---
+  float growthPulse = 1.0 + uBassEnergy * aRandom.y * 0.15;
+  pos *= growthPulse;
+
   // Bass-driven macro noise displacement
   float bassNoise = fbm3(pos * 0.5 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
   vec3 bassNoiseDir = normalize(pos + vec3(0.001));

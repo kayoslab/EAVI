@@ -50,6 +50,10 @@ void main() {
   float expansion = 1.0 + uBassEnergy * 0.25 * ma;
   pos *= expansion;
 
+  // --- Bass growth pulse: tips expand more than trunk (aRandom.y = depthRatio) ---
+  float growthPulse = 1.0 + uBassEnergy * aRandom.y * 0.15;
+  pos *= growthPulse;
+
   // Bass-driven macro noise displacement
   float bassNoise = fbm3(pos * 0.5 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
   vec3 bassNoiseDir = normalize(pos + vec3(0.001));
@@ -110,6 +114,8 @@ void main() {
   // --- Point size with treble sparkle and connectivity emphasis ---
   float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
   float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.35;
+  // Tip sparkle: tips (aRandom.y≈1) sparkle more with treble
+  trebleSparkle *= (1.0 + uTrebleEnergy * aRandom.y * 0.5);
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float connectivityBoost = 1.0 + vConnectivity * 0.5;
   float pointSize = uBasePointSize * (2200.0 / depth) * trebleSparkle * atmosphericDecay * connectivityBoost;
