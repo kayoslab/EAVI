@@ -1590,6 +1590,7 @@
       "passes": true,
       "status": "pass",
       "depends_on": [
+        "US-047",
         "US-074"
       ],
       "split_from": "US-074",
@@ -1767,12 +1768,13 @@
       ],
       "priority": 2,
       "passes": false,
-      "status": "fail",
+      "status": "in_progress",
       "depends_on": [
         "US-081"
       ],
       "split_from": null,
-      "notes": null
+      "notes": null,
+      "claimed_by": "worker-3"
     },
     {
       "id": "US-086",
@@ -1785,8 +1787,8 @@
         "Vibrant palette applied (US-081); no console errors"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "fail",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-081"
       ],
@@ -1805,12 +1807,13 @@
       ],
       "priority": 1,
       "passes": false,
-      "status": "fail",
+      "status": "in_progress",
       "depends_on": [
         "US-081"
       ],
       "split_from": null,
-      "notes": "Directly addresses 'wobbly cubes' feedback."
+      "notes": "Directly addresses 'wobbly cubes' feedback.",
+      "claimed_by": "worker-1"
     },
     {
       "id": "US-088",
@@ -1852,6 +1855,7 @@
       "passes": false,
       "status": "available",
       "depends_on": [
+        "US-042",
         "US-082",
         "US-083",
         "US-084",
@@ -1876,6 +1880,7 @@
       "passes": false,
       "status": "available",
       "depends_on": [
+        "US-080",
         "US-082",
         "US-083",
         "US-084",
