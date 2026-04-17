@@ -37,8 +37,8 @@ vec3 triStopGradient(float t) {
 }
 
 void main() {
-  // Spatial gradient based on normalized world position
-  float spatialT = clamp((vWorldPos.x + 3.0) / 6.0, 0.0, 1.0);
+  // Spatial gradient based on radial distance (trunk→tips maps to blue→orange)
+  float spatialT = clamp(length(vWorldPos) / 3.0, 0.0, 1.0);
 
   // Base lightness with treble shimmer
   float brightness = 1.0 + uTrebleEnergy * 0.15;

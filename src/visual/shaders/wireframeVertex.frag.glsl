@@ -51,8 +51,8 @@ void main() {
   float pointAlpha = 1.0 - smoothstep(innerEdge, 0.5, dist);
   pointAlpha *= mix(1.0, 0.35, vCoC);
 
-  // Spatial gradient based on normalized world position
-  float spatialT = clamp((vWorldPos.x + 3.0) / 6.0, 0.0, 1.0);
+  // Spatial gradient based on radial distance (trunk→tips maps to blue→orange)
+  float spatialT = clamp(length(vWorldPos) / 3.0, 0.0, 1.0);
 
   // Vertex dots slightly brighter than edge lines
   float brightness = 1.0 + uTrebleEnergy * 0.15;

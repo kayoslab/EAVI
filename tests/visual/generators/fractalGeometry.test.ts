@@ -231,17 +231,17 @@ describe('US-057: Fractal geometry generator', () => {
   // T-057-20
   it('T-057-20: selectStrategy returns a valid FractalStrategy and is deterministic', () => {
     const s1 = selectStrategy('seed-a');
-    expect(['faceSubdivision', 'branchingGrowth']).toContain(s1);
+    expect(['faceSubdivision', 'branchingGrowth', 'lSystemTree']).toContain(s1);
 
     const s2 = selectStrategy('seed-a');
     expect(s1).toBe(s2);
 
-    // Coverage: ensure both strategies appear across many seeds
+    // Coverage: ensure all strategies appear across many seeds
     const strategies = new Set<string>();
     for (let i = 0; i < 50; i++) {
       strategies.add(selectStrategy(`coverage-${i}`));
     }
-    expect(strategies.size).toBe(2);
+    expect(strategies.size).toBe(3);
   });
 
   // T-057-21
@@ -292,9 +292,10 @@ describe('US-057: Fractal geometry generator', () => {
 
   // T-057-24
   it('T-057-24: FRACTAL_STRATEGIES contains exactly faceSubdivision and branchingGrowth', () => {
-    expect(FRACTAL_STRATEGIES).toHaveLength(2);
+    expect(FRACTAL_STRATEGIES).toHaveLength(3);
     expect(FRACTAL_STRATEGIES).toContain('faceSubdivision');
     expect(FRACTAL_STRATEGIES).toContain('branchingGrowth');
+    expect(FRACTAL_STRATEGIES).toContain('lSystemTree');
   });
 
   // T-057-25
