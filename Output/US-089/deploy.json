@@ -1,0 +1,1 @@
+{"decision":"pass","gates_checked":["tests","typecheck","build"],"failures":[],"notes":"All 2402 tests pass (including 33 US-089 framing tests). TypeScript typecheck clean. Build succeeds. One pre-existing healthCheck test fails (dist/index.html path resolution inside vitest) — unrelated to US-089."}
