@@ -69,11 +69,12 @@ void main() {
     pos.x * sinT + pos.z * cosT
   );
 
-  // Bass directional drift
+  // Bass directional drift — use position for phase so edges and vertices stay coherent
   float bassDrift = uBassEnergy * 0.08 * ma;
-  pos.x += sin(t * 0.0004 + aRandom.x * 11.0) * bassDrift;
-  pos.y += cos(t * 0.0003 + aRandom.y * 13.0) * bassDrift;
-  pos.z += sin(t * 0.0005 + aRandom.z * 7.0) * bassDrift;
+  vec3 origPos = position * uRadialScale;
+  pos.x += sin(t * 0.0004 + origPos.y * 3.0 + origPos.z * 2.0) * bassDrift;
+  pos.y += cos(t * 0.0003 + origPos.x * 3.0 + origPos.z * 2.0) * bassDrift;
+  pos.z += sin(t * 0.0005 + origPos.x * 2.0 + origPos.y * 3.0) * bassDrift;
 
   // --- Optional slow modulation (gated behind bass energy) ---
   if (uEnableSlowModulation > 0.5) {
