@@ -174,3 +174,5 @@
 
 ## US-082: Rebuild particleField as curl-noise vector flow
 
+## US-086: Overhaul flowRibbonField with long sweeping curves and depth fade
+
