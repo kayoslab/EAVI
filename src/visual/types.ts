@@ -29,6 +29,13 @@ export interface GeometrySystemInfo {
   requiredAttrs: AttributeSpec[];
 }
 
+export interface FramingConfig {
+  targetDistance: number;
+  lookOffset: [number, number, number];
+  nearClip: number;
+  farClip: number;
+}
+
 export interface GeometrySystem {
   init(
     scene: Scene,
