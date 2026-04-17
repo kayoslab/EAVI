@@ -11,6 +11,7 @@ varying vec3 vColor;
 varying vec3 vVertexColor;
 varying float vDepth;
 varying float vCoC;
+varying vec3 vFacetNormal;
 
 void main() {
   vec2 center = gl_PointCoord - vec2(0.5);
@@ -26,6 +27,10 @@ void main() {
 
   // Vibrant vertex color with fallback
   vec3 baseColor = mix(vColor, vVertexColor, uHasVertexColor);
+
+  // Facet-facing brightness: facets facing camera appear brighter (pseudo-Lambertian)
+  float facing = abs(dot(normalize(vFacetNormal), vec3(0.0, 0.0, 1.0)));
+  baseColor *= 0.7 + 0.3 * facing;
 
   // Chromatic dispersion: per-channel gl_PointCoord offset
   vec3 color = chromaticPoint(baseColor, gl_PointCoord, uDispersion);
