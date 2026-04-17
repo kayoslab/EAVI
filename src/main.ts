@@ -109,6 +109,7 @@ geoPromise.then((geo) => {
   const particles = createParticleField({
     maxParticles: quality.maxParticles,
     enableSparkle: quality.enableSparkle,
+    dofStrength: quality.dofStrength,
   });
   const ribbon = createRibbonField({
     maxPoints: quality.maxRibbonPoints,
@@ -116,6 +117,7 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
+    dofStrength: quality.dofStrength,
   });
   const pointCloud = createPointCloud({
     maxPoints: quality.maxPoints,
@@ -124,6 +126,7 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
     useVoronoiShader: quality.enableVoronoiCells,
+    dofStrength: quality.dofStrength,
   });
   const crystal = createCrystalField({
     maxPoints: Math.round(quality.maxPoints * 0.8),
@@ -131,6 +134,7 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
+    dofStrength: quality.dofStrength,
   });
   const flowRibbon = createFlowRibbonField({
     maxPoints: quality.maxFlowRibbonPoints,
@@ -138,6 +142,7 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
+    dofStrength: quality.dofStrength,
   });
   const fractalGrowth = createFractalGrowthWireframe({
     maxFractalDepth: Math.min(quality.maxFractalDepth, 5),
@@ -151,6 +156,7 @@ geoPromise.then((geo) => {
     cols: quality.terrainCols,
     pointCount: quality.terrainPointCount,
     noiseOctaves: quality.noiseOctaves,
+    dofStrength: quality.dofStrength,
   });
   // Build single-mode rotation entries
   // Overhauled flagship modes (US-076 terrain, US-084 pointcloud, US-087 fractalgrowth) get weight 2

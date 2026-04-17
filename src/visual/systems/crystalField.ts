@@ -22,6 +22,7 @@ export interface CrystalFieldConfig {
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
+  dofStrength?: number;
 }
 
 export interface CrystalField extends GeometrySystem {
@@ -138,7 +139,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
         uFogFar: { value: 8.0 },
         uDispersion: { value: 0.0 },
         uFocusDistance: { value: 5.0 },
-        uDofStrength: { value: 0.6 },
+        uDofStrength: { value: config?.dofStrength ?? 0.6 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({
