@@ -26,6 +26,7 @@ export interface RibbonFieldConfig {
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
+  dofStrength?: number;
 }
 
 export interface RibbonField extends GeometrySystem {
@@ -183,7 +184,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
         uFogFar: { value: 8.0 },
         uDispersion: { value: 0.0 },
         uFocusDistance: { value: 5.0 },
-        uDofStrength: { value: 0.6 },
+        uDofStrength: { value: config?.dofStrength ?? 0.6 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({

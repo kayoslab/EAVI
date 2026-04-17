@@ -17,6 +17,7 @@ export interface TerrainHeightfieldConfig {
   cols?: number;
   pointCount?: number;
   noiseOctaves?: 1 | 2 | 3;
+  dofStrength?: number;
 }
 
 export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): GeometrySystem & {
@@ -49,7 +50,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       uFogFar: { value: 12.0 },
       uHasVertexColor: { value: 1.0 },
       uFocusDistance: { value: 5.0 },
-      uDofStrength: { value: 0.6 },
+      uDofStrength: { value: config?.dofStrength ?? 0.6 },
     };
   }
 
