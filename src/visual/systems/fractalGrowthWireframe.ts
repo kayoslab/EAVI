@@ -8,7 +8,7 @@ import wireframeVert from '../shaders/wireframe.vert.glsl?raw';
 import wireframeFrag from '../shaders/wireframe.frag.glsl?raw';
 import wireframeVertexVert from '../shaders/wireframeVertex.vert.glsl?raw';
 import wireframeVertexFrag from '../shaders/wireframeVertex.frag.glsl?raw';
-import { generateCubeGrowth } from '../generators/cubeGrowth';
+import { generateLSystemTree } from '../generators/lSystemTree';
 import { createInstancedCubeOccluder, syncOccluderUniforms } from '../occluder';
 
 const standardVertexShader = noise3dGlsl + '\n' + wireframeVert;
@@ -100,10 +100,10 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
     init(scene: Scene, seed: string, params: VisualParams): void {
       sceneRef = scene;
 
-      const growth = generateCubeGrowth({
+      const growth = generateLSystemTree({
         seed: seed + ':fractalgrowth',
         depth: maxFractalDepth,
-        maxVertices: Math.ceil(maxEdgesPerShape / 12) * 8,
+        maxVertices: maxEdgesPerShape * 2,
         maxEdges: maxEdgesPerShape,
       });
 

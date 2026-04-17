@@ -1,10 +1,11 @@
 import { createPRNG } from '../prng';
 
-export type FractalStrategy = 'faceSubdivision' | 'branchingGrowth';
+export type FractalStrategy = 'faceSubdivision' | 'branchingGrowth' | 'lSystemTree';
 
 export const FRACTAL_STRATEGIES: readonly FractalStrategy[] = [
   'faceSubdivision',
   'branchingGrowth',
+  'lSystemTree',
 ] as const;
 
 export interface FractalConfig {
