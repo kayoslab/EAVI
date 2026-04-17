@@ -176,3 +176,5 @@
 
 ## US-086: Overhaul flowRibbonField with long sweeping curves and depth fade
 
+## US-085: Rebuild crystalField as lattice-aligned faceted cluster
+
