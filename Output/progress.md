@@ -182,3 +182,5 @@
 
 ## US-089: Per-mode camera framing pass
 
+## US-090: Rebalance rotation weights after overhaul
+
