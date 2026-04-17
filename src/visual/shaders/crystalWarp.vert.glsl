@@ -21,6 +21,10 @@ uniform float uEnablePointerRepulsion;
 uniform float uEnableSlowModulation;
 uniform float uDisplacementScale;
 uniform float uHasSizeAttr;
+uniform float uHasLatticePos;
+uniform float uHasFacetNormal;
+uniform float uLatticePulse;
+uniform float uFacetShimmer;
 uniform float uFogNear;
 uniform float uFocusDistance;
 uniform float uDofStrength;
@@ -28,11 +32,14 @@ uniform float uDofStrength;
 attribute float size;
 attribute vec3 aRandom;
 attribute vec3 aVertexColor;
+attribute vec3 aLatticePos;
+attribute vec3 aFacetNormal;
 
 varying vec3 vColor;
 varying vec3 vVertexColor;
 varying float vDepth;
 varying float vCoC;
+varying vec3 vFacetNormal;
 
 const float TAU = 6.283185307;
 
@@ -47,6 +54,18 @@ void main() {
   // Bass-driven radial expansion
   float expansion = 1.0 + uBassEnergy * 0.25 * ma;
   pos *= expansion;
+
+  // Bass-driven lattice pulse: coherent per-crystal expansion along lattice vector
+  if (uHasLatticePos > 0.5) {
+    vec3 latticeDir = normalize(aLatticePos + vec3(0.001));
+    pos += latticeDir * uLatticePulse * uBassEnergy * 0.4;
+  }
+
+  // Treble-driven facet shimmer: per-point displacement along facet normal
+  if (uHasFacetNormal > 0.5) {
+    float shimmerPhase = sin(uTime * 0.015 + aRandom.x * 6.28);
+    pos += aFacetNormal * shimmerPhase * uTrebleEnergy * uFacetShimmer * 0.08;
+  }
 
   // Quantized noise displacement — faceted/angular character
   float rawNoise = fbm3(pos * 0.5 + vec3(t * 0.00003 * uCadence), uNoiseOctaves);
@@ -132,6 +151,9 @@ void main() {
   gl_PointSize = clamp(pointSize, 2.5, 96.0);
 
   gl_Position = projectionMatrix * mvPosition;
+
+  // Pass facet normal to fragment shader
+  vFacetNormal = uHasFacetNormal > 0.5 ? aFacetNormal : vec3(0.0, 0.0, 1.0);
 
   // --- Color from vibrant vertex color attribute ---
   vVertexColor = aVertexColor;

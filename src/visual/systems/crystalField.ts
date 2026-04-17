@@ -7,8 +7,7 @@ import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import crystalWarpVert from '../shaders/crystalWarp.vert.glsl?raw';
 import crystalWarpFrag from '../shaders/crystalWarp.frag.glsl?raw';
-import { generateVolumetricPoints } from '../generators/volumetricPoints';
-import type { VolumetricShape } from '../generators/volumetricPoints';
+import { generateLatticeCluster } from '../generators/latticeCluster';
 import { computeAdaptiveCount } from './pointCloud';
 import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 
@@ -16,7 +15,6 @@ const vertexShader = noise3dGlsl + '\n' + crystalWarpVert;
 const fragmentShader = chromaticDispersionGlsl + '\n' + crystalWarpFrag;
 
 const DEFAULT_MAX_POINTS = 6400;
-const CRYSTAL_SHAPES: VolumetricShape[] = ['crystalCluster', 'geode', 'noiseLattice', 'spiralField'];
 
 export interface CrystalFieldConfig {
   maxPoints?: number;
@@ -59,15 +57,30 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
 
       effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
-      // Select from crystal-only shapes
-      const shapeIndex = Math.floor(rng() * CRYSTAL_SHAPES.length) % CRYSTAL_SHAPES.length;
-      const shape: VolumetricShape = CRYSTAL_SHAPES[shapeIndex];
+      // Lattice cluster configuration — keep total within maxPoints
+      let nodeCount = Math.max(1, Math.round(6 + params.structureComplexity * 6)); // 6-12 nodes
+      let pointsPerCrystal = Math.max(200, Math.floor(effectiveCount / nodeCount));
+      // If total exceeds budget, reduce node count first, then cap points per crystal
+      while (nodeCount > 1 && nodeCount * pointsPerCrystal > maxPoints) {
+        nodeCount--;
+        pointsPerCrystal = Math.max(200, Math.floor(effectiveCount / nodeCount));
+      }
+      if (nodeCount * pointsPerCrystal > maxPoints) {
+        pointsPerCrystal = Math.floor(maxPoints / nodeCount);
+      }
+      effectiveCount = nodeCount * pointsPerCrystal;
 
-      const positionsArr = generateVolumetricPoints({
-        shape,
-        pointCount: effectiveCount,
+      const latticeResult = generateLatticeCluster({
+        nodeCount,
+        pointsPerCrystal,
+        latticeType: 'hex',
+        latticeSpacing: 1.2 + params.structureComplexity * 0.6,
+        crystalHeight: 1.0,
+        crystalRadius: 0.4,
         seed: seed + ':crystal',
       });
+
+      const positionsArr = latticeResult.positions;
 
       const sizesArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
@@ -91,6 +104,8 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
       geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
+      geometry.setAttribute('aLatticePos', new THREE.BufferAttribute(latticeResult.latticePositions, 3));
+      geometry.setAttribute('aFacetNormal', new THREE.BufferAttribute(latticeResult.facetNormals, 3));
 
       const uniforms = {
         uTime: { value: 0.0 },
@@ -115,6 +130,10 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uHasSizeAttr: { value: 1.0 },
         uHasVertexColor: { value: 1.0 },
+        uHasLatticePos: { value: 1.0 },
+        uHasFacetNormal: { value: 1.0 },
+        uLatticePulse: { value: 0.0 },
+        uFacetShimmer: { value: 0.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
         uDispersion: { value: 0.0 },
@@ -165,6 +184,8 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
+      u.uLatticePulse.value = bassEnergy;
+      u.uFacetShimmer.value = trebleEnergy;
 
       // Breathing scale (two harmonics)
       const breathScale = 1
