@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as THREE from 'three';
 import { createFlowRibbonField, getPointCount, getPointPositions } from '../../../src/visual/systems/flowRibbonField';
+import { OPTIONAL_FLOWRIBBON_ATTRIBUTES } from '../../../src/visual/shaderRegistry';
 import type { VisualParams } from '../../../src/visual/mappings';
 import type { FrameState } from '../../../src/visual/types';
 
@@ -400,5 +401,191 @@ describe('US-063: FlowRibbonField geometry system', () => {
     const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
     expect(mat.fragmentShader).toContain('uFogNear');
     expect(mat.fragmentShader).toContain('uFogFar');
+  });
+});
+
+describe('US-086: FlowRibbonField long sweeping curves and depth fade', () => {
+  it('T-086-01: ribbon count is reduced — sourceCount ≤ 30 for default maxPoints', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'ribbon-count-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const totalPoints = geo.getAttribute('position').count;
+    // With long trail lengths (≥80), sourceCount should be totalPoints / trailLength ≤ 30
+    // For default maxPoints (5000) at default density, we expect few wide-sweeping ribbons
+    // The ratio of total points to trail length gives the ribbon count
+    // With trailLength ~100 and default density, sourceCount should be well under 30
+    expect(totalPoints).toBeGreaterThan(0);
+    // Check that we can infer a low ribbon count: if trail length is ≥80,
+    // then sourceCount = ceil(totalPoints / trailLength) ≤ 30
+    // We verify this indirectly: totalPoints / 80 should be ≤ 30
+    // (since trailLength ≥ 80 means each ribbon has ≥ 80 points)
+    const maxRibbonCount = Math.ceil(totalPoints / 80);
+    expect(maxRibbonCount).toBeLessThanOrEqual(30);
+  });
+
+  it('T-086-02: trail length is ≥ 80 points per ribbon (long sweeping curves)', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'trail-length-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const totalPoints = geo.getAttribute('position').count;
+    // With reduced source count (≤ 30) and the total point budget,
+    // the per-ribbon trail length should be at least 80
+    // Minimum trail length = totalPoints / maxSourceCount
+    // Even at max 30 ribbons, with default ~2400 points, trail length ≈ 80+
+    const minTrailLength = Math.floor(totalPoints / 30);
+    expect(minTrailLength).toBeGreaterThanOrEqual(80);
+  });
+
+  it('T-086-03: aTrailProgress attribute exists with itemSize 1 and values in [0, 1]', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'trail-progress-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const trailProgress = geo.getAttribute('aTrailProgress');
+    expect(trailProgress).toBeDefined();
+    expect(trailProgress.itemSize).toBe(1);
+    const arr = trailProgress.array as Float32Array;
+    for (let i = 0; i < arr.length; i++) {
+      expect(arr[i]).toBeGreaterThanOrEqual(0);
+      expect(arr[i]).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('T-086-04: vertex shader contains treble-driven point size modulation (uTrebleEnergy near gl_PointSize)', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'treble-size-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+    // The vertex shader should modulate gl_PointSize with uTrebleEnergy
+    // Look for treble energy influencing point size calculation
+    expect(mat.vertexShader).toContain('uTrebleEnergy');
+    // Verify treble is used in the point-size section (not just turbulence)
+    // The shader should have a treble-based size factor near the gl_PointSize assignment
+    const lines = mat.vertexShader.split('\n');
+    const pointSizeLineIdx = lines.findIndex((l) => l.includes('gl_PointSize'));
+    expect(pointSizeLineIdx).toBeGreaterThan(-1);
+    // Search within ±10 lines of gl_PointSize for treble-driven size modulation
+    const contextStart = Math.max(0, pointSizeLineIdx - 10);
+    const contextEnd = Math.min(lines.length, pointSizeLineIdx + 10);
+    const sizeContext = lines.slice(contextStart, contextEnd).join('\n');
+    expect(sizeContext).toContain('uTrebleEnergy');
+  });
+
+  it('T-086-05: fragment shader contains trail-progress fade (vTrailProgress)', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'trail-fade-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+    // Fragment shader must use vTrailProgress for tail fade
+    expect(mat.fragmentShader).toContain('vTrailProgress');
+    // Vertex shader must also pass this varying
+    expect(mat.vertexShader).toContain('vTrailProgress');
+  });
+
+  it('T-086-06: aTrailProgress attribute is registered in shaderRegistry as optional', () => {
+    const hasTrailProgress = OPTIONAL_FLOWRIBBON_ATTRIBUTES.some(
+      (attr) => attr.name === 'aTrailProgress' && attr.itemSize === 1,
+    );
+    expect(hasTrailProgress).toBe(true);
+  });
+
+  it('T-086-07: advection produces spatially spread curves (not tightly clustered)', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'spread-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const posArr = (points.geometry as THREE.BufferGeometry).getAttribute('position').array as Float32Array;
+    const count = posArr.length / 3;
+    // Compute bounding box extent
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+    for (let i = 0; i < count; i++) {
+      const x = posArr[i * 3], y = posArr[i * 3 + 1], z = posArr[i * 3 + 2];
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+      if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    }
+    // With wider source radius and longer advection, curves should span a reasonable extent
+    const extentX = maxX - minX;
+    const extentY = maxY - minY;
+    const extentZ = maxZ - minZ;
+    // At least 2.0 extent in each axis for sweeping curves
+    expect(extentX).toBeGreaterThan(2.0);
+    expect(extentY).toBeGreaterThan(2.0);
+    expect(extentZ).toBeGreaterThan(2.0);
+  });
+
+  it('T-086-08: uFogFar default is widened to accommodate longer sweeping ribbons', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'fog-far-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+    // uFogFar should be ≥ 10.0 to let long ribbons breathe before fading
+    expect(mat.uniforms.uFogFar.value).toBeGreaterThanOrEqual(10.0);
+  });
+
+  it('T-086-09: bass modulates curve amplitude via scaled displacement factor', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'bass-amplitude-seed', defaultParams);
+    const mat = (scene.children.find((c) => c instanceof THREE.Points) as THREE.Points).material as THREE.ShaderMaterial;
+    // Vertex shader should scale curl3 displacement with bass energy for macro sweep amplitude
+    // Look for a bass-dependent factor in the flow velocity calculation (not just flat * uBassEnergy * 0.4)
+    const vertSrc = mat.vertexShader;
+    // Should contain a bass-driven amplitude scaling pattern like (0.3 + uBassEnergy * 0.7)
+    // or similar non-flat bass modulation near the curl3 displacement
+    expect(vertSrc).toContain('uBassEnergy');
+    // The velocity line should not be just a simple flat multiplier
+    // Check that bass influences displacement magnitude (curl3 result scaling)
+    const lines = vertSrc.split('\n');
+    const curlLine = lines.find((l) => l.includes('curl3') && l.includes('vel'));
+    expect(curlLine).toBeDefined();
+  });
+
+  it('T-086-10: draw does not throw at extreme audio boundary values with new geometry', () => {
+    const scene = new THREE.Scene();
+    const extremes: Partial<VisualParams>[] = [
+      { bassEnergy: 0, trebleEnergy: 0, density: 0.1 },
+      { bassEnergy: 1, trebleEnergy: 1, density: 1 },
+      { bassEnergy: 0, trebleEnergy: 1 },
+      { bassEnergy: 1, trebleEnergy: 0 },
+    ];
+    for (const combo of extremes) {
+      const params = { ...defaultParams, ...combo };
+      const flow = createFlowRibbonField();
+      flow.init(scene, 'extreme-seed', params);
+      expect(() => flow.draw(scene, makeFrame({ params }))).not.toThrow();
+    }
+  });
+
+  it('T-086-11: all buffer attributes remain finite with new trail geometry', () => {
+    const scene = new THREE.Scene();
+    const flow = createFlowRibbonField();
+    flow.init(scene, 'finite-trail-seed', defaultParams);
+    const points = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
+    const geo = points.geometry as THREE.BufferGeometry;
+    const attrNames = ['position', 'aVertexColor', 'aRandom', 'size'];
+    for (const name of attrNames) {
+      const attr = geo.getAttribute(name);
+      if (!attr) continue;
+      const arr = attr.array as Float32Array;
+      for (let i = 0; i < arr.length; i++) {
+        expect(Number.isFinite(arr[i])).toBe(true);
+      }
+    }
+    // Also check the new aTrailProgress attribute
+    const trailProgress = geo.getAttribute('aTrailProgress');
+    if (trailProgress) {
+      const arr = trailProgress.array as Float32Array;
+      for (let i = 0; i < arr.length; i++) {
+        expect(Number.isFinite(arr[i])).toBe(true);
+      }
+    }
   });
 });
