@@ -11,6 +11,7 @@ varying vec3 vVertexColor;
 varying float vFogDepth;
 varying float vElongation;
 varying float vCoC;
+varying float vTrailProgress;
 
 void main() {
   // Elongated elliptical point shape
@@ -43,8 +44,11 @@ void main() {
   lum = dot(color, vec3(0.299, 0.587, 0.114));
   color *= min(1.0, 0.95 / max(lum, 0.001));
 
-  // Fog alpha attenuation
-  float fogAlpha = alpha * (1.0 - fogFactor * 0.85) * uOpacity;
+  // Trail-progress tail fade
+  float trailFade = smoothstep(0.0, 0.15, 1.0 - vTrailProgress);
+
+  // Fog alpha attenuation with cinematic depth fade
+  float fogAlpha = alpha * (1.0 - fogFactor * 0.92) * trailFade * uOpacity;
 
   gl_FragColor = vec4(color, fogAlpha);
 }

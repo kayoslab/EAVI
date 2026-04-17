@@ -77,6 +77,7 @@ export const FLOWRIBBON_ATTRIBUTES: AttributeSpec[] = [
 
 export const OPTIONAL_FLOWRIBBON_ATTRIBUTES: AttributeSpec[] = [
   { name: 'size', itemSize: 1 },
+  { name: 'aTrailProgress', itemSize: 1 },
 ];
 
 export const CONSTELLATION_ATTRIBUTES: AttributeSpec[] = [
