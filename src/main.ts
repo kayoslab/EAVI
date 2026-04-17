@@ -154,13 +154,20 @@ geoPromise.then((geo) => {
   });
   // Build single-mode rotation entries
   const singleEntries: SingleRotationEntry[] = [
-    { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles },
-    { kind: 'single', name: 'ribbon', system: ribbon, maxPoints: quality.maxRibbonPoints },
-    { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints },
-    { kind: 'single', name: 'crystal', system: crystal, maxPoints: Math.round(quality.maxPoints * 0.8) },
-    { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints },
-    { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape },
-    { kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1) },
+    { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles,
+      framing: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50 } },
+    { kind: 'single', name: 'ribbon', system: ribbon, maxPoints: quality.maxRibbonPoints,
+      framing: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
+    { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints,
+      framing: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40 } },
+    { kind: 'single', name: 'crystal', system: crystal, maxPoints: Math.round(quality.maxPoints * 0.8),
+      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 } },
+    { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints,
+      framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 } },
+    { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape,
+      framing: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
+    { kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1),
+      framing: { targetDistance: 6.0, lookOffset: [0, 1.5, 0], nearClip: 0.1, farClip: 80 } },
   ];
 
   // Build compound mode entries (empty on low tier)

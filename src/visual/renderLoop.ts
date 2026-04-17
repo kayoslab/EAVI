@@ -12,6 +12,7 @@ import type { ShaderErrorCollector } from './shaderErrorCollector';
 import { runStartupHealthGate } from './healthGate';
 import type { GeometrySystemInfo } from './types';
 import { initCameraMotion, updateCamera } from './cameraMotion';
+import { getActiveFraming } from './modeManager';
 
 export interface LoopDeps {
   seed?: string | null;
@@ -256,9 +257,17 @@ export function startLoop(
       });
     }
 
-    // Autonomous camera motion
+    // Autonomous camera motion with per-mode framing
     if (cameraInitialized) {
-      updateCamera(camera, elapsed, smoothBass, params.motionAmplitude);
+      const framing = getActiveFraming();
+      updateCamera(camera, elapsed, smoothBass, params.motionAmplitude, framing);
+
+      // Update near/far planes from framing config
+      if (camera.near !== framing.nearClip || camera.far !== framing.farClip) {
+        camera.near = framing.nearClip;
+        camera.far = framing.farClip;
+        camera.updateProjectionMatrix();
+      }
     }
 
     // Render
