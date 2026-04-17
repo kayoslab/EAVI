@@ -153,14 +153,15 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
   });
   // Build single-mode rotation entries
+  // Overhauled flagship modes (US-076 terrain, US-084 pointcloud, US-087 fractalgrowth) get weight 2
   const singleEntries: SingleRotationEntry[] = [
     { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles },
     { kind: 'single', name: 'ribbon', system: ribbon, maxPoints: quality.maxRibbonPoints },
-    { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints },
+    { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints, weight: 2 },
     { kind: 'single', name: 'crystal', system: crystal, maxPoints: Math.round(quality.maxPoints * 0.8) },
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints },
-    { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape },
-    { kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1) },
+    { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape, weight: 2 },
+    { kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1), weight: 2 },
   ];
 
   // Build compound mode entries (empty on low tier)
