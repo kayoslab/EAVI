@@ -59,21 +59,22 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       effectiveCount = computeAdaptiveCount(params.density, params.structureComplexity, maxPoints);
 
       // Streamline-based initial geometry:
-      // Seed source points randomly in a sphere, then generate short trail points
-      // by iteratively advecting along a simple pseudo-curl to form natural tendril clusters.
-      const trailLength = 12; // points per streamline
-      const sourceCount = Math.ceil(effectiveCount / trailLength);
+      // Seed source points randomly in a sphere, then generate long trail points
+      // by iteratively advecting along a pseudo-curl field for sweeping curves.
+      const trailLength = 100; // points per streamline — long sweeping curves
+      const sourceCount = Math.max(5, Math.ceil(effectiveCount / trailLength));
 
       const positionsArr = new Float32Array(effectiveCount * 3);
       const sizesArr = new Float32Array(effectiveCount);
       const aRandomArr = new Float32Array(effectiveCount * 3);
+      const aTrailProgressArr = new Float32Array(effectiveCount);
 
       let idx = 0;
       for (let s = 0; s < sourceCount && idx < effectiveCount; s++) {
-        // Random source point in a sphere
+        // Random source point in a wider sphere for full-frame sweep
         const theta = rng() * Math.PI * 2;
         const phi = Math.acos(2 * rng() - 1);
-        const r = 1.5 + rng() * 2.5;
+        const r = 2.0 + rng() * 3.0;
         let sx = r * Math.sin(phi) * Math.cos(theta);
         let sy = r * Math.sin(phi) * Math.sin(theta);
         let sz = r * Math.cos(phi);
@@ -88,6 +89,9 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
           // Per-point size variation
           sizesArr[idx] = 0.03 + rng() * 0.04;
 
+          // Trail progress: 0 at head, 1 at tail
+          aTrailProgressArr[idx] = trailPts > 1 ? t / (trailPts - 1) : 0;
+
           // Per-point random values for GPU noise
           aRandomArr[idx * 3] = rng();
           aRandomArr[idx * 3 + 1] = rng();
@@ -95,12 +99,12 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
 
           idx++;
 
-          // Advect along a simple pseudo-curl field (CPU-side approximation)
-          // Uses seeded noise-like displacement to create natural streamline clustering
-          const advectStep = 0.45;
-          const nx = Math.sin(sy * 2.1 + sz * 0.7) * advectStep;
-          const ny = Math.sin(sz * 1.9 + sx * 0.8) * advectStep;
-          const nz = Math.sin(sx * 2.3 + sy * 0.6) * advectStep;
+          // Advect along a pseudo-curl field with smaller steps for smoother curves
+          // Higher frequencies ensure spatial spread across seeds
+          const advectStep = 0.18;
+          const nx = Math.sin(sy * 2.8 + sz * 1.1) * advectStep;
+          const ny = Math.sin(sz * 2.5 + sx * 1.3) * advectStep;
+          const nz = Math.sin(sx * 3.0 + sy * 0.9) * advectStep;
           sx += nx;
           sy += ny;
           sz += nz;
@@ -118,6 +122,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       geometry.setAttribute('size', new THREE.BufferAttribute(sizesArr, 1));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(aRandomArr, 3));
       geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
+      geometry.setAttribute('aTrailProgress', new THREE.BufferAttribute(aTrailProgressArr, 1));
 
       const validation = validateGeometryAttributes(geometry, REQUIRED_ATTRIBUTES, OPTIONAL_FLOWRIBBON_ATTRIBUTES);
       if (!validation.ok) {
@@ -151,7 +156,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
         uHasSizeAttr: { value: 1.0 },
         uHasVertexColor: { value: 1.0 },
         uFogNear: { value: 3.0 },
-        uFogFar: { value: 8.0 },
+        uFogFar: { value: 10.0 },
         uFlowScale: { value: 1.0 },
         uFocusDistance: { value: 5.0 },
         uDofStrength: { value: 0.6 },
@@ -194,7 +199,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.08 * (1 + structureComplexity * 0.5);
+      u.uBasePointSize.value = 0.10 * (1 + structureComplexity * 0.5);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;
