@@ -184,3 +184,5 @@
 
 ## US-090: Rebalance rotation weights after overhaul
 
+## US-088: Apply DoF + bloom uniformly across all modes
+

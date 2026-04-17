@@ -1824,8 +1824,8 @@
         "Stable FPS on mid tier; no console errors"
       ],
       "priority": 2,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-077",
         "US-078",
@@ -1837,8 +1837,7 @@
         "US-087"
       ],
       "split_from": null,
-      "notes": null,
-      "claimed_by": "worker-1"
+      "notes": null
     },
     {
       "id": "US-089",
