@@ -117,8 +117,8 @@ describe('US-042: Autonomous spatial camera motion', () => {
   });
 
   it('T-042-07: pointer input does not affect camera position', () => {
-    // updateCamera signature has no pointer parameter
-    expect(updateCamera.length).toBe(4); // camera, elapsedMs, bassEnergy, motionAmplitude
+    // updateCamera signature has no pointer parameter (5th param is optional framing config)
+    expect(updateCamera.length).toBeGreaterThanOrEqual(4); // camera, elapsedMs, bassEnergy, motionAmplitude[, framing]
 
     const cam = mockCamera();
     initCameraMotion('pointer-test');

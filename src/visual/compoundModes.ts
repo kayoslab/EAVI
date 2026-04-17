@@ -1,4 +1,4 @@
-import type { GeometrySystem } from './types';
+import type { FramingConfig, GeometrySystem } from './types';
 import type { QualityProfile } from './quality';
 import { scaleQualityProfile, extractSystemConfig } from './quality';
 
@@ -23,7 +23,23 @@ export interface CompoundRotationEntry {
   layers: [CompoundLayerEntry, CompoundLayerEntry];
   primaryLayerIndex: 0 | 1;
   maxPoints: number;
+  framing: FramingConfig;
 }
+
+// Default framing per system name — compound modes use the primary layer's framing, slightly farther back
+const SYSTEM_FRAMING: Record<string, FramingConfig> = {
+  particles: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50 },
+  ribbon: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 },
+  pointcloud: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40 },
+  crystal: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 },
+  flowribbon: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 },
+  fractalgrowth: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 },
+  terrain: { targetDistance: 6.0, lookOffset: [0, 1.5, 0], nearClip: 0.1, farClip: 80 },
+};
+
+const DEFAULT_COMPOUND_FRAMING: FramingConfig = {
+  targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60,
+};
 
 export const COMPOUND_MODE_DEFS: CompoundModeDef[] = [
   {
@@ -83,12 +99,23 @@ export function buildCompoundEntries(
       };
     }) as [CompoundLayerEntry, CompoundLayerEntry];
 
+    // Use primary layer's framing, pulled back slightly for compound modes
+    const primaryName = def.layers[primaryIndex].systemName;
+    const baseFraming = SYSTEM_FRAMING[primaryName] ?? DEFAULT_COMPOUND_FRAMING;
+    const compoundFraming: FramingConfig = {
+      targetDistance: baseFraming.targetDistance * 1.15,
+      lookOffset: [...baseFraming.lookOffset] as [number, number, number],
+      nearClip: baseFraming.nearClip,
+      farClip: Math.max(baseFraming.farClip, baseFraming.targetDistance * 1.15 * 8),
+    };
+
     return {
       kind: 'compound' as const,
       name: def.name,
       layers: layerEntries,
       primaryLayerIndex: primaryIndex,
       maxPoints: totalPoints,
+      framing: compoundFraming,
     };
   });
 }

@@ -1,7 +1,7 @@
 import type { Scene } from 'three';
 import { createPRNG } from './prng';
 import type { VisualParams } from './mappings';
-import type { FrameState, GeometrySystem } from './types';
+import type { FrameState, FramingConfig, GeometrySystem } from './types';
 import type { Overlay } from './overlay';
 import type { CompoundRotationEntry } from './compoundModes';
 
@@ -15,6 +15,7 @@ export interface SingleRotationEntry {
   name: string;
   system: GeometrySystem;
   maxPoints: number;
+  framing: FramingConfig;
 }
 
 export type RotationEntry = SingleRotationEntry | CompoundRotationEntry;
@@ -53,6 +54,7 @@ function convertToRotationEntries(items: (ModeEntry | RotationEntry)[]): Rotatio
         name: item.name,
         system: item.factory(),
         maxPoints: 0,
+        framing: { ...DEFAULT_FRAMING },
       };
     }
     return item;
@@ -97,6 +99,37 @@ function drawEntry(entry: RotationEntry, scene: Scene, frame: FrameState): void 
   for (const sys of entrySystems(entry)) {
     sys.draw(scene, frame);
   }
+}
+
+const DEFAULT_FRAMING: FramingConfig = {
+  targetDistance: 5,
+  lookOffset: [0, 0, 0],
+  nearClip: 0.1,
+  farClip: 100,
+};
+
+function lerpFraming(a: FramingConfig, b: FramingConfig, t: number): FramingConfig {
+  return {
+    targetDistance: a.targetDistance + (b.targetDistance - a.targetDistance) * t,
+    lookOffset: [
+      a.lookOffset[0] + (b.lookOffset[0] - a.lookOffset[0]) * t,
+      a.lookOffset[1] + (b.lookOffset[1] - a.lookOffset[1]) * t,
+      a.lookOffset[2] + (b.lookOffset[2] - a.lookOffset[2]) * t,
+    ],
+    nearClip: a.nearClip + (b.nearClip - a.nearClip) * t,
+    farClip: a.farClip + (b.farClip - a.farClip) * t,
+  };
+}
+
+function entryFraming(entry: RotationEntry): FramingConfig {
+  return entry.framing ?? DEFAULT_FRAMING;
+}
+
+// Module-level active framing state, updated by the last createModeManager instance
+let _activeFraming: FramingConfig = { ...DEFAULT_FRAMING };
+
+export function getActiveFraming(): FramingConfig {
+  return _activeFraming;
 }
 
 export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeManager {
@@ -172,6 +205,7 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
       seed = s;
       selectInitialMode(seed);
       initEntry(entries[activeIndex], scene, seed, params);
+      _activeFraming = entryFraming(entries[activeIndex]);
       initOverlay(scene, params);
       initialized = true;
     },
@@ -189,6 +223,7 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
           setEntryOpacity(entries[i], 0);
         }
       }
+      _activeFraming = entryFraming(entries[activeIndex]);
       initialized = true;
     },
 
@@ -213,6 +248,7 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
           setEntryOpacity(entries[outgoingIndex], 1);
           setEntryOpacity(entries[activeIndex], 1);
           isTransitioning = false;
+          _activeFraming = entryFraming(entries[activeIndex]);
           // Rebuild overlay for newly active system
           initOverlay(scene, frame.params);
           drawEntry(entries[activeIndex], scene, frame);
@@ -221,6 +257,13 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
         }
 
         const eased = smoothstep(progress);
+
+        // Interpolate framing between outgoing and incoming
+        _activeFraming = lerpFraming(
+          entryFraming(entries[outgoingIndex]),
+          entryFraming(entries[activeIndex]),
+          eased,
+        );
 
         // Set opacity on outgoing and incoming entries
         setEntryOpacity(entries[outgoingIndex], 1 - eased);
@@ -260,6 +303,7 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
         nextSwitchAt = frame.elapsed + switchInterval;
       }
 
+      _activeFraming = entryFraming(entries[activeIndex]);
       drawEntry(entries[activeIndex], scene, frame);
       overlayAttachment?.overlay.draw(scene, frame);
     },
