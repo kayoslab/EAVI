@@ -20,8 +20,8 @@ const fragmentShader = chromaticDispersionGlsl + '\n' + particleWarpFrag;
 
 const DEFAULT_MAX_PARTICLES = 3000;
 const FADE_FRAMES = 30;
-const BASE_SPEED = 0.05; // units/ms — particles always drift
-const MAX_SPEED = 0.15;  // units/ms — velocity magnitude clamp
+const BASE_SPEED = 0.008; // units/ms — particles always drift
+const MAX_SPEED = 0.025;  // units/ms — velocity magnitude clamp
 
 // Field bounds for recycling
 const BOUNDS_X = 4;
