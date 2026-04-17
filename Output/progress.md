@@ -180,3 +180,5 @@
 
 ## US-087: Rebuild fractalGrowthWireframe as recursive 3D structure
 
+## US-089: Per-mode camera framing pass
+
