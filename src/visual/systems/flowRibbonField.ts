@@ -23,6 +23,7 @@ export interface FlowRibbonFieldConfig {
   noiseOctaves?: 1 | 2 | 3;
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
+  dofStrength?: number;
 }
 
 export interface FlowRibbonField extends GeometrySystem {
@@ -159,7 +160,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
         uFogFar: { value: 10.0 },
         uFlowScale: { value: 1.0 },
         uFocusDistance: { value: 5.0 },
-        uDofStrength: { value: 0.6 },
+        uDofStrength: { value: config?.dofStrength ?? 0.6 },
       };
 
       shaderMaterial = new THREE.ShaderMaterial({

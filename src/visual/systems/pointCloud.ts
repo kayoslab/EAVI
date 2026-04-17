@@ -39,6 +39,7 @@ export interface PointCloudConfig {
   enablePointerRepulsion?: boolean;
   enableSlowModulation?: boolean;
   useVoronoiShader?: boolean;
+  dofStrength?: number;
 }
 
 export interface PointCloud extends GeometrySystem {
@@ -200,7 +201,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uFogFar: { value: isParametric ? 6.0 : 8.0 },
         uDispersion: { value: 0.0 },
         uFocusDistance: { value: isParametric ? 3.5 : 5.0 },
-        uDofStrength: { value: 0.6 },
+        uDofStrength: { value: config?.dofStrength ?? 0.6 },
       };
 
       if (useVoronoiShader) {
