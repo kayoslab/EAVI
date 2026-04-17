@@ -16,6 +16,7 @@ export interface SingleRotationEntry {
   system: GeometrySystem;
   maxPoints: number;
   framing: FramingConfig;
+  weight?: number;
 }
 
 export type RotationEntry = SingleRotationEntry | CompoundRotationEntry;
@@ -132,12 +133,42 @@ export function getActiveFraming(): FramingConfig {
   return _activeFraming;
 }
 
+function getWeight(entry: RotationEntry): number {
+  return (entry as { weight?: number }).weight ?? 1;
+}
+
+/** Build a weighted pool: each entry index appears `weight` times. */
+function buildWeightedPool(entries: RotationEntry[]): number[] {
+  const pool: number[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    const w = getWeight(entries[i]);
+    for (let j = 0; j < w; j++) {
+      pool.push(i);
+    }
+  }
+  return pool;
+}
+
+/** Weighted random selection using cumulative weights. */
+function weightedRandomIndex(entries: RotationEntry[], rng: () => number): number {
+  const totalWeight = entries.reduce((sum, e) => sum + getWeight(e), 0);
+  const r = rng() * totalWeight;
+  let cumulative = 0;
+  for (let i = 0; i < entries.length; i++) {
+    cumulative += getWeight(entries[i]);
+    if (r < cumulative) return i;
+  }
+  return entries.length - 1;
+}
+
 export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeManager {
   if (modes.length === 0) {
     throw new Error('ModeManager requires at least one mode');
   }
 
   const entries: RotationEntry[] = convertToRotationEntries(modes);
+  const weightedPool = buildWeightedPool(entries);
+  let poolIndex = 0;
   let activeIndex = 0;
   let switchInterval = 120_000;
   let nextSwitchAt = 0;
@@ -164,7 +195,17 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
 
   function selectInitialMode(seed: string): void {
     const rng = createPRNG(seed + ':mode');
-    activeIndex = Math.floor(rng() * entries.length);
+    activeIndex = weightedRandomIndex(entries, rng);
+    // Shuffle the weighted pool deterministically (Fisher-Yates)
+    for (let i = weightedPool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const tmp = weightedPool[i];
+      weightedPool[i] = weightedPool[j];
+      weightedPool[j] = tmp;
+    }
+    // Find activeIndex in pool to start cycling from there
+    poolIndex = weightedPool.indexOf(activeIndex);
+    if (poolIndex === -1) poolIndex = 0;
     // Seeded interval: 90-180 seconds (in ms)
     switchInterval = 90_000 + Math.floor(rng() * 90_000);
     nextSwitchAt = switchInterval;
@@ -280,7 +321,8 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
       // Check for mode switch
       if (frame.elapsed >= nextSwitchAt) {
         const prevIndex = activeIndex;
-        activeIndex = (activeIndex + 1) % entries.length;
+        poolIndex = (poolIndex + 1) % weightedPool.length;
+        activeIndex = weightedPool[poolIndex];
         if (activeIndex !== prevIndex) {
           // Init incoming entry at opacity 0
           initEntry(entries[activeIndex], scene, seed, frame.params);
