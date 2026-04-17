@@ -29,12 +29,14 @@ uniform float uFlowScale;
 attribute float size;
 attribute vec3 aRandom;
 attribute vec3 aVertexColor;
+attribute float aTrailProgress;
 
 varying vec3 vColor;
 varying vec3 vVertexColor;
 varying float vFogDepth;
 varying float vElongation;
 varying float vCoC;
+varying float vTrailProgress;
 
 const float TAU = 6.283185307;
 
@@ -51,8 +53,8 @@ void main() {
   vec3 vel = curl3(pos * uNoiseFrequency * 0.5 + vec3(t * 0.00005 * uCadence), uNoiseOctaves);
   float speed = length(vel);
 
-  // Bass modulates flow speed (macro streaming)
-  vel *= uBassEnergy * uFlowScale * 0.4;
+  // Bass modulates curve amplitude (macro sweep)
+  vel *= (0.3 + uBassEnergy * 0.7) * uFlowScale;
   pos += vel;
 
   // --- Turbulence via high-frequency curl3 ---
@@ -110,16 +112,21 @@ void main() {
   coc = clamp(coc * uDofStrength, 0.0, 1.0);
   vCoC = coc;
 
-  float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
+  float atmosphericDecay = exp(-0.12 * max(depth - uFogNear, 0.0));
   float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
+  // Treble modulates ribbon thickness
+  float trebleSize = 0.6 + uTrebleEnergy * 0.8;
   // Elongate point size based on flow speed
   float elongationBoost = 1.0 + speed * 2.0;
-  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * elongationBoost * atmosphericDecay;
+  float pointSize = sizeMultiplier * uBasePointSize * (2200.0 / depth) * elongationBoost * atmosphericDecay * trebleSize;
   float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 3.0) : (1.0 + coc * 0.5);
   pointSize *= bokehScale;
   gl_PointSize = clamp(pointSize, 2.5, 96.0);
 
   gl_Position = projectionMatrix * mvPosition;
+
+  // --- Trail progress varying for tail fade ---
+  vTrailProgress = aTrailProgress;
 
   // --- Color from vibrant vertex color attribute ---
   vVertexColor = aVertexColor;
