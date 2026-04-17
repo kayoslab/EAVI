@@ -178,3 +178,5 @@
 
 ## US-085: Rebuild crystalField as lattice-aligned faceted cluster
 
+## US-087: Rebuild fractalGrowthWireframe as recursive 3D structure
+

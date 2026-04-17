@@ -1805,14 +1805,13 @@
         "Vibrant palette applied (US-081); shaders compile cleanly; no validation errors"
       ],
       "priority": 1,
-      "passes": false,
-      "status": "in_progress",
+      "passes": true,
+      "status": "pass",
       "depends_on": [
         "US-081"
       ],
       "split_from": null,
-      "notes": "Directly addresses 'wobbly cubes' feedback.",
-      "claimed_by": "worker-1"
+      "notes": "Directly addresses 'wobbly cubes' feedback."
     },
     {
       "id": "US-088",
