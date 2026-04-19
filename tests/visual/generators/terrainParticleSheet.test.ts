@@ -18,9 +18,10 @@ describe('US-076: Terrain particle sheet generator', () => {
     expect(result.randoms).toBeInstanceOf(Float32Array);
   });
 
-  it('T-076-G04: pointCount in result matches requested pointCount', () => {
+  it('T-076-G04: pointCount in result matches rows*cols (grid-based)', () => {
     const result = generateTerrainParticleSheet({ rows: 10, cols: 10, pointCount: 20000, seed: 'count' });
-    expect(result.pointCount).toBe(20000);
+    // Grid-based terrain uses actualRows*actualCols as pointCount, ignoring requested pointCount
+    expect(result.pointCount).toBe(10 * 10);
   });
 
   it('T-076-G05: all position values are finite', () => {
@@ -99,14 +100,15 @@ describe('US-076: Terrain particle sheet generator', () => {
       minZ = Math.min(minZ, z);
       maxZ = Math.max(maxZ, z);
     }
-    // With jitter, points should be within grid bounds (possibly slightly beyond due to jitter)
+    // Grid-based placement: X spans [-width/2, width/2], Z spans [-depth, 0]
     expect(minX).toBeGreaterThanOrEqual(-width / 2 - 1);
     expect(maxX).toBeLessThanOrEqual(width / 2 + 1);
-    expect(minZ).toBeGreaterThanOrEqual(-depth / 2 - 1);
-    expect(maxZ).toBeLessThanOrEqual(depth / 2 + 1);
+    // Z now spans into negative (into screen)
+    expect(minZ).toBeGreaterThanOrEqual(-depth - 1);
+    expect(maxZ).toBeLessThanOrEqual(1);
     // Coverage: points should reach close to extents
     expect(maxX - minX).toBeGreaterThan(width * 0.8);
-    expect(maxZ - minZ).toBeGreaterThan(depth * 0.8);
+    expect(Math.abs(maxZ - minZ)).toBeGreaterThan(depth * 0.8);
   });
 
   it('T-076-G12: points are NOT locked to grid intersections — jittered XZ', () => {
@@ -158,27 +160,28 @@ describe('US-076: Terrain particle sheet generator', () => {
     expect(result).not.toHaveProperty('edgeCount');
   });
 
-  it('T-076-G15: supports tier-appropriate point counts', () => {
-    const tierCounts = [
-      { tier: 'low', pointCount: 20000 },
-      { tier: 'medium', pointCount: 60000 },
-      { tier: 'high', pointCount: 120000 },
+  it('T-076-G15: supports tier-appropriate grid sizes (pointCount = rows*cols)', () => {
+    const tierGrids = [
+      { tier: 'low', rows: 80, cols: 120, expected: 80 * 120 },
+      { tier: 'medium', rows: 150, cols: 200, expected: 150 * 200 },
+      { tier: 'high', rows: 250, cols: 350, expected: 250 * 350 },
     ];
-    for (const { tier, pointCount } of tierCounts) {
+    for (const { tier, rows, cols, expected } of tierGrids) {
       const result = generateTerrainParticleSheet({
-        rows: 20, cols: 30, pointCount, seed: `tier-${tier}`,
+        rows, cols, pointCount: 999, seed: `tier-${tier}`,
       });
-      expect(result.pointCount, `${tier} tier pointCount`).toBe(pointCount);
-      expect(result.positions.length, `${tier} tier positions length`).toBe(pointCount * 3);
+      expect(result.pointCount, `${tier} tier pointCount`).toBe(expected);
+      expect(result.positions.length, `${tier} tier positions length`).toBe(expected * 3);
     }
   });
 
-  it('T-076-G16: small grid with large point count distributes points across full extent', () => {
+  it('T-076-G16: small grid is clamped to minimum 10x10 and distributes points across full extent', () => {
     const result = generateTerrainParticleSheet({
       rows: 4, cols: 4, pointCount: 5000, seed: 'dense-small',
     });
-    expect(result.pointCount).toBe(5000);
-    // Points should still span the grid even with a coarse heightfield grid
+    // rows and cols are clamped to minimum 10, so pointCount = 10*10 = 100
+    expect(result.pointCount).toBe(100);
+    // Points should still span the grid
     let minX = Infinity, maxX = -Infinity;
     for (let i = 0; i < result.positions.length; i += 3) {
       const x = result.positions[i];

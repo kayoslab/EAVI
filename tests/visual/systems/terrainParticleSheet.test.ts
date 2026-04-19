@@ -54,44 +54,45 @@ describe('US-076: Dense particle wave sheet system (replaces wireframe terrain)'
 
   // ─── Point Count Matches Tier ───
 
-  it('T-076-S03: low tier pointCount (~20k) produces geometry with ~20000 vertices', () => {
+  it('T-076-S03: low tier produces geometry with rows*cols vertices', () => {
     const scene = new THREE.Scene();
     const terrain = createTerrainHeightfield({ rows: 20, cols: 30, pointCount: 20000 });
     terrain.init(scene, 'low-tier-seed', defaultParams);
     const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const posCount = pts.geometry.getAttribute('position').count;
-    expect(posCount).toBe(20000);
+    expect(posCount).toBe(20 * 30);
   });
 
-  it('T-076-S04: medium tier pointCount (~60k) produces geometry with ~60000 vertices', () => {
+  it('T-076-S04: medium tier produces geometry with rows*cols vertices', () => {
     const scene = new THREE.Scene();
     const terrain = createTerrainHeightfield({ rows: 40, cols: 60, pointCount: 60000 });
     terrain.init(scene, 'mid-tier-seed', defaultParams);
     const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const posCount = pts.geometry.getAttribute('position').count;
-    expect(posCount).toBe(60000);
+    expect(posCount).toBe(40 * 60);
   });
 
-  it('T-076-S05: high tier pointCount (~120k) produces geometry with ~120000 vertices', () => {
+  it('T-076-S05: high tier produces geometry with rows*cols vertices', () => {
     const scene = new THREE.Scene();
     const terrain = createTerrainHeightfield({ rows: 60, cols: 90, pointCount: 120000 });
     terrain.init(scene, 'high-tier-seed', defaultParams);
     const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const posCount = pts.geometry.getAttribute('position').count;
-    expect(posCount).toBe(120000);
+    expect(posCount).toBe(60 * 90);
   });
 
   // ─── Geometry Attributes ───
 
   it('T-076-S06: Points geometry has position attribute with itemSize 3', () => {
     const scene = new THREE.Scene();
-    const terrain = createTerrainHeightfield({ rows: 8, cols: 8, pointCount: 5000 });
+    const terrain = createTerrainHeightfield({ rows: 10, cols: 10, pointCount: 5000 });
     terrain.init(scene, 'pos-attr-seed', defaultParams);
     const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const posAttr = pts.geometry.getAttribute('position');
     expect(posAttr).toBeDefined();
     expect(posAttr.itemSize).toBe(3);
-    expect(posAttr.count).toBe(5000);
+    // Grid-based terrain: pointCount = rows*cols (minimum 10*10 = 100)
+    expect(posAttr.count).toBe(10 * 10);
   });
 
   it('T-076-S07: Points geometry has aRandom attribute with itemSize 3', () => {
@@ -407,10 +408,10 @@ describe('US-076: Dense particle wave sheet system (replaces wireframe terrain)'
 
   // ─── Jitter Verification (No Visible Grid Pattern) ───
 
-  it('T-076-S32: points are not aligned to grid intersections (jittered XZ)', () => {
+  it('T-076-S32: points are placed on a regular grid (no jitter)', () => {
     const scene = new THREE.Scene();
     const terrain = createTerrainHeightfield({ rows: 20, cols: 20, pointCount: 10000 });
-    terrain.init(scene, 'jitter-seed', defaultParams);
+    terrain.init(scene, 'grid-seed', defaultParams);
     const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
     const pos = pts.geometry.getAttribute('position');
 
@@ -419,9 +420,8 @@ describe('US-076: Dense particle wave sheet system (replaces wireframe terrain)'
     for (let i = 0; i < pos.count; i++) {
       xValues.add(Math.round(pos.getX(i) * 1000) / 1000);
     }
-    // If points were on a 21-column grid, there'd be at most 21 unique X values.
-    // With jitter, there should be many more unique X values.
-    expect(xValues.size).toBeGreaterThan(100);
+    // Grid-based: X values should align to the column count (20 cols = 20 unique X values)
+    expect(xValues.size).toBe(20);
   });
 
   // ─── Lifecycle Management ───

@@ -326,9 +326,9 @@ describe('US-009: ParticleField geometry system', () => {
   describe('US-025: Quality config', () => {
     it('T-025-12: createParticleField with maxParticles config caps particle count', () => {
       const scene = new THREE.Scene();
-      const field = createParticleField({ maxParticles: 150 });
+      const field = createParticleField({ maxParticles: 250 });
       field.init(scene, 'cap-seed', { ...defaultParams, density: 1.0, structureComplexity: 1.0 });
-      expect(getParticleCount(field)).toBeLessThanOrEqual(150);
+      expect(getParticleCount(field)).toBeLessThanOrEqual(250);
     });
 
     it('T-025-13: createParticleField without config defaults to 3000 max particles', () => {

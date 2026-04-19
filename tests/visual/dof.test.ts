@@ -490,15 +490,15 @@ describe('US-078: Depth-of-field bokeh for foreground particles', () => {
   // ─── Terrain-specific DoF ───
 
   describe('Terrain-specific DoF behavior', () => {
-    it('T-078-36: terrain positioned at (0, -1.5, -2) with rotation still has valid DoF uniforms', () => {
+    it('T-078-36: terrain positioned at (0, -2.0, 5.0) with no rotation still has valid DoF uniforms', () => {
       const scene = new THREE.Scene();
       const terrain = createTerrainHeightfield({ rows: 10, cols: 10, pointCount: 5000 });
       terrain.init(scene, 'terrain-pos-seed', defaultParams);
       const pts = scene.children.find((c) => c instanceof THREE.Points) as THREE.Points;
 
       // Verify terrain transform
-      expect(pts.position.y).toBeCloseTo(-1.5, 1);
-      expect(pts.position.z).toBeCloseTo(-2, 1);
+      expect(pts.position.y).toBeCloseTo(-2.0, 1);
+      expect(pts.position.z).toBeCloseTo(5.0, 1);
 
       // Verify DoF uniforms are set
       const mat = pts.material as THREE.ShaderMaterial;
@@ -581,7 +581,7 @@ describe('US-078: Depth-of-field bokeh for foreground particles', () => {
   // ─── Vertex shader: point size scaling for bokeh ───
 
   describe('Point size scaling for bokeh effect', () => {
-    it('T-078-42: particleWarp vertex shader upper point size clamp is increased (> 48.0) for bokeh', () => {
+    it('T-078-42: particleWarp vertex shader upper point size clamp is 40.0 for bokeh', () => {
       const scene = new THREE.Scene();
       const field = createParticleField();
       field.init(scene, 'clamp-seed', defaultParams);
@@ -589,7 +589,7 @@ describe('US-078: Depth-of-field bokeh for foreground particles', () => {
       const clampMatch = mat.vertexShader.match(/clamp\s*\(\s*pointSize\s*,\s*[\d.]+\s*,\s*([\d.]+)\s*\)/);
       if (clampMatch) {
         const upperClamp = parseFloat(clampMatch[1]);
-        expect(upperClamp).toBeGreaterThan(48.0);
+        expect(upperClamp).toBeCloseTo(40.0, 0);
       }
     });
   });

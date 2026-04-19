@@ -35,8 +35,7 @@ const SYSTEM_FRAMING: Record<string, FramingConfig> = {
   pointcloud: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40 },
   crystal: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 },
   flowribbon: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 },
-  fractalgrowth: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 },
-  terrain: { targetDistance: 14.0, lookOffset: [0, 3.0, 0], nearClip: 0.1, farClip: 100 },
+  terrain: { targetDistance: 8.0, lookOffset: [0, 0.5, -15], nearClip: 0.1, farClip: 120 },
 };
 
 const DEFAULT_COMPOUND_FRAMING: FramingConfig = {
@@ -50,14 +49,6 @@ export const COMPOUND_MODE_DEFS: CompoundModeDef[] = [
       { systemName: 'particles', isPrimary: true },
       { systemName: 'flowribbon', isPrimary: false },
     ],
-  },
-  {
-    name: 'pointcloud+fractalgrowth',
-    layers: [
-      { systemName: 'pointcloud', isPrimary: true },
-      { systemName: 'fractalgrowth', isPrimary: false },
-    ],
-    weight: 2,
   },
 ];
 
@@ -74,7 +65,6 @@ function primaryCountForSystem(systemName: string, config: Record<string, unknow
     case 'ribbon':
     case 'flowribbon': return (config.maxPoints as number) ?? 0;
 
-    case 'fractalgrowth': return (config.maxEdgesPerShape as number) ?? 0;
     default: return 0;
   }
 }

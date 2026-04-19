@@ -133,36 +133,35 @@ describe('US-080: Retired modes excluded from rotation', () => {
     }
   });
 
-  it('T-080-05: COMPOUND_MODE_DEFS has exactly 2 compound modes after retirement', () => {
-    expect(COMPOUND_MODE_DEFS.length).toBe(2);
+  it('T-080-05: COMPOUND_MODE_DEFS has exactly 1 compound mode after retirement', () => {
+    expect(COMPOUND_MODE_DEFS.length).toBe(1);
   });
 
-  it('T-080-06: remaining compound modes are particles+flowribbon and pointcloud+fractalgrowth', () => {
+  it('T-080-06: remaining compound mode is particles+flowribbon', () => {
     const names = COMPOUND_MODE_DEFS.map((d) => d.name);
     expect(names).toContain('particles+flowribbon');
-    expect(names).toContain('pointcloud+fractalgrowth');
   });
 });
 
 describe('US-080: Remaining compound modes still functional', () => {
-  it('T-080-07: buildCompoundEntries returns 2 entries on medium tier', () => {
+  it('T-080-07: buildCompoundEntries returns 1 entry on medium tier', () => {
     const profile = makeMediumProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
 
-    expect(entries.length).toBe(2);
+    expect(entries.length).toBe(1);
     for (const entry of entries) {
       expect(entry.kind).toBe('compound');
       expect(entry.layers.length).toBe(2);
     }
   });
 
-  it('T-080-08: buildCompoundEntries returns 2 entries on high tier', () => {
+  it('T-080-08: buildCompoundEntries returns 1 entry on high tier', () => {
     const profile = makeHighProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
 
-    expect(entries.length).toBe(2);
+    expect(entries.length).toBe(1);
   });
 
   it('T-080-09: buildCompoundEntries returns 0 entries on low tier', () => {
@@ -246,8 +245,8 @@ describe('US-080: Minimum mode count requirement (at least 3 distinct modes)', (
 
     const totalModes = singleCount + compoundEntries.length;
     expect(totalModes).toBeGreaterThanOrEqual(3);
-    // Should be exactly 9 (7 singles + 2 compounds)
-    expect(totalModes).toBe(9);
+    // Should be exactly 8 (7 singles + 1 compound)
+    expect(totalModes).toBe(8);
   });
 
   it('T-080-16: total mode count on low tier is at least 3 (singles only)', () => {
@@ -267,9 +266,10 @@ describe('US-080: Rotation weight rebalancing (terrain, pointcloud, strong modes
     expect(expectedSingles).toContain('terrain');
   });
 
-  it('T-080-18: pointcloud appears in both single and compound rotation', () => {
+  it('T-080-18: pointcloud appears in single rotation (no longer in compound after fractalgrowth removal)', () => {
     const compoundSystemNames = COMPOUND_MODE_DEFS.flatMap((d) => d.layers.map((l) => l.systemName));
-    expect(compoundSystemNames).toContain('pointcloud');
+    // pointcloud is no longer in compound modes since pointcloud+fractalgrowth was removed
+    expect(compoundSystemNames).not.toContain('pointcloud');
   });
 
   it('T-080-19: no compound mode factory calls for retired system names', () => {

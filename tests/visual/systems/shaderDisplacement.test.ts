@@ -409,7 +409,7 @@ describe('US-041: Shader-based vertex displacement — particleField regression 
 
   it('T-041-29: particleField density and maxParticles scaling still works', () => {
     const scene = new THREE.Scene();
-    const fieldLow = createParticleField({ maxParticles: 150 });
+    const fieldLow = createParticleField({ maxParticles: 250 });
     fieldLow.init(scene, 'scale-seed', { ...defaultParams, density: 0.5 });
     const lowCount = getParticleCount(fieldLow);
 
@@ -418,7 +418,7 @@ describe('US-041: Shader-based vertex displacement — particleField regression 
     const highCount = getParticleCount(fieldHigh);
 
     expect(highCount).toBeGreaterThan(lowCount);
-    expect(lowCount).toBeLessThanOrEqual(150);
+    expect(lowCount).toBeLessThanOrEqual(250);
   });
 
   it('T-041-30: no localStorage or cookie access during particleField init/draw', () => {

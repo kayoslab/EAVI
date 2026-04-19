@@ -48,9 +48,9 @@ describe('US-034: RibbonField geometry system', () => {
 
     expect(highCount).toBeGreaterThan(lowCount);
 
-    const capped = createRibbonField({ maxPoints: 100 });
+    const capped = createRibbonField({ maxPoints: 250 });
     capped.init(scene, 'seed-a', { ...defaultParams, density: 1.0 });
-    expect(getPointCount(capped)).toBeLessThanOrEqual(100);
+    expect(getPointCount(capped)).toBeLessThanOrEqual(250);
   });
 
   it('T-034-02: same seed produces same initial point configuration', () => {

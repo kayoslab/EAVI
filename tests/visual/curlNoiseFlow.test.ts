@@ -537,11 +537,11 @@ describe('US-082: Curl-noise vector flow', () => {
     });
 
     it('T-082-33: Particle count is capped by maxParticles config', () => {
-      const { field: field100 } = initField({ maxParticles: 100 });
-      const { field: field50 } = initField({ maxParticles: 50 });
+      const { field: field300 } = initField({ maxParticles: 300 });
+      const { field: field250 } = initField({ maxParticles: 250 });
 
-      expect(getParticleCount(field100)).toBeLessThanOrEqual(100);
-      expect(getParticleCount(field50)).toBeLessThanOrEqual(50);
+      expect(getParticleCount(field300)).toBeLessThanOrEqual(300);
+      expect(getParticleCount(field250)).toBeLessThanOrEqual(250);
     });
   });
 

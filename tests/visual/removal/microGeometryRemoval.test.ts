@@ -104,8 +104,8 @@ describe('US-064: QualityProfile regression', () => {
 });
 
 describe('US-064: CompoundModes regression', () => {
-  it('T-064-08: COMPOUND_MODE_DEFS defines exactly 2 compound modes (after US-080 retirement)', () => {
-    expect(COMPOUND_MODE_DEFS.length).toBe(2);
+  it('T-064-08: COMPOUND_MODE_DEFS defines exactly 1 compound mode (after US-080 retirement)', () => {
+    expect(COMPOUND_MODE_DEFS.length).toBe(1);
     for (const def of COMPOUND_MODE_DEFS) {
       expect(typeof def.name).toBe('string');
       expect(def.layers.length).toBe(2);
@@ -117,10 +117,9 @@ describe('US-064: CompoundModes regression', () => {
     expect(names).not.toContain('crystal+microgeometry');
   });
 
-  it('T-064-10: COMPOUND_MODE_DEFS retains particles+flowribbon, pointcloud+fractalgrowth (after US-080 retirement)', () => {
+  it('T-064-10: COMPOUND_MODE_DEFS retains particles+flowribbon (after US-080 retirement, fractalgrowth removed)', () => {
     const names = COMPOUND_MODE_DEFS.map((d) => d.name);
     expect(names).toContain('particles+flowribbon');
-    expect(names).toContain('pointcloud+fractalgrowth');
   });
 
   it('T-064-11: no compound mode layer references microgeometry', () => {
@@ -131,18 +130,18 @@ describe('US-064: CompoundModes regression', () => {
     }
   });
 
-  it('T-064-12: buildCompoundEntries returns 2 entries on medium tier (after US-080 retirement)', () => {
+  it('T-064-12: buildCompoundEntries returns 1 entry on medium tier (after US-080 retirement)', () => {
     const profile = computeQuality(mediumSignals);
     const registry = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
-    expect(entries.length).toBe(2);
+    expect(entries.length).toBe(1);
   });
 
-  it('T-064-13: buildCompoundEntries returns 2 entries on high tier (after US-080 retirement)', () => {
+  it('T-064-13: buildCompoundEntries returns 1 entry on high tier (after US-080 retirement)', () => {
     const profile = computeQuality(highSignals);
     const registry = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
-    expect(entries.length).toBe(2);
+    expect(entries.length).toBe(1);
   });
 
   it('T-064-20: each remaining compound mode has exactly one primary layer', () => {

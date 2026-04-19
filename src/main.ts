@@ -21,7 +21,6 @@ import type { RotationEntry, SingleRotationEntry } from './visual/modeManager';
 import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
 import { createBezierCurveWeb } from './visual/systems/bezierCurveWeb';
-import { createFractalGrowthWireframe } from './visual/systems/fractalGrowthWireframe';
 import { createTerrainHeightfield } from './visual/systems/terrainHeightfield';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
 import { initComposer } from './visual/composer';
@@ -144,13 +143,6 @@ geoPromise.then((geo) => {
     enableSlowModulation: quality.enableSlowModulation,
     dofStrength: quality.dofStrength,
   });
-  const fractalGrowth = createFractalGrowthWireframe({
-    maxFractalDepth: Math.min(quality.maxFractalDepth, 5),
-    noiseOctaves: quality.noiseOctaves,
-    enablePointerRepulsion: quality.enablePointerRepulsion,
-    enableSlowModulation: quality.enableSlowModulation,
-    maxEdgesPerShape: quality.maxEdgesPerShape,
-  });
   const terrain = createTerrainHeightfield({
     rows: quality.terrainRows,
     cols: quality.terrainCols,
@@ -159,7 +151,7 @@ geoPromise.then((geo) => {
     dofStrength: quality.dofStrength,
   });
   // Build single-mode rotation entries
-  // Overhauled flagship modes (US-076 terrain, US-084 pointcloud, US-087 fractalgrowth) get weight 2
+  // Flagship modes (terrain, pointcloud) get weight 2
   const singleEntries: SingleRotationEntry[] = [
     { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles,
       framing: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50 } },
@@ -171,10 +163,8 @@ geoPromise.then((geo) => {
       framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 } },
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints,
       framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 } },
-    { kind: 'single', name: 'fractalgrowth', system: fractalGrowth, maxPoints: quality.maxEdgesPerShape, weight: 2,
-      framing: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
-    { kind: 'single', name: 'terrain', system: terrain, maxPoints: (quality.terrainRows + 1) * (quality.terrainCols + 1), weight: 2,
-      framing: { targetDistance: 14.0, lookOffset: [0, 3.0, 0], nearClip: 0.1, farClip: 100 } },
+    { kind: 'single', name: 'terrain', system: terrain, maxPoints: quality.terrainRows * quality.terrainCols, weight: 2,
+      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, -15], nearClip: 0.1, farClip: 120 } },
   ];
 
   // Build compound mode entries (empty on low tier)
@@ -184,7 +174,6 @@ geoPromise.then((geo) => {
     pointcloud: (cfg) => createPointCloud(cfg as Parameters<typeof createPointCloud>[0]),
     crystal: (cfg) => createCrystalField(cfg as Parameters<typeof createCrystalField>[0]),
     flowribbon: (cfg) => createFlowRibbonField(cfg as Parameters<typeof createFlowRibbonField>[0]),
-    fractalgrowth: (cfg) => createFractalGrowthWireframe(cfg as Parameters<typeof createFractalGrowthWireframe>[0]),
     terrain: (cfg) => createTerrainHeightfield(cfg as Parameters<typeof createTerrainHeightfield>[0]),
   };
   const compoundEntries = buildCompoundEntries(quality, systemRegistry);
