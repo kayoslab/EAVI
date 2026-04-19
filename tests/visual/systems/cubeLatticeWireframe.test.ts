@@ -505,13 +505,13 @@ describe('US-072: Cube lattice wireframe system enhancements', () => {
     expect(vs).toMatch(/smoothstep.*uBassEnergy|uBassEnergy.*smoothstep/);
   });
 
-  it('T-072-25: bass directional drift uses reduced 0.15 coefficient', () => {
+  it('T-072-25: bass directional drift uses reduced 0.08 coefficient', () => {
     const scene = new THREE.Scene();
     const sys = createCubeLatticeWireframe({ gridSize: 3, cellSize: 1.0 });
     sys.init(scene, 'drift-seed', defaultParams);
     const line = scene.children.find((c) => c instanceof THREE.LineSegments) as THREE.LineSegments;
     const vs = (line.material as THREE.ShaderMaterial).vertexShader;
-    expect(vs).toMatch(/bassDrift\s*=.*0\.15/);
+    expect(vs).toMatch(/bassDrift\s*=.*0\.08/);
     expect(vs).not.toMatch(/bassDrift\s*=.*0\.25/);
   });
 

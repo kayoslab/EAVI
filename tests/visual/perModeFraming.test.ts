@@ -116,8 +116,7 @@ const MODE_FRAMING_EXPECTATIONS: Record<string, { minDistance: number; maxDistan
   pointcloud: { minDistance: 2.5, maxDistance: 5.0 },
   crystal: { minDistance: 4.0, maxDistance: 8.0 },
   flowribbon: { minDistance: 4.0, maxDistance: 7.0 },
-  fractalgrowth: { minDistance: 2.0, maxDistance: 5.0 },
-  terrain: { minDistance: 4.0, maxDistance: 8.0 },
+  terrain: { minDistance: 6.0, maxDistance: 10.0 },
 };
 
 // ---------- tests ----------
@@ -185,8 +184,8 @@ describe('US-089: Per-mode camera framing — rotation entry framing configs', (
     // Each mode entry should have a framing property
     // Count occurrences of 'framing:' or 'framing :'
     const framingCount = (mainSource.match(/framing\s*:/g) || []).length;
-    // At minimum, each of the 7 single modes should have framing
-    expect(framingCount).toBeGreaterThanOrEqual(7);
+    // At minimum, each of the 6 single modes should have framing
+    expect(framingCount).toBeGreaterThanOrEqual(6);
   });
 });
 
@@ -238,7 +237,7 @@ describe('US-089: Per-mode camera framing — viewport fill acceptance criterion
     // Extract targetDistance values from framing configs in main.ts
     const distanceMatches = mainSource.matchAll(/targetDistance\s*:\s*([\d.]+)/g);
     const distances = Array.from(distanceMatches, (m) => parseFloat(m[1]));
-    expect(distances.length).toBeGreaterThanOrEqual(7);
+    expect(distances.length).toBeGreaterThanOrEqual(6);
 
     for (const d of distances) {
       // Visible half-height at origin = d * tan(30°)
@@ -248,7 +247,7 @@ describe('US-089: Per-mode camera framing — viewport fill acceptance criterion
       // (generous bound: all modes have extent 0.5-3.0)
       expect(visibleHalfHeight).toBeLessThan(10);
       expect(d).toBeGreaterThan(0);
-      expect(d).toBeLessThan(15);
+      expect(d).toBeLessThanOrEqual(15);
     }
   });
 
@@ -487,8 +486,8 @@ describe('US-089: Per-mode camera framing — near/far plane management', () => 
       (m) => parseFloat(m[1]),
     );
 
-    expect(nearMatches.length).toBeGreaterThanOrEqual(7);
-    expect(farMatches.length).toBeGreaterThanOrEqual(7);
+    expect(nearMatches.length).toBeGreaterThanOrEqual(6);
+    expect(farMatches.length).toBeGreaterThanOrEqual(6);
 
     for (let i = 0; i < nearMatches.length; i++) {
       expect(nearMatches[i]).toBeGreaterThan(0);

@@ -223,13 +223,14 @@ describe('US-088: Apply DoF + bloom uniformly across all modes', () => {
       }
     });
 
-    it('T-088-09: when no dofStrength config is provided, fallback remains 0.6 (backward compatibility)', () => {
+    it('T-088-09: when no dofStrength config is provided, fallback remains 0.6 for most systems (0.3 for terrain)', () => {
       for (const { name, create } of POINT_SYSTEMS) {
         const scene = new THREE.Scene();
         const system = create(); // no dofStrength in config
         system.init(scene, `default-dof-${name}`, defaultParams);
         const mat = getPointsMaterial(scene);
-        expect(mat.uniforms.uDofStrength.value, `${name}: default dofStrength should be 0.6`).toBeCloseTo(0.6, 1);
+        const expectedDefault = name === 'terrainHeightfield' ? 0.3 : 0.6;
+        expect(mat.uniforms.uDofStrength.value, `${name}: default dofStrength should be ${expectedDefault}`).toBeCloseTo(expectedDefault, 1);
       }
     });
 

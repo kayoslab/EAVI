@@ -22,7 +22,7 @@ describe('US-076: Quality profile — terrainPointCount', () => {
     expect(typeof profile.terrainPointCount).toBe('number');
   });
 
-  it('T-076-Q02: low tier has terrainPointCount ~20000', () => {
+  it('T-076-Q02: low tier has terrainPointCount = rows*cols (80*120 = 9600)', () => {
     const profile = computeQuality(makeSignals({
       hardwareConcurrency: 2,
       deviceMemory: 1,
@@ -32,10 +32,10 @@ describe('US-076: Quality profile — terrainPointCount', () => {
       devicePixelRatio: 1,
     }));
     expect(profile.tier).toBe('low');
-    expect(profile.terrainPointCount).toBe(40000);
+    expect(profile.terrainPointCount).toBe(9600);
   });
 
-  it('T-076-Q03: medium tier has terrainPointCount ~60000', () => {
+  it('T-076-Q03: medium tier has terrainPointCount = rows*cols (150*200 = 30000)', () => {
     const profile = computeQuality(makeSignals({
       hardwareConcurrency: 4,
       deviceMemory: 4,
@@ -45,10 +45,10 @@ describe('US-076: Quality profile — terrainPointCount', () => {
       devicePixelRatio: 1.5,
     }));
     expect(profile.tier).toBe('medium');
-    expect(profile.terrainPointCount).toBe(100000);
+    expect(profile.terrainPointCount).toBe(30000);
   });
 
-  it('T-076-Q04: high tier has terrainPointCount ~120000', () => {
+  it('T-076-Q04: high tier has terrainPointCount = rows*cols (250*350 = 87500)', () => {
     const profile = computeQuality(makeSignals({
       hardwareConcurrency: 8,
       deviceMemory: 8,
@@ -58,7 +58,7 @@ describe('US-076: Quality profile — terrainPointCount', () => {
       devicePixelRatio: 2,
     }));
     expect(profile.tier).toBe('high');
-    expect(profile.terrainPointCount).toBe(200000);
+    expect(profile.terrainPointCount).toBe(87500);
   });
 
   it('T-076-Q05: extractSystemConfig("terrain") includes pointCount', () => {

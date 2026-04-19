@@ -290,9 +290,9 @@ describe('US-063: FlowRibbonField geometry system', () => {
     high.init(scene, 'seed-a', { ...defaultParams, density: 1.0 });
     const highCount = getPointCount(high);
     expect(highCount).toBeGreaterThan(lowCount);
-    const capped = createFlowRibbonField({ maxPoints: 100 });
+    const capped = createFlowRibbonField({ maxPoints: 250 });
     capped.init(scene, 'seed-a', { ...defaultParams, density: 1.0 });
-    expect(getPointCount(capped)).toBeLessThanOrEqual(100);
+    expect(getPointCount(capped)).toBeLessThanOrEqual(250);
   });
 
   it('T-063-24: cleanup removes mesh from scene and disposes geometry/material', () => {

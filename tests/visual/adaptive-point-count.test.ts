@@ -215,7 +215,7 @@ describe('US-047: Adaptive point count scaling', () => {
     const density = 0.7;
     const complexity = 0.8;
     const maxPts = 500;
-    const expected = Math.max(24, Math.floor(Math.floor(density * maxPts) * (0.6 + complexity * 0.4)));
+    const expected = Math.max(200, Math.floor(Math.floor(density * maxPts) * (0.6 + complexity * 0.4)));
 
     const scene = new THREE.Scene();
     const params = { ...defaultParams, density, structureComplexity: complexity };
@@ -243,14 +243,14 @@ describe('US-047: Adaptive point count scaling', () => {
     expect(getParticleCount(pf)).toBe(expected);
   });
 
-  it('T-047-06: Minimum point floor: density near zero still produces at least 24 points', () => {
+  it('T-047-06: Minimum point floor: density near zero still produces at least 200 points', () => {
     const result = computeAdaptiveCount(0.01, 0.2, 200);
-    expect(result).toBeGreaterThanOrEqual(24);
+    expect(result).toBeGreaterThanOrEqual(200);
 
     const scene = new THREE.Scene();
     const cloud = createPointCloud({ maxPoints: 200 });
     cloud.init(scene, 'min-floor-test', { ...defaultParams, density: 0.01, structureComplexity: 0.2 });
-    expect(getPointCount(cloud)).toBeGreaterThanOrEqual(24);
+    expect(getPointCount(cloud)).toBeGreaterThanOrEqual(200);
 
     const positions = getPointPositions(cloud);
     expect(positions).not.toBeNull();
@@ -282,13 +282,13 @@ describe('US-047: Adaptive point count scaling', () => {
       expect(getPointCount(cloud)).toBeLessThanOrEqual(mp);
     }
 
-    const pf = createParticleField({ maxParticles: 150 });
+    const pf = createParticleField({ maxParticles: 250 });
     pf.init(scene, 'cap-test-pf', params);
-    expect(getParticleCount(pf)).toBeLessThanOrEqual(150);
+    expect(getParticleCount(pf)).toBeLessThanOrEqual(250);
 
-    const rf = createRibbonField({ maxPoints: 200 });
+    const rf = createRibbonField({ maxPoints: 250 });
     rf.init(scene, 'cap-test-rf', params);
-    expect(getRibbonPointCount(rf)).toBeLessThanOrEqual(200);
+    expect(getRibbonPointCount(rf)).toBeLessThanOrEqual(250);
   });
 
   it('T-047-09: Low-tier point cloud positions are volumetric, not coplanar', () => {

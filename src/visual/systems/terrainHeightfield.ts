@@ -24,9 +24,8 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
   cleanup(): void;
   setOpacity(opacity: number): void;
 } {
-  const rows = config?.rows ?? 40;
-  const cols = config?.cols ?? 60;
-  const pointCount = config?.pointCount ?? 60000;
+  const rows = config?.rows ?? 150;
+  const cols = config?.cols ?? 200;
   const noiseOctaves = config?.noiseOctaves ?? 3;
 
   let pointsMesh: THREE.Points | null = null;
@@ -46,11 +45,11 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       uCadence: { value: params.cadence },
       uNoiseFrequency: { value: params.noiseFrequency },
       uNoiseOctaves: { value: noiseOctaves },
-      uFogNear: { value: 8.0 },
-      uFogFar: { value: 40.0 },
+      uFogNear: { value: 5.0 },
+      uFogFar: { value: 60.0 },
       uHasVertexColor: { value: 1.0 },
-      uFocusDistance: { value: 5.0 },
-      uDofStrength: { value: config?.dofStrength ?? 0.6 },
+      uFocusDistance: { value: 15.0 },
+      uDofStrength: { value: config?.dofStrength ?? 0.3 },
     };
   }
 
@@ -79,8 +78,8 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
     uniforms.uNoiseFrequency.value = noiseFrequency;
 
     // DoF focus distance modulation
-    const baseFocus = 5.0;
-    const focusDrift = Math.sin(elapsed * 0.0002) * 0.5;
+    const baseFocus = 15.0;
+    const focusDrift = Math.sin(elapsed * 0.0001) * 2.0;
     uniforms.uFocusDistance.value = baseFocus + focusDrift;
   }
 
@@ -91,7 +90,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       const sheetData = generateTerrainParticleSheet({
         rows,
         cols,
-        pointCount,
+        pointCount: rows * cols,
         seed: seed + ':terrain',
       });
 
@@ -100,7 +99,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(sheetData.positions, 3));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(sheetData.randoms, 3));
-      const vertexColors = computeVertexColors(sheetData.positions, gradient, { axis: 'y', itemStride: 3 });
+      const vertexColors = computeVertexColors(sheetData.positions, gradient, { axis: 'z', itemStride: 3 });
       geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
       const material = new THREE.ShaderMaterial({
@@ -114,11 +113,9 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
 
       pointsMesh = new THREE.Points(geometry, material);
 
-      const terrainPosition = new THREE.Vector3(0, -3.0, -8);
-      const terrainRotation = new THREE.Euler(-Math.PI * 0.14, 0, 0);
-
-      pointsMesh.position.copy(terrainPosition);
-      pointsMesh.rotation.copy(terrainRotation);
+      // Position the grid so camera is at the near edge looking across
+      // No rotation — the grid is flat in XZ plane, camera looks along -Z
+      pointsMesh.position.set(0, -2.0, 5.0);
 
       scene.add(pointsMesh);
     },

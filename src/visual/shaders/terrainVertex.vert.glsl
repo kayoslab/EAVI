@@ -1,5 +1,5 @@
-// Terrain dense particle wave sheet vertex shader
-// US-076: Continuous wave animation + bass amplitude + treble shimmer
+// Terrain grid landscape vertex shader
+// Regular grid of points forming hills and valleys viewed from low angle
 
 uniform float uTime;
 uniform float uBassEnergy;
@@ -27,24 +27,17 @@ void main() {
   float t = uTime;
   float ma = uMotionAmplitude;
 
-  // --- Continuous time-based wave (rolls even without audio) ---
-  float baseWave = fbm3(vec3(pos.x * 0.06, pos.z * 0.06, t * 0.00008 * uCadence), uNoiseOctaves);
-  // Bass SCALES wave amplitude
-  float bassScale = 1.0 + uBassEnergy * 0.6;
-  pos.y += baseWave * ma * bassScale;
+  // --- Gentle wave animation over the grid surface ---
+  float wave = fbm3(vec3(pos.x * 0.05, pos.z * 0.03, t * 0.00006 * uCadence), uNoiseOctaves);
+  float bassScale = 1.0 + uBassEnergy * 0.4;
+  pos.y += wave * ma * bassScale * 0.8;
 
-  // --- Treble fine vertex jitter ---
-  float jitter = snoise(pos * 3.0 + vec3(t * 0.003)) * uTrebleEnergy * ma * 0.15;
-  pos.y += jitter;
-
-  // --- Pointer disturbance ---
-  vec2 diff = pos.xz * 0.1 - uPointerPos;
-  float dist = length(diff) + 0.001;
-  float repulse = uPointerDisturbance * 0.2 / (dist * dist + 1.0);
-  pos.y += repulse * 0.3;
+  // --- Treble shimmer: subtle per-vertex y displacement ---
+  float shimmer = snoise(pos * 2.0 + vec3(t * 0.001 * uCadence)) * uTrebleEnergy * ma * 0.08;
+  pos.y += shimmer;
 
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-  float depth = max(0.25, -mvPosition.z);
+  float depth = max(0.5, -mvPosition.z);
 
   vFogFactor = smoothstep(uFogNear, uFogFar, depth);
 
@@ -53,14 +46,13 @@ void main() {
   coc = clamp(coc * uDofStrength, 0.0, 1.0);
   vCoC = coc;
 
-  // --- Small dense point size with treble shimmer ---
-  float sparkleNoise = snoise(pos * 3.0 + vec3(t * 0.005));
-  float trebleSparkle = 1.0 + max(0.0, sparkleNoise) * uTrebleEnergy * 0.5;
-  float atmosphericDecay = exp(-0.03 * max(depth - uFogNear, 0.0));
-  float pointSize = 2.0 * (800.0 / depth) * trebleSparkle * atmosphericDecay;
-  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.5) : (1.0 + coc * 0.5);
+  // --- Point size: small crisp dots, perspective-scaled ---
+  float trebleSparkle = 1.0 + max(0.0, snoise(pos * 4.0 + vec3(t * 0.002))) * uTrebleEnergy * 0.3;
+  float atmosphericDecay = exp(-0.02 * max(depth - uFogNear, 0.0));
+  float pointSize = 3.0 * (300.0 / depth) * trebleSparkle * atmosphericDecay;
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 0.8) : (1.0 + coc * 0.3);
   pointSize *= bokehScale;
-  gl_PointSize = clamp(pointSize, 1.0, 12.0);
+  gl_PointSize = clamp(pointSize, 1.0, 8.0);
 
   vVertexColor = aVertexColor;
 

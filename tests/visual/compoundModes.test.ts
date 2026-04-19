@@ -177,8 +177,8 @@ describe('US-061: extractSystemConfig', () => {
 });
 
 describe('US-061: COMPOUND_MODE_DEFS', () => {
-  it('T-061-09: COMPOUND_MODE_DEFS defines exactly 2 compound modes', () => {
-    expect(COMPOUND_MODE_DEFS.length).toBe(2);
+  it('T-061-09: COMPOUND_MODE_DEFS defines exactly 1 compound mode', () => {
+    expect(COMPOUND_MODE_DEFS.length).toBe(1);
     for (const def of COMPOUND_MODE_DEFS) {
       expect(typeof def.name).toBe('string');
       expect(def.name.length).toBeGreaterThan(0);
@@ -193,7 +193,6 @@ describe('US-061: COMPOUND_MODE_DEFS', () => {
   it('T-061-10: COMPOUND_MODE_DEFS includes expected combinations', () => {
     const names = COMPOUND_MODE_DEFS.map((d) => d.name);
     expect(names).toContain('particles+flowribbon');
-    expect(names).toContain('pointcloud+fractalgrowth');
   });
 
   it('T-061-17: each compound mode def has exactly one primary layer', () => {
@@ -205,12 +204,12 @@ describe('US-061: COMPOUND_MODE_DEFS', () => {
 });
 
 describe('US-061: buildCompoundEntries', () => {
-  it('T-061-11: buildCompoundEntries returns 2 entries on medium tier', () => {
+  it('T-061-11: buildCompoundEntries returns 1 entry on medium tier', () => {
     const profile = makeMediumProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
 
-    expect(entries.length).toBe(2);
+    expect(entries.length).toBe(1);
     for (const entry of entries) {
       expect(entry.kind).toBe('compound');
       expect(entry.layers.length).toBe(2);
@@ -218,12 +217,12 @@ describe('US-061: buildCompoundEntries', () => {
     }
   });
 
-  it('T-061-12: buildCompoundEntries returns 2 entries on high tier', () => {
+  it('T-061-12: buildCompoundEntries returns 1 entry on high tier', () => {
     const profile = makeHighProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
 
-    expect(entries.length).toBe(2);
+    expect(entries.length).toBe(1);
   });
 
   it('T-061-13: buildCompoundEntries returns 0 entries on low tier', () => {
@@ -316,15 +315,15 @@ describe('US-068: Cube lattice compound mode and config', () => {
     expect(scaled.latticeGridSize).toBeGreaterThanOrEqual(2);
   });
 
-  it('T-068-58: COMPOUND_MODE_DEFS count is 2 after retirement (US-080)', () => {
-    expect(COMPOUND_MODE_DEFS.length).toBe(2);
+  it('T-068-58: COMPOUND_MODE_DEFS count is 1 after retirement (US-080)', () => {
+    expect(COMPOUND_MODE_DEFS.length).toBe(1);
   });
 
-  it('T-068-59: buildCompoundEntries returns 2 entries on medium tier (cubelattice retired US-080)', () => {
+  it('T-068-59: buildCompoundEntries returns 1 entry on medium tier (cubelattice retired US-080)', () => {
     const profile = makeMediumProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
-    expect(entries.length).toBe(2);
+    expect(entries.length).toBe(1);
     const names = entries.map((e) => e.name);
     expect(names).not.toContain('pointcloud+cubelattice');
   });
@@ -394,27 +393,22 @@ describe('US-066: Fractal growth compound mode and config', () => {
     }
   });
 
-  it('T-066-58: COMPOUND_MODE_DEFS includes pointcloud+fractalgrowth compound mode', () => {
+  it('T-066-58: COMPOUND_MODE_DEFS no longer includes pointcloud+fractalgrowth compound mode (removed from rotation)', () => {
     const names = COMPOUND_MODE_DEFS.map((d) => d.name);
-    expect(names).toContain('pointcloud+fractalgrowth');
-    const def = COMPOUND_MODE_DEFS.find((d) => d.name === 'pointcloud+fractalgrowth')!;
-    const primary = def.layers.find((l) => l.isPrimary)!;
-    const secondary = def.layers.find((l) => !l.isPrimary)!;
-    expect(primary.systemName).toBe('pointcloud');
-    expect(secondary.systemName).toBe('fractalgrowth');
+    expect(names).not.toContain('pointcloud+fractalgrowth');
   });
 
-  it('T-066-59: COMPOUND_MODE_DEFS count is 2 after retirement (US-080)', () => {
-    expect(COMPOUND_MODE_DEFS.length).toBe(2);
+  it('T-066-59: COMPOUND_MODE_DEFS count is 1 after fractalgrowth removal', () => {
+    expect(COMPOUND_MODE_DEFS.length).toBe(1);
   });
 
-  it('T-066-60: buildCompoundEntries returns 2 entries on medium tier (including fractalgrowth mode)', () => {
+  it('T-066-60: buildCompoundEntries returns 1 entry on medium tier (fractalgrowth removed)', () => {
     const profile = makeMediumProfile();
     const { registry } = createMockRegistry();
     const entries = buildCompoundEntries(profile, registry);
-    expect(entries.length).toBe(2);
+    expect(entries.length).toBe(1);
     const names = entries.map((e) => e.name);
-    expect(names).toContain('pointcloud+fractalgrowth');
+    expect(names).not.toContain('pointcloud+fractalgrowth');
   });
 
   it('T-066-61: buildCompoundEntries still returns 0 entries on low tier', () => {

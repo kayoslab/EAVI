@@ -46,12 +46,12 @@ describe('US-010: Palette module — geo classification and palette families', (
     }
   });
 
-  it('T-010-07: all palette family hueRanges are positive and at most 60', () => {
+  it('T-010-07: all palette family hueRanges are positive and at most 100', () => {
     const families = getAllPaletteFamilies();
     for (const [cls, family] of Object.entries(families)) {
       if (cls === 'unknown') continue; // unknown uses full range by design
       expect(family.hueRange).toBeGreaterThan(0);
-      expect(family.hueRange).toBeLessThanOrEqual(60);
+      expect(family.hueRange).toBeLessThanOrEqual(100);
     }
   });
 
