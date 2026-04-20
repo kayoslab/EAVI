@@ -113,10 +113,11 @@ export function updateCamera(
   const offsetZ =
     evalAxis(h.posZ, elapsedMs) * motionAmplitude * bassScale;
 
+  const driftScale = framing?.driftScale ?? [1, 1, 1];
   camera.position.set(
-    BASE_X + offsetX,
-    BASE_Y + offsetY,
-    baseZ + offsetZ,
+    BASE_X + offsetX * driftScale[0],
+    BASE_Y + offsetY * driftScale[1],
+    baseZ + offsetZ * driftScale[2],
   );
 
   const lookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude + lookOffX;

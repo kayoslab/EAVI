@@ -22,6 +22,7 @@ import { computeQuality } from './visual/quality';
 import { createConstellationLines } from './visual/systems/constellationLines';
 import { createBezierCurveWeb } from './visual/systems/bezierCurveWeb';
 import { createTerrainHeightfield } from './visual/systems/terrainHeightfield';
+import { createTerrainWireframe } from './visual/systems/terrainWireframe';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
 import { initComposer } from './visual/composer';
 
@@ -150,6 +151,20 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     dofStrength: quality.dofStrength,
   });
+  const terrainDramatic = createTerrainHeightfield({
+    rows: quality.terrainRows,
+    cols: quality.terrainCols,
+    noiseOctaves: quality.noiseOctaves,
+    dofStrength: quality.dofStrength,
+    heightScale: 8.0,
+    gradientMode: 'terrain-dramatic',
+  });
+  const terrainWireframe = createTerrainWireframe({
+    rows: Math.min(quality.terrainRows, 120),
+    cols: Math.min(quality.terrainCols, 160),
+    noiseOctaves: quality.noiseOctaves,
+    dofStrength: quality.dofStrength,
+  });
   // Build single-mode rotation entries
   // Flagship modes (terrain, pointcloud) get weight 2
   const singleEntries: SingleRotationEntry[] = [
@@ -164,7 +179,11 @@ geoPromise.then((geo) => {
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints,
       framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 } },
     { kind: 'single', name: 'terrain', system: terrain, maxPoints: quality.terrainRows * quality.terrainCols, weight: 2,
-      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, -15], nearClip: 0.1, farClip: 120 } },
+      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, -25], nearClip: 0.1, farClip: 200, driftScale: [4, 1, 1] } },
+    { kind: 'single', name: 'terrain-dramatic', system: terrainDramatic, maxPoints: quality.terrainRows * quality.terrainCols, weight: 1,
+      framing: { targetDistance: 10.0, lookOffset: [0, 1.0, -25], nearClip: 0.1, farClip: 200, driftScale: [4, 1, 1] } },
+    { kind: 'single', name: 'terrain-wireframe', system: terrainWireframe, maxPoints: Math.min(quality.terrainRows, 120) * Math.min(quality.terrainCols, 160), weight: 1,
+      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, -25], nearClip: 0.1, farClip: 200, driftScale: [4, 1, 1] } },
   ];
 
   // Build compound mode entries (empty on low tier)
@@ -175,6 +194,8 @@ geoPromise.then((geo) => {
     crystal: (cfg) => createCrystalField(cfg as Parameters<typeof createCrystalField>[0]),
     flowribbon: (cfg) => createFlowRibbonField(cfg as Parameters<typeof createFlowRibbonField>[0]),
     terrain: (cfg) => createTerrainHeightfield(cfg as Parameters<typeof createTerrainHeightfield>[0]),
+    'terrain-dramatic': (cfg) => createTerrainHeightfield(cfg as Parameters<typeof createTerrainHeightfield>[0]),
+    'terrain-wireframe': (cfg) => createTerrainWireframe(cfg as Parameters<typeof createTerrainWireframe>[0]),
   };
   const compoundEntries = buildCompoundEntries(quality, systemRegistry);
 

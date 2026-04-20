@@ -34,6 +34,7 @@ export interface FramingConfig {
   lookOffset: [number, number, number];
   nearClip: number;
   farClip: number;
+  driftScale?: [number, number, number];
 }
 
 export interface GeometrySystem {

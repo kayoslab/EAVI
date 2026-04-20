@@ -110,6 +110,8 @@ const DEFAULT_FRAMING: FramingConfig = {
 };
 
 function lerpFraming(a: FramingConfig, b: FramingConfig, t: number): FramingConfig {
+  const aDrift = a.driftScale ?? [1, 1, 1];
+  const bDrift = b.driftScale ?? [1, 1, 1];
   return {
     targetDistance: a.targetDistance + (b.targetDistance - a.targetDistance) * t,
     lookOffset: [
@@ -119,6 +121,11 @@ function lerpFraming(a: FramingConfig, b: FramingConfig, t: number): FramingConf
     ],
     nearClip: a.nearClip + (b.nearClip - a.nearClip) * t,
     farClip: a.farClip + (b.farClip - a.farClip) * t,
+    driftScale: [
+      aDrift[0] + (bDrift[0] - aDrift[0]) * t,
+      aDrift[1] + (bDrift[1] - aDrift[1]) * t,
+      aDrift[2] + (bDrift[2] - aDrift[2]) * t,
+    ],
   };
 }
 

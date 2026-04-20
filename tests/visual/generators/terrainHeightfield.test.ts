@@ -113,8 +113,8 @@ describe('US-073: Wireframe terrain heightfield generator', () => {
     }
     expect(minX).toBeCloseTo(-width / 2, 1);
     expect(maxX).toBeCloseTo(width / 2, 1);
-    expect(minZ).toBeCloseTo(-depth / 2, 1);
-    expect(maxZ).toBeCloseTo(depth / 2, 1);
+    expect(minZ).toBeCloseTo(-depth, 1);
+    expect(maxZ).toBeCloseTo(0, 1);
   });
 
   it('T-073-12: result contains correct rows and cols fields', () => {

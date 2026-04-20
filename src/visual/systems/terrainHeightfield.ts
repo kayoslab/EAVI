@@ -18,6 +18,9 @@ export interface TerrainHeightfieldConfig {
   pointCount?: number;
   noiseOctaves?: 1 | 2 | 3;
   dofStrength?: number;
+  heightScale?: number;
+  depth?: number;
+  gradientMode?: 'terrain' | 'terrain-dramatic';
 }
 
 export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): GeometrySystem & {
@@ -46,7 +49,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       uNoiseFrequency: { value: params.noiseFrequency },
       uNoiseOctaves: { value: noiseOctaves },
       uFogNear: { value: 5.0 },
-      uFogFar: { value: 60.0 },
+      uFogFar: { value: 100.0 },
       uHasVertexColor: { value: 1.0 },
       uFocusDistance: { value: 15.0 },
       uDofStrength: { value: config?.dofStrength ?? 0.3 },
@@ -92,14 +95,18 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
         cols,
         pointCount: rows * cols,
         seed: seed + ':terrain',
+        heightScale: config?.heightScale,
+        depth: config?.depth,
       });
 
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'terrain' });
+      const gradientMode = config?.gradientMode === 'terrain-dramatic' ? 'terrain-dramatic' : 'terrain';
+      const gradientAxis: 'y' | 'z' = config?.gradientMode === 'terrain-dramatic' ? 'y' : 'z';
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: gradientMode });
 
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.BufferAttribute(sheetData.positions, 3));
       geometry.setAttribute('aRandom', new THREE.BufferAttribute(sheetData.randoms, 3));
-      const vertexColors = computeVertexColors(sheetData.positions, gradient, { axis: 'z', itemStride: 3 });
+      const vertexColors = computeVertexColors(sheetData.positions, gradient, { axis: gradientAxis, itemStride: 3 });
       geometry.setAttribute('aVertexColor', new THREE.BufferAttribute(vertexColors, 3));
 
       const material = new THREE.ShaderMaterial({

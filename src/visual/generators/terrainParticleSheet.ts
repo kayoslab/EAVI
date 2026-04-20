@@ -22,7 +22,7 @@ export function generateTerrainParticleSheet(opts: {
     cols,
     seed,
     width = 60,
-    depth = 80,
+    depth = 160,
     heightScale = 3.0,
     octaves = 3,
   } = opts;

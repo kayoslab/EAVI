@@ -209,6 +209,20 @@ export function extractSystemConfig(systemName: string, profile: QualityProfile)
         noiseOctaves: profile.noiseOctaves,
         pointCount: profile.terrainPointCount,
       };
+    case 'terrain-dramatic':
+      return {
+        rows: profile.terrainRows,
+        cols: profile.terrainCols,
+        noiseOctaves: profile.noiseOctaves,
+        pointCount: profile.terrainPointCount,
+      };
+    case 'terrain-wireframe':
+      return {
+        rows: profile.terrainRows,
+        cols: profile.terrainCols,
+        noiseOctaves: profile.noiseOctaves,
+        pointCount: profile.terrainPointCount,
+      };
     default:
       throw new Error(`Unknown system name: ${systemName}`);
   }
