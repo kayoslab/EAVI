@@ -226,7 +226,6 @@ export function extractSystemConfig(systemName: string, profile: QualityProfile)
       };
     case 'tunnel':
     case 'cave':
-    case 'canyon':
     case 'icosphere':
     case 'torus':
     case 'morphpoly':

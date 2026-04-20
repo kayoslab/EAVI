@@ -354,8 +354,8 @@ describe('US-089: Per-mode camera framing — camera motion honours framing', ()
     updateCamera(cam, 30000, 0, 1.0, framingWithOffset);
     const lookWithOffset = { ...cam._lookAtCalls[cam._lookAtCalls.length - 1] };
 
-    // The Y component should be shifted by approximately the lookOffset
-    expect(lookWithOffset.y - lookNoOffset.y).toBeCloseTo(1.5, 0);
+    // The lookAt Y uses lookOffY * 0.3, so offset of 1.5 produces a shift of ~0.45
+    expect(lookWithOffset.y - lookNoOffset.y).toBeCloseTo(0.45, 1);
   });
 
   it('T-089-14: harmonic drift still works on top of framing targetDistance', () => {

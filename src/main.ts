@@ -28,7 +28,6 @@ import { initComposer } from './visual/composer';
 import { createTriMeshMode } from './visual/systems/triMeshMode';
 import { generateTunnelMesh } from './visual/generators/tunnelMesh';
 import { generateCaveMesh } from './visual/generators/caveMesh';
-import { generateCanyonMesh } from './visual/generators/canyonMesh';
 import { generateIcosphereMesh } from './visual/generators/icosphereMesh';
 import { generateTorusMesh } from './visual/generators/torusMesh';
 import { generateMorphPolyMesh } from './visual/generators/morphPolyMesh';
@@ -194,16 +193,6 @@ geoPromise.then((geo) => {
     fogFar: 60,
   });
 
-  const canyon = createTriMeshMode(generateCanyonMesh, {
-    rows: Math.min(quality.terrainRows, 60),
-    cols: Math.min(quality.terrainCols, 160),
-    noiseOctaves: quality.noiseOctaves,
-    paletteMode: 'canyon',
-    colorAxis: 'y',
-    position: [0, 0, 5],
-    fogNear: 3,
-    fogFar: 60,
-  });
 
   const icosphere = createTriMeshMode(generateIcosphereMesh, {
     rows: quality.meshSubdivisions * 20,
@@ -256,19 +245,19 @@ geoPromise.then((geo) => {
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints,
       framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 } },
     // --- Terrain environments: flythrough camera (slow aerial drift) ---
+    // lookOffY must be ABOVE terrain peaks (heightScale=5 + mesh y=-2 → peaks at y=3)
     { kind: 'single', name: 'terrain', system: terrain, maxPoints: quality.terrainRows * quality.terrainCols, weight: 2,
-      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3 } },
+      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3 } },
     { kind: 'single', name: 'terrain-dramatic', system: terrainDramatic, maxPoints: quality.terrainRows * quality.terrainCols, weight: 1,
-      framing: { targetDistance: 10.0, lookOffset: [0, 1.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2 } },
+      framing: { targetDistance: 10.0, lookOffset: [0, 8.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2 } },
     { kind: 'single', name: 'terrain-wireframe', system: terrainWireframe, maxPoints: Math.min(quality.terrainRows, 120) * Math.min(quality.terrainCols, 160), weight: 1,
-      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35 } },
+      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35 } },
     // --- Enclosed environments: flythrough camera (gentle travel) ---
+    // Tunnel/cave: camera centered in the interior space
     { kind: 'single', name: 'tunnel', system: tunnel, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 200), weight: 1,
-      framing: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 0.3, 1] } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 1, 1] } },
     { kind: 'single', name: 'cave', system: cave, maxPoints: Math.min(quality.terrainRows, 80) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
-      framing: { targetDistance: 5.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 0.3, 1] } },
-    { kind: 'single', name: 'canyon', system: canyon, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
-      framing: { targetDistance: 5.0, lookOffset: [0, 0.5, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.2, 0.5, 1] } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 1.0, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 1, 1] } },
     // --- 3D objects: orbit camera ---
     { kind: 'single', name: 'icosphere', system: icosphere, maxPoints: quality.meshSubdivisions * 400, weight: 1,
       framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 6.0 } },
@@ -290,7 +279,6 @@ geoPromise.then((geo) => {
     'terrain-wireframe': (cfg) => createTerrainWireframe(cfg as Parameters<typeof createTerrainWireframe>[0]),
     tunnel: (cfg) => createTriMeshMode(generateTunnelMesh, { ...cfg as any, paletteMode: 'tunnel', colorAxis: 'z', position: [0, 0, 5] }),
     cave: (cfg) => createTriMeshMode(generateCaveMesh, { ...cfg as any, paletteMode: 'cave', colorAxis: 'y', position: [0, 0, 5] }),
-    canyon: (cfg) => createTriMeshMode(generateCanyonMesh, { ...cfg as any, paletteMode: 'canyon', colorAxis: 'y', position: [0, 0, 5] }),
     icosphere: (cfg) => createTriMeshMode(generateIcosphereMesh, { ...cfg as any, paletteMode: 'icosphere', colorAxis: 'radial', useRadialShader: true, rotation: { x: 0.05, y: 0.1, z: 0.03 } }),
     torus: (cfg) => createTriMeshMode(generateTorusMesh, { ...cfg as any, paletteMode: 'torus', colorAxis: 'y', useRadialShader: true, rotation: { x: 0.03, y: 0.08, z: 0.02 } }),
     morphpoly: (cfg) => createTriMeshMode(generateMorphPolyMesh, { ...cfg as any, paletteMode: 'morphpoly', colorAxis: 'radial', useRadialShader: true, rotation: { x: 0.08, y: 0.12, z: 0.05 } }),

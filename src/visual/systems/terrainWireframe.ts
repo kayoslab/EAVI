@@ -113,7 +113,7 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
         rows: cellRows,
         cols: cellCols,
         seed: seed + ':terrain',
-        width: 60,
+        width: 120,
         depth: 160,
         heightScale: 3.0,
         octaves: noiseOctaves,
