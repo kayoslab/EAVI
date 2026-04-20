@@ -62,6 +62,10 @@ void main() {
   // Chromatic dispersion for points
   color = chromaticPoint(color, gl_PointCoord, uDispersion);
 
+  // Audio warmth: bass gently warms color, combined energy enriches saturation
+  color += vec3(uBassEnergy * 0.04, uBassEnergy * 0.015, 0.0);
+  color *= 1.0 + (uBassEnergy + uTrebleEnergy) * 0.04;
+
   // Bass modulates overall visibility
   float bassAlpha = 0.5 + uBassEnergy * 0.5;
 

@@ -6,6 +6,8 @@ uniform float uFogNear;
 uniform float uFogFar;
 uniform float uDispersion;
 uniform float uHasVertexColor;
+uniform float uBassEnergy;
+uniform float uTrebleEnergy;
 
 varying vec3 vColor;
 varying vec3 vVertexColor;
@@ -34,6 +36,10 @@ void main() {
 
   // Chromatic dispersion: per-channel gl_PointCoord offset
   vec3 color = chromaticPoint(baseColor, gl_PointCoord, uDispersion);
+
+  // Audio warmth: bass gently warms color, combined energy enriches saturation
+  color += vec3(uBassEnergy * 0.04, uBassEnergy * 0.015, 0.0);
+  color *= 1.0 + (uBassEnergy + uTrebleEnergy) * 0.04;
 
   // Atmospheric depth fog
   float fogFactor = smoothstep(uFogNear, uFogFar, vDepth);

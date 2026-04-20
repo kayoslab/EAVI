@@ -1,5 +1,5 @@
-// Electric arc fragment shader
-// US-060: HSL coloring with bass brightness, arc displacement glow, depth fog
+// 3D object wireframe fragment shader
+// Depth fog, palette-based coloring for object mesh lines
 
 uniform float uOpacity;
 uniform float uBassEnergy;
@@ -8,12 +8,12 @@ uniform float uPaletteHue;
 uniform float uPaletteSaturation;
 uniform float uFogNear;
 uniform float uFogFar;
-uniform float uDispersion;
+
+uniform float uHasVertexColor;
 
 varying float vFogFactor;
-varying float vArcDisplacement;
+varying vec3 vVertexColor;
 
-// HSL to RGB conversion
 vec3 hsl2rgb(float h, float s, float l) {
   float c = (1.0 - abs(2.0 * l - 1.0)) * s;
   float hp = h * 6.0;
@@ -33,35 +33,23 @@ void main() {
   float hue = mod(uPaletteHue, 360.0) / 360.0;
   if (hue < 0.0) hue += 1.0;
 
-  // Base lightness with treble shimmer
-  float lightness = 0.55 + uTrebleEnergy * 0.15;
+  float lightness = 0.5 + uTrebleEnergy * 0.15;
+  vec3 hslColor = hsl2rgb(hue, uPaletteSaturation * 0.6, lightness);
+  vec3 color = mix(hslColor, vVertexColor, uHasVertexColor);
 
-  // Arc displacement adds glow (brighter where displacement is strongest)
-  lightness += clamp(vArcDisplacement * 3.0, 0.0, 0.3);
-
-  // Slight hue shift on high-displacement vertices for electric color variation
-  float hueShift = vArcDisplacement * 0.15;
-  float finalHue = fract(hue + hueShift);
-
-  vec3 color = hsl2rgb(finalHue, uPaletteSaturation * 0.7, lightness);
-
-  // Chromatic dispersion: multiplicative RGB channel shift
-  color = chromaticLine(color, uDispersion);
+  color = chromaticLine(color, 0.0);
 
   // Audio warmth: bass gently warms color, combined energy enriches saturation
   color += vec3(uBassEnergy * 0.04, uBassEnergy * 0.015, 0.0);
   color *= 1.0 + (uBassEnergy + uTrebleEnergy) * 0.04;
 
-  // Bass modulates overall line visibility
   float bassAlpha = 0.4 + uBassEnergy * 0.6;
 
-  // Depth-based color desaturation
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
   vec3 fogTint = vec3(lum * 0.7, lum * 0.75, lum * 0.85);
-  color = mix(color, fogTint, vFogFactor * 0.25);
+  color = mix(color, fogTint, vFogFactor * 0.3);
 
-  // Combine all alpha factors
-  float alpha = bassAlpha * (1.0 - vFogFactor * 0.85) * uOpacity;
+  float alpha = bassAlpha * (1.0 - vFogFactor * 0.9) * uOpacity;
 
   gl_FragColor = vec4(color, alpha);
 }

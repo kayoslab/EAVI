@@ -11,7 +11,7 @@ export interface SpatialGradientPalette {
   stops: GradientStop[];
 }
 
-export type PaletteMode = 'seeded' | 'vibrant' | 'terrain' | 'terrain-dramatic' | 'terrain-wireframe';
+export type PaletteMode = 'seeded' | 'vibrant' | 'terrain' | 'terrain-dramatic' | 'terrain-wireframe' | 'tunnel' | 'cave' | 'canyon' | 'icosphere' | 'torus' | 'morphpoly';
 
 export interface SpatialGradientOptions {
   mode?: PaletteMode;
@@ -226,6 +226,150 @@ function createTerrainWireframeGradient(seed: string): SpatialGradientPalette {
   return { stops };
 }
 
+// Tunnel: deep purple -> electric blue -> cyan -> white
+const TUNNEL_SRGB_STOPS = [
+  { r: 0x1a / 255, g: 0x0a / 255, b: 0x3f / 255, position: 0.0 },
+  { r: 0x00 / 255, g: 0x55 / 255, b: 0xff / 255, position: 0.35 },
+  { r: 0x00 / 255, g: 0xc9 / 255, b: 0xdb / 255, position: 0.7 },
+  { r: 0xe8 / 255, g: 0xf0 / 255, b: 0xff / 255, position: 1.0 },
+];
+
+function createTunnelGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':tunnel');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = TUNNEL_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.1 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
+// Cave: dark amber -> warm orange -> gold -> pale white
+const CAVE_SRGB_STOPS = [
+  { r: 0x2e / 255, g: 0x1a / 255, b: 0x0a / 255, position: 0.0 },
+  { r: 0xcc / 255, g: 0x6a / 255, b: 0x1a / 255, position: 0.35 },
+  { r: 0xff / 255, g: 0xc0 / 255, b: 0x40 / 255, position: 0.7 },
+  { r: 0xff / 255, g: 0xf0 / 255, b: 0xd8 / 255, position: 1.0 },
+];
+
+function createCaveGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':cave');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = CAVE_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.1 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
+// Canyon: rust red -> magenta -> violet -> lavender
+const CANYON_SRGB_STOPS = [
+  { r: 0x3f / 255, g: 0x0a / 255, b: 0x0a / 255, position: 0.0 },
+  { r: 0xcc / 255, g: 0x1a / 255, b: 0x6e / 255, position: 0.35 },
+  { r: 0x8a / 255, g: 0x2a / 255, b: 0xe0 / 255, position: 0.7 },
+  { r: 0xe0 / 255, g: 0xc8 / 255, b: 0xff / 255, position: 1.0 },
+];
+
+function createCanyonGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':canyon');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = CANYON_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.1 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
+// Icosphere: deep navy -> electric blue -> cyan -> white-blue
+const ICOSPHERE_SRGB_STOPS = [
+  { r: 0x0a / 255, g: 0x0a / 255, b: 0x3f / 255, position: 0.0 },
+  { r: 0x1a / 255, g: 0x55 / 255, b: 0xcc / 255, position: 0.35 },
+  { r: 0x00 / 255, g: 0xc9 / 255, b: 0xdb / 255, position: 0.7 },
+  { r: 0xd0 / 255, g: 0xe8 / 255, b: 0xff / 255, position: 1.0 },
+];
+
+function createIcosphereGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':icosphere');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = ICOSPHERE_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.1 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
+// Torus: dark pink -> orange -> gold -> warm white
+const TORUS_SRGB_STOPS = [
+  { r: 0x3f / 255, g: 0x0a / 255, b: 0x2e / 255, position: 0.0 },
+  { r: 0xff / 255, g: 0x4a / 255, b: 0x1a / 255, position: 0.35 },
+  { r: 0xff / 255, g: 0xb3 / 255, b: 0x1a / 255, position: 0.7 },
+  { r: 0xff / 255, g: 0xe8 / 255, b: 0xd0 / 255, position: 1.0 },
+];
+
+function createTorusGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':torus');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = TORUS_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.1 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
+// MorphPoly: deep indigo -> violet -> magenta -> warm pink
+const MORPHPOLY_SRGB_STOPS = [
+  { r: 0x1a / 255, g: 0x0a / 255, b: 0x3f / 255, position: 0.0 },
+  { r: 0x6a / 255, g: 0x1a / 255, b: 0xbf / 255, position: 0.35 },
+  { r: 0xd8 / 255, g: 0x3a / 255, b: 0x8a / 255, position: 0.7 },
+  { r: 0xff / 255, g: 0xc8 / 255, b: 0xe0 / 255, position: 1.0 },
+];
+
+function createMorphPolyGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':morphpoly');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = MORPHPOLY_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.1 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
 export function createSpatialGradient(
   paletteHue: number,
   paletteSaturation: number,
@@ -240,6 +384,24 @@ export function createSpatialGradient(
   }
   if (options?.mode === 'terrain-wireframe') {
     return createTerrainWireframeGradient(seed);
+  }
+  if (options?.mode === 'tunnel') {
+    return createTunnelGradient(seed);
+  }
+  if (options?.mode === 'cave') {
+    return createCaveGradient(seed);
+  }
+  if (options?.mode === 'canyon') {
+    return createCanyonGradient(seed);
+  }
+  if (options?.mode === 'icosphere') {
+    return createIcosphereGradient(seed);
+  }
+  if (options?.mode === 'torus') {
+    return createTorusGradient(seed);
+  }
+  if (options?.mode === 'morphpoly') {
+    return createMorphPolyGradient(seed);
   }
   if (options?.mode === 'vibrant') {
     return createVibrantGradient(seed, options?.familyHint);

@@ -49,6 +49,10 @@ void main() {
 
   color = chromaticPoint(color, gl_PointCoord, 0.0);
 
+  // Audio warmth: bass gently warms color, combined energy enriches saturation
+  color += vec3(uBassEnergy * 0.04, uBassEnergy * 0.015, 0.0);
+  color *= 1.0 + (uBassEnergy + uTrebleEnergy) * 0.04;
+
   float bassAlpha = 0.4 + uBassEnergy * 0.6;
 
   float lum = dot(color, vec3(0.299, 0.587, 0.114));

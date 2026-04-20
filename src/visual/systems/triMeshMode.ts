@@ -2,34 +2,59 @@ import * as THREE from 'three';
 import type { Scene } from 'three';
 import type { VisualParams } from '../mappings';
 import type { FrameState, GeometrySystem } from '../types';
+import type { PaletteMode } from '../spatialGradient';
 import noise3dGlsl from '../shaders/noise3d.glsl?raw';
 import chromaticDispersionGlsl from '../shaders/chromaticDispersion.glsl?raw';
 import terrainLineVert from '../shaders/terrain.vert.glsl?raw';
 import terrainLineFrag from '../shaders/terrain.frag.glsl?raw';
 import terrainVertexVert from '../shaders/terrainVertex.vert.glsl?raw';
 import terrainVertexFrag from '../shaders/terrainVertex.frag.glsl?raw';
-import { generateTerrainHeightfield } from '../generators/terrainHeightfield';
+import meshObjectVert from '../shaders/meshObject.vert.glsl?raw';
+import meshObjectFrag from '../shaders/meshObject.frag.glsl?raw';
 import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 
-const meshVertShader = noise3dGlsl + '\n' + terrainLineVert;
-const meshFragShader = chromaticDispersionGlsl + '\n' + terrainLineFrag;
-const dotVertShader = noise3dGlsl + '\n' + terrainVertexVert;
-const dotFragShader = chromaticDispersionGlsl + '\n' + terrainVertexFrag;
+export interface TriMeshGeometry {
+  vertexPositions: Float32Array;
+  vertexRandoms: Float32Array;
+  triangleIndices: Uint32Array;
+  vertexCount: number;
+  triangleCount: number;
+}
 
-export interface TerrainWireframeConfig {
+export type TriMeshGenerator = (seed: string, rows: number, cols: number, octaves: number) => TriMeshGeometry;
+
+export interface TriMeshConfig {
   rows?: number;
   cols?: number;
   noiseOctaves?: 1 | 2 | 3;
   dofStrength?: number;
+  paletteMode: PaletteMode;
+  colorAxis?: 'x' | 'y' | 'z' | 'radial';
+  position?: [number, number, number];
+  useRadialShader?: boolean;
+  rotation?: { x: number; y: number; z: number };
+  fogNear?: number;
+  fogFar?: number;
 }
 
-export function createTerrainWireframe(config?: TerrainWireframeConfig): GeometrySystem & {
-  cleanup(): void;
-  setOpacity(opacity: number): void;
-} {
-  const rows = config?.rows ?? 150;
-  const cols = config?.cols ?? 200;
-  const noiseOctaves = config?.noiseOctaves ?? 3;
+export function createTriMeshMode(
+  generator: TriMeshGenerator,
+  config: TriMeshConfig,
+): GeometrySystem & { cleanup(): void; setOpacity(opacity: number): void } {
+  const rows = config.rows ?? 150;
+  const cols = config.cols ?? 200;
+  const noiseOctaves = config.noiseOctaves ?? 3;
+  const useRadial = config.useRadialShader ?? false;
+  const fogNear = config.fogNear ?? 5.0;
+  const fogFar = config.fogFar ?? 80.0;
+  const pos = config.position ?? [0, 0, 0];
+  const colorAxis = config.colorAxis ?? 'z';
+
+  // Select shaders based on config
+  const meshVertShader = noise3dGlsl + '\n' + (useRadial ? meshObjectVert : terrainLineVert);
+  const meshFragShader = chromaticDispersionGlsl + '\n' + (useRadial ? meshObjectFrag : terrainLineFrag);
+  const dotVertShader = noise3dGlsl + '\n' + terrainVertexVert;
+  const dotFragShader = chromaticDispersionGlsl + '\n' + terrainVertexFrag;
 
   let triMesh: THREE.Mesh | null = null;
   let pointsMesh: THREE.Points | null = null;
@@ -49,8 +74,8 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
       uCadence: { value: params.cadence },
       uNoiseFrequency: { value: params.noiseFrequency },
       uNoiseOctaves: { value: noiseOctaves },
-      uFogNear: { value: 5.0 },
-      uFogFar: { value: 80.0 },
+      uFogNear: { value: fogNear },
+      uFogFar: { value: fogFar },
       uHasVertexColor: { value: 1.0 },
     };
   }
@@ -69,11 +94,11 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
       uCadence: { value: params.cadence },
       uNoiseFrequency: { value: params.noiseFrequency },
       uNoiseOctaves: { value: noiseOctaves },
-      uFogNear: { value: 5.0 },
-      uFogFar: { value: 80.0 },
+      uFogNear: { value: fogNear },
+      uFogFar: { value: fogFar },
       uHasVertexColor: { value: 1.0 },
       uFocusDistance: { value: 15.0 },
-      uDofStrength: { value: config?.dofStrength ?? 0.2 },
+      uDofStrength: { value: config.dofStrength ?? 0.2 },
     };
   }
 
@@ -106,26 +131,15 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
     init(scene: Scene, seed: string, params: VisualParams): void {
       sceneRef = scene;
 
-      const cellRows = Math.max(1, rows - 1);
-      const cellCols = Math.max(1, cols - 1);
+      const data = generator(seed, rows, cols, noiseOctaves);
 
-      const data = generateTerrainHeightfield({
-        rows: cellRows,
-        cols: cellCols,
-        seed: seed + ':terrain',
-        width: 60,
-        depth: 160,
-        heightScale: 3.0,
-        octaves: noiseOctaves,
-      });
-
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'terrain-wireframe' });
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: config.paletteMode });
 
       // --- Triangle mesh (wireframe mode renders triangle edges) ---
       const meshGeom = new THREE.BufferGeometry();
       meshGeom.setAttribute('position', new THREE.BufferAttribute(data.vertexPositions, 3));
       meshGeom.setAttribute('aRandom', new THREE.BufferAttribute(data.vertexRandoms, 3));
-      const meshColors = computeVertexColors(data.vertexPositions, gradient, { axis: 'z', itemStride: 3 });
+      const meshColors = computeVertexColors(data.vertexPositions, gradient, { axis: colorAxis, itemStride: 3 });
       meshGeom.setAttribute('aVertexColor', new THREE.BufferAttribute(meshColors, 3));
       meshGeom.setIndex(new THREE.BufferAttribute(data.triangleIndices, 1));
 
@@ -140,10 +154,13 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
       });
 
       triMesh = new THREE.Mesh(meshGeom, meshMaterial);
-      triMesh.position.set(0, -2.0, 5.0);
+      triMesh.position.set(pos[0], pos[1], pos[2]);
+      if (config.rotation) {
+        triMesh.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
+      }
       scene.add(triMesh);
 
-      // --- Points mesh (vertex glow dots at grid intersections) ---
+      // --- Points mesh (vertex glow dots) ---
       const pointGeom = new THREE.BufferGeometry();
       pointGeom.setAttribute('position', new THREE.BufferAttribute(data.vertexPositions.slice(), 3));
       pointGeom.setAttribute('aRandom', new THREE.BufferAttribute(data.vertexRandoms.slice(), 3));
@@ -159,7 +176,10 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
       });
 
       pointsMesh = new THREE.Points(pointGeom, pointMaterial);
-      pointsMesh.position.set(0, -2.0, 5.0);
+      pointsMesh.position.set(pos[0], pos[1], pos[2]);
+      if (config.rotation) {
+        pointsMesh.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
+      }
       scene.add(pointsMesh);
     },
 
@@ -172,6 +192,16 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
         const elapsed = frame.elapsed ?? 0;
         const pu = (pointsMesh.material as THREE.ShaderMaterial).uniforms;
         pu.uFocusDistance.value = 15.0 + Math.sin(elapsed * 0.0001) * 2.0;
+      }
+
+      // Apply ongoing rotation if configured
+      if (config.rotation && triMesh && pointsMesh) {
+        const elapsed = frame.elapsed ?? 0;
+        const rx = config.rotation.x * elapsed * 0.00001;
+        const ry = config.rotation.y * elapsed * 0.00001;
+        const rz = config.rotation.z * elapsed * 0.00001;
+        triMesh.rotation.set(rx, ry, rz);
+        pointsMesh.rotation.set(rx, ry, rz);
       }
     },
 
