@@ -126,6 +126,14 @@ function lerpFraming(a: FramingConfig, b: FramingConfig, t: number): FramingConf
       aDrift[1] + (bDrift[1] - aDrift[1]) * t,
       aDrift[2] + (bDrift[2] - aDrift[2]) * t,
     ],
+    // During transition, use the target mode's camera style (snaps at t>0.5)
+    cameraMode: t > 0.5 ? b.cameraMode : a.cameraMode,
+    orbitRadius: a.orbitRadius !== undefined && b.orbitRadius !== undefined
+      ? a.orbitRadius + (b.orbitRadius - a.orbitRadius) * t
+      : (t > 0.5 ? b.orbitRadius : a.orbitRadius),
+    flythroughSpeed: a.flythroughSpeed !== undefined && b.flythroughSpeed !== undefined
+      ? a.flythroughSpeed + (b.flythroughSpeed - a.flythroughSpeed) * t
+      : (t > 0.5 ? b.flythroughSpeed : a.flythroughSpeed),
   };
 }
 

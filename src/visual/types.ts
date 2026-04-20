@@ -35,6 +35,12 @@ export interface FramingConfig {
   nearClip: number;
   farClip: number;
   driftScale?: [number, number, number];
+  /** Camera motion style: 'orbit' circles around centered objects, 'flythrough' travels forward through environments */
+  cameraMode?: 'orbit' | 'flythrough';
+  /** Orbit radius for 'orbit' mode (default: targetDistance) */
+  orbitRadius?: number;
+  /** Forward travel speed for 'flythrough' mode in units/second (default: 0.5) */
+  flythroughSpeed?: number;
 }
 
 export interface GeometrySystem {

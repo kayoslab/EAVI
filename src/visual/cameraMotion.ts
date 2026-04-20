@@ -1,11 +1,12 @@
 /**
- * Autonomous seeded camera motion using layered sine harmonics.
+ * Autonomous seeded camera motion.
  *
- * Camera drifts smoothly in 3D space around a base position (0, 0, 5),
- * revealing parallax across depth layers of the point cloud.
- * Pointer input has NO effect on camera — motion is fully autonomous.
+ * Three motion styles:
+ * - default: layered sine harmonics (gentle drift around base position)
+ * - orbit: circular path around centered objects, revealing 3D form
+ * - flythrough: continuous forward travel through elongated environments
  *
- * Bass energy modulates orbit radius (macro motion).
+ * Bass energy modulates orbit radius / travel sway.
  * motionAmplitude scales all displacement (supports prefers-reduced-motion).
  */
 
@@ -26,6 +27,14 @@ interface CameraHarmonics {
   lookX: Harmonic[];
   lookY: Harmonic[];
   lookZ: Harmonic[];
+  // Orbit-specific
+  orbitSpeed: number;    // radians per second
+  orbitTilt: number;     // vertical tilt amplitude
+  orbitTiltSpeed: number;
+  // Flythrough-specific
+  swayAmplitude: number;
+  swayFrequency: number;
+  swayPhase: number;
 }
 
 const BASE_X = 0;
@@ -69,6 +78,14 @@ function buildHarmonics(seed: string): CameraHarmonics {
     lookX: makeHarmonics(0.05, 0.15, 80000, 200000, 2),
     lookY: makeHarmonics(0.05, 0.15, 80000, 200000, 2),
     lookZ: makeHarmonics(0.03, 0.08, 100000, 200000, 2),
+    // Orbit: slow rotation (40-80s full revolution), gentle vertical tilt
+    orbitSpeed: (2 * Math.PI) / (40000 + rng() * 40000),
+    orbitTilt: 0.3 + rng() * 0.4, // 0.3-0.7 units vertical range
+    orbitTiltSpeed: (2 * Math.PI) / (25000 + rng() * 35000),
+    // Flythrough: gentle lateral sway
+    swayAmplitude: 1.0 + rng() * 1.5,
+    swayFrequency: (2 * Math.PI) / (15000 + rng() * 20000),
+    swayPhase: rng() * Math.PI * 2,
   };
 
   harmonicCache.set(seed, h);
@@ -99,32 +116,83 @@ export function updateCamera(
   const h = harmonicCache.get(activeSeed);
   if (!h) return;
 
+  const mode = framing?.cameraMode;
   const baseZ = framing?.targetDistance ?? BASE_Z;
   const lookOffX = framing?.lookOffset?.[0] ?? 0;
   const lookOffY = framing?.lookOffset?.[1] ?? 0;
   const lookOffZ = framing?.lookOffset?.[2] ?? 0;
 
-  const bassScale = 1 + bassEnergy * 0.05;
+  if (mode === 'orbit') {
+    // --- Orbit mode: circle around centered objects ---
+    const radius = (framing?.orbitRadius ?? baseZ) * (1 + bassEnergy * 0.08);
+    const angle = elapsedMs * h.orbitSpeed * 0.001;
+    const yDrift = Math.sin(elapsedMs * h.orbitTiltSpeed * 0.001) * h.orbitTilt * motionAmplitude;
 
-  const offsetX =
-    evalAxis(h.posX, elapsedMs) * motionAmplitude * bassScale;
-  const offsetY =
-    evalAxis(h.posY, elapsedMs) * motionAmplitude * bassScale;
-  const offsetZ =
-    evalAxis(h.posZ, elapsedMs) * motionAmplitude * bassScale;
+    camera.position.set(
+      Math.sin(angle) * radius * motionAmplitude + BASE_X,
+      BASE_Y + yDrift + lookOffY * 0.3,
+      Math.cos(angle) * radius * motionAmplitude + lookOffZ,
+    );
 
-  const driftScale = framing?.driftScale ?? [1, 1, 1];
-  camera.position.set(
-    BASE_X + offsetX * driftScale[0],
-    BASE_Y + offsetY * driftScale[1],
-    baseZ + offsetZ * driftScale[2],
-  );
+    // Look at center with gentle harmonic drift
+    const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.3 + lookOffX;
+    const ly = evalAxis(h.lookY, elapsedMs) * motionAmplitude * 0.2 + lookOffY * 0.1;
+    const lz = evalAxis(h.lookZ, elapsedMs) * motionAmplitude * 0.2;
+    camera.lookAt(lx, ly, lz);
 
-  const lookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude + lookOffX;
-  const lookY = evalAxis(h.lookY, elapsedMs) * motionAmplitude + lookOffY;
-  const lookZ = evalAxis(h.lookZ, elapsedMs) * motionAmplitude + lookOffZ;
+  } else if (mode === 'flythrough') {
+    // --- Flythrough mode: travel forward through elongated environments ---
+    const speed = framing?.flythroughSpeed ?? 0.5;
+    const driftScale = framing?.driftScale ?? [1, 1, 1];
 
-  camera.lookAt(lookX, lookY, lookZ);
+    // Continuous forward motion (wrapping via modulo to stay in geometry range)
+    // The geometry extends from z=5 (near) to z=-155 (far, depth=160)
+    // Camera travels forward slowly, cycling through the geometry
+    const forwardProgress = (elapsedMs * 0.001 * speed) % 80; // cycle every 80 units
+    const camZ = baseZ - forwardProgress;
+
+    // Lateral sway: gentle sine for organic feel
+    const sway = Math.sin(elapsedMs * h.swayFrequency + h.swayPhase)
+      * h.swayAmplitude * motionAmplitude * driftScale[0];
+    const vertSway = Math.sin(elapsedMs * h.swayFrequency * 0.7 + h.swayPhase + 1.5)
+      * h.swayAmplitude * 0.3 * motionAmplitude * driftScale[1];
+
+    // Bass adds a subtle push outward from center
+    const bassPush = bassEnergy * 0.3 * motionAmplitude;
+
+    camera.position.set(
+      BASE_X + sway + bassPush * Math.sin(elapsedMs * 0.0003),
+      BASE_Y + vertSway + lookOffY,
+      camZ,
+    );
+
+    // Look ahead in the direction of travel, with gentle drift
+    const lookAheadZ = camZ - 15; // look 15 units ahead
+    const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.5 + lookOffX;
+    const ly = evalAxis(h.lookY, elapsedMs) * motionAmplitude * 0.3 + lookOffY;
+    camera.lookAt(lx, ly, lookAheadZ);
+
+  } else {
+    // --- Default mode: gentle harmonic drift (original behavior) ---
+    const bassScale = 1 + bassEnergy * 0.05;
+    const driftScale = framing?.driftScale ?? [1, 1, 1];
+
+    const offsetX = evalAxis(h.posX, elapsedMs) * motionAmplitude * bassScale;
+    const offsetY = evalAxis(h.posY, elapsedMs) * motionAmplitude * bassScale;
+    const offsetZ = evalAxis(h.posZ, elapsedMs) * motionAmplitude * bassScale;
+
+    camera.position.set(
+      BASE_X + offsetX * driftScale[0],
+      BASE_Y + offsetY * driftScale[1],
+      baseZ + offsetZ * driftScale[2],
+    );
+
+    const lookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude + lookOffX;
+    const lookY = evalAxis(h.lookY, elapsedMs) * motionAmplitude + lookOffY;
+    const lookZ = evalAxis(h.lookZ, elapsedMs) * motionAmplitude + lookOffZ;
+
+    camera.lookAt(lookX, lookY, lookZ);
+  }
 }
 
 /** Exposed for testing — clears the harmonic cache. */
