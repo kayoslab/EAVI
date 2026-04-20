@@ -43,6 +43,8 @@ export interface FramingConfig {
   flythroughSpeed?: number;
   /** Cycle length for flythrough camera wrap-around in world units (default: 80) */
   flythroughCycleLength?: number;
+  /** Bloom intensity multiplier for this mode (default: 1.0) */
+  bloomStrength?: number;
 }
 
 export interface GeometrySystem {

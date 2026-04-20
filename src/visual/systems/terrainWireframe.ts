@@ -39,6 +39,7 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
     return {
       uTime: { value: 0.0 },
       uBassEnergy: { value: 0.0 },
+      uBeatPulse: { value: 0.0 },
       uTrebleEnergy: { value: 0.0 },
       uOpacity: { value: 1.0 },
       uMotionAmplitude: { value: params.motionAmplitude },
@@ -60,6 +61,7 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
     return {
       uTime: { value: 0.0 },
       uBassEnergy: { value: 0.0 },
+      uBeatPulse: { value: 0.0 },
       uTrebleEnergy: { value: 0.0 },
       uOpacity: { value: 1.0 },
       uMotionAmplitude: { value: params.motionAmplitude },
@@ -94,6 +96,7 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
 
     uniforms.uTime.value = elapsed;
     uniforms.uBassEnergy.value = bassEnergy;
+    uniforms.uBeatPulse.value = frame.params.beatPulse;
     uniforms.uTrebleEnergy.value = trebleEnergy;
     uniforms.uMotionAmplitude.value = motionAmplitude;
     uniforms.uPointerDisturbance.value = pointerDisturbance;

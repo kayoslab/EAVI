@@ -3,6 +3,7 @@
 
 uniform float uOpacity;
 uniform float uBassEnergy;
+uniform float uBeatPulse;
 uniform float uTrebleEnergy;
 uniform float uPaletteHue;
 uniform float uPaletteSaturation;
@@ -51,6 +52,9 @@ void main() {
   // Audio warmth: bass gently warms color, combined energy enriches saturation
   color += vec3(uBassEnergy * 0.04, uBassEnergy * 0.015, 0.0);
   color *= 1.0 + (uBassEnergy + uTrebleEnergy) * 0.04;
+
+  // Beat pulse: brief brightness flash
+  color *= 1.0 + uBeatPulse * 0.08;
 
   // Bass modulates overall line visibility
   float bassAlpha = 0.4 + uBassEnergy * 0.6;

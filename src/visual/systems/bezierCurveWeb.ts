@@ -159,6 +159,7 @@ export function createBezierCurveWeb(config?: BezierWebConfig): BezierCurveWeb {
         uniforms: {
           uTime: { value: 0.0 },
           uBassEnergy: { value: 0.0 },
+          uBeatPulse: { value: 0.0 },
           uTrebleEnergy: { value: 0.0 },
           uOpacity: { value: DEFAULT_BASE_OPACITY },
           uMotionAmplitude: { value: params.motionAmplitude },
@@ -203,6 +204,7 @@ export function createBezierCurveWeb(config?: BezierWebConfig): BezierCurveWeb {
       const u = shaderMaterial.uniforms;
       u.uTime.value = elapsed;
       u.uBassEnergy.value = bassEnergy;
+      u.uBeatPulse.value = frame.params.beatPulse;
       u.uTrebleEnergy.value = trebleEnergy;
       u.uMotionAmplitude.value = motionAmplitude;
       u.uPaletteHue.value = paletteHue;

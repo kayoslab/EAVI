@@ -30,19 +30,19 @@ export interface CompoundRotationEntry {
 
 // Default framing per system name — compound modes use the primary layer's framing, slightly farther back
 const SYSTEM_FRAMING: Record<string, FramingConfig> = {
-  particles: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50 },
-  ribbon: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 },
-  pointcloud: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40 },
-  crystal: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 },
-  flowribbon: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 },
-  terrain: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3 },
-  'terrain-dramatic': { targetDistance: 10.0, lookOffset: [0, 8.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2 },
-  'terrain-wireframe': { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35 },
-  tunnel: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 1, 1] },
-  cave: { targetDistance: 5.0, lookOffset: [0, 1.0, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 1, 1] },
-  icosphere: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 },
-  torus: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 },
-  morphpoly: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 },
+  particles: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50, bloomStrength: 1.0 },
+  ribbon: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, bloomStrength: 1.0 },
+  pointcloud: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40, bloomStrength: 1.0 },
+  crystal: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80, bloomStrength: 1.0 },
+  flowribbon: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60, bloomStrength: 1.0 },
+  terrain: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3, bloomStrength: 0.8 },
+  'terrain-dramatic': { targetDistance: 10.0, lookOffset: [0, 8.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2, bloomStrength: 0.8 },
+  'terrain-wireframe': { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35, bloomStrength: 1.5 },
+  tunnel: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 1, 1], bloomStrength: 1.5 },
+  cave: { targetDistance: 5.0, lookOffset: [0, 1.0, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 1, 1], bloomStrength: 1.5 },
+  icosphere: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, bloomStrength: 1.2 },
+  torus: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, bloomStrength: 1.2 },
+  morphpoly: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, bloomStrength: 1.2 },
 };
 
 const DEFAULT_COMPOUND_FRAMING: FramingConfig = {

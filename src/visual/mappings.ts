@@ -49,6 +49,8 @@ export interface VisualParams {
   fieldSpread: number;
   /** Chromatic dispersion intensity 0-1, driven by combined bass+treble energy */
   dispersion: number;
+  /** Beat detection pulse 0-1, brief spikes on detected beats */
+  beatPulse: number;
 }
 
 /** Bundled inputs for the mapping function — keeps it pure and testable. */
@@ -133,6 +135,27 @@ function timeToCadence(_timezone: string, timeOfDay: number): number {
   const raw = 0.5 + 0.5 * Math.cos(phase); // 0 at trough, 1 at peak
   // Map to cadence range 0.4-1.0
   return 0.4 + raw * 0.6;
+}
+
+/**
+ * Time of day -> Hue shift (degrees).
+ *
+ * Night hours produce cooler shifts, morning is warmer,
+ * afternoon is neutral-warm, evening transitions to cool.
+ * Creates a natural day/night palette evolution.
+ */
+function timeToHueShift(timeOfDay: number): number {
+  // Night (22-4): cooler (-20°), Morning (6-10): warmer (+10°)
+  // Afternoon (12-16): neutral-warm (+5°), Evening (18-22): cooling (-10°)
+  const h = timeOfDay;
+  if (h >= 22 || h < 4) return -20;
+  if (h >= 4 && h < 6) return -20 + (h - 4) / 2 * 30; // -20 to +10
+  if (h >= 6 && h < 10) return 10;
+  if (h >= 10 && h < 12) return 10 - (h - 10) / 2 * 5; // 10 to 5
+  if (h >= 12 && h < 16) return 5;
+  if (h >= 16 && h < 18) return 5 - (h - 16) / 2 * 15; // 5 to -10
+  if (h >= 18 && h < 22) return -10 - (h - 18) / 4 * 10; // -10 to -20
+  return 0;
 }
 
 /**
@@ -297,7 +320,7 @@ export function mapSignalsToVisuals(inputs: MappingInputs): VisualParams {
   const palette = geoToPalette(geo.country, geo.region, sessionSeed);
 
   return {
-    paletteHue: palette.hue,
+    paletteHue: ((palette.hue + timeToHueShift(timeOfDay)) % 360 + 360) % 360,
     paletteSaturation: palette.saturation,
     cadence: timeToCadence(signals.timezone, timeOfDay),
     density: capabilityToDensity(
@@ -324,6 +347,7 @@ export function mapSignalsToVisuals(inputs: MappingInputs): VisualParams {
       trebleToShimmer(treble),
       motionPref(signals.prefersReducedMotion),
     ),
+    beatPulse: 0,
   };
 }
 
