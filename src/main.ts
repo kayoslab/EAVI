@@ -264,11 +264,11 @@ geoPromise.then((geo) => {
       framing: { targetDistance: 8.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35 } },
     // --- Enclosed environments: flythrough camera (gentle travel) ---
     { kind: 'single', name: 'tunnel', system: tunnel, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 200), weight: 1,
-      framing: { targetDistance: 1.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.4, driftScale: [0.3, 0.3, 1] } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 0.3, 1] } },
     { kind: 'single', name: 'cave', system: cave, maxPoints: Math.min(quality.terrainRows, 80) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
-      framing: { targetDistance: 6.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 0.3, 1] } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 0.3, 1] } },
     { kind: 'single', name: 'canyon', system: canyon, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
-      framing: { targetDistance: 1.0, lookOffset: [0, 0.5, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.35, driftScale: [0.2, 0.5, 1] } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 0.5, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.2, 0.5, 1] } },
     // --- 3D objects: orbit camera ---
     { kind: 'single', name: 'icosphere', system: icosphere, maxPoints: quality.meshSubdivisions * 400, weight: 1,
       framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 6.0 } },

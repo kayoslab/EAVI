@@ -29,7 +29,7 @@ export function generateTerrainHeightfield(opts: {
     seed,
     width = 10,
     depth = 10,
-    heightScale = 2.0,
+    heightScale = 5.0,
     octaves = 3,
   } = opts;
 
