@@ -58,7 +58,7 @@ try {
   throw err;
 }
 
-const { renderer, scene, camera, errorCollector } = sceneResult;
+const { renderer, scene, camera, errorCollector, background } = sceneResult;
 let cleanupResize = attachResizeHandler(renderer, camera);
 
 // Add placeholder 3D object
@@ -70,6 +70,7 @@ const deps: LoopDeps = {
   placeholderAmbient: ambient,
   placeholderDirectional: directional,
   errorCollector,
+  background,
 };
 
 // Debug overlay — enabled only via ?debug query param
@@ -115,7 +116,7 @@ geoPromise.then((geo) => {
   const particles = createParticleField({
     maxParticles: quality.maxParticles,
     enableSparkle: quality.enableSparkle,
-    dofStrength: quality.dofStrength,
+    dofStrength: 0.5,
   });
   const ribbon = createRibbonField({
     maxPoints: quality.maxRibbonPoints,
@@ -123,7 +124,7 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
-    dofStrength: quality.dofStrength,
+    dofStrength: 0.4,
   });
   const pointCloud = createPointCloud({
     maxPoints: quality.maxPoints,
@@ -132,7 +133,7 @@ geoPromise.then((geo) => {
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
     useVoronoiShader: quality.enableVoronoiCells,
-    dofStrength: quality.dofStrength,
+    dofStrength: 0.5,
   });
   const crystal = createCrystalField({
     maxPoints: Math.round(quality.maxPoints * 0.8),
@@ -140,7 +141,7 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
-    dofStrength: quality.dofStrength,
+    dofStrength: 0.5,
   });
   const flowRibbon = createFlowRibbonField({
     maxPoints: quality.maxFlowRibbonPoints,
@@ -148,7 +149,7 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     enablePointerRepulsion: quality.enablePointerRepulsion,
     enableSlowModulation: quality.enableSlowModulation,
-    dofStrength: quality.dofStrength,
+    dofStrength: 0.4,
   });
   const terrain = createTerrainHeightfield({
     rows: quality.terrainRows,
@@ -169,7 +170,7 @@ geoPromise.then((geo) => {
     rows: Math.min(quality.terrainRows, 120),
     cols: Math.min(quality.terrainCols, 160),
     noiseOctaves: quality.noiseOctaves,
-    dofStrength: quality.dofStrength,
+    dofStrength: 0.1,
   });
   const tunnel = createTriMeshMode(generateTunnelMesh, {
     rows: Math.min(quality.terrainRows, 60),
@@ -180,6 +181,7 @@ geoPromise.then((geo) => {
     position: [0, 0, 5],
     fogNear: 2,
     fogFar: 60,
+    dofStrength: 0.1,
   });
 
   const cave = createTriMeshMode(generateCaveMesh, {
@@ -191,6 +193,7 @@ geoPromise.then((geo) => {
     position: [0, 0, 5],
     fogNear: 3,
     fogFar: 60,
+    dofStrength: 0.1,
   });
 
 
@@ -204,6 +207,7 @@ geoPromise.then((geo) => {
     rotation: { x: 0.05, y: 0.1, z: 0.03 },
     fogNear: 3,
     fogFar: 20,
+    dofStrength: 0.1,
   });
 
   const torusMode = createTriMeshMode(generateTorusMesh, {
@@ -216,6 +220,7 @@ geoPromise.then((geo) => {
     rotation: { x: 0.03, y: 0.08, z: 0.02 },
     fogNear: 3,
     fogFar: 20,
+    dofStrength: 0.1,
   });
 
   const morphpoly = createTriMeshMode(generateMorphPolyMesh, {
@@ -228,6 +233,7 @@ geoPromise.then((geo) => {
     rotation: { x: 0.08, y: 0.12, z: 0.05 },
     fogNear: 3,
     fogFar: 20,
+    dofStrength: 0.1,
   });
 
   // Build single-mode rotation entries
@@ -247,17 +253,17 @@ geoPromise.then((geo) => {
     // --- Terrain environments: flythrough camera (slow aerial drift) ---
     // lookOffY must be ABOVE terrain peaks (heightScale=5 + mesh y=-2 → peaks at y=3)
     { kind: 'single', name: 'terrain', system: terrain, maxPoints: quality.terrainRows * quality.terrainCols, weight: 2,
-      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3 } },
+      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3, flythroughCycleLength: 140 } },
     { kind: 'single', name: 'terrain-dramatic', system: terrainDramatic, maxPoints: quality.terrainRows * quality.terrainCols, weight: 1,
-      framing: { targetDistance: 10.0, lookOffset: [0, 8.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2 } },
+      framing: { targetDistance: 10.0, lookOffset: [0, 8.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2, flythroughCycleLength: 140 } },
     { kind: 'single', name: 'terrain-wireframe', system: terrainWireframe, maxPoints: Math.min(quality.terrainRows, 120) * Math.min(quality.terrainCols, 160), weight: 1,
-      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35 } },
+      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35, flythroughCycleLength: 140 } },
     // --- Enclosed environments: flythrough camera (gentle travel) ---
     // Tunnel/cave: camera centered in the interior space
     { kind: 'single', name: 'tunnel', system: tunnel, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 200), weight: 1,
-      framing: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 1, 1] } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 1, 1], flythroughCycleLength: 70 } },
     { kind: 'single', name: 'cave', system: cave, maxPoints: Math.min(quality.terrainRows, 80) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
-      framing: { targetDistance: 5.0, lookOffset: [0, 1.0, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 1, 1] } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 1.0, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 1, 1], flythroughCycleLength: 70 } },
     // --- 3D objects: orbit camera ---
     { kind: 'single', name: 'icosphere', system: icosphere, maxPoints: quality.meshSubdivisions * 400, weight: 1,
       framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 6.0 } },

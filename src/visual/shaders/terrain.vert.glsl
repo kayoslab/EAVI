@@ -10,6 +10,7 @@ uniform float uCadence;
 uniform int uNoiseOctaves;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uMidEnergy;
 uniform float uPointerDisturbance;
 uniform vec2 uPointerPos;
 
@@ -35,13 +36,14 @@ void main() {
   // --- Pointer disturbance ---
   vec2 diff = pos.xz * 0.1 - uPointerPos;
   float dist = length(diff) + 0.001;
-  float repulse = uPointerDisturbance * 0.2 / (dist * dist + 1.0);
-  pos.y += repulse * 0.3;
+  float repulse = uPointerDisturbance * 0.4 / (dist * dist + 1.0);
+  pos.y += repulse * 0.5;
 
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   float depth = max(0.25, -mvPosition.z);
 
-  vFogFactor = smoothstep(uFogNear, uFogFar, depth);
+  float dynamicFogFar = uFogFar * (1.0 - uMidEnergy * 0.15);
+  vFogFactor = smoothstep(uFogNear, dynamicFogFar, depth);
 
   vVertexColor = aVertexColor;
 

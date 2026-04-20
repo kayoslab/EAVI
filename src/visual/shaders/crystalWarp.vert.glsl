@@ -26,6 +26,7 @@ uniform float uHasFacetNormal;
 uniform float uLatticePulse;
 uniform float uFacetShimmer;
 uniform float uFogNear;
+uniform float uMidEnergy;
 uniform float uFocusDistance;
 uniform float uDofStrength;
 
@@ -124,7 +125,7 @@ void main() {
     vec2 screenApprox = vec2(pos.x / 3.0, pos.y / 3.0);
     vec2 diff = screenApprox - uPointerPos;
     float dist = length(diff) + 0.01;
-    float influence = max(0.0, 1.0 - dist * 2.0) * uPointerDisturbance * ma * 0.5;
+    float influence = max(0.0, 1.0 - dist * 2.0) * uPointerDisturbance * ma * 0.8;
     pos.x += diff.x * influence;
     pos.y += diff.y * influence;
   }

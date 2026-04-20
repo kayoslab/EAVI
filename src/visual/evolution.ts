@@ -143,6 +143,7 @@ export function evolveParams(
     pointerDisturbance: base.pointerDisturbance,
     bassEnergy: base.bassEnergy,
     trebleEnergy: base.trebleEnergy,
+    midEnergy: base.midEnergy,
     curveSoftness: base.curveSoftness,
     structureComplexity: base.structureComplexity,
     dispersion: base.dispersion,

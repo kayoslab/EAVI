@@ -1,4 +1,5 @@
 import type { WebGLRenderer, PerspectiveCamera } from 'three';
+import { updateCameraForOrientation } from './scene';
 
 function getViewportSize(): { width: number; height: number } {
   const vv = window.visualViewport;
@@ -19,7 +20,7 @@ export function attachResizeHandler(
   const onResize = () => {
     const { width, height } = getViewportSize();
     camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+    updateCameraForOrientation(camera);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * scale);
     renderer.setSize(width, height, false);
     composer?.setSize(width, height);

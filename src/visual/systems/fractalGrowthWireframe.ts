@@ -64,6 +64,7 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
       uFogNear: { value: 3.0 },
       uFogFar: { value: 8.0 },
+      uMidEnergy: { value: 0.0 },
       uDispersion: { value: 0.0 },
     };
   }
@@ -91,6 +92,7 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
       uFogNear: { value: 3.0 },
       uFogFar: { value: 8.0 },
+      uMidEnergy: { value: 0.0 },
       uDispersion: { value: 0.0 },
       uBasePointSize: { value: 0.06 },
     };
@@ -201,6 +203,7 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       eu.uFieldSpread.value = fieldSpread;
       eu.uDisplacementScale.value = Math.min(motionAmplitude * structureComplexity, 0.4);
       eu.uDispersion.value = frame.params.dispersion ?? 0.0;
+      eu.uMidEnergy.value = frame.params.midEnergy;
       eu.uBreathScale.value = breathScale;
 
       // Update vertex dot uniforms
@@ -220,6 +223,7 @@ export function createFractalGrowthWireframe(config?: FractalGrowthConfig): Geom
       vu.uFieldSpread.value = fieldSpread;
       vu.uDisplacementScale.value = Math.min(motionAmplitude * structureComplexity, 0.4);
       vu.uDispersion.value = frame.params.dispersion ?? 0.0;
+      vu.uMidEnergy.value = frame.params.midEnergy;
       vu.uBreathScale.value = breathScale;
 
       // Sync occluder uniforms

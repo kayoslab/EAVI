@@ -182,6 +182,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
         uHasVertexColor: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uMidEnergy: { value: 0.0 },
         uDispersion: { value: 0.0 },
         uFocusDistance: { value: 5.0 },
         uDofStrength: { value: config?.dofStrength ?? 0.6 },
@@ -231,6 +232,7 @@ export function createRibbonField(config?: RibbonFieldConfig): RibbonField {
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
+      u.uMidEnergy.value = frame.params.midEnergy;
 
       // Time-based breathing scale (two harmonics)
       const breathScale = 1

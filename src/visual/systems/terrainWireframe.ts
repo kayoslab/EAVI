@@ -51,6 +51,7 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
       uNoiseOctaves: { value: noiseOctaves },
       uFogNear: { value: 5.0 },
       uFogFar: { value: 80.0 },
+      uMidEnergy: { value: 0.0 },
       uHasVertexColor: { value: 1.0 },
     };
   }
@@ -71,6 +72,7 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
       uNoiseOctaves: { value: noiseOctaves },
       uFogNear: { value: 5.0 },
       uFogFar: { value: 80.0 },
+      uMidEnergy: { value: 0.0 },
       uHasVertexColor: { value: 1.0 },
       uFocusDistance: { value: 15.0 },
       uDofStrength: { value: config?.dofStrength ?? 0.2 },
@@ -100,6 +102,7 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
     uniforms.uPaletteSaturation.value = paletteSaturation;
     uniforms.uCadence.value = cadence;
     uniforms.uNoiseFrequency.value = noiseFrequency;
+    uniforms.uMidEnergy.value = frame.params.midEnergy;
   }
 
   return {

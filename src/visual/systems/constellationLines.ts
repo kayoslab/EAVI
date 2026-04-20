@@ -200,6 +200,7 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
         uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uMidEnergy: { value: 0.0 },
         uDispersion: { value: 0.0 },
       };
 
@@ -247,6 +248,7 @@ export function createConstellationLines(config?: ConstellationConfig): Constell
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      u.uMidEnergy.value = frame.params.midEnergy;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
 
       const breathScale = 1 + Math.sin(elapsed * 0.0004) * 0.03 * motionAmplitude;

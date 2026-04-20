@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ShaderErrorCollector } from './shaderErrorCollector';
+import { createBackground } from './background';
 
 export class WebGLUnavailableError extends Error {
   constructor(message = 'WebGL is not available in your browser.') {
@@ -25,7 +26,7 @@ export interface SceneOptions {
 export function initScene(
   container: HTMLElement,
   options?: SceneOptions,
-): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; cleanupContextHandlers: () => void; errorCollector: ShaderErrorCollector } {
+): { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.PerspectiveCamera; cleanupContextHandlers: () => void; errorCollector: ShaderErrorCollector; background: ReturnType<typeof createBackground> } {
   if (!detectWebGL()) {
     throw new WebGLUnavailableError();
   }
@@ -61,7 +62,8 @@ export function initScene(
   container.appendChild(renderer.domElement);
 
   const aspect = window.innerWidth / window.innerHeight;
-  const camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 100);
+  const isPortrait = window.innerHeight > window.innerWidth * 1.2;
+  const camera = new THREE.PerspectiveCamera(isPortrait ? 75 : 60, aspect, 0.1, 100);
   camera.position.set(0, 0, 5);
 
   const scene = new THREE.Scene();
@@ -90,5 +92,16 @@ export function initScene(
     canvas.removeEventListener('webglcontextrestored', onContextRestored);
   };
 
-  return { renderer, scene, camera, cleanupContextHandlers, errorCollector };
+  // Background atmosphere mesh (rendered behind everything)
+  const background = createBackground();
+  scene.add(background.mesh);
+
+  return { renderer, scene, camera, cleanupContextHandlers, errorCollector, background };
+}
+
+/** Adjust camera FOV for portrait vs landscape orientation. */
+export function updateCameraForOrientation(camera: THREE.PerspectiveCamera): void {
+  const isPortrait = window.innerHeight > window.innerWidth * 1.2;
+  camera.fov = isPortrait ? 75 : 60;
+  camera.updateProjectionMatrix();
 }

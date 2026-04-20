@@ -33,6 +33,8 @@ export interface VisualParams {
   bassEnergy: number;
   /** Shimmer/detail driver 0-1 from high-frequency audio energy */
   trebleEnergy: number;
+  /** Mid-range energy driver 0-1, modulates fog density */
+  midEnergy: number;
   /** Shape roundness 0-1 driven by touch capability (0 = angular, 1 = round) */
   curveSoftness: number;
   /** Structural intricacy 0.2-1.0 driven by DPR, cores, and screen aspect ratio */
@@ -60,6 +62,8 @@ export interface MappingInputs {
   bass: number;
   /** Average of high-frequency analyser bins, 0-255 */
   treble: number;
+  /** Average of mid-frequency analyser bins, 0-255 */
+  mid: number;
   /** Fractional hours 0-24 in visitor's local time */
   timeOfDay: number;
 }
@@ -205,6 +209,18 @@ function trebleToShimmer(trebleAvg: number): number {
 }
 
 /**
+ * Mid-range (mid-frequency energy) -> Fog density modulation.
+ *
+ * Same normalization approach as bass/treble. Drives dynamic fog
+ * density so mid-range frequencies subtly affect scene depth clarity.
+ */
+function midToFogDensity(midAvg: number): number {
+  if (midAvg <= 0) return 0;
+  const normalized = Math.min(midAvg / 255, 1);
+  return Math.pow(normalized, 0.7);
+}
+
+/**
  * Combined audio energy -> Chromatic dispersion intensity.
  *
  * Near-zero when both bass and treble are low, moderate when one is active,
@@ -275,7 +291,7 @@ function profileToComplexity(
  * VisualParams object of plain numbers — no raw identifiers.
  */
 export function mapSignalsToVisuals(inputs: MappingInputs): VisualParams {
-  const { signals, geo, pointer, sessionSeed, bass, treble, timeOfDay } =
+  const { signals, geo, pointer, sessionSeed, bass, treble, mid, timeOfDay } =
     inputs;
 
   const palette = geoToPalette(geo.country, geo.region, sessionSeed);
@@ -292,6 +308,7 @@ export function mapSignalsToVisuals(inputs: MappingInputs): VisualParams {
     pointerDisturbance: pointerToDisturbance(pointer),
     bassEnergy: bassToMacro(bass),
     trebleEnergy: trebleToShimmer(treble),
+    midEnergy: midToFogDensity(mid),
     curveSoftness: touchToSoftness(signals.touchCapable),
     structureComplexity: profileToComplexity(
       signals.devicePixelRatio,

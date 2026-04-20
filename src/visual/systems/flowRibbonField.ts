@@ -158,6 +158,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
         uHasVertexColor: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 10.0 },
+        uMidEnergy: { value: 0.0 },
         uFlowScale: { value: 1.0 },
         uFocusDistance: { value: 5.0 },
         uDofStrength: { value: config?.dofStrength ?? 0.6 },
@@ -206,6 +207,7 @@ export function createFlowRibbonField(config?: FlowRibbonFieldConfig): FlowRibbo
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
+      u.uMidEnergy.value = frame.params.midEnergy;
 
       // Time-based breathing scale (two harmonics)
       const breathScale = 1

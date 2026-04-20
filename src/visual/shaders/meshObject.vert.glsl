@@ -9,6 +9,7 @@ uniform float uCadence;
 uniform int uNoiseOctaves;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uMidEnergy;
 uniform float uPointerDisturbance;
 uniform vec2 uPointerPos;
 
@@ -37,10 +38,17 @@ void main() {
   float shimmer = snoise(pos * 2.0 + vec3(t * 0.001 * uCadence)) * uTrebleEnergy * ma * 0.06;
   pos += dir * shimmer;
 
+  // Pointer disturbance: gentle radial push
+  vec3 pointerDir = normalize(pos + vec3(0.001));
+  float pointerDist = length(pos.xz - uPointerPos * 3.0) + 0.5;
+  float pointerPush = uPointerDisturbance * 0.4 / (pointerDist * pointerDist + 0.5);
+  pos += pointerDir * pointerPush * 0.15;
+
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   float depth = max(0.25, -mvPosition.z);
 
-  vFogFactor = smoothstep(uFogNear, uFogFar, depth);
+  float dynamicFogFar = uFogFar * (1.0 - uMidEnergy * 0.15);
+  vFogFactor = smoothstep(uFogNear, dynamicFogFar, depth);
   vVertexColor = aVertexColor;
 
   gl_Position = projectionMatrix * mvPosition;

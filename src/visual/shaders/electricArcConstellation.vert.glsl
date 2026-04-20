@@ -15,6 +15,7 @@ uniform int uNoiseOctaves;
 uniform float uDisplacementScale;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uMidEnergy;
 uniform float uArcIntensity;
 uniform float uArcSpeed;
 uniform float uArcFrequency;
@@ -100,7 +101,8 @@ void main() {
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   float depth = max(0.25, -mvPosition.z);
 
-  vFogFactor = smoothstep(uFogNear, uFogFar, depth);
+  float dynamicFogFar = uFogFar * (1.0 - uMidEnergy * 0.15);
+  vFogFactor = smoothstep(uFogNear, dynamicFogFar, depth);
 
   // Distance-based alpha (aDistance is normalized 0-1 where 0=close, 1=far)
   vAlpha = 1.0 - aDistance;

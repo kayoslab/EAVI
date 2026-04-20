@@ -134,6 +134,9 @@ function lerpFraming(a: FramingConfig, b: FramingConfig, t: number): FramingConf
     flythroughSpeed: a.flythroughSpeed !== undefined && b.flythroughSpeed !== undefined
       ? a.flythroughSpeed + (b.flythroughSpeed - a.flythroughSpeed) * t
       : (t > 0.5 ? b.flythroughSpeed : a.flythroughSpeed),
+    flythroughCycleLength: a.flythroughCycleLength !== undefined && b.flythroughCycleLength !== undefined
+      ? a.flythroughCycleLength + (b.flythroughCycleLength - a.flythroughCycleLength) * t
+      : (t > 0.5 ? b.flythroughCycleLength : a.flythroughCycleLength),
   };
 }
 
@@ -146,6 +149,13 @@ let _activeFraming: FramingConfig = { ...DEFAULT_FRAMING };
 
 export function getActiveFraming(): FramingConfig {
   return _activeFraming;
+}
+
+// Global opacity multiplier (used for intro fade)
+let _globalOpacityScale = 1;
+
+export function setGlobalOpacityScale(scale: number): void {
+  _globalOpacityScale = scale;
 }
 
 function getWeight(entry: RotationEntry): number {
@@ -312,19 +322,21 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
           return;
         }
 
-        const eased = smoothstep(progress);
-
         // Interpolate framing between outgoing and incoming
         _activeFraming = lerpFraming(
           entryFraming(entries[outgoingIndex]),
           entryFraming(entries[activeIndex]),
-          eased,
+          smoothstep(progress),
         );
 
-        // Set opacity on outgoing and incoming entries
-        setEntryOpacity(entries[outgoingIndex], 1 - eased);
-        setEntryOpacity(entries[activeIndex], eased);
-        overlayAttachment?.overlay.setOpacity(eased);
+        // V-shaped fade: outgoing fades to 0 by t=0.4, incoming fades in from t=0.6
+        const outT = Math.min(1, progress / 0.4);
+        const inT = Math.max(0, (progress - 0.6) / 0.4);
+        const outOpacity = 1 - outT * outT * (3 - 2 * outT); // smoothstep
+        const inOpacity = inT * inT * (3 - 2 * inT); // smoothstep
+        setEntryOpacity(entries[outgoingIndex], outOpacity * _globalOpacityScale);
+        setEntryOpacity(entries[activeIndex], inOpacity * _globalOpacityScale);
+        overlayAttachment?.overlay.setOpacity(inOpacity * _globalOpacityScale);
 
         // Draw both entries
         drawEntry(entries[outgoingIndex], scene, frame);
@@ -361,6 +373,10 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
       }
 
       _activeFraming = entryFraming(entries[activeIndex]);
+      if (_globalOpacityScale < 1) {
+        setEntryOpacity(entries[activeIndex], _globalOpacityScale);
+        overlayAttachment?.overlay.setOpacity(_globalOpacityScale);
+      }
       drawEntry(entries[activeIndex], scene, frame);
       overlayAttachment?.overlay.draw(scene, frame);
     },

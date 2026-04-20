@@ -137,6 +137,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
         uFacetShimmer: { value: 0.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uMidEnergy: { value: 0.0 },
         uDispersion: { value: 0.0 },
         uFocusDistance: { value: 5.0 },
         uDofStrength: { value: config?.dofStrength ?? 0.6 },
@@ -185,6 +186,7 @@ export function createCrystalField(config?: CrystalFieldConfig): CrystalField {
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
+      u.uMidEnergy.value = frame.params.midEnergy;
       u.uLatticePulse.value = bassEnergy;
       u.uFacetShimmer.value = trebleEnergy;
 

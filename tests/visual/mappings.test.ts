@@ -28,6 +28,7 @@ const defaultInputs: MappingInputs = {
   sessionSeed: 'a1b2c3d4e5f6',
   bass: 128,
   treble: 100,
+  mid: 110,
   timeOfDay: 14,
 };
 
@@ -218,6 +219,7 @@ describe('US-008: Define partially legible mapping rules', () => {
       sessionSeed: 'abc123',
       bass: 0,
       treble: 0,
+      mid: 0,
       timeOfDay: 12,
     };
     expect(() => mapSignalsToVisuals(nullInputs)).not.toThrow();
@@ -354,6 +356,7 @@ describe('US-008: Define partially legible mapping rules', () => {
       sessionSeed: 'fallback-seed',
       bass: 0,
       treble: 0,
+      mid: 0,
       timeOfDay: 12,
     };
     const result = mapSignalsToVisuals(nullInputs);
