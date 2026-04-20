@@ -14,9 +14,7 @@ uniform float uBassEnergy;
 void main() {
   float dist = length(vUv - 0.5) * 2.0;
   float warmth = uBassEnergy * 0.02;
-  vec3 center = vec3(0.008, 0.008, 0.025);
-  vec3 edge = vec3(0.025 + warmth, 0.015, 0.05);
-  vec3 color = mix(center, edge, dist * 0.5);
+  vec3 color = vec3(0.0, 0.0, 0.0);
   gl_FragColor = vec4(color, 1.0);
 }
 `;
