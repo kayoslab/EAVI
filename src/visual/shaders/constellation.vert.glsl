@@ -15,6 +15,7 @@ uniform int uNoiseOctaves;
 uniform float uDisplacementScale;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uMidEnergy;
 
 attribute float aDistance;
 attribute vec3 aRandom;

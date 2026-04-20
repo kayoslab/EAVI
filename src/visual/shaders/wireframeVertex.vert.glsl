@@ -16,6 +16,7 @@ uniform int uNoiseOctaves;
 uniform float uDisplacementScale;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uMidEnergy;
 uniform float uEnableSlowModulation;
 uniform float uEnablePointerRepulsion;
 uniform float uPointerDisturbance;
@@ -103,7 +104,8 @@ void main() {
   vDepth = depth;
 
   // Compute fog factor
-  vFogFactor = smoothstep(uFogNear, uFogFar, depth);
+  float dynamicFogFar = uFogFar * (1.0 - uMidEnergy * 0.15);
+  vFogFactor = smoothstep(uFogNear, dynamicFogFar, depth);
 
   vWorldPos = pos;
 

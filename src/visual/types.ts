@@ -41,6 +41,8 @@ export interface FramingConfig {
   orbitRadius?: number;
   /** Forward travel speed for 'flythrough' mode in units/second (default: 0.5) */
   flythroughSpeed?: number;
+  /** Cycle length for flythrough camera wrap-around in world units (default: 80) */
+  flythroughCycleLength?: number;
 }
 
 export interface GeometrySystem {

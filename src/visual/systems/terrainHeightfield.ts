@@ -50,6 +50,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       uNoiseOctaves: { value: noiseOctaves },
       uFogNear: { value: 5.0 },
       uFogFar: { value: 100.0 },
+      uMidEnergy: { value: 0.0 },
       uHasVertexColor: { value: 1.0 },
       uFocusDistance: { value: 15.0 },
       uDofStrength: { value: config?.dofStrength ?? 0.3 },
@@ -79,6 +80,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
     uniforms.uPaletteSaturation.value = paletteSaturation;
     uniforms.uCadence.value = cadence;
     uniforms.uNoiseFrequency.value = noiseFrequency;
+    uniforms.uMidEnergy.value = frame.params.midEnergy;
 
     // DoF focus distance modulation
     const baseFocus = 15.0;

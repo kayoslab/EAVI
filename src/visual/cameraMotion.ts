@@ -136,7 +136,7 @@ export function updateCamera(
     const driftScale = framing?.driftScale ?? [1, 1, 1];
 
     const meshStartZ = 5.0;
-    const cycleLength = 80;
+    const cycleLength = framing?.flythroughCycleLength ?? 80;
     const forwardProgress = (elapsedMs * 0.001 * speed) % cycleLength;
     const camZ = meshStartZ - forwardProgress;
 

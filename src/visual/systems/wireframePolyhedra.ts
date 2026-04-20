@@ -89,6 +89,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
       uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
       uFogNear: { value: 3.0 },
       uFogFar: { value: 8.0 },
+      uMidEnergy: { value: 0.0 },
       uDispersion: { value: 0.0 },
     };
 
@@ -124,6 +125,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
       uDisplacementScale: { value: params.motionAmplitude * params.structureComplexity },
       uFogNear: { value: 3.0 },
       uFogFar: { value: 8.0 },
+      uMidEnergy: { value: 0.0 },
       uDispersion: { value: 0.0 },
       uBasePointSize: { value: 0.04 },
       uFocusDistance: { value: 5.0 },
@@ -308,6 +310,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
         eu.uFieldSpread.value = fieldSpread;
         eu.uDisplacementScale.value = motionAmplitude * structureComplexity;
         eu.uDispersion.value = frame.params.dispersion ?? 0.0;
+        eu.uMidEnergy.value = frame.params.midEnergy;
         eu.uBreathScale.value = breathScale;
 
         if (enableElectricArc && eu.uArcIntensity) {
@@ -333,6 +336,7 @@ export function createWireframePolyhedra(config?: WireframePolyhedraConfig): Geo
         vu.uFieldSpread.value = fieldSpread;
         vu.uDisplacementScale.value = motionAmplitude * structureComplexity;
         vu.uDispersion.value = frame.params.dispersion ?? 0.0;
+        vu.uMidEnergy.value = frame.params.midEnergy;
         vu.uBreathScale.value = breathScale;
         vu.uFocusDistance.value = baseFocus + focusDrift;
 

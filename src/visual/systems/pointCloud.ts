@@ -199,6 +199,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
         uHasVertexColor: { value: 1.0 },
         uFogNear: { value: isParametric ? 1.5 : 3.0 },
         uFogFar: { value: isParametric ? 6.0 : 8.0 },
+        uMidEnergy: { value: 0.0 },
         uDispersion: { value: 0.0 },
         uFocusDistance: { value: isParametric ? 3.5 : 5.0 },
         uDofStrength: { value: config?.dofStrength ?? 0.6 },
@@ -263,6 +264,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       u.uFieldSpread.value = fieldSpread;
       u.uDisplacementScale.value = motionAmplitude * structureComplexity;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
+      u.uMidEnergy.value = frame.params.midEnergy;
 
       if (useVoronoiShader && u.uVoronoiGridSize) {
         u.uVoronoiGridSize.value = 3.0 + structureComplexity * 3.0;

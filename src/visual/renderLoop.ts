@@ -12,7 +12,7 @@ import type { ShaderErrorCollector } from './shaderErrorCollector';
 import { runStartupHealthGate } from './healthGate';
 import type { GeometrySystemInfo } from './types';
 import { initCameraMotion, updateCamera } from './cameraMotion';
-import { getActiveFraming } from './modeManager';
+import { getActiveFraming, setGlobalOpacityScale } from './modeManager';
 
 export interface LoopDeps {
   seed?: string | null;
@@ -27,6 +27,7 @@ export interface LoopDeps {
   quality?: QualityProfile | null;
   composer?: { render(): void } | null;
   errorCollector?: ShaderErrorCollector | null;
+  background?: { update(bassEnergy: number): void } | null;
   onDebugFrame?: ((data: { fps: number; modeName: string; pointCount: number; bass: number; treble: number; shaderStatus: 'pass' | 'fail' | 'pending'; optionalAttrs: string[]; qualityTier: string }) => void) | null;
   getModeName?: (() => string) | null;
   getPointCount?: (() => number) | null;
@@ -67,6 +68,7 @@ function computeDefaultParams(): VisualParams {
     sessionSeed: 'default',
     bass: 0,
     treble: 0,
+    mid: 0,
     timeOfDay: new Date().getHours() + new Date().getMinutes() / 60,
   });
 }
@@ -89,6 +91,14 @@ function computeTrebleAvg(freq: Uint8Array): number {
   return sum / count;
 }
 
+function computeMidAvg(freq: Uint8Array): number {
+  const start = Math.floor(freq.length * 0.25);
+  const end = Math.floor(freq.length * 0.75);
+  let sum = 0;
+  for (let i = start; i < end; i++) sum += freq[i];
+  return sum / (end - start);
+}
+
 export function startLoop(
   renderer: WebGLRenderer,
   scene: Scene,
@@ -101,9 +111,15 @@ export function startLoop(
   let geoInitialized = false;
   let smoothTreble = 0;
   let smoothBass = 0;
+  let smoothMid = 0;
   let smoothDisturbance = 0;
   let cameraInitialized = false;
   let geometryValid = false;
+
+  // Intro fade state
+  let introStartTime = -1;
+  let introComplete = false;
+  const INTRO_DURATION = 3000; // 3 seconds
 
   const frame = (time: number) => {
     if (startTime < 0) startTime = time;
@@ -116,11 +132,13 @@ export function startLoop(
     // Poll audio if available
     let rawBass = 0;
     let rawTreble = 0;
+    let rawMid = 0;
     const pipeline = d.getAnalyserPipeline?.();
     if (pipeline) {
       pipeline.poll();
       rawBass = computeBassAvg(pipeline.frequency);
       rawTreble = computeTrebleAvg(pipeline.frequency);
+      rawMid = computeMidAvg(pipeline.frequency);
     }
 
     // Synthetic bass fallback when audio is silent/muted
@@ -135,6 +153,10 @@ export function startLoop(
     // EMA smoothing for treble to avoid flicker
     smoothTreble = smoothTreble * 0.85 + rawTreble * 0.15;
     const treble = smoothTreble;
+
+    // EMA smoothing for mid-range
+    smoothMid = smoothMid * 0.87 + rawMid * 0.13;
+    const mid = smoothMid;
 
     // Compute visual params
     let params: VisualParams;
@@ -152,6 +174,7 @@ export function startLoop(
         sessionSeed: d.seed,
         bass,
         treble,
+        mid,
         timeOfDay: now.getHours() + now.getMinutes() / 60,
       });
       params = evolveParams(params, elapsed, d.seed);
@@ -243,6 +266,27 @@ export function startLoop(
     if (d.placeholderMesh) {
       d.placeholderMesh.rotation.y += delta * 0.0003;
       d.placeholderMesh.rotation.x += delta * 0.0001;
+    }
+
+    // Update background atmosphere with bass energy
+    if (d.background) {
+      d.background.update(bass / 255);
+    }
+
+    // Intro fade: start timing when geometry initializes, apply global opacity scale
+    if (d.geometrySystem && geoInitialized && geometryValid) {
+      if (introStartTime < 0) {
+        introStartTime = elapsed;
+      }
+      if (!introComplete) {
+        const t = Math.min(1, (elapsed - introStartTime) / INTRO_DURATION);
+        const fade = t * t * (3 - 2 * t); // smoothstep
+        setGlobalOpacityScale(fade);
+        if (t >= 1) {
+          introComplete = true;
+          setGlobalOpacityScale(1);
+        }
+      }
     }
 
     // Draw geometry — only if init succeeded

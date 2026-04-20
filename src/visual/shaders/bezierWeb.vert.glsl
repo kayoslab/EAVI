@@ -15,6 +15,7 @@ uniform int uNoiseOctaves;
 uniform float uDisplacementScale;
 uniform float uFogNear;
 uniform float uFogFar;
+uniform float uMidEnergy;
 uniform float uBassArcScale;
 
 attribute vec3 aArcOffset;

@@ -76,6 +76,7 @@ export function createTriMeshMode(
       uNoiseOctaves: { value: noiseOctaves },
       uFogNear: { value: fogNear },
       uFogFar: { value: fogFar },
+      uMidEnergy: { value: 0.0 },
       uHasVertexColor: { value: 1.0 },
     };
   }
@@ -96,6 +97,7 @@ export function createTriMeshMode(
       uNoiseOctaves: { value: noiseOctaves },
       uFogNear: { value: fogNear },
       uFogFar: { value: fogFar },
+      uMidEnergy: { value: 0.0 },
       uHasVertexColor: { value: 1.0 },
       uFocusDistance: { value: 15.0 },
       uDofStrength: { value: config.dofStrength ?? 0.2 },
@@ -125,6 +127,7 @@ export function createTriMeshMode(
     uniforms.uPaletteSaturation.value = paletteSaturation;
     uniforms.uCadence.value = cadence;
     uniforms.uNoiseFrequency.value = noiseFrequency;
+    uniforms.uMidEnergy.value = frame.params.midEnergy;
   }
 
   return {

@@ -286,6 +286,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
         uHasVertexColor: { value: 1.0 },
         uFogNear: { value: 3.0 },
         uFogFar: { value: 8.0 },
+        uMidEnergy: { value: 0.0 },
         uDispersion: { value: 0.0 },
         uFocusDistance: { value: 5.0 },
         uDofStrength: { value: config?.dofStrength ?? 0.6 },
@@ -354,6 +355,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       u.uTwistStrength.value = twistStrength;
       u.uFieldSpread.value = fieldSpread;
       u.uDispersion.value = frame.params.dispersion ?? 0.0;
+      u.uMidEnergy.value = frame.params.midEnergy;
 
       const breathScale = 1
         + Math.sin(elapsed * 0.0004) * 0.08 * motionAmplitude
