@@ -10,8 +10,8 @@ function fnv1a(str: string): number {
   return hash >>> 0;
 }
 
-export function generateTrackName(seed: string, index: number): string {
-  const hash = fnv1a(seed + ':track:' + index);
+export function generateTrackName(seed: string, trackPath: string): string {
+  const hash = fnv1a(seed + ':track:' + trackPath);
   const word = WORDS[hash % WORDS.length];
   const numeral = NUMERALS[(hash >>> 8) % NUMERALS.length];
   return `${word} ${numeral}`;

@@ -387,12 +387,10 @@ document.body.appendChild(createInfoOverlay());
 
 // Track display — generative names shown on track change
 const trackDisplay = createTrackDisplay();
-let trackIndex = 0;
 
 // Start audio (non-blocking — visuals must not depend on this)
 const audioPromise = initAudio((trackPath) => {
-  void trackPath; // used implicitly via seed-based naming
-  const name = generateTrackName(lastSeedRef || 'default', trackIndex++);
+  const name = generateTrackName(lastSeedRef || 'default', trackPath);
   trackDisplay.show(name);
 });
 
