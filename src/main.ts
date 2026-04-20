@@ -244,31 +244,31 @@ geoPromise.then((geo) => {
   // Build single-mode rotation entries
   // Flagship modes (terrain, pointcloud) get weight 2
   const singleEntries: SingleRotationEntry[] = [
-    // --- Centered particle/point systems: orbit camera ---
+    // --- Centered particle/point systems: Lissajous drift (organic wandering) ---
     { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles,
-      framing: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50, cameraMode: 'orbit', orbitRadius: 4.5 } },
+      framing: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50 } },
     { kind: 'single', name: 'ribbon', system: ribbon, maxPoints: quality.maxRibbonPoints,
-      framing: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 3.5 } },
+      framing: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
     { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints, weight: 2,
-      framing: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40, cameraMode: 'orbit', orbitRadius: 4.0 } },
+      framing: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40 } },
     { kind: 'single', name: 'crystal', system: crystal, maxPoints: Math.round(quality.maxPoints * 0.8),
-      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80, cameraMode: 'orbit', orbitRadius: 6.0 } },
+      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 } },
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints,
-      framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60, cameraMode: 'orbit', orbitRadius: 5.5 } },
-    // --- Terrain environments: flythrough camera ---
+      framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 } },
+    // --- Terrain environments: flythrough camera (slow aerial drift) ---
     { kind: 'single', name: 'terrain', system: terrain, maxPoints: quality.terrainRows * quality.terrainCols, weight: 2,
-      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.4 } },
+      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3 } },
     { kind: 'single', name: 'terrain-dramatic', system: terrainDramatic, maxPoints: quality.terrainRows * quality.terrainCols, weight: 1,
-      framing: { targetDistance: 10.0, lookOffset: [0, 1.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3 } },
+      framing: { targetDistance: 10.0, lookOffset: [0, 1.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2 } },
     { kind: 'single', name: 'terrain-wireframe', system: terrainWireframe, maxPoints: Math.min(quality.terrainRows, 120) * Math.min(quality.terrainCols, 160), weight: 1,
-      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.5 } },
-    // --- Enclosed environments: flythrough camera ---
+      framing: { targetDistance: 8.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35 } },
+    // --- Enclosed environments: flythrough camera (gentle travel) ---
     { kind: 'single', name: 'tunnel', system: tunnel, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 200), weight: 1,
-      framing: { targetDistance: 1.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.6, driftScale: [0.5, 0.5, 1] } },
+      framing: { targetDistance: 1.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.4, driftScale: [0.3, 0.3, 1] } },
     { kind: 'single', name: 'cave', system: cave, maxPoints: Math.min(quality.terrainRows, 80) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
-      framing: { targetDistance: 6.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.4, driftScale: [2, 0.5, 1] } },
+      framing: { targetDistance: 6.0, lookOffset: [0, 0.5, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 0.3, 1] } },
     { kind: 'single', name: 'canyon', system: canyon, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
-      framing: { targetDistance: 1.0, lookOffset: [0, 0.5, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.5, driftScale: [0.3, 1, 1] } },
+      framing: { targetDistance: 1.0, lookOffset: [0, 0.5, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.35, driftScale: [0.2, 0.5, 1] } },
     // --- 3D objects: orbit camera ---
     { kind: 'single', name: 'icosphere', system: icosphere, maxPoints: quality.meshSubdivisions * 400, weight: 1,
       framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 6.0 } },
