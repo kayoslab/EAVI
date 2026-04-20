@@ -2,12 +2,13 @@
  * Autonomous seeded camera motion.
  *
  * Three motion styles:
- * - default: layered sine harmonics (gentle drift around base position)
- * - orbit: circular path around centered objects, revealing 3D form
- * - flythrough: continuous forward travel through elongated environments
+ * - default: Lissajous drift — incommensurate sine frequencies create organic,
+ *   non-repeating paths that wander without ever retracing the same route.
+ * - orbit: slow continuous circular path around centered 3D objects.
+ * - flythrough: continuous forward travel through elongated environments.
  *
- * Bass energy modulates orbit radius / travel sway.
- * motionAmplitude scales all displacement (supports prefers-reduced-motion).
+ * Bass energy gently modulates vertical tilt and sway.
+ * motionAmplitude scales drift/tilt (supports prefers-reduced-motion).
  */
 
 import type { PerspectiveCamera } from 'three';
@@ -21,25 +22,30 @@ interface Harmonic {
 }
 
 interface CameraHarmonics {
+  // Lissajous drift (default mode) — 3 harmonics per axis with incommensurate periods
   posX: Harmonic[];
   posY: Harmonic[];
   posZ: Harmonic[];
   lookX: Harmonic[];
   lookY: Harmonic[];
   lookZ: Harmonic[];
-  // Orbit-specific
-  orbitSpeed: number;    // radians per second
-  orbitTilt: number;     // vertical tilt amplitude
+  // Orbit
+  orbitSpeed: number;
+  orbitTilt: number;
   orbitTiltSpeed: number;
-  // Flythrough-specific
+  // Flythrough sway
   swayAmplitude: number;
   swayFrequency: number;
   swayPhase: number;
+  vertSwayPhase: number;
 }
 
 const BASE_X = 0;
 const BASE_Y = 0;
 const BASE_Z = 5;
+
+// Prime-ish periods in ms — incommensurate so combined path never repeats
+const PRIME_PERIODS = [67000, 97000, 157000, 83000, 113000, 139000, 71000, 107000, 151000];
 
 const harmonicCache = new Map<string, CameraHarmonics>();
 let activeSeed: string | null = null;
@@ -50,19 +56,30 @@ function buildHarmonics(seed: string): CameraHarmonics {
 
   const rng = createPRNG(seed + ':camera');
 
-  function makeHarmonics(
-    ampMin: number,
-    ampMax: number,
-    periodMinMs: number,
-    periodMaxMs: number,
-    count: number,
-  ): Harmonic[] {
+  // Build incommensurate harmonics for Lissajous drift
+  function makeLissajous(ampMin: number, ampMax: number, count: number): Harmonic[] {
     const result: Harmonic[] = [];
     for (let i = 0; i < count; i++) {
+      // Pick from prime periods with seeded jitter to ensure non-repeating paths
+      const basePeriod = PRIME_PERIODS[(Math.floor(rng() * PRIME_PERIODS.length)) % PRIME_PERIODS.length];
+      const jitteredPeriod = basePeriod * (0.8 + rng() * 0.4); // ±20% jitter
       result.push({
         amplitude: ampMin + rng() * (ampMax - ampMin),
-        frequency:
-          (2 * Math.PI) / (periodMinMs + rng() * (periodMaxMs - periodMinMs)),
+        frequency: (2 * Math.PI) / jitteredPeriod,
+        phase: rng() * Math.PI * 2,
+      });
+    }
+    return result;
+  }
+
+  function makeLookHarmonics(ampMin: number, ampMax: number, count: number): Harmonic[] {
+    const result: Harmonic[] = [];
+    for (let i = 0; i < count; i++) {
+      const basePeriod = PRIME_PERIODS[(Math.floor(rng() * PRIME_PERIODS.length)) % PRIME_PERIODS.length];
+      const jitteredPeriod = basePeriod * (0.9 + rng() * 0.2);
+      result.push({
+        amplitude: ampMin + rng() * (ampMax - ampMin),
+        frequency: (2 * Math.PI) / jitteredPeriod,
         phase: rng() * Math.PI * 2,
       });
     }
@@ -70,22 +87,23 @@ function buildHarmonics(seed: string): CameraHarmonics {
   }
 
   const h: CameraHarmonics = {
-    // Position harmonics: periods 60-240s, amplitudes 0.1-0.2 per harmonic (calm drift)
-    posX: makeHarmonics(0.1, 0.2, 60000, 240000, 2),
-    posY: makeHarmonics(0.1, 0.2, 60000, 240000, 2),
-    posZ: makeHarmonics(0.1, 0.2, 60000, 200000, 3),
-    // Look-target harmonics: periods 80-200s, amplitudes 0.05-0.15
-    lookX: makeHarmonics(0.05, 0.15, 80000, 200000, 2),
-    lookY: makeHarmonics(0.05, 0.15, 80000, 200000, 2),
-    lookZ: makeHarmonics(0.03, 0.08, 100000, 200000, 2),
-    // Orbit: slow rotation (40-80s full revolution), gentle vertical tilt
-    orbitSpeed: (2 * Math.PI) / (40000 + rng() * 40000),
-    orbitTilt: 0.3 + rng() * 0.4, // 0.3-0.7 units vertical range
-    orbitTiltSpeed: (2 * Math.PI) / (25000 + rng() * 35000),
-    // Flythrough: gentle lateral sway
-    swayAmplitude: 1.0 + rng() * 1.5,
-    swayFrequency: (2 * Math.PI) / (15000 + rng() * 20000),
+    // Lissajous position drift: 3 harmonics per axis, moderate amplitudes
+    posX: makeLissajous(0.3, 0.6, 3),
+    posY: makeLissajous(0.2, 0.4, 3),
+    posZ: makeLissajous(0.15, 0.3, 3),
+    // Look target drift: smaller, slower
+    lookX: makeLookHarmonics(0.05, 0.12, 3),
+    lookY: makeLookHarmonics(0.04, 0.1, 3),
+    lookZ: makeLookHarmonics(0.03, 0.06, 3),
+    // Orbit: very slow (120-180s per revolution)
+    orbitSpeed: (2 * Math.PI) / (120000 + rng() * 60000),
+    orbitTilt: 0.2 + rng() * 0.2,
+    orbitTiltSpeed: (2 * Math.PI) / (50000 + rng() * 40000),
+    // Flythrough: gentle sway
+    swayAmplitude: 0.3 + rng() * 0.5,
+    swayFrequency: (2 * Math.PI) / (25000 + rng() * 20000),
     swayPhase: rng() * Math.PI * 2,
+    vertSwayPhase: rng() * Math.PI * 2,
   };
 
   harmonicCache.set(seed, h);
@@ -123,59 +141,61 @@ export function updateCamera(
   const lookOffZ = framing?.lookOffset?.[2] ?? 0;
 
   if (mode === 'orbit') {
-    // --- Orbit mode: circle around centered objects ---
-    const radius = (framing?.orbitRadius ?? baseZ) * (1 + bassEnergy * 0.08);
+    // --- Orbit mode: cinematic elliptical path around centered 3D objects ---
+    const radius = framing?.orbitRadius ?? baseZ;
     const angle = elapsedMs * h.orbitSpeed * 0.001;
+    // Slight eccentricity for cinematic feel (not a perfect circle)
+    const eccentricity = 0.85 + Math.sin(angle * 0.3) * 0.15; // varies 0.7-1.0
     const yDrift = Math.sin(elapsedMs * h.orbitTiltSpeed * 0.001) * h.orbitTilt * motionAmplitude;
+    const bassTilt = bassEnergy * 0.12 * motionAmplitude;
 
     camera.position.set(
-      Math.sin(angle) * radius * motionAmplitude + BASE_X,
-      BASE_Y + yDrift + lookOffY * 0.3,
-      Math.cos(angle) * radius * motionAmplitude + lookOffZ,
+      Math.sin(angle) * radius * eccentricity,
+      BASE_Y + yDrift + bassTilt,
+      Math.cos(angle) * radius,
     );
 
-    // Look at center with gentle harmonic drift
-    const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.3 + lookOffX;
-    const ly = evalAxis(h.lookY, elapsedMs) * motionAmplitude * 0.2 + lookOffY * 0.1;
-    const lz = evalAxis(h.lookZ, elapsedMs) * motionAmplitude * 0.2;
+    // Look at center with very gentle drift — cinematic "breathing" look target
+    const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.1;
+    const ly = evalAxis(h.lookY, elapsedMs) * motionAmplitude * 0.08;
+    const lz = evalAxis(h.lookZ, elapsedMs) * motionAmplitude * 0.08;
     camera.lookAt(lx, ly, lz);
 
   } else if (mode === 'flythrough') {
-    // --- Flythrough mode: travel forward through elongated environments ---
+    // --- Flythrough mode: continuous forward travel ---
     const speed = framing?.flythroughSpeed ?? 0.5;
     const driftScale = framing?.driftScale ?? [1, 1, 1];
 
-    // Continuous forward motion (wrapping via modulo to stay in geometry range)
-    // The geometry extends from z=5 (near) to z=-155 (far, depth=160)
-    // Camera travels forward slowly, cycling through the geometry
-    const forwardProgress = (elapsedMs * 0.001 * speed) % 80; // cycle every 80 units
+    // Continuous forward motion, cycling through geometry
+    const forwardProgress = (elapsedMs * 0.001 * speed) % 80;
     const camZ = baseZ - forwardProgress;
 
-    // Lateral sway: gentle sine for organic feel
+    // Gentle lateral sway — organic, not jarring
     const sway = Math.sin(elapsedMs * h.swayFrequency + h.swayPhase)
       * h.swayAmplitude * motionAmplitude * driftScale[0];
-    const vertSway = Math.sin(elapsedMs * h.swayFrequency * 0.7 + h.swayPhase + 1.5)
-      * h.swayAmplitude * 0.3 * motionAmplitude * driftScale[1];
+    const vertSway = Math.sin(elapsedMs * h.swayFrequency * 0.6 + h.vertSwayPhase)
+      * h.swayAmplitude * 0.25 * motionAmplitude * driftScale[1];
 
-    // Bass adds a subtle push outward from center
-    const bassPush = bassEnergy * 0.3 * motionAmplitude;
+    // Bass: very subtle vertical bob
+    const bassBob = bassEnergy * 0.1 * motionAmplitude;
 
     camera.position.set(
-      BASE_X + sway + bassPush * Math.sin(elapsedMs * 0.0003),
-      BASE_Y + vertSway + lookOffY,
+      BASE_X + sway,
+      BASE_Y + vertSway + lookOffY + bassBob,
       camZ,
     );
 
-    // Look ahead in the direction of travel, with gentle drift
-    const lookAheadZ = camZ - 15; // look 15 units ahead
-    const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.5 + lookOffX;
-    const ly = evalAxis(h.lookY, elapsedMs) * motionAmplitude * 0.3 + lookOffY;
+    // Look far ahead for smooth, stable forward view
+    const lookAheadZ = camZ - 25;
+    const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.2 + lookOffX;
+    const ly = evalAxis(h.lookY, elapsedMs) * motionAmplitude * 0.15 + lookOffY;
     camera.lookAt(lx, ly, lookAheadZ);
 
   } else {
-    // --- Default mode: gentle harmonic drift (original behavior) ---
-    const bassScale = 1 + bassEnergy * 0.05;
+    // --- Default: Lissajous drift — organic, non-repeating wandering ---
     const driftScale = framing?.driftScale ?? [1, 1, 1];
+    // Bass gently increases drift amplitude
+    const bassScale = 1 + bassEnergy * 0.08;
 
     const offsetX = evalAxis(h.posX, elapsedMs) * motionAmplitude * bassScale;
     const offsetY = evalAxis(h.posY, elapsedMs) * motionAmplitude * bassScale;
@@ -190,7 +210,6 @@ export function updateCamera(
     const lookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude + lookOffX;
     const lookY = evalAxis(h.lookY, elapsedMs) * motionAmplitude + lookOffY;
     const lookZ = evalAxis(h.lookZ, elapsedMs) * motionAmplitude + lookOffZ;
-
     camera.lookAt(lookX, lookY, lookZ);
   }
 }

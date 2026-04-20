@@ -43,18 +43,18 @@ export function generateTerrainHeightfield(opts: {
   const octaveParams: { p1: number; p2: number; p3: number; p4: number; offset: number }[] = [];
   for (let o = 0; o < octaves; o++) {
     octaveParams.push({
-      p1: rng() * 100 + 10,
-      p2: rng() * 100 + 10,
-      p3: rng() * 100 + 10,
-      p4: rng() * 100 + 10,
-      offset: rng() * 1000,
+      p1: rng() * 3.0 + 1.0,
+      p2: rng() * 3.0 + 1.0,
+      p3: rng() * 3.0 + 1.0,
+      p4: rng() * 3.0 + 1.0,
+      offset: rng() * 100,
     });
   }
 
   function fbm(x: number, z: number): number {
     let value = 0;
     let amplitude = 1;
-    let frequency = 1;
+    let frequency = 0.04;
     for (let o = 0; o < octaves; o++) {
       const p = octaveParams[o];
       value +=
