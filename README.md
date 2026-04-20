@@ -17,9 +17,10 @@ The experience fades in from black over 3 seconds and cycles through visual mode
 The experience cycles through visual systems, each with distinct character:
 
 **Environments** — immersive spaces the camera flies through:
-- **Terrain Grid** — A wide grid of points forming rolling hills and valleys, viewed as a slow aerial flyover
-- **Dramatic Terrain** — Exaggerated topography with height-based color gradients from deep indigo valleys to warm amber peaks
+- **Terrain Grid** — A wide grid of points forming rolling hills and valleys with height-based color gradients, viewed as a slow aerial flyover
+- **Dramatic Terrain** — Exaggerated topography with deep indigo valleys and warm amber peaks
 - **Wireframe Terrain** — Triangulated mesh surface with glowing triangle edges forming a retro digital landscape
+- **Dramatic Wireframe** — The wireframe terrain with extreme elevation and dramatic coloring
 - **Tunnel** — A cylindrical mesh the camera travels through, walls undulating gently with bass
 - **Cave** — Floor and ceiling terrain meshes creating an enclosed corridor that breathes with audio
 
@@ -27,6 +28,7 @@ The experience cycles through visual systems, each with distinct character:
 - **Icosphere** — A subdivided icosahedron that expands and morphs with audio energy
 - **Torus** — A triangulated donut that breathes and shimmers
 - **Morphing Polyhedra** — An organic shape with strong radial displacement, constantly evolving
+- **Trefoil Knot** — A tube that loops through itself in a mathematical knot, electric blue to violet
 
 **Particle Systems** — point-based visual fields with organic Lissajous camera drift:
 - **Point Cloud** — Volumetric 3D shapes (torus, gyroid, supershape) that morph with audio
