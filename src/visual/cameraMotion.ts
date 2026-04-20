@@ -167,8 +167,12 @@ export function updateCamera(
     const driftScale = framing?.driftScale ?? [1, 1, 1];
 
     // Continuous forward motion, cycling through geometry
-    const forwardProgress = (elapsedMs * 0.001 * speed) % 80;
-    const camZ = baseZ - forwardProgress;
+    // Geometry meshes are positioned at world Z=5.0 (set by triMeshMode),
+    // so always start camera at the mesh entrance regardless of targetDistance
+    const meshStartZ = 5.0;
+    const cycleLength = 80; // geometry wraps every 80 units
+    const forwardProgress = (elapsedMs * 0.001 * speed) % cycleLength;
+    const camZ = meshStartZ - forwardProgress;
 
     // Gentle lateral sway — organic, not jarring
     const sway = Math.sin(elapsedMs * h.swayFrequency + h.swayPhase)
@@ -185,8 +189,8 @@ export function updateCamera(
       camZ,
     );
 
-    // Look far ahead for smooth, stable forward view
-    const lookAheadZ = camZ - 25;
+    // Look ahead — shorter for enclosed spaces to avoid looking through walls
+    const lookAheadZ = camZ - 20;
     const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.2 + lookOffX;
     const ly = evalAxis(h.lookY, elapsedMs) * motionAmplitude * 0.15 + lookOffY;
     camera.lookAt(lx, ly, lookAheadZ);

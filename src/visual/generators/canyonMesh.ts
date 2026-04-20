@@ -14,28 +14,28 @@ export function generateCanyonMesh(
   octaves: number,
 ): TriMeshGeometry {
   const depth = 80;
-  const wallSpacing = 6.0;
+  const wallSpacing = 10.0;
   const yMin = -3;
   const yMax = 5;
-  const displaceScale = 1.5;
+  const displaceScale = 0.8;
 
   const rng = createPRNG(seed + ':canyon-fbm');
 
   const octaveParams: { p1: number; p2: number; p3: number; p4: number; offset: number }[] = [];
   for (let o = 0; o < octaves; o++) {
     octaveParams.push({
-      p1: rng() * 100 + 10,
-      p2: rng() * 100 + 10,
-      p3: rng() * 100 + 10,
-      p4: rng() * 100 + 10,
-      offset: rng() * 1000,
+      p1: rng() * 3.0 + 1.0,
+      p2: rng() * 3.0 + 1.0,
+      p3: rng() * 3.0 + 1.0,
+      p4: rng() * 3.0 + 1.0,
+      offset: rng() * 100,
     });
   }
 
   function fbm(a: number, b: number): number {
     let value = 0;
     let amplitude = 1;
-    let frequency = 1;
+    let frequency = 0.05;
     for (let o = 0; o < octaves; o++) {
       const p = octaveParams[o];
       value +=

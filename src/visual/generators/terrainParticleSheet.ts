@@ -23,7 +23,7 @@ export function generateTerrainParticleSheet(opts: {
     seed,
     width = 60,
     depth = 160,
-    heightScale = 3.0,
+    heightScale = 5.0,
     octaves = 3,
   } = opts;
 
@@ -44,7 +44,7 @@ export function generateTerrainParticleSheet(opts: {
   function fbm(x: number, z: number): number {
     let value = 0;
     let amplitude = 1;
-    let frequency = 0.04; // low base frequency for broad rolling hills
+    let frequency = 0.05; // base frequency for terrain features
     for (let o = 0; o < octaves; o++) {
       const p = octaveParams[o];
       value +=

@@ -154,10 +154,11 @@ function createVibrantGradient(seed: string, familyHint?: string): SpatialGradie
 
 // Terrain-specific height-based palette: valley (cool) -> ridge (warm)
 const TERRAIN_SRGB_STOPS = [
-  { r: 0x12 / 255, g: 0x1a / 255, b: 0x5c / 255, position: 0.0 },   // deep blue-indigo (valley)
-  { r: 0x0d / 255, g: 0x7a / 255, b: 0x8c / 255, position: 0.3 },   // teal-cyan (lower slopes)
-  { r: 0xd4 / 255, g: 0x8a / 255, b: 0x1a / 255, position: 0.65 },  // warm amber (upper slopes)
-  { r: 0xff / 255, g: 0x6a / 255, b: 0x3a / 255, position: 1.0 },   // bright orange-coral (ridges)
+  { r: 0x08 / 255, g: 0x0a / 255, b: 0x40 / 255, position: 0.0 },   // deep indigo (valleys)
+  { r: 0x12 / 255, g: 0x4a / 255, b: 0x7c / 255, position: 0.2 },   // ocean blue
+  { r: 0x0d / 255, g: 0x8a / 255, b: 0x8c / 255, position: 0.4 },   // teal
+  { r: 0xd4 / 255, g: 0x6a / 255, b: 0x2a / 255, position: 0.7 },   // warm amber
+  { r: 0xff / 255, g: 0x8a / 255, b: 0x4a / 255, position: 1.0 },   // bright coral
 ];
 
 function createTerrainGradient(seed: string): SpatialGradientPalette {
@@ -180,10 +181,11 @@ function createTerrainGradient(seed: string): SpatialGradientPalette {
 
 // Dramatic terrain: deep valleys (cool) to high peaks (warm bright)
 const TERRAIN_DRAMATIC_SRGB_STOPS = [
-  { r: 0x0a / 255, g: 0x0a / 255, b: 0x2e / 255, position: 0.0 },   // deep navy-black (valleys)
-  { r: 0x0d / 255, g: 0x5e / 255, b: 0x6e / 255, position: 0.3 },   // cool teal (lower slopes)
-  { r: 0xd4 / 255, g: 0xa0 / 255, b: 0x1a / 255, position: 0.6 },   // warm amber (upper slopes)
-  { r: 0xff / 255, g: 0xe8 / 255, b: 0xc8 / 255, position: 1.0 },   // bright warm white (peaks)
+  { r: 0x05 / 255, g: 0x05 / 255, b: 0x20 / 255, position: 0.0 },   // near black (deep valleys)
+  { r: 0x0a / 255, g: 0x2a / 255, b: 0x5c / 255, position: 0.2 },   // dark navy
+  { r: 0x1a / 255, g: 0x7a / 255, b: 0x6e / 255, position: 0.4 },   // teal
+  { r: 0xe0 / 255, g: 0x8a / 255, b: 0x1a / 255, position: 0.7 },   // rich amber
+  { r: 0xff / 255, g: 0xd0 / 255, b: 0x80 / 255, position: 1.0 },   // warm light
 ];
 
 function createTerrainDramaticGradient(seed: string): SpatialGradientPalette {
