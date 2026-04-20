@@ -75,7 +75,9 @@ export function generateTerrainParticleSheet(opts: {
       const x = (col / (actualCols - 1)) * width - halfW;
       const z = -(row / (actualRows - 1)) * depth; // negative z = into screen
 
-      const y = fbm(x, z) * heightScale;
+      // Vary peak heights: low-frequency envelope creates regions of tall/short hills
+      const envelope = 0.4 + 0.6 * Math.abs(Math.sin(x * 0.03 + z * 0.02) * Math.cos(x * 0.02 - z * 0.04));
+      const y = fbm(x, z) * heightScale * envelope;
 
       const base = i * 3;
       positions[base] = x;

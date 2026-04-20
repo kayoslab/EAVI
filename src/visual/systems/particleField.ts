@@ -351,7 +351,7 @@ export function createParticleField(config?: ParticleFieldConfig): ParticleField
       u.uPaletteHue.value = paletteHue;
       u.uPaletteSaturation.value = paletteSaturation;
       u.uCadence.value = cadence;
-      u.uBasePointSize.value = 0.08 * (1 + structureComplexity * 0.5);
+      u.uBasePointSize.value = 0.05 * (1 + structureComplexity * 0.3);
       u.uNoiseFrequency.value = noiseFrequency;
       u.uRadialScale.value = radialScale;
       u.uTwistStrength.value = twistStrength;

@@ -218,6 +218,7 @@ export function extractSystemConfig(systemName: string, profile: QualityProfile)
         pointCount: profile.terrainPointCount,
       };
     case 'terrain-wireframe':
+    case 'terrain-wireframe-dramatic':
       return {
         rows: profile.terrainRows,
         cols: profile.terrainCols,
@@ -229,6 +230,7 @@ export function extractSystemConfig(systemName: string, profile: QualityProfile)
     case 'icosphere':
     case 'torus':
     case 'morphpoly':
+    case 'trefoilknot':
       return {
         rows: profile.terrainRows,
         cols: profile.terrainCols,

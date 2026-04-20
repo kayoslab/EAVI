@@ -43,6 +43,8 @@ const SYSTEM_FRAMING: Record<string, FramingConfig> = {
   icosphere: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, bloomStrength: 1.2 },
   torus: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, bloomStrength: 1.2 },
   morphpoly: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, bloomStrength: 1.2 },
+  'terrain-wireframe-dramatic': { targetDistance: 8.0, lookOffset: [0, 8.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.25, bloomStrength: 1.5 },
+  trefoilknot: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 5.0, bloomStrength: 1.3 },
 };
 
 const DEFAULT_COMPOUND_FRAMING: FramingConfig = {

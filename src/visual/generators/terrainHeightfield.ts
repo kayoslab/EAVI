@@ -79,7 +79,8 @@ export function generateTerrainHeightfield(opts: {
       const z = -(i / rows) * depth;
       vertX[idx] = x;
       vertZ[idx] = z;
-      heights[idx] = fbm(x, z) * heightScale;
+      const envelope = 0.4 + 0.6 * Math.abs(Math.sin(x * 0.03 + z * 0.02) * Math.cos(x * 0.02 - z * 0.04));
+      heights[idx] = fbm(x, z) * heightScale * envelope;
     }
   }
 

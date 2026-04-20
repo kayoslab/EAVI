@@ -9,7 +9,7 @@ import terrainLineFrag from '../shaders/terrain.frag.glsl?raw';
 import terrainVertexVert from '../shaders/terrainVertex.vert.glsl?raw';
 import terrainVertexFrag from '../shaders/terrainVertex.frag.glsl?raw';
 import { generateTerrainHeightfield } from '../generators/terrainHeightfield';
-import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
+import { createSpatialGradient, computeVertexColors, type PaletteMode } from '../spatialGradient';
 
 const meshVertShader = noise3dGlsl + '\n' + terrainLineVert;
 const meshFragShader = chromaticDispersionGlsl + '\n' + terrainLineFrag;
@@ -21,6 +21,8 @@ export interface TerrainWireframeConfig {
   cols?: number;
   noiseOctaves?: 1 | 2 | 3;
   dofStrength?: number;
+  heightScale?: number;
+  gradientMode?: string;
 }
 
 export function createTerrainWireframe(config?: TerrainWireframeConfig): GeometrySystem & {
@@ -121,17 +123,19 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
         seed: seed + ':terrain',
         width: 120,
         depth: 160,
-        heightScale: 3.0,
+        heightScale: config?.heightScale ?? 3.0,
         octaves: noiseOctaves,
       });
 
-      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'terrain-wireframe' });
+      const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: (config?.gradientMode ?? 'terrain-wireframe') as PaletteMode });
+
+      const colorAxis = config?.gradientMode === 'terrain-dramatic' ? 'y' : 'z';
 
       // --- Triangle mesh (wireframe mode renders triangle edges) ---
       const meshGeom = new THREE.BufferGeometry();
       meshGeom.setAttribute('position', new THREE.BufferAttribute(data.vertexPositions, 3));
       meshGeom.setAttribute('aRandom', new THREE.BufferAttribute(data.vertexRandoms, 3));
-      const meshColors = computeVertexColors(data.vertexPositions, gradient, { axis: 'z', itemStride: 3 });
+      const meshColors = computeVertexColors(data.vertexPositions, gradient, { axis: colorAxis, itemStride: 3 });
       meshGeom.setAttribute('aVertexColor', new THREE.BufferAttribute(meshColors, 3));
       meshGeom.setIndex(new THREE.BufferAttribute(data.triangleIndices, 1));
 
