@@ -44,7 +44,7 @@ describe('US-042: Autonomous spatial camera motion', () => {
     expect(diffCount).toBeGreaterThanOrEqual(2);
   });
 
-  it('T-042-03: camera movement spans all three axes for parallax', () => {
+  it('T-042-03: camera movement spans X and Z axes for parallax (Y is fixed)', () => {
     const cam = mockCamera();
     initCameraMotion('parallax-seed');
 
@@ -61,7 +61,8 @@ describe('US-042: Autonomous spatial camera motion', () => {
 
     const range = (arr: number[]) => Math.max(...arr) - Math.min(...arr);
     expect(range(xs)).toBeGreaterThan(0.05);
-    expect(range(ys)).toBeGreaterThan(0.05);
+    // Camera Y is fixed (no vertical harmonics) — Y range should be 0
+    expect(range(ys)).toBe(0);
     expect(range(zs)).toBeGreaterThan(0.05);
   });
 
