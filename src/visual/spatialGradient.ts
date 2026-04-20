@@ -11,7 +11,7 @@ export interface SpatialGradientPalette {
   stops: GradientStop[];
 }
 
-export type PaletteMode = 'seeded' | 'vibrant' | 'terrain' | 'terrain-dramatic' | 'terrain-wireframe' | 'tunnel' | 'cave' | 'canyon' | 'icosphere' | 'torus' | 'morphpoly';
+export type PaletteMode = 'seeded' | 'vibrant' | 'terrain' | 'terrain-dramatic' | 'terrain-wireframe' | 'tunnel' | 'cave' | 'canyon' | 'icosphere' | 'torus' | 'morphpoly' | 'trefoilknot';
 
 export interface SpatialGradientOptions {
   mode?: PaletteMode;
@@ -372,6 +372,30 @@ function createMorphPolyGradient(seed: string): SpatialGradientPalette {
   return { stops };
 }
 
+// TrefoilKnot: electric blue to violet
+const TREFOILKNOT_SRGB_STOPS = [
+  { r: 0x0a / 255, g: 0x1a / 255, b: 0x4f / 255, position: 0.0 },   // deep navy
+  { r: 0x1a / 255, g: 0x6e / 255, b: 0xcc / 255, position: 0.35 },  // electric blue
+  { r: 0x8a / 255, g: 0x2a / 255, b: 0xe0 / 255, position: 0.7 },   // violet
+  { r: 0xe0 / 255, g: 0xc8 / 255, b: 0xff / 255, position: 1.0 },   // pale lavender
+];
+
+function createTrefoilKnotGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':trefoilknot');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = TREFOILKNOT_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.1 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
 export function createSpatialGradient(
   paletteHue: number,
   paletteSaturation: number,
@@ -404,6 +428,9 @@ export function createSpatialGradient(
   }
   if (options?.mode === 'morphpoly') {
     return createMorphPolyGradient(seed);
+  }
+  if (options?.mode === 'trefoilknot') {
+    return createTrefoilKnotGradient(seed);
   }
   if (options?.mode === 'vibrant') {
     return createVibrantGradient(seed, options?.familyHint);

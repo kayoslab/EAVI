@@ -102,11 +102,10 @@ void main() {
 
   float atmosphericDecay = exp(-0.08 * max(depth - uFogNear, 0.0));
   float sizeMultiplier = mix(1.0, size, uHasSizeAttr);
-  float pointSize = sizeMultiplier * uBasePointSize * (1200.0 / depth) * trebleSparkle * atmosphericDecay;
-  // Bokeh size scaling: foreground gets large soft circles, background slight increase
-  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.5) : (1.0 + coc * 0.5);
+  float pointSize = sizeMultiplier * uBasePointSize * (600.0 / depth) * trebleSparkle * atmosphericDecay;
+  float bokehScale = (depth < uFocusDistance) ? (1.0 + coc * 1.0) : (1.0 + coc * 0.3);
   pointSize *= bokehScale;
-  gl_PointSize = clamp(pointSize, 2.5, 40.0);
+  gl_PointSize = clamp(pointSize, 1.5, 16.0);
 
   gl_Position = projectionMatrix * mvPosition;
 

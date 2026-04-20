@@ -104,7 +104,7 @@ export function createTerrainHeightfield(config?: TerrainHeightfieldConfig): Geo
       });
 
       const gradientMode = config?.gradientMode === 'terrain-dramatic' ? 'terrain-dramatic' : 'terrain';
-      const gradientAxis: 'y' | 'z' = config?.gradientMode === 'terrain-dramatic' ? 'y' : 'z';
+      const gradientAxis: 'y' | 'z' = 'y';
       const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: gradientMode });
 
       const geometry = new THREE.BufferGeometry();

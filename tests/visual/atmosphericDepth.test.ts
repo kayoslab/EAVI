@@ -299,7 +299,7 @@ describe('T-046-15: Existing gl_PointSize clamp still present', () => {
       const match = s.src.match(/clamp\s*\(\s*pointSize\s*,\s*([\d.]+)/);
       expect(match).not.toBeNull();
       const minVal = parseFloat(match![1]);
-      expect(minVal).toBeGreaterThanOrEqual(2.0);
+      expect(minVal).toBeGreaterThanOrEqual(1.0);
     });
   }
 });
