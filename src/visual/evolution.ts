@@ -152,6 +152,7 @@ export function evolveParams(
     radialScale: clamp(base.radialScale + radialDrift, 0.5, 1.6),
     twistStrength: clamp(base.twistStrength + twistDrift, 0.1, 2.5),
     fieldSpread: clamp(base.fieldSpread + spreadDrift, 0.7, 1.4),
+    beatPulse: base.beatPulse,
   };
 }
 

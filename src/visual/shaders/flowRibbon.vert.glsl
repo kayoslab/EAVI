@@ -3,6 +3,7 @@
 
 uniform float uTime;
 uniform float uBassEnergy;
+uniform float uBeatPulse;
 uniform float uTrebleEnergy;
 uniform float uMotionAmplitude;
 uniform float uPointerDisturbance;
@@ -98,6 +99,9 @@ void main() {
 
   // --- Breathing scale ---
   pos *= uBreathScale;
+
+  // Beat pulse: brief radial expansion
+  pos *= 1.0 + uBeatPulse * 0.03;
 
   // --- Elongation varying for fragment shader ---
   // Maps velocity magnitude to 0..1 range for elliptical sprite stretching

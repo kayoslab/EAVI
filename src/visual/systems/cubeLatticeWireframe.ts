@@ -51,6 +51,7 @@ export function createCubeLatticeWireframe(config?: CubeLatticeConfig): Geometry
     return {
       uTime: { value: 0.0 },
       uBassEnergy: { value: 0.0 },
+      uBeatPulse: { value: 0.0 },
       uTrebleEnergy: { value: 0.0 },
       uOpacity: { value: 1.0 },
       uMotionAmplitude: { value: params.motionAmplitude },
@@ -79,6 +80,7 @@ export function createCubeLatticeWireframe(config?: CubeLatticeConfig): Geometry
     return {
       uTime: { value: 0.0 },
       uBassEnergy: { value: 0.0 },
+      uBeatPulse: { value: 0.0 },
       uTrebleEnergy: { value: 0.0 },
       uOpacity: { value: 1.0 },
       uMotionAmplitude: { value: params.motionAmplitude },
@@ -182,6 +184,7 @@ export function createCubeLatticeWireframe(config?: CubeLatticeConfig): Geometry
       const eu = (edgeMesh.material as THREE.ShaderMaterial).uniforms;
       eu.uTime.value = elapsed;
       eu.uBassEnergy.value = bassEnergy;
+      eu.uBeatPulse.value = frame.params.beatPulse;
       eu.uTrebleEnergy.value = trebleEnergy;
       eu.uMotionAmplitude.value = motionAmplitude;
       eu.uPointerDisturbance.value = pointerDisturbance;
@@ -202,6 +205,7 @@ export function createCubeLatticeWireframe(config?: CubeLatticeConfig): Geometry
       const vu = (vertexMesh.material as THREE.ShaderMaterial).uniforms;
       vu.uTime.value = elapsed;
       vu.uBassEnergy.value = bassEnergy;
+      vu.uBeatPulse.value = frame.params.beatPulse;
       vu.uTrebleEnergy.value = trebleEnergy;
       vu.uMotionAmplitude.value = motionAmplitude;
       vu.uPointerDisturbance.value = pointerDisturbance;

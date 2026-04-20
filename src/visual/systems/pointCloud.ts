@@ -177,6 +177,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const uniforms: Record<string, { value: unknown }> = {
         uTime: { value: 0.0 },
         uBassEnergy: { value: 0.0 },
+        uBeatPulse: { value: 0.0 },
         uTrebleEnergy: { value: 0.0 },
         uOpacity: { value: 1.0 },
         uMotionAmplitude: { value: params.motionAmplitude },
@@ -250,6 +251,7 @@ export function createPointCloud(config?: PointCloudConfig): PointCloud {
       const u = shaderMaterial.uniforms;
       u.uTime.value = elapsed;
       u.uBassEnergy.value = bassEnergy;
+      u.uBeatPulse.value = frame.params.beatPulse;
       u.uTrebleEnergy.value = trebleEnergy;
       u.uMotionAmplitude.value = motionAmplitude;
       u.uPointerDisturbance.value = pointerDisturbance;

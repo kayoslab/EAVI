@@ -2,9 +2,12 @@ import './style.css';
 import { fetchGeoHint } from './input/geo';
 import { readSignals } from './input/signals';
 import { initSessionSeed } from './seed/sessionSeed';
+import { mapSignalsToVisuals } from './visual/mappings';
 import { initAudio } from './audio/player';
 import { createMuteButton } from './ui/audioToggle';
 import { createInfoButton, createInfoOverlay } from './ui/infoOverlay';
+import { createTrackDisplay } from './ui/trackDisplay';
+import { generateTrackName } from './ui/trackNameGenerator';
 import { createDebugOverlay } from './ui/debugOverlay';
 import { initScene, WebGLUnavailableError } from './visual/scene';
 import { attachResizeHandler } from './visual/resize';
@@ -39,10 +42,32 @@ const lowDPR = window.devicePixelRatio <= 1;
 // Three.js scene bootstrap — render immediately so the dark scene is visible before async work
 const app = document.getElementById('app')!;
 
+// Mutable refs for context loss recovery and track naming
+let modeManagerRef: ReturnType<typeof createModeManager> | null = null;
+let lastSeedRef = '';
+let lastSignalsRef: import('./input/signals').BrowserSignals | null = null;
+let lastGeoRef: import('./input/geo').GeoHint | null = null;
+
 let sceneResult: ReturnType<typeof initScene>;
 try {
   sceneResult = initScene(app, {
     disableAntialias: quickTouch && lowDPR,
+    onContextRestored: () => {
+      if (modeManagerRef && lastSignalsRef) {
+        const now = new Date();
+        const recoveryParams = mapSignalsToVisuals({
+          signals: lastSignalsRef,
+          geo: lastGeoRef ?? { country: null, region: null },
+          pointer: { x: 0.5, y: 0.5, dx: 0, dy: 0, speed: 0, active: false },
+          sessionSeed: lastSeedRef,
+          bass: 0,
+          treble: 0,
+          mid: 0,
+          timeOfDay: now.getHours() + now.getMinutes() / 60,
+        });
+        modeManagerRef.reinitActive(scene, lastSeedRef, recoveryParams);
+      }
+    },
   });
 } catch (err) {
   if (err instanceof WebGLUnavailableError) {
@@ -105,6 +130,7 @@ geoPromise.then((geo) => {
   if (composerResult) {
     deps.composer = composerResult.composer;
   }
+  deps.bloomPass = composerResult?.bloomPass ?? null;
 
   // Apply resolution scale to renderer and resize handler
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * quality.resolutionScale);
@@ -241,36 +267,36 @@ geoPromise.then((geo) => {
   const singleEntries: SingleRotationEntry[] = [
     // --- Centered particle/point systems: Lissajous drift (organic wandering) ---
     { kind: 'single', name: 'particles', system: particles, maxPoints: quality.maxParticles,
-      framing: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50 } },
+      framing: { targetDistance: 4.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 50, bloomStrength: 1.0 } },
     { kind: 'single', name: 'ribbon', system: ribbon, maxPoints: quality.maxRibbonPoints,
-      framing: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
+      framing: { targetDistance: 3.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, bloomStrength: 1.0 } },
     { kind: 'single', name: 'pointcloud', system: pointCloud, maxPoints: quality.maxPoints, weight: 2,
-      framing: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40 } },
+      framing: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40, bloomStrength: 1.0 } },
     { kind: 'single', name: 'crystal', system: crystal, maxPoints: Math.round(quality.maxPoints * 0.8),
-      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 } },
+      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80, bloomStrength: 1.0 } },
     { kind: 'single', name: 'flowribbon', system: flowRibbon, maxPoints: quality.maxFlowRibbonPoints,
-      framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 } },
+      framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60, bloomStrength: 1.0 } },
     // --- Terrain environments: flythrough camera (slow aerial drift) ---
     // lookOffY must be ABOVE terrain peaks (heightScale=5 + mesh y=-2 → peaks at y=3)
     { kind: 'single', name: 'terrain', system: terrain, maxPoints: quality.terrainRows * quality.terrainCols, weight: 2,
-      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3, flythroughCycleLength: 140 } },
+      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.3, flythroughCycleLength: 140, bloomStrength: 0.8 } },
     { kind: 'single', name: 'terrain-dramatic', system: terrainDramatic, maxPoints: quality.terrainRows * quality.terrainCols, weight: 1,
-      framing: { targetDistance: 10.0, lookOffset: [0, 8.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2, flythroughCycleLength: 140 } },
+      framing: { targetDistance: 10.0, lookOffset: [0, 8.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.2, flythroughCycleLength: 140, bloomStrength: 0.8 } },
     { kind: 'single', name: 'terrain-wireframe', system: terrainWireframe, maxPoints: Math.min(quality.terrainRows, 120) * Math.min(quality.terrainCols, 160), weight: 1,
-      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35, flythroughCycleLength: 140 } },
+      framing: { targetDistance: 8.0, lookOffset: [0, 5.0, 0], nearClip: 0.1, farClip: 200, cameraMode: 'flythrough', flythroughSpeed: 0.35, flythroughCycleLength: 140, bloomStrength: 1.5 } },
     // --- Enclosed environments: flythrough camera (gentle travel) ---
     // Tunnel/cave: camera centered in the interior space
     { kind: 'single', name: 'tunnel', system: tunnel, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 200), weight: 1,
-      framing: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 1, 1], flythroughCycleLength: 70 } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 0, 0], nearClip: 0.05, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.2, driftScale: [0.3, 1, 1], flythroughCycleLength: 70, bloomStrength: 1.5 } },
     { kind: 'single', name: 'cave', system: cave, maxPoints: Math.min(quality.terrainRows, 80) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
-      framing: { targetDistance: 5.0, lookOffset: [0, 1.0, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 1, 1], flythroughCycleLength: 70 } },
+      framing: { targetDistance: 5.0, lookOffset: [0, 1.0, 0], nearClip: 0.1, farClip: 100, cameraMode: 'flythrough', flythroughSpeed: 0.3, driftScale: [0.8, 1, 1], flythroughCycleLength: 70, bloomStrength: 1.5 } },
     // --- 3D objects: orbit camera ---
     { kind: 'single', name: 'icosphere', system: icosphere, maxPoints: quality.meshSubdivisions * 400, weight: 1,
-      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 6.0 } },
+      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 6.0, bloomStrength: 1.2 } },
     { kind: 'single', name: 'torus', system: torusMode, maxPoints: Math.min(quality.terrainRows, 80) * Math.min(quality.terrainCols, 40), weight: 1,
-      framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 5.5 } },
+      framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 5.5, bloomStrength: 1.2 } },
     { kind: 'single', name: 'morphpoly', system: morphpoly, maxPoints: quality.meshSubdivisions * 400, weight: 1,
-      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 6.0 } },
+      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30, cameraMode: 'orbit', orbitRadius: 6.0, bloomStrength: 1.2 } },
   ];
 
   // Build compound mode entries (empty on low tier)
@@ -294,6 +320,10 @@ geoPromise.then((geo) => {
   // Interleave compound entries among singles
   const allEntries: RotationEntry[] = [...singleEntries, ...compoundEntries];
   const modeManager = createModeManager(allEntries);
+  modeManagerRef = modeManager;
+  lastSeedRef = seed;
+  lastSignalsRef = signals;
+  lastGeoRef = geo;
 
   // Attach overlay for medium/high tier devices:
   // Bezier web replaces constellation lines with organic curved connections
@@ -355,8 +385,16 @@ geoPromise.then((geo) => {
 document.body.appendChild(createInfoButton());
 document.body.appendChild(createInfoOverlay());
 
+// Track display — generative names shown on track change
+const trackDisplay = createTrackDisplay();
+let trackIndex = 0;
+
 // Start audio (non-blocking — visuals must not depend on this)
-const audioPromise = initAudio();
+const audioPromise = initAudio((trackPath) => {
+  void trackPath; // used implicitly via seed-based naming
+  const name = generateTrackName(lastSeedRef || 'default', trackIndex++);
+  trackDisplay.show(name);
+});
 
 audioPromise.then((player) => {
   console.debug('[EAVI] audio state:', player.state);

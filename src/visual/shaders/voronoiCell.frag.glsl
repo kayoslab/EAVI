@@ -5,6 +5,7 @@ uniform float uOpacity;
 uniform float uFogNear;
 uniform float uFogFar;
 uniform float uBassEnergy;
+uniform float uBeatPulse;
 uniform float uTrebleEnergy;
 uniform float uVoronoiGridSize;
 uniform float uTime;
@@ -69,6 +70,9 @@ void main() {
 
   // Chromatic dispersion applied to final cellColor (post-Voronoi)
   cellColor = chromaticPoint(cellColor, gl_PointCoord, uDispersion);
+
+  // Beat pulse: brief brightness flash
+  cellColor *= 1.0 + uBeatPulse * 0.08;
 
   // Soft circular edge falloff
   float alpha = 1.0 - smoothstep(0.3, 0.5, dist);

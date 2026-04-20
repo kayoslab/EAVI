@@ -3,6 +3,7 @@
 
 uniform float uTime;
 uniform float uBassEnergy;
+uniform float uBeatPulse;
 uniform float uTrebleEnergy;
 uniform float uMotionAmplitude;
 uniform float uPointerDisturbance;
@@ -133,6 +134,9 @@ void main() {
   // Field spread and breathing
   pos *= uFieldSpread;
   pos *= uBreathScale;
+
+  // Beat pulse: brief radial expansion
+  pos *= 1.0 + uBeatPulse * 0.03;
 
   // Point size with treble sparkle
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);

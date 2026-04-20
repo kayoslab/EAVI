@@ -23,7 +23,7 @@ function createAudioElement(src: string): HTMLAudioElement {
   return el;
 }
 
-export async function initAudio(): Promise<AudioPlayer> {
+export async function initAudio(onTrackChange?: (trackPath: string) => void): Promise<AudioPlayer> {
   const ctx = new AudioContext();
 
   // Shared nodes: analyser -> masterGain -> destination
@@ -64,6 +64,7 @@ export async function initAudio(): Promise<AudioPlayer> {
 
   let currentTrack = pickTrack();
   console.log('[EAVI] selected track', currentTrack);
+  onTrackChange?.(currentTrack);
 
   let deckA: Deck = createDeck(currentTrack);
   let nextTrackSrc = pickTrack(currentTrack);
@@ -73,6 +74,8 @@ export async function initAudio(): Promise<AudioPlayer> {
   let playerState: AudioPlayerState = 'loading';
   let isMuted = true;
   let crossfading = false;
+  let preloadedNext = false;
+  let nextTrackPreloaded: string | null = null;
 
   function getActiveDeck(): Deck {
     return activeDeck === 'A' ? deckA : deckB;
@@ -82,6 +85,22 @@ export async function initAudio(): Promise<AudioPlayer> {
     return activeDeck === 'A' ? deckB : deckA;
   }
 
+  // Preload next track when active deck nears end
+  function setupPreloadListener(deck: Deck): void {
+    deck.el.addEventListener('timeupdate', () => {
+      if (!preloadedNext && deck.el.duration && deck.el.duration - deck.el.currentTime < 10) {
+        const next = pickTrack(currentTrack);
+        const inactive = getInactiveDeck();
+        inactive.el.src = next;
+        inactive.el.load();
+        preloadedNext = true;
+        nextTrackPreloaded = next;
+      }
+    });
+  }
+  setupPreloadListener(deckA);
+  setupPreloadListener(deckB);
+
   async function startCrossfade(): Promise<void> {
     if (crossfading) return;
     crossfading = true;
@@ -89,10 +108,13 @@ export async function initAudio(): Promise<AudioPlayer> {
     const outDeck = getActiveDeck();
     const inDeck = getInactiveDeck();
 
-    // Pick and load next track on inactive deck
+    // Use preloaded track if available, otherwise pick a new one
     const previousTrack = currentTrack;
-    currentTrack = pickTrack(previousTrack);
+    currentTrack = nextTrackPreloaded ?? pickTrack(previousTrack);
+    preloadedNext = false;
+    nextTrackPreloaded = null;
     console.log('[EAVI] crossfade to', currentTrack);
+    onTrackChange?.(currentTrack);
 
     inDeck.el.src = currentTrack;
     inDeck.el.load();

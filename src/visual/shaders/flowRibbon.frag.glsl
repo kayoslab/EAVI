@@ -6,6 +6,7 @@ uniform float uFogNear;
 uniform float uFogFar;
 uniform float uHasVertexColor;
 uniform float uBassEnergy;
+uniform float uBeatPulse;
 uniform float uTrebleEnergy;
 
 varying vec3 vColor;
@@ -42,6 +43,9 @@ void main() {
   // Audio warmth: bass gently warms color, combined energy enriches saturation
   color += vec3(uBassEnergy * 0.04, uBassEnergy * 0.015, 0.0);
   color *= 1.0 + (uBassEnergy + uTrebleEnergy) * 0.04;
+
+  // Beat pulse: brief brightness flash
+  color *= 1.0 + uBeatPulse * 0.08;
   float lum = dot(color, vec3(0.299, 0.587, 0.114));
   vec3 fogTint = vec3(lum * 0.7, lum * 0.75, lum * 0.85);
   color = mix(color, fogTint, fogFactor * 0.25);

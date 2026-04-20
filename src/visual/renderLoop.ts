@@ -27,6 +27,7 @@ export interface LoopDeps {
   quality?: QualityProfile | null;
   composer?: { render(): void } | null;
   errorCollector?: ShaderErrorCollector | null;
+  bloomPass?: { strength: number } | null;
   background?: { update(bassEnergy: number): void } | null;
   onDebugFrame?: ((data: { fps: number; modeName: string; pointCount: number; bass: number; treble: number; shaderStatus: 'pass' | 'fail' | 'pending'; optionalAttrs: string[]; qualityTier: string }) => void) | null;
   getModeName?: (() => string) | null;
@@ -116,6 +117,15 @@ export function startLoop(
   let cameraInitialized = false;
   let geometryValid = false;
 
+  // Beat detection state
+  let prevFrequency: Uint8Array | null = null;
+  let fluxAvg = 0;
+  let beatPulse = 0;
+
+  // Auto quality downgrade state
+  let fpsHistory: number[] = [];
+  let qualityDowngraded = false;
+
   // Intro fade state
   let introStartTime = -1;
   let introComplete = false;
@@ -129,6 +139,23 @@ export function startLoop(
     const delta = Math.min(rawDelta, 100);
     const elapsed = time - startTime;
 
+    // Auto quality downgrade: track FPS and reduce pixel ratio if sustained low
+    if (delta > 0) {
+      fpsHistory.push(1000 / delta);
+      if (fpsHistory.length > 300) fpsHistory.shift(); // keep ~5s at 60fps
+    }
+    if (!qualityDowngraded && fpsHistory.length >= 180) { // at least 3 seconds of data
+      const avgFps = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
+      if (avgFps < 30) {
+        const currentRatio = renderer.getPixelRatio();
+        const newRatio = Math.max(0.5, currentRatio * 0.7);
+        renderer.setPixelRatio(newRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight, false);
+        qualityDowngraded = true;
+        console.log('[EAVI] Auto quality downgrade: pixel ratio', currentRatio.toFixed(2), '->', newRatio.toFixed(2));
+      }
+    }
+
     // Poll audio if available
     let rawBass = 0;
     let rawTreble = 0;
@@ -140,6 +167,27 @@ export function startLoop(
       rawTreble = computeTrebleAvg(pipeline.frequency);
       rawMid = computeMidAvg(pipeline.frequency);
     }
+
+    // Beat detection: spectral flux
+    if (pipeline && prevFrequency) {
+      let flux = 0;
+      for (let i = 0; i < pipeline.frequency.length; i++) {
+        const diff = pipeline.frequency[i] - prevFrequency[i];
+        if (diff > 0) flux += diff;
+      }
+      flux /= pipeline.frequency.length;
+      fluxAvg = fluxAvg * 0.95 + flux * 0.05;
+      if (flux > fluxAvg * 1.5 && flux > 5) {
+        beatPulse = 1.0;
+      }
+    }
+    if (pipeline) {
+      if (!prevFrequency) prevFrequency = new Uint8Array(pipeline.frequency.length);
+      prevFrequency.set(pipeline.frequency);
+    }
+    // Decay beat pulse
+    beatPulse *= 0.92; // ~200ms decay at 60fps
+    if (beatPulse < 0.01) beatPulse = 0;
 
     // Synthetic bass fallback when audio is silent/muted
     if (rawBass < 5) {
@@ -178,6 +226,14 @@ export function startLoop(
         timeOfDay: now.getHours() + now.getMinutes() / 60,
       });
       params = evolveParams(params, elapsed, d.seed);
+
+      // Session duration awareness: longer sessions drift warmer
+      const sessionMinutes = elapsed / 60000;
+      if (sessionMinutes > 5) {
+        const driftRate = sessionMinutes > 10 ? 1.0 : 0.5; // degrees per minute
+        const hueOffset = (sessionMinutes - 5) * driftRate;
+        params.paletteHue = ((params.paletteHue + hueOffset) % 360 + 360) % 360;
+      }
     } else {
       params = computeDefaultParams();
       params.trebleEnergy = 0;
@@ -186,6 +242,9 @@ export function startLoop(
     // EMA smoothing for pointer disturbance to avoid instant drop on idle
     smoothDisturbance = smoothDisturbance * 0.92 + params.pointerDisturbance * 0.08;
     params.pointerDisturbance = smoothDisturbance;
+
+    // Inject per-frame beat pulse (not a mapping input, computed from spectral flux)
+    params.beatPulse = beatPulse;
 
     // Initialize camera motion on first frame with real seed
     if (d.seed && !cameraInitialized) {
@@ -314,6 +373,12 @@ export function startLoop(
         camera.far = framing.farClip;
         camera.updateProjectionMatrix();
       }
+    }
+
+    // Per-mode bloom strength
+    if (d.bloomPass) {
+      const framing = getActiveFraming();
+      d.bloomPass.strength = framing.bloomStrength ?? d.bloomPass.strength;
     }
 
     // Render

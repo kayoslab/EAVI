@@ -21,6 +21,7 @@ function detectWebGL(): boolean {
 export interface SceneOptions {
   resolutionScale?: number;
   disableAntialias?: boolean;
+  onContextRestored?: () => void;
 }
 
 export function initScene(
@@ -83,6 +84,7 @@ export function initScene(
     renderer.setClearColor(0x000000);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * resolutionScale);
     renderer.setSize(window.innerWidth, window.innerHeight, false);
+    options?.onContextRestored?.();
   };
   canvas.addEventListener('webglcontextlost', onContextLost);
   canvas.addEventListener('webglcontextrestored', onContextRestored);

@@ -2,6 +2,7 @@
 
 uniform float uTime;
 uniform float uBassEnergy;
+uniform float uBeatPulse;
 uniform float uTrebleEnergy;
 uniform float uMotionAmplitude;
 uniform float uNoiseFrequency;
@@ -43,6 +44,9 @@ void main() {
   float pointerDist = length(pos.xz - uPointerPos * 3.0) + 0.5;
   float pointerPush = uPointerDisturbance * 0.4 / (pointerDist * pointerDist + 0.5);
   pos += pointerDir * pointerPush * 0.15;
+
+  // Beat pulse: brief radial expansion
+  pos *= 1.0 + uBeatPulse * 0.03;
 
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
   float depth = max(0.25, -mvPosition.z);

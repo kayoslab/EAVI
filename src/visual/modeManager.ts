@@ -37,6 +37,7 @@ export interface ModeManager extends GeometrySystem {
   initAllForValidation(scene: Scene, seed: string, params: VisualParams): void;
   cleanupInactive(): void;
   attachOverlay(attachment: OverlayAttachment): void;
+  reinitActive(scene: Scene, seed: string, params: VisualParams): void;
 }
 
 function smoothstep(t: number): number {
@@ -137,6 +138,7 @@ function lerpFraming(a: FramingConfig, b: FramingConfig, t: number): FramingConf
     flythroughCycleLength: a.flythroughCycleLength !== undefined && b.flythroughCycleLength !== undefined
       ? a.flythroughCycleLength + (b.flythroughCycleLength - a.flythroughCycleLength) * t
       : (t > 0.5 ? b.flythroughCycleLength : a.flythroughCycleLength),
+    bloomStrength: (a.bloomStrength ?? 1.0) + ((b.bloomStrength ?? 1.0) - (a.bloomStrength ?? 1.0)) * t,
   };
 }
 
@@ -206,6 +208,11 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
   let transitionDuration = 3000;
   let outgoingIndex = -1;
 
+  // Color coherence state
+  let lastHue = -1;
+  let hueBlendStart = -1;
+  const HUE_BLEND_DURATION = 3000;
+
   // Overlay state
   let overlayAttachment: OverlayAttachment | null = null;
 
@@ -263,6 +270,19 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
       overlayAttachment = attachment;
     },
 
+    reinitActive(scene: Scene, s: string, params: VisualParams): void {
+      if (activeIndex < 0 || activeIndex >= entries.length) return;
+      const entry = entries[activeIndex];
+      // Cleanup current
+      for (const sys of entrySystems(entry)) {
+        sys.cleanup?.();
+      }
+      // Re-init
+      for (const sys of entrySystems(entry)) {
+        sys.init(scene, s, params);
+      }
+    },
+
     init(
       scene: Scene,
       s: string,
@@ -313,6 +333,8 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
           cleanupEntry(entries[outgoingIndex]);
           setEntryOpacity(entries[outgoingIndex], 1);
           setEntryOpacity(entries[activeIndex], 1);
+          lastHue = frame.params.paletteHue;
+          hueBlendStart = frame.elapsed;
           isTransitioning = false;
           _activeFraming = entryFraming(entries[activeIndex]);
           // Rebuild overlay for newly active system
@@ -373,6 +395,14 @@ export function createModeManager(modes: (ModeEntry | RotationEntry)[]): ModeMan
       }
 
       _activeFraming = entryFraming(entries[activeIndex]);
+
+      // Color coherence: smooth hue blending after transition completes
+      if (hueBlendStart >= 0 && frame.elapsed - hueBlendStart < HUE_BLEND_DURATION) {
+        const t = (frame.elapsed - hueBlendStart) / HUE_BLEND_DURATION;
+        const blended = lastHue + (frame.params.paletteHue - lastHue) * (t * t * (3 - 2 * t));
+        frame = { ...frame, params: { ...frame.params, paletteHue: ((blended % 360) + 360) % 360 } };
+      }
+
       if (_globalOpacityScale < 1) {
         setEntryOpacity(entries[activeIndex], _globalOpacityScale);
         overlayAttachment?.overlay.setOpacity(_globalOpacityScale);
