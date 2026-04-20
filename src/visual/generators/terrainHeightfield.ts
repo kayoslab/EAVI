@@ -2,10 +2,12 @@ import { createPRNG } from '../prng';
 import { hashRandomFromPosition } from './subdivideEdges';
 
 export interface TerrainHeightfieldResult {
-  positions: Float32Array;    // edge positions (existing)
-  randoms: Float32Array;      // edge randoms (existing)
+  positions: Float32Array;    // edge positions (for LineSegments)
+  randoms: Float32Array;      // edge randoms
   vertexPositions: Float32Array;  // grid vertex positions
   vertexRandoms: Float32Array;    // grid vertex randoms
+  triangleIndices: Uint32Array;   // index buffer for triangle mesh (2 tris per cell)
+  triangleCount: number;
   edgeCount: number;
   vertexCount: number;
   rows: number;
@@ -168,5 +170,26 @@ export function generateTerrainHeightfield(opts: {
     }
   }
 
-  return { positions, randoms, vertexPositions, vertexRandoms, edgeCount, vertexCount, rows, cols };
+  // Build triangle indices: 2 triangles per grid cell
+  const triangleCount = rows * cols * 2;
+  const triangleIndices = new Uint32Array(triangleCount * 3);
+  let triIdx = 0;
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      const tl = i * vertCols + j;
+      const tr = i * vertCols + j + 1;
+      const bl = (i + 1) * vertCols + j;
+      const br = (i + 1) * vertCols + j + 1;
+      // Triangle 1: top-left, top-right, bottom-left
+      triangleIndices[triIdx++] = tl;
+      triangleIndices[triIdx++] = tr;
+      triangleIndices[triIdx++] = bl;
+      // Triangle 2: top-right, bottom-right, bottom-left
+      triangleIndices[triIdx++] = tr;
+      triangleIndices[triIdx++] = br;
+      triangleIndices[triIdx++] = bl;
+    }
+  }
+
+  return { positions, randoms, vertexPositions, vertexRandoms, triangleIndices, triangleCount, edgeCount, vertexCount, rows, cols };
 }

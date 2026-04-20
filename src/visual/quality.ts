@@ -36,6 +36,7 @@ export interface QualityProfile {
   terrainRows: number;
   terrainCols: number;
   terrainPointCount: number;
+  meshSubdivisions: number;
   enableOcclusion: boolean;
   enableBloom: boolean;
   bloomStrength: number;
@@ -84,12 +85,12 @@ export function computeQuality(signals: BrowserSignals): QualityProfile {
   score = Math.max(0, Math.min(1, score));
 
   if (score < 0.35) {
-    return { tier: 'low', maxParticles: 400, maxPoints: 600, maxRibbonPoints: 500, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false, enableConstellationLines: false, maxConstellationSegments: 0, maxPolyhedra: 3, maxFractalDepth: 3, enableElectricArc: false, arcSubdivisions: 0, enableVoronoiCells: false, maxEdgesPerShape: 60, maxFlowRibbonPoints: 500, enableBezierWeb: false, maxBezierConnections: 0, bezierSegments: 4, latticeGridSize: 3, latticeCellSize: 1.2, latticeVoidDensity: 0.4, latticeJitter: 0.25, maxTopologyInstances: 0, terrainRows: 80, terrainCols: 120, terrainPointCount: 9600, enableOcclusion: false, enableBloom: false, bloomStrength: 0, bloomThreshold: 0, bloomRadius: 0, dofStrength: 0 };
+    return { tier: 'low', maxParticles: 400, maxPoints: 600, maxRibbonPoints: 500, resolutionScale: 0.5, enableSparkle: false, shaderComplexity: 'low', noiseOctaves: 1, enablePointerRepulsion: false, enableSlowModulation: false, enableConstellationLines: false, maxConstellationSegments: 0, maxPolyhedra: 3, maxFractalDepth: 3, enableElectricArc: false, arcSubdivisions: 0, enableVoronoiCells: false, maxEdgesPerShape: 60, maxFlowRibbonPoints: 500, enableBezierWeb: false, maxBezierConnections: 0, bezierSegments: 4, latticeGridSize: 3, latticeCellSize: 1.2, latticeVoidDensity: 0.4, latticeJitter: 0.25, maxTopologyInstances: 0, terrainRows: 80, terrainCols: 120, terrainPointCount: 9600, meshSubdivisions: 2, enableOcclusion: false, enableBloom: false, bloomStrength: 0, bloomThreshold: 0, bloomRadius: 0, dofStrength: 0 };
   }
   if (score > 0.65) {
-    return { tier: 'high', maxParticles: 3000, maxPoints: 12000, maxRibbonPoints: 5000, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 3000, maxPolyhedra: 12, maxFractalDepth: 6, enableElectricArc: true, arcSubdivisions: 8, enableVoronoiCells: true, maxEdgesPerShape: 3840, maxFlowRibbonPoints: 5000, enableBezierWeb: true, maxBezierConnections: 2000, bezierSegments: 6, latticeGridSize: 7, latticeCellSize: 0.8, latticeVoidDensity: 0.25, latticeJitter: 0.35, maxTopologyInstances: 3, terrainRows: 250, terrainCols: 350, terrainPointCount: 87500, enableOcclusion: true, enableBloom: true, bloomStrength: 1.2, bloomThreshold: 0.4, bloomRadius: 0.6, dofStrength: 0.6 };
+    return { tier: 'high', maxParticles: 3000, maxPoints: 12000, maxRibbonPoints: 5000, resolutionScale: 1.0, enableSparkle: true, shaderComplexity: 'high', noiseOctaves: 3, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 3000, maxPolyhedra: 12, maxFractalDepth: 6, enableElectricArc: true, arcSubdivisions: 8, enableVoronoiCells: true, maxEdgesPerShape: 3840, maxFlowRibbonPoints: 5000, enableBezierWeb: true, maxBezierConnections: 2000, bezierSegments: 6, latticeGridSize: 7, latticeCellSize: 0.8, latticeVoidDensity: 0.25, latticeJitter: 0.35, maxTopologyInstances: 3, terrainRows: 250, terrainCols: 350, terrainPointCount: 87500, meshSubdivisions: 4, enableOcclusion: true, enableBloom: true, bloomStrength: 1.2, bloomThreshold: 0.4, bloomRadius: 0.6, dofStrength: 0.6 };
   }
-  return { tier: 'medium', maxParticles: 1500, maxPoints: 6000, maxRibbonPoints: 2000, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 960, maxFlowRibbonPoints: 2000, enableBezierWeb: true, maxBezierConnections: 800, bezierSegments: 4, latticeGridSize: 5, latticeCellSize: 1.0, latticeVoidDensity: 0.3, latticeJitter: 0.3, maxTopologyInstances: 2, terrainRows: 150, terrainCols: 200, terrainPointCount: 30000, enableOcclusion: true, enableBloom: true, bloomStrength: 0.8, bloomThreshold: 0.6, bloomRadius: 0.4, dofStrength: 0.4 };
+  return { tier: 'medium', maxParticles: 1500, maxPoints: 6000, maxRibbonPoints: 2000, resolutionScale: 0.75, enableSparkle: true, shaderComplexity: 'medium', noiseOctaves: 2, enablePointerRepulsion: true, enableSlowModulation: true, enableConstellationLines: true, maxConstellationSegments: 1500, maxPolyhedra: 6, maxFractalDepth: 4, enableElectricArc: true, arcSubdivisions: 5, enableVoronoiCells: true, maxEdgesPerShape: 960, maxFlowRibbonPoints: 2000, enableBezierWeb: true, maxBezierConnections: 800, bezierSegments: 4, latticeGridSize: 5, latticeCellSize: 1.0, latticeVoidDensity: 0.3, latticeJitter: 0.3, maxTopologyInstances: 2, terrainRows: 150, terrainCols: 200, terrainPointCount: 30000, meshSubdivisions: 3, enableOcclusion: true, enableBloom: true, bloomStrength: 0.8, bloomThreshold: 0.6, bloomRadius: 0.4, dofStrength: 0.4 };
 }
 
 const COUNT_FIELDS: (keyof QualityProfile)[] = [
@@ -222,6 +223,18 @@ export function extractSystemConfig(systemName: string, profile: QualityProfile)
         cols: profile.terrainCols,
         noiseOctaves: profile.noiseOctaves,
         pointCount: profile.terrainPointCount,
+      };
+    case 'tunnel':
+    case 'cave':
+    case 'canyon':
+    case 'icosphere':
+    case 'torus':
+    case 'morphpoly':
+      return {
+        rows: profile.terrainRows,
+        cols: profile.terrainCols,
+        noiseOctaves: profile.noiseOctaves,
+        meshSubdivisions: profile.meshSubdivisions,
       };
     default:
       throw new Error(`Unknown system name: ${systemName}`);

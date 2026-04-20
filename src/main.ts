@@ -25,6 +25,13 @@ import { createTerrainHeightfield } from './visual/systems/terrainHeightfield';
 import { createTerrainWireframe } from './visual/systems/terrainWireframe';
 import { buildCompoundEntries, type SystemRegistry } from './visual/compoundModes';
 import { initComposer } from './visual/composer';
+import { createTriMeshMode } from './visual/systems/triMeshMode';
+import { generateTunnelMesh } from './visual/generators/tunnelMesh';
+import { generateCaveMesh } from './visual/generators/caveMesh';
+import { generateCanyonMesh } from './visual/generators/canyonMesh';
+import { generateIcosphereMesh } from './visual/generators/icosphereMesh';
+import { generateTorusMesh } from './visual/generators/torusMesh';
+import { generateMorphPolyMesh } from './visual/generators/morphPolyMesh';
 
 // Quick pre-quality heuristic for antialias (renderer is created before quality resolves)
 const quickTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -165,6 +172,75 @@ geoPromise.then((geo) => {
     noiseOctaves: quality.noiseOctaves,
     dofStrength: quality.dofStrength,
   });
+  const tunnel = createTriMeshMode(generateTunnelMesh, {
+    rows: Math.min(quality.terrainRows, 60),
+    cols: Math.min(quality.terrainCols, 200),
+    noiseOctaves: quality.noiseOctaves,
+    paletteMode: 'tunnel',
+    colorAxis: 'z',
+    position: [0, 0, 5],
+    fogNear: 2,
+    fogFar: 60,
+  });
+
+  const cave = createTriMeshMode(generateCaveMesh, {
+    rows: Math.min(quality.terrainRows, 80),
+    cols: Math.min(quality.terrainCols, 160),
+    noiseOctaves: quality.noiseOctaves,
+    paletteMode: 'cave',
+    colorAxis: 'y',
+    position: [0, 0, 5],
+    fogNear: 3,
+    fogFar: 60,
+  });
+
+  const canyon = createTriMeshMode(generateCanyonMesh, {
+    rows: Math.min(quality.terrainRows, 60),
+    cols: Math.min(quality.terrainCols, 160),
+    noiseOctaves: quality.noiseOctaves,
+    paletteMode: 'canyon',
+    colorAxis: 'y',
+    position: [0, 0, 5],
+    fogNear: 3,
+    fogFar: 60,
+  });
+
+  const icosphere = createTriMeshMode(generateIcosphereMesh, {
+    rows: quality.meshSubdivisions * 20,
+    cols: quality.meshSubdivisions * 20,
+    noiseOctaves: quality.noiseOctaves,
+    paletteMode: 'icosphere',
+    colorAxis: 'radial',
+    useRadialShader: true,
+    rotation: { x: 0.05, y: 0.1, z: 0.03 },
+    fogNear: 3,
+    fogFar: 20,
+  });
+
+  const torusMode = createTriMeshMode(generateTorusMesh, {
+    rows: Math.min(quality.terrainRows, 80),
+    cols: Math.min(quality.terrainCols, 40),
+    noiseOctaves: quality.noiseOctaves,
+    paletteMode: 'torus',
+    colorAxis: 'y',
+    useRadialShader: true,
+    rotation: { x: 0.03, y: 0.08, z: 0.02 },
+    fogNear: 3,
+    fogFar: 20,
+  });
+
+  const morphpoly = createTriMeshMode(generateMorphPolyMesh, {
+    rows: quality.meshSubdivisions * 20,
+    cols: quality.meshSubdivisions * 20,
+    noiseOctaves: quality.noiseOctaves,
+    paletteMode: 'morphpoly',
+    colorAxis: 'radial',
+    useRadialShader: true,
+    rotation: { x: 0.08, y: 0.12, z: 0.05 },
+    fogNear: 3,
+    fogFar: 20,
+  });
+
   // Build single-mode rotation entries
   // Flagship modes (terrain, pointcloud) get weight 2
   const singleEntries: SingleRotationEntry[] = [
@@ -184,6 +260,18 @@ geoPromise.then((geo) => {
       framing: { targetDistance: 10.0, lookOffset: [0, 1.0, -25], nearClip: 0.1, farClip: 200, driftScale: [4, 1, 1] } },
     { kind: 'single', name: 'terrain-wireframe', system: terrainWireframe, maxPoints: Math.min(quality.terrainRows, 120) * Math.min(quality.terrainCols, 160), weight: 1,
       framing: { targetDistance: 8.0, lookOffset: [0, 0.5, -25], nearClip: 0.1, farClip: 200, driftScale: [4, 1, 1] } },
+    { kind: 'single', name: 'tunnel', system: tunnel, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 200), weight: 1,
+      framing: { targetDistance: 1.0, lookOffset: [0, 0, -15], nearClip: 0.05, farClip: 100, driftScale: [2, 2, 1] } },
+    { kind: 'single', name: 'cave', system: cave, maxPoints: Math.min(quality.terrainRows, 80) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
+      framing: { targetDistance: 6.0, lookOffset: [0, 0, -20], nearClip: 0.1, farClip: 100, driftScale: [3, 1, 1] } },
+    { kind: 'single', name: 'canyon', system: canyon, maxPoints: Math.min(quality.terrainRows, 60) * Math.min(quality.terrainCols, 160) * 2, weight: 1,
+      framing: { targetDistance: 1.0, lookOffset: [0, 0.5, -20], nearClip: 0.05, farClip: 100, driftScale: [1, 2, 1] } },
+    { kind: 'single', name: 'icosphere', system: icosphere, maxPoints: quality.meshSubdivisions * 400, weight: 1,
+      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
+    { kind: 'single', name: 'torus', system: torusMode, maxPoints: Math.min(quality.terrainRows, 80) * Math.min(quality.terrainCols, 40), weight: 1,
+      framing: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
+    { kind: 'single', name: 'morphpoly', system: morphpoly, maxPoints: quality.meshSubdivisions * 400, weight: 1,
+      framing: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 30 } },
   ];
 
   // Build compound mode entries (empty on low tier)
@@ -196,6 +284,12 @@ geoPromise.then((geo) => {
     terrain: (cfg) => createTerrainHeightfield(cfg as Parameters<typeof createTerrainHeightfield>[0]),
     'terrain-dramatic': (cfg) => createTerrainHeightfield(cfg as Parameters<typeof createTerrainHeightfield>[0]),
     'terrain-wireframe': (cfg) => createTerrainWireframe(cfg as Parameters<typeof createTerrainWireframe>[0]),
+    tunnel: (cfg) => createTriMeshMode(generateTunnelMesh, { ...cfg as any, paletteMode: 'tunnel', colorAxis: 'z', position: [0, 0, 5] }),
+    cave: (cfg) => createTriMeshMode(generateCaveMesh, { ...cfg as any, paletteMode: 'cave', colorAxis: 'y', position: [0, 0, 5] }),
+    canyon: (cfg) => createTriMeshMode(generateCanyonMesh, { ...cfg as any, paletteMode: 'canyon', colorAxis: 'y', position: [0, 0, 5] }),
+    icosphere: (cfg) => createTriMeshMode(generateIcosphereMesh, { ...cfg as any, paletteMode: 'icosphere', colorAxis: 'radial', useRadialShader: true, rotation: { x: 0.05, y: 0.1, z: 0.03 } }),
+    torus: (cfg) => createTriMeshMode(generateTorusMesh, { ...cfg as any, paletteMode: 'torus', colorAxis: 'y', useRadialShader: true, rotation: { x: 0.03, y: 0.08, z: 0.02 } }),
+    morphpoly: (cfg) => createTriMeshMode(generateMorphPolyMesh, { ...cfg as any, paletteMode: 'morphpoly', colorAxis: 'radial', useRadialShader: true, rotation: { x: 0.08, y: 0.12, z: 0.05 } }),
   };
   const compoundEntries = buildCompoundEntries(quality, systemRegistry);
 

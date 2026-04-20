@@ -6,6 +6,8 @@ uniform float uFogNear;
 uniform float uFogFar;
 uniform float uDispersion;
 uniform float uHasVertexColor;
+uniform float uBassEnergy;
+uniform float uTrebleEnergy;
 
 varying vec3 vColor;
 varying vec3 vVertexColor;
@@ -35,6 +37,10 @@ void main() {
   // Subtle length-based edge glow: points near ribbon ends get slight bloom
   float endProximity = 1.0 - 4.0 * (vCurveParam - 0.5) * (vCurveParam - 0.5);
   color += color * endProximity * 0.08;
+
+  // Audio warmth: bass gently warms color, combined energy enriches saturation
+  color += vec3(uBassEnergy * 0.04, uBassEnergy * 0.015, 0.0);
+  color *= 1.0 + (uBassEnergy + uTrebleEnergy) * 0.04;
 
   // Atmospheric depth fog
   float fogFactor = smoothstep(uFogNear, uFogFar, vDepth);

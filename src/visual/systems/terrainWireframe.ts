@@ -11,8 +11,8 @@ import terrainVertexFrag from '../shaders/terrainVertex.frag.glsl?raw';
 import { generateTerrainHeightfield } from '../generators/terrainHeightfield';
 import { createSpatialGradient, computeVertexColors } from '../spatialGradient';
 
-const lineVertShader = noise3dGlsl + '\n' + terrainLineVert;
-const lineFragShader = chromaticDispersionGlsl + '\n' + terrainLineFrag;
+const meshVertShader = noise3dGlsl + '\n' + terrainLineVert;
+const meshFragShader = chromaticDispersionGlsl + '\n' + terrainLineFrag;
 const dotVertShader = noise3dGlsl + '\n' + terrainVertexVert;
 const dotFragShader = chromaticDispersionGlsl + '\n' + terrainVertexFrag;
 
@@ -31,11 +31,11 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
   const cols = config?.cols ?? 200;
   const noiseOctaves = config?.noiseOctaves ?? 3;
 
-  let linesMesh: THREE.LineSegments | null = null;
+  let triMesh: THREE.Mesh | null = null;
   let pointsMesh: THREE.Points | null = null;
   let sceneRef: Scene | null = null;
 
-  function createLineUniforms(params: VisualParams): Record<string, { value: unknown }> {
+  function createMeshUniforms(params: VisualParams): Record<string, { value: unknown }> {
     return {
       uTime: { value: 0.0 },
       uBassEnergy: { value: 0.0 },
@@ -106,11 +106,10 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
     init(scene: Scene, seed: string, params: VisualParams): void {
       sceneRef = scene;
 
-      // Use rows-1/cols-1 for the cell grid so vertex count = rows * cols
       const cellRows = Math.max(1, rows - 1);
       const cellCols = Math.max(1, cols - 1);
 
-      const heightfieldData = generateTerrainHeightfield({
+      const data = generateTerrainHeightfield({
         rows: cellRows,
         cols: cellCols,
         seed: seed + ':terrain',
@@ -122,32 +121,33 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
 
       const gradient = createSpatialGradient(params.paletteHue, params.paletteSaturation, seed, { mode: 'terrain-wireframe' });
 
-      // --- LineSegments mesh (grid lines) ---
-      const lineGeom = new THREE.BufferGeometry();
-      lineGeom.setAttribute('position', new THREE.BufferAttribute(heightfieldData.positions, 3));
-      lineGeom.setAttribute('aRandom', new THREE.BufferAttribute(heightfieldData.randoms, 3));
-      const lineColors = computeVertexColors(heightfieldData.positions, gradient, { axis: 'z', itemStride: 3 });
-      lineGeom.setAttribute('aVertexColor', new THREE.BufferAttribute(lineColors, 3));
+      // --- Triangle mesh (wireframe mode renders triangle edges) ---
+      const meshGeom = new THREE.BufferGeometry();
+      meshGeom.setAttribute('position', new THREE.BufferAttribute(data.vertexPositions, 3));
+      meshGeom.setAttribute('aRandom', new THREE.BufferAttribute(data.vertexRandoms, 3));
+      const meshColors = computeVertexColors(data.vertexPositions, gradient, { axis: 'z', itemStride: 3 });
+      meshGeom.setAttribute('aVertexColor', new THREE.BufferAttribute(meshColors, 3));
+      meshGeom.setIndex(new THREE.BufferAttribute(data.triangleIndices, 1));
 
-      const lineMaterial = new THREE.ShaderMaterial({
-        vertexShader: lineVertShader,
-        fragmentShader: lineFragShader,
-        uniforms: createLineUniforms(params),
+      const meshMaterial = new THREE.ShaderMaterial({
+        vertexShader: meshVertShader,
+        fragmentShader: meshFragShader,
+        uniforms: createMeshUniforms(params),
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
+        wireframe: true,
       });
 
-      linesMesh = new THREE.LineSegments(lineGeom, lineMaterial);
-      linesMesh.position.set(0, -2.0, 5.0);
-      scene.add(linesMesh);
+      triMesh = new THREE.Mesh(meshGeom, meshMaterial);
+      triMesh.position.set(0, -2.0, 5.0);
+      scene.add(triMesh);
 
-      // --- Points mesh (vertex dots) ---
+      // --- Points mesh (vertex glow dots at grid intersections) ---
       const pointGeom = new THREE.BufferGeometry();
-      pointGeom.setAttribute('position', new THREE.BufferAttribute(heightfieldData.vertexPositions, 3));
-      pointGeom.setAttribute('aRandom', new THREE.BufferAttribute(heightfieldData.vertexRandoms, 3));
-      const pointColors = computeVertexColors(heightfieldData.vertexPositions, gradient, { axis: 'z', itemStride: 3 });
-      pointGeom.setAttribute('aVertexColor', new THREE.BufferAttribute(pointColors, 3));
+      pointGeom.setAttribute('position', new THREE.BufferAttribute(data.vertexPositions.slice(), 3));
+      pointGeom.setAttribute('aRandom', new THREE.BufferAttribute(data.vertexRandoms.slice(), 3));
+      pointGeom.setAttribute('aVertexColor', new THREE.BufferAttribute(meshColors.slice(), 3));
 
       const pointMaterial = new THREE.ShaderMaterial({
         vertexShader: dotVertShader,
@@ -164,22 +164,20 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
     },
 
     draw(_scene: Scene, frame: FrameState): void {
-      if (linesMesh) {
-        updateUniforms((linesMesh.material as THREE.ShaderMaterial).uniforms, frame);
+      if (triMesh) {
+        updateUniforms((triMesh.material as THREE.ShaderMaterial).uniforms, frame);
       }
       if (pointsMesh) {
         updateUniforms((pointsMesh.material as THREE.ShaderMaterial).uniforms, frame);
         const elapsed = frame.elapsed ?? 0;
         const pu = (pointsMesh.material as THREE.ShaderMaterial).uniforms;
-        const baseFocus = 15.0;
-        const focusDrift = Math.sin(elapsed * 0.0001) * 2.0;
-        pu.uFocusDistance.value = baseFocus + focusDrift;
+        pu.uFocusDistance.value = 15.0 + Math.sin(elapsed * 0.0001) * 2.0;
       }
     },
 
     setOpacity(opacity: number): void {
-      if (linesMesh) {
-        (linesMesh.material as THREE.ShaderMaterial).uniforms.uOpacity.value = opacity;
+      if (triMesh) {
+        (triMesh.material as THREE.ShaderMaterial).uniforms.uOpacity.value = opacity;
       }
       if (pointsMesh) {
         (pointsMesh.material as THREE.ShaderMaterial).uniforms.uOpacity.value = opacity;
@@ -188,10 +186,10 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
 
     cleanup(): void {
       if (sceneRef) {
-        if (linesMesh) {
-          sceneRef.remove(linesMesh);
-          linesMesh.geometry.dispose();
-          (linesMesh.material as THREE.Material).dispose();
+        if (triMesh) {
+          sceneRef.remove(triMesh);
+          triMesh.geometry.dispose();
+          (triMesh.material as THREE.Material).dispose();
         }
         if (pointsMesh) {
           sceneRef.remove(pointsMesh);
@@ -199,7 +197,7 @@ export function createTerrainWireframe(config?: TerrainWireframeConfig): Geometr
           (pointsMesh.material as THREE.Material).dispose();
         }
       }
-      linesMesh = null;
+      triMesh = null;
       pointsMesh = null;
       sceneRef = null;
     },
