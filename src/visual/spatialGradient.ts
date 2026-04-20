@@ -11,7 +11,7 @@ export interface SpatialGradientPalette {
   stops: GradientStop[];
 }
 
-export type PaletteMode = 'seeded' | 'vibrant' | 'terrain';
+export type PaletteMode = 'seeded' | 'vibrant' | 'terrain' | 'terrain-dramatic' | 'terrain-wireframe';
 
 export interface SpatialGradientOptions {
   mode?: PaletteMode;
@@ -178,6 +178,54 @@ function createTerrainGradient(seed: string): SpatialGradientPalette {
   return { stops };
 }
 
+// Dramatic terrain: deep valleys (cool) to high peaks (warm bright)
+const TERRAIN_DRAMATIC_SRGB_STOPS = [
+  { r: 0x0a / 255, g: 0x0a / 255, b: 0x2e / 255, position: 0.0 },   // deep navy-black (valleys)
+  { r: 0x0d / 255, g: 0x5e / 255, b: 0x6e / 255, position: 0.3 },   // cool teal (lower slopes)
+  { r: 0xd4 / 255, g: 0xa0 / 255, b: 0x1a / 255, position: 0.6 },   // warm amber (upper slopes)
+  { r: 0xff / 255, g: 0xe8 / 255, b: 0xc8 / 255, position: 1.0 },   // bright warm white (peaks)
+];
+
+function createTerrainDramaticGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':terrain-dramatic');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = TERRAIN_DRAMATIC_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.15 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
+// Wireframe terrain: retro cyan/green monochrome
+const TERRAIN_WIREFRAME_SRGB_STOPS = [
+  { r: 0x00 / 255, g: 0x1a / 255, b: 0x0a / 255, position: 0.0 },   // dark green-black
+  { r: 0x0d / 255, g: 0x6e / 255, b: 0x5e / 255, position: 0.4 },   // dim teal
+  { r: 0x00 / 255, g: 0xe5 / 255, b: 0xd0 / 255, position: 0.7 },   // bright cyan
+  { r: 0xc8 / 255, g: 0xff / 255, b: 0xe8 / 255, position: 1.0 },   // white-cyan
+];
+
+function createTerrainWireframeGradient(seed: string): SpatialGradientPalette {
+  const hash = fnv1a(seed + ':terrain-wireframe');
+  const rng = seededRandom(hash);
+  const stops: GradientStop[] = TERRAIN_WIREFRAME_SRGB_STOPS.map((ref) => {
+    const rLin = srgbToLinear(ref.r);
+    const gLin = srgbToLinear(ref.g);
+    const bLin = srgbToLinear(ref.b);
+    const perturb = (v: number) => {
+      const delta = (rng() - 0.5) * 0.1 * Math.max(v, 0.02);
+      return Math.max(0, Math.min(1, v + delta));
+    };
+    return { r: perturb(rLin), g: perturb(gLin), b: perturb(bLin), position: ref.position };
+  });
+  return { stops };
+}
+
 export function createSpatialGradient(
   paletteHue: number,
   paletteSaturation: number,
@@ -186,6 +234,12 @@ export function createSpatialGradient(
 ): SpatialGradientPalette {
   if (options?.mode === 'terrain') {
     return createTerrainGradient(seed);
+  }
+  if (options?.mode === 'terrain-dramatic') {
+    return createTerrainDramaticGradient(seed);
+  }
+  if (options?.mode === 'terrain-wireframe') {
+    return createTerrainWireframeGradient(seed);
   }
   if (options?.mode === 'vibrant') {
     return createVibrantGradient(seed, options?.familyHint);

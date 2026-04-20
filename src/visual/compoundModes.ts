@@ -35,7 +35,9 @@ const SYSTEM_FRAMING: Record<string, FramingConfig> = {
   pointcloud: { targetDistance: 3.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 40 },
   crystal: { targetDistance: 6.0, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 80 },
   flowribbon: { targetDistance: 5.5, lookOffset: [0, 0, 0], nearClip: 0.1, farClip: 60 },
-  terrain: { targetDistance: 8.0, lookOffset: [0, 0.5, -15], nearClip: 0.1, farClip: 120 },
+  terrain: { targetDistance: 8.0, lookOffset: [0, 0.5, -25], nearClip: 0.1, farClip: 200, driftScale: [4, 1, 1] },
+  'terrain-dramatic': { targetDistance: 10.0, lookOffset: [0, 1.0, -25], nearClip: 0.1, farClip: 200, driftScale: [4, 1, 1] },
+  'terrain-wireframe': { targetDistance: 8.0, lookOffset: [0, 0.5, -25], nearClip: 0.1, farClip: 200, driftScale: [4, 1, 1] },
 };
 
 const DEFAULT_COMPOUND_FRAMING: FramingConfig = {

@@ -2,9 +2,12 @@ import { createPRNG } from '../prng';
 import { hashRandomFromPosition } from './subdivideEdges';
 
 export interface TerrainHeightfieldResult {
-  positions: Float32Array;
-  randoms: Float32Array;
+  positions: Float32Array;    // edge positions (existing)
+  randoms: Float32Array;      // edge randoms (existing)
+  vertexPositions: Float32Array;  // grid vertex positions
+  vertexRandoms: Float32Array;    // grid vertex randoms
   edgeCount: number;
+  vertexCount: number;
   rows: number;
   cols: number;
 }
@@ -71,10 +74,29 @@ export function generateTerrainHeightfield(opts: {
     for (let j = 0; j < vertCols; j++) {
       const idx = i * vertCols + j;
       const x = (j / cols) * width - width / 2;
-      const z = (i / rows) * depth - depth / 2;
+      const z = -(i / rows) * depth;
       vertX[idx] = x;
       vertZ[idx] = z;
       heights[idx] = fbm(x, z) * heightScale;
+    }
+  }
+
+  // Build vertex position and random arrays
+  const vertexCount = vertRows * vertCols;
+  const vertexPositions = new Float32Array(vertexCount * 3);
+  const vertexRandoms = new Float32Array(vertexCount * 3);
+
+  for (let i = 0; i < vertRows; i++) {
+    for (let j = 0; j < vertCols; j++) {
+      const idx = i * vertCols + j;
+      const base = idx * 3;
+      vertexPositions[base] = vertX[idx];
+      vertexPositions[base + 1] = heights[idx];
+      vertexPositions[base + 2] = vertZ[idx];
+      const r = hashRandomFromPosition(vertX[idx], heights[idx], vertZ[idx]);
+      vertexRandoms[base] = r[0];
+      vertexRandoms[base + 1] = r[1];
+      vertexRandoms[base + 2] = r[2];
     }
   }
 
@@ -146,5 +168,5 @@ export function generateTerrainHeightfield(opts: {
     }
   }
 
-  return { positions, randoms, edgeCount, rows, cols };
+  return { positions, randoms, vertexPositions, vertexRandoms, edgeCount, vertexCount, rows, cols };
 }

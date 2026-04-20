@@ -25,12 +25,11 @@ void main() {
   float ma = uMotionAmplitude;
 
   // --- Bass macro displacement: rolling wave across terrain ---
-  float wavePhase = pos.x * 0.3 + pos.z * 0.2 + t * 0.0003 * uCadence;
-  float bassWave = fbm3(vec3(pos.x * 0.15, pos.z * 0.15, t * 0.0002 * uCadence), uNoiseOctaves);
-  pos.y += bassWave * uBassEnergy * ma * 1.5;
+  float bassWave = fbm3(vec3(pos.x * 0.05, pos.z * 0.05, t * 0.00006 * uCadence), uNoiseOctaves);
+  pos.y += bassWave * uBassEnergy * ma * 0.8;
 
   // --- Treble fine vertex jitter ---
-  float jitter = snoise(pos * 3.0 + vec3(t * 0.003)) * uTrebleEnergy * ma * 0.15;
+  float jitter = snoise(pos * 3.0 + vec3(t * 0.003)) * uTrebleEnergy * ma * 0.08;
   pos.y += jitter;
 
   // --- Pointer disturbance ---

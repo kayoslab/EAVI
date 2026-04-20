@@ -107,9 +107,11 @@ export function startLoop(
 
   const frame = (time: number) => {
     if (startTime < 0) startTime = time;
-    const elapsed = time - startTime;
-    const delta = lastTime < 0 ? 16 : time - lastTime;
+    const rawDelta = lastTime < 0 ? 16 : time - lastTime;
     lastTime = time;
+    // Clamp delta to prevent animation blowout after tab switch
+    const delta = Math.min(rawDelta, 100);
+    const elapsed = time - startTime;
 
     // Poll audio if available
     let rawBass = 0;
