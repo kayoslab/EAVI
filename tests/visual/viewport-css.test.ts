@@ -28,8 +28,8 @@ describe('US-028: Safe area inset on buttons', () => {
     expect(css).toMatch(/\.eavi-info-btn[^}]*safe-area-inset-bottom/);
   });
 
-  it('T-028-10c: mute button uses env(safe-area-inset-left) in CSS', () => {
-    expect(css).toMatch(/\.eavi-mute-btn[^}]*safe-area-inset-left/);
+  it('T-028-10c: mute button uses env(safe-area-inset-right) in CSS', () => {
+    expect(css).toMatch(/\.eavi-mute-btn[^}]*safe-area-inset-right/);
   });
 
   it('T-028-10d: info button uses env(safe-area-inset-right) in CSS', () => {
