@@ -465,57 +465,42 @@ describe('US-018: Map bass response to macro motion', () => {
       _clearHarmonicCache();
     });
 
-    it('T-018-08: camera motion scales orbit radius by bass energy', () => {
+    it('T-018-08: camera orbit radius is constant regardless of bass energy', () => {
       const seed = 'camera-bass-test';
+
+      // Camera with bass=0 — run many frames to let EMA converge
       initCameraMotion(seed);
-
-      const elapsedMs = 50000; // Far enough to get non-trivial sine values
-
-      // Camera with bass=0
       const cam0 = new THREE.PerspectiveCamera(60, 800 / 600, 0.1, 100);
-      updateCamera(cam0, elapsedMs, 0, 1.0);
+      for (let t = 0; t <= 50000; t += 250) {
+        updateCamera(cam0, t, 0, 1.0);
+      }
       const offset0 = Math.sqrt(
         Math.pow(cam0.position.x, 2) +
         Math.pow(cam0.position.y, 2) +
-        Math.pow(cam0.position.z - 5, 2), // base Z is 5
+        Math.pow(cam0.position.z - 5, 2),
       );
 
-      // Camera with bass=1.0
+      // Camera with bass=1.0 — same seed, same elapsed, same iterations
       _clearHarmonicCache();
       initCameraMotion(seed);
       const cam1 = new THREE.PerspectiveCamera(60, 800 / 600, 0.1, 100);
-      updateCamera(cam1, elapsedMs, 1.0, 1.0);
+      for (let t = 0; t <= 50000; t += 250) {
+        updateCamera(cam1, t, 1.0, 1.0);
+      }
       const offset1 = Math.sqrt(
         Math.pow(cam1.position.x, 2) +
         Math.pow(cam1.position.y, 2) +
         Math.pow(cam1.position.z - 5, 2),
       );
 
-      // bass=1.0 should scale by 1.05x
-      expect(offset1).toBeGreaterThan(offset0);
-      if (offset0 > 0.001) {
-        expect(offset1 / offset0).toBeCloseTo(1.05, 1);
-      }
-
-      // Camera with bass=0.5
-      _clearHarmonicCache();
-      initCameraMotion(seed);
-      const cam05 = new THREE.PerspectiveCamera(60, 800 / 600, 0.1, 100);
-      updateCamera(cam05, elapsedMs, 0.5, 1.0);
-      const offset05 = Math.sqrt(
-        Math.pow(cam05.position.x, 2) +
-        Math.pow(cam05.position.y, 2) +
-        Math.pow(cam05.position.z - 5, 2),
-      );
-      // Intermediate offset
-      expect(offset05).toBeGreaterThan(offset0);
-      expect(offset05).toBeLessThan(offset1);
+      // Bass no longer affects camera — orbit radius should be the same
+      expect(offset0).toBeCloseTo(offset1, 5);
 
       // motionAmplitude=0 should produce zero displacement regardless of bass
       _clearHarmonicCache();
       initCameraMotion(seed);
       const camNoMotion = new THREE.PerspectiveCamera(60, 800 / 600, 0.1, 100);
-      updateCamera(camNoMotion, elapsedMs, 1.0, 0);
+      updateCamera(camNoMotion, 50000, 1.0, 0);
       expect(camNoMotion.position.x).toBeCloseTo(0, 5);
       expect(camNoMotion.position.y).toBeCloseTo(0, 5);
       expect(camNoMotion.position.z).toBeCloseTo(5, 5);

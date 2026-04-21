@@ -134,26 +134,41 @@ describe('US-042: Autonomous spatial camera motion', () => {
     expect(p1.z).toBe(p2.z);
   });
 
-  it('T-042-08: bass energy modulates camera orbit radius', () => {
+  it('T-042-08: bass energy does not affect camera orbit radius', () => {
+    // Bass no longer affects camera position — orbit radius should be constant
     const camA = mockCamera();
+    initCameraMotion('bass-test');
+    for (let t = 0; t <= 30000; t += 150) {
+      updateCamera(camA, t, 0.0, 1.0);
+    }
+
+    _clearHarmonicCache();
     const camB = mockCamera();
     initCameraMotion('bass-test');
-
-    updateCamera(camA, 30000, 0.0, 1.0);
-    updateCamera(camB, 30000, 1.0, 1.0);
+    for (let t = 0; t <= 30000; t += 150) {
+      updateCamera(camB, t, 1.0, 1.0);
+    }
 
     const distA = Math.sqrt(camA.position.x ** 2 + camA.position.y ** 2 + (camA.position.z - 5) ** 2);
     const distB = Math.sqrt(camB.position.x ** 2 + camB.position.y ** 2 + (camB.position.z - 5) ** 2);
-    expect(distB).toBeGreaterThanOrEqual(distA - 1e-10);
+    expect(distA).toBeCloseTo(distB, 5);
   });
 
   it('T-042-09: motionAmplitude=0.2 produces smaller offsets than motionAmplitude=1.0', () => {
+    // With EMA smoothing (0.97), we need many frames to let the position converge.
+    // Run both cameras through identical time sequences so the EMA settles.
     const camA = mockCamera();
+    initCameraMotion('amp-test');
+    for (let t = 0; t <= 30000; t += 150) {
+      updateCamera(camA, t, 0.5, 0.2);
+    }
+
+    _clearHarmonicCache();
     const camB = mockCamera();
     initCameraMotion('amp-test');
-
-    updateCamera(camA, 30000, 0.5, 0.2);
-    updateCamera(camB, 30000, 0.5, 1.0);
+    for (let t = 0; t <= 30000; t += 150) {
+      updateCamera(camB, t, 0.5, 1.0);
+    }
 
     const distA = Math.sqrt(camA.position.x ** 2 + camA.position.y ** 2 + (camA.position.z - 5) ** 2);
     const distB = Math.sqrt(camB.position.x ** 2 + camB.position.y ** 2 + (camB.position.z - 5) ** 2);

@@ -331,7 +331,9 @@ describe('US-089: Per-mode camera framing — camera motion honours framing', ()
   });
 
   it('T-089-13: lookOffset biases the camera look target', () => {
-    const cam = mockCamera();
+    // Run two separate cameras with many frames to let EMA converge,
+    // then compare the converged lookAt targets.
+    const camA = mockCamera();
     initCameraMotion('look-offset-seed');
 
     const framingNoOffset: FramingConfig = {
@@ -341,6 +343,16 @@ describe('US-089: Per-mode camera framing — camera motion honours framing', ()
       farClip: 50,
     };
 
+    // Run many frames to let EMA converge
+    for (let t = 0; t <= 30000; t += 150) {
+      updateCamera(camA, t, 0, 1.0, framingNoOffset);
+    }
+    const lookNoOffset = { ...camA._lookAtCalls[camA._lookAtCalls.length - 1] };
+
+    _clearHarmonicCache();
+    const camB = mockCamera();
+    initCameraMotion('look-offset-seed');
+
     const framingWithOffset: FramingConfig = {
       targetDistance: 5.0,
       lookOffset: [0, 1.5, 0],
@@ -348,11 +360,10 @@ describe('US-089: Per-mode camera framing — camera motion honours framing', ()
       farClip: 50,
     };
 
-    updateCamera(cam, 30000, 0, 1.0, framingNoOffset);
-    const lookNoOffset = { ...cam._lookAtCalls[cam._lookAtCalls.length - 1] };
-
-    updateCamera(cam, 30000, 0, 1.0, framingWithOffset);
-    const lookWithOffset = { ...cam._lookAtCalls[cam._lookAtCalls.length - 1] };
+    for (let t = 0; t <= 30000; t += 150) {
+      updateCamera(camB, t, 0, 1.0, framingWithOffset);
+    }
+    const lookWithOffset = { ...camB._lookAtCalls[camB._lookAtCalls.length - 1] };
 
     // The lookAt Y uses lookOffY * 0.3, so offset of 1.5 produces a shift of ~0.45
     expect(lookWithOffset.y - lookNoOffset.y).toBeCloseTo(0.45, 1);
@@ -387,10 +398,7 @@ describe('US-089: Per-mode camera framing — camera motion honours framing', ()
     }
   });
 
-  it('T-089-15: bass energy modulation still works with framing', () => {
-    const cam = mockCamera();
-    initCameraMotion('bass-framing-seed');
-
+  it('T-089-15: bass energy does not affect camera position with framing', () => {
     const framing: FramingConfig = {
       targetDistance: 6.0,
       lookOffset: [0, 0, 0],
@@ -399,11 +407,17 @@ describe('US-089: Per-mode camera framing — camera motion honours framing', ()
     };
 
     const camA = mockCamera();
+    initCameraMotion('bass-framing-seed');
+    for (let t = 0; t <= 30000; t += 150) {
+      updateCamera(camA, t, 0.0, 1.0, framing);
+    }
+
+    _clearHarmonicCache();
     const camB = mockCamera();
     initCameraMotion('bass-framing-seed');
-
-    updateCamera(camA, 30000, 0.0, 1.0, framing);
-    updateCamera(camB, 30000, 1.0, 1.0, framing);
+    for (let t = 0; t <= 30000; t += 150) {
+      updateCamera(camB, t, 1.0, 1.0, framing);
+    }
 
     const distA = Math.sqrt(
       camA.position.x ** 2 + camA.position.y ** 2 + (camA.position.z - 6.0) ** 2,
@@ -411,8 +425,8 @@ describe('US-089: Per-mode camera framing — camera motion honours framing', ()
     const distB = Math.sqrt(
       camB.position.x ** 2 + camB.position.y ** 2 + (camB.position.z - 6.0) ** 2,
     );
-    // Bass should still modulate orbit radius
-    expect(distB).toBeGreaterThanOrEqual(distA - 1e-10);
+    // Bass no longer affects camera — distances should be identical
+    expect(distA).toBeCloseTo(distB, 5);
   });
 
   it('T-089-16: motionAmplitude=0 with framing results in camera at exact targetDistance', () => {
@@ -433,11 +447,13 @@ describe('US-089: Per-mode camera framing — camera motion honours framing', ()
   });
 
   it('T-089-17: camera stays within safe bounds for various framing distances over 300s', () => {
-    const cam = mockCamera();
-    initCameraMotion('bounds-framing-seed');
-
     const testDistances = [3.0, 5.0, 6.0, 8.0];
     for (const targetDist of testDistances) {
+      // Reset smoothing state between different target distances
+      _clearHarmonicCache();
+      const cam = mockCamera();
+      initCameraMotion('bounds-framing-seed');
+
       const framing: FramingConfig = {
         targetDistance: targetDist,
         lookOffset: [0, 0, 0],

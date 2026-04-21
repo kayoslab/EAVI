@@ -3,13 +3,12 @@
  *
  * Three motion styles:
  * - default: Lissajous drift — incommensurate sine frequencies create organic,
- *   non-repeating horizontal paths. Y stays nearly fixed (no vertical bobbing).
+ *   non-repeating horizontal paths. Smooth and steady, never jerky.
  * - orbit: slow continuous circular path in the XZ plane around centered 3D objects.
- *   Camera stays at a fixed height — NO vertical bobbing.
  * - flythrough: continuous forward travel through elongated environments.
- *   Camera stays at a fixed height above the geometry floor.
  *
- * Bass energy gently modulates lateral sway amplitude.
+ * Camera position is EMA-smoothed to prevent any jerkiness.
+ * Audio does NOT affect camera position — only the visuals react to music.
  * motionAmplitude scales drift (supports prefers-reduced-motion).
  */
 
@@ -29,7 +28,6 @@ interface CameraHarmonics {
   lookX: Harmonic[];
   lookZ: Harmonic[];
   orbitSpeed: number;
-  swayAmplitude: number;
   swayFrequency: number;
   swayPhase: number;
 }
@@ -37,10 +35,23 @@ interface CameraHarmonics {
 const BASE_X = 0;
 const BASE_Z = 5;
 
+// Prime-ish periods — long, incommensurate, so paths feel organic
 const PRIME_PERIODS = [67000, 97000, 157000, 83000, 113000, 139000, 71000, 107000, 151000];
+
+// EMA smoothing factor for camera position (higher = smoother, slower response)
+const CAM_SMOOTH = 0.97;
 
 const harmonicCache = new Map<string, CameraHarmonics>();
 let activeSeed: string | null = null;
+
+// Smoothed camera state (persists across frames)
+let smoothX = 0;
+let smoothY = 0;
+let smoothZ = BASE_Z;
+let smoothLookX = 0;
+let smoothLookY = 0;
+let smoothLookZ = 0;
+let smoothInitialized = false;
 
 function buildHarmonics(seed: string): CameraHarmonics {
   const cached = harmonicCache.get(seed);
@@ -63,17 +74,16 @@ function buildHarmonics(seed: string): CameraHarmonics {
   }
 
   const h: CameraHarmonics = {
-    // Horizontal drift only — no Y harmonics (camera stays at fixed height)
-    posX: makeLissajous(0.3, 0.6, 3),
-    posZ: makeLissajous(0.15, 0.3, 3),
-    // Look target horizontal drift
-    lookX: makeLissajous(0.05, 0.12, 3),
-    lookZ: makeLissajous(0.03, 0.06, 3),
-    // Orbit: very slow (120-180s per revolution)
-    orbitSpeed: (2 * Math.PI) / (120000 + rng() * 60000),
-    // Flythrough sway (horizontal only)
-    swayAmplitude: 0.3 + rng() * 0.5,
-    swayFrequency: (2 * Math.PI) / (25000 + rng() * 20000),
+    // Gentle horizontal drift — reduced amplitudes for smooth feel
+    posX: makeLissajous(0.15, 0.3, 3),
+    posZ: makeLissajous(0.08, 0.15, 3),
+    // Look target drift — very subtle
+    lookX: makeLissajous(0.03, 0.06, 3),
+    lookZ: makeLissajous(0.02, 0.04, 3),
+    // Orbit: very slow (150-240s per revolution)
+    orbitSpeed: (2 * Math.PI) / (150000 + rng() * 90000),
+    // Flythrough sway — gentle
+    swayFrequency: (2 * Math.PI) / (30000 + rng() * 25000),
     swayPhase: rng() * Math.PI * 2,
   };
 
@@ -92,12 +102,13 @@ function evalAxis(harmonics: Harmonic[], elapsedMs: number): number {
 export function initCameraMotion(seed: string): void {
   activeSeed = seed;
   buildHarmonics(seed);
+  smoothInitialized = false;
 }
 
 export function updateCamera(
   camera: PerspectiveCamera,
   elapsedMs: number,
-  bassEnergy: number,
+  _bassEnergy: number,
   motionAmplitude: number,
   framing?: FramingConfig,
 ): void {
@@ -107,77 +118,93 @@ export function updateCamera(
 
   const mode = framing?.cameraMode;
   const baseZ = framing?.targetDistance ?? BASE_Z;
-  const lookOffX = framing?.lookOffset?.[0] ?? 0;
   const lookOffY = framing?.lookOffset?.[1] ?? 0;
-  const lookOffZ = framing?.lookOffset?.[2] ?? 0;
+
+  // Compute target camera position (no audio influence)
+  let targetX: number;
+  let targetY: number;
+  let targetZ: number;
+  let targetLookX: number;
+  let targetLookY: number;
+  let targetLookZ: number;
 
   if (mode === 'orbit') {
-    // --- Orbit: flat circle in XZ plane, fixed Y height ---
     const radius = framing?.orbitRadius ?? baseZ;
     const angle = elapsedMs * h.orbitSpeed * 0.001;
-    // Slight eccentricity for cinematic feel
-    const eccentricity = 0.9 + Math.sin(angle * 0.3) * 0.1;
+    const eccentricity = 0.92 + Math.sin(angle * 0.3) * 0.08;
 
-    camera.position.set(
-      Math.sin(angle) * radius * eccentricity,
-      lookOffY,  // fixed height, no bobbing
-      Math.cos(angle) * radius,
-    );
+    targetX = Math.sin(angle) * radius * eccentricity;
+    targetY = lookOffY;
+    targetZ = Math.cos(angle) * radius;
 
-    // Look at center
-    const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.08;
-    const ly = 0;
-    const lz = evalAxis(h.lookZ, elapsedMs) * motionAmplitude * 0.06;
-    camera.lookAt(lx, ly, lz);
+    targetLookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.05;
+    targetLookY = 0;
+    targetLookZ = evalAxis(h.lookZ, elapsedMs) * motionAmplitude * 0.04;
 
   } else if (mode === 'flythrough') {
-    // --- Flythrough: travel forward, fixed Y, horizontal sway only ---
     const speed = framing?.flythroughSpeed ?? 0.5;
     const driftScale = framing?.driftScale ?? [1, 1, 1];
+    const cycleLength = framing?.flythroughCycleLength ?? 80;
 
     const meshStartZ = 5.0;
-    const cycleLength = framing?.flythroughCycleLength ?? 80;
     const forwardProgress = (elapsedMs * 0.001 * speed) % cycleLength;
-    const camZ = meshStartZ - forwardProgress;
 
-    // Horizontal sway only — no vertical movement
+    // Gentle horizontal sway — no audio influence
     const sway = Math.sin(elapsedMs * h.swayFrequency + h.swayPhase)
-      * h.swayAmplitude * motionAmplitude * driftScale[0]
-      * (1 + bassEnergy * 0.1);
+      * 0.4 * motionAmplitude * driftScale[0];
 
-    camera.position.set(
-      BASE_X + sway,
-      lookOffY,  // fixed height from framing config, no bobbing
-      camZ,
-    );
+    targetX = BASE_X + sway;
+    targetY = lookOffY;
+    targetZ = meshStartZ - forwardProgress;
 
-    // Look straight ahead
-    const lookAheadZ = camZ - 20;
-    const lx = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.15 + lookOffX;
-    camera.lookAt(lx, lookOffY * 0.5, lookAheadZ);
+    const lookAheadZ = targetZ - 20;
+    targetLookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude * 0.08;
+    targetLookY = lookOffY * 0.5;
+    targetLookZ = lookAheadZ;
 
   } else {
-    // --- Default: Lissajous drift in XZ plane, fixed Y ---
+    // Lissajous drift — smooth, organic, no audio
     const driftScale = framing?.driftScale ?? [1, 1, 1];
-    const bassScale = 1 + bassEnergy * 0.06;
 
-    const offsetX = evalAxis(h.posX, elapsedMs) * motionAmplitude * bassScale;
-    const offsetZ = evalAxis(h.posZ, elapsedMs) * motionAmplitude * bassScale;
+    const offsetX = evalAxis(h.posX, elapsedMs) * motionAmplitude;
+    const offsetZ = evalAxis(h.posZ, elapsedMs) * motionAmplitude;
 
-    camera.position.set(
-      BASE_X + offsetX * driftScale[0],
-      lookOffY,  // fixed height, no bobbing
-      baseZ + offsetZ * driftScale[2],
-    );
+    targetX = BASE_X + offsetX * driftScale[0];
+    targetY = lookOffY;
+    targetZ = baseZ + offsetZ * driftScale[2];
 
-    const lookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude + lookOffX;
-    const lookZ = evalAxis(h.lookZ, elapsedMs) * motionAmplitude + lookOffZ;
-    camera.lookAt(lookX, lookOffY * 0.3, lookZ);
+    const lookOffX = framing?.lookOffset?.[0] ?? 0;
+    const lookOffZ = framing?.lookOffset?.[2] ?? 0;
+    targetLookX = evalAxis(h.lookX, elapsedMs) * motionAmplitude + lookOffX;
+    targetLookY = lookOffY * 0.3;
+    targetLookZ = evalAxis(h.lookZ, elapsedMs) * motionAmplitude + lookOffZ;
   }
+
+  // EMA smooth the camera position for silky movement
+  if (!smoothInitialized) {
+    smoothX = targetX;
+    smoothY = targetY;
+    smoothZ = targetZ;
+    smoothLookX = targetLookX;
+    smoothLookY = targetLookY;
+    smoothLookZ = targetLookZ;
+    smoothInitialized = true;
+  } else {
+    smoothX = smoothX * CAM_SMOOTH + targetX * (1 - CAM_SMOOTH);
+    smoothY = smoothY * CAM_SMOOTH + targetY * (1 - CAM_SMOOTH);
+    smoothZ = smoothZ * CAM_SMOOTH + targetZ * (1 - CAM_SMOOTH);
+    smoothLookX = smoothLookX * CAM_SMOOTH + targetLookX * (1 - CAM_SMOOTH);
+    smoothLookY = smoothLookY * CAM_SMOOTH + targetLookY * (1 - CAM_SMOOTH);
+    smoothLookZ = smoothLookZ * CAM_SMOOTH + targetLookZ * (1 - CAM_SMOOTH);
+  }
+
+  camera.position.set(smoothX, smoothY, smoothZ);
+  camera.lookAt(smoothLookX, smoothLookY, smoothLookZ);
 }
 
 /** Exposed for testing — clears the harmonic cache. */
 export function _clearHarmonicCache(): void {
   harmonicCache.clear();
   activeSeed = null;
+  smoothInitialized = false;
 }
