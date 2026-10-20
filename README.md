@@ -1,4 +1,4 @@
-![EAVI](docs/poster.jpg)
+![EAVI](docs/EAVI%20digital%20audiovisual%20landscape.png)
 
 # EAVI — Ephemeral Audiovisual Installation
 
