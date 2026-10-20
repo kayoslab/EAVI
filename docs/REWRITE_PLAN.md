@@ -374,15 +374,16 @@ Each layer: look, technique, audio grammar, seed variance. Rendering primitives 
 | FractalTree | subject, L-system wire branches (reuses `wire-lines.wgsl`) | done |
 | CurlField | particles, curl-noise advection in compute (reuses the point shader) | done |
 | Terrain (gentle / dramatic) | environment, procedural heightfield as grid lines + vertex dots, warm indigo→amber ramp, aerial drift (restores the pre-rewrite valleys the user liked) | done (2026-10-20) |
-| FractalZoom | subject, raymarched Mandelbulb / Mandelbox / quaternion Julia / Apollonian / Sierpinski with orbit traps and slow parameter drift. The most expensive layer: bounding-sphere early-out, 72 steps × 8 iterations at high tier, recipes flagged `heavy` get a 1.25 DPR cap | done (2026-10-20) |
+| FractalZoom (raymarched bulb/box/Julia/Apollonian/Sierpinski) | — | removed 2026-10-20 ("super boring", and the heaviest layer) |
 | WireCathedral | — | removed 2026-10-20 (looked poor in both the raymarched and the lattice form) |
-| IfsCloud | particles, 3D chaos game over 8 affine maps, morphs between systems over ~18 s | done |
-| FractalWire | subject, Sierpinski tetrahedron, Menger sponge and 3D Hilbert curve as lines with a breathing depth reveal | done |
-| JuliaTexture + tunnel wall skin; FractalFlame as tunnel skin | texture layers bundled into `tunnel-julia` / `tunnel-flame` | done |
+| IfsCloud | — | removed 2026-10-20 |
+| FractalWire (Sierpinski/Menger/Hilbert lines) | — | removed 2026-10-20 |
+| JuliaTexture + tunnel wall skin (`tunnel-julia`) | texture layer bundled with the tunnel | kept ("not bad"); the flame skin variant was removed |
+| Mandelbrot | subject, the one fractal piece: a continuous deep zoom (single-precision floor ≈ 3·10⁴×) into seeded locations, drawn as 20–28 camera-facing contour sheets stacked in depth so the escape-time terraces have parallax; two zooms alternate with a 14 s cross-dissolve so the dive never ends | done (2026-10-20) |
 | Attractor families Thomas, Aizawa, Halvorsen | particles | done |
 | Boids, Plasma, MatrixRain | — | not started |
 
-Shared WGSL: `lines.wgsl` (segment → screen quad), `color.wgsl`, `transform.wgsl`. Seeded recipe catalogue in `src/director/recipe.ts` (36 recipes, tier-gated, each with a post preset and optional camera rig/pitch; one kind may bundle several layers); every recipe is rendered headless by `tests/render/recipes.headless.test.ts` with zero GPU errors.
+Shared WGSL: `lines.wgsl` (segment → screen quad), `color.wgsl`, `transform.wgsl`. Seeded recipe catalogue in `src/director/recipe.ts` (28 recipes, tier-gated, each with a post preset and optional camera rig/pitch; one kind may bundle several layers); every recipe is rendered headless by `tests/render/recipes.headless.test.ts` with zero GPU errors.
 
 ### Phase 6 — Tiers, fallback, mobile
 - Tier → point budgets, raymarch step counts, post stages enabled, DPR cap (`surface(gpu, canvas, { dpr: [1, max] })`).

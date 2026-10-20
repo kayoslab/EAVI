@@ -138,6 +138,25 @@ async function boot(): Promise<void> {
   loopDeps.onFrameHealth = (fps, t) => adaptive.tick(fps, t);
   const loop = startLoop(loopDeps);
 
+  // Release everything on the way out: the browser frees a destroyed device at once, but keeps a
+  // live one (and its buffers) around until it gets to it, which shows up as growth across reloads.
+  let player: Awaited<ReturnType<typeof initAudio>> | null = null;
+  let tornDown = false;
+  const teardown = () => {
+    if (tornDown) return;
+    tornDown = true;
+    try { loop.stop(); } catch { /* already stopped */ }
+    try { director.dispose(); } catch { /* best effort */ }
+    try { post.dispose(); } catch { /* best effort */ }
+    try { targets.dispose(); } catch { /* best effort */ }
+    try { sync.dispose(); } catch { /* best effort */ }
+    try { player?.destroy(); } catch { /* best effort */ }
+    try { canvasSurface.dispose(); } catch { /* best effort */ }
+    try { gpu.dispose(); } catch { /* best effort */ }
+  };
+  window.addEventListener('pagehide', teardown);
+  window.addEventListener('beforeunload', teardown);
+
   gpu.lost.then((info) => {
     console.error('[EAVI] GPU device lost:', info.reason, info.message);
     loop.stop();
@@ -153,11 +172,16 @@ async function boot(): Promise<void> {
   initAudio((trackPath) => {
     trackDisplay.show(generateTrackName(seed, trackPath));
     sync.setTrack(trackPath);
-  }).then((player) => {
-    console.debug('[EAVI] audio state:', player.state);
-    document.body.appendChild(createMuteButton(player));
-    loopDeps.getAnalyserPipeline = () => player.getPipeline();
-    loopDeps.getPlayback = () => player.getPlayback();
+  }).then((p) => {
+    player = p;
+    if (tornDown) {
+      p.destroy();
+      return;
+    }
+    console.debug('[EAVI] audio state:', p.state);
+    document.body.appendChild(createMuteButton(p));
+    loopDeps.getAnalyserPipeline = () => p.getPipeline();
+    loopDeps.getPlayback = () => p.getPlayback();
   }).catch((err) => {
     console.warn('[EAVI] audio init failed; visuals continue', err);
   });
