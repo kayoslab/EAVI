@@ -29,7 +29,8 @@ export interface PostStack {
   readonly warpEnabled: boolean;
   /** Runtime quality control: drop a stage (and its passes) without recompiling anything. */
   setStageEnabled(stage: 'bloom' | 'warp', enabled: boolean): void;
-  setPreset(preset: PostPreset): void;
+  /** Switch preset; with `blendSec` the parameters and ramp glide there over that many seconds. */
+  setPreset(preset: PostPreset, blendSec?: number): void;
   setParams(next: Partial<PostParams>): void;
   setRamp(ramp: Ramp): void;
   /** Debug only: bypass the limiter to compare. Production never calls this. */
@@ -78,6 +79,8 @@ export function createPostStack(gpu: Gpu, targets: RenderTargets, options?: Post
   let limiterEnabled = 1;
   let offsets: Partial<PostParams> = {};
   let transient: Partial<PostParams> | null = null;
+  let blend: { from: PostParams; fromRamp: Ramp; fromModulators: PostPreset['modulators']; start: number; seconds: number } | null = null;
+  let lastTime = 0;
 
   const samp = sampler(gpu, {
     minFilter: 'linear', magFilter: 'linear',
@@ -199,11 +202,16 @@ export function createPostStack(gpu: Gpu, targets: RenderTargets, options?: Post
       else warpEnabled = enabled && warpAvailable;
       rebind();
     },
-    setPreset(next) {
+    setPreset(next, blendSec = 0) {
+      if (blendSec > 0) {
+        blend = { from: { ...effective, exposure: params.exposure, limiterSlewUp: params.limiterSlewUp, limiterSlewDown: params.limiterSlewDown, agcTarget: params.agcTarget, agcRate: params.agcRate }, fromRamp: ramp, fromModulators: preset.modulators, start: lastTime, seconds: blendSec };
+      } else {
+        blend = null;
+      }
       preset = next;
       for (const key of NUMERIC_PARAM_KEYS) params[key] = next.params[key];
       ramp = next.ramp;
-      finish.set({ params: rampVec(ramp) });
+      if (!blend) finish.set({ params: rampVec(ramp) });
     },
     setParams(next) {
       for (const key of NUMERIC_PARAM_KEYS) {
@@ -228,7 +236,23 @@ export function createPostStack(gpu: Gpu, targets: RenderTargets, options?: Post
       fade = Math.max(0, Math.min(1, next));
     },
     applyFrame(input) {
+      lastTime = input.timeSec;
       const base: PostParams = { ...params };
+      let modulators = preset.modulators;
+      if (blend) {
+        const u = Math.max(0, Math.min(1, (input.timeSec - blend.start) / Math.max(0.01, blend.seconds)));
+        const k = u * u * (3 - 2 * u);
+        for (const key of NUMERIC_PARAM_KEYS) base[key] = blend.from[key] + (params[key] - blend.from[key]) * k;
+        // Angles and integer-ish counts come straight from the blend; the kaleidoscope folds in step by step.
+        base.kaleidoSegments = Math.round(base.kaleidoSegments);
+        const mixedRamp = blend.fromRamp.map((stop, i) => stop.map((c, j) => c + (ramp[i][j] - c) * k)) as unknown as Ramp;
+        finish.set({ params: rampVec(mixedRamp) });
+        if (k < 0.5) modulators = blend.fromModulators;
+        if (u >= 1) {
+          blend = null;
+          finish.set({ params: rampVec(ramp) });
+        }
+      }
       const TAU = Math.PI * 2;
       for (const key of NUMERIC_PARAM_KEYS) {
         const o = offsets[key];
@@ -237,7 +261,7 @@ export function createPostStack(gpu: Gpu, targets: RenderTargets, options?: Post
         if (key === 'kaleidoAngle' || key === 'hueShift') base[key] = (((base[key] + o) % TAU) + TAU) % TAU;
         else base[key] = clampParam(key, base[key] + o);
       }
-      const e = applyModulators(base, input.sources ?? ZERO_SOURCES, preset.modulators);
+      const e = applyModulators(base, input.sources ?? ZERO_SOURCES, modulators);
       if (transient) {
         for (const key of NUMERIC_PARAM_KEYS) {
           const v = transient[key];

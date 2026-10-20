@@ -43,7 +43,7 @@ export function createCamera(seed: string, options?: { distance?: number; pitch?
   const distFreq = (2 * Math.PI) / (53 + rng() * 60);
   const distPhase = rng() * Math.PI * 2;
 
-  const lens: Lens = { fov: LANDSCAPE_FOV, near: 0.1, far: 80 };
+  const lens: Lens = { fov: LANDSCAPE_FOV, near: 0.1, far: 600 };
   const pose: Pose = { position: new Float32Array(3), quaternion: new Float32Array(4) };
   const projection = new Float32Array(16);
   const matrices: CameraMatrices = { view: new Float32Array(16), viewProjection: new Float32Array(16) };

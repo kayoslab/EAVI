@@ -143,6 +143,37 @@ describe('director', () => {
     expect(state.recipeId).not.toBe('test');
   });
 
+  it('a recipe change cross-dissolves: old and new layers overlap, nothing swaps in one frame', async () => {
+    const { director, bus, created } = setup();
+    await director.start();
+    await flush();
+    bus.emit({ kind: 'trackStart', trackPath: '/audio/first.mp3' });
+    await flush();
+    const oldLayers = director.update(0, 0.016).layers.map((l) => l.layer);
+    bus.emit({ kind: 'trackStart', trackPath: '/audio/next.mp3' });
+    await flush();
+    let state = director.update(0.016, 0.016);
+    let overlapSeen = false;
+    let maxOpacityStep = 0;
+    const lastOpacity = new Map<unknown, number>();
+    for (let t = 0.032; t < 14; t += 0.016) {
+      state = director.update(t, 0.016);
+      const hasOld = state.layers.some((l) => oldLayers.includes(l.layer));
+      const hasNew = state.layers.some((l) => !oldLayers.includes(l.layer));
+      if (hasOld && hasNew) overlapSeen = true;
+      for (const l of state.layers) {
+        const prev = lastOpacity.get(l.layer);
+        if (prev !== undefined) maxOpacityStep = Math.max(maxOpacityStep, Math.abs(l.opacity - prev));
+        lastOpacity.set(l.layer, l.opacity);
+      }
+    }
+    expect(overlapSeen).toBe(true);
+    expect(maxOpacityStep).toBeLessThan(0.01);
+    expect(state.layers.some((l) => oldLayers.includes(l.layer))).toBe(false);
+    expect(state.layers.every((l) => l.opacity === 1)).toBe(true);
+    expect(created.length).toBeGreaterThan(4);
+  });
+
   it('never emits a brightness-changing transient', async () => {
     const { director, bus } = setup();
     await director.start();

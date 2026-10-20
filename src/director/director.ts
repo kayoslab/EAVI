@@ -49,7 +49,7 @@ export interface DirectorOptions {
   readonly camera: DirectorCamera;
   readonly initialRecipe?: Recipe;
   /** Post stack hook so a recipe can bring its own preset. */
-  readonly post?: { setPreset(preset: PostPreset): void };
+  readonly post?: { setPreset(preset: PostPreset, blendSec?: number): void };
   /** Injectable for tests. */
   readonly layerFactory?: (gpu: Gpu, kind: LayerKind, ctx: RecipeContext) => Layer;
   readonly onError?: (err: unknown) => void;
@@ -91,6 +91,8 @@ interface Transition {
 }
 
 const TAU = Math.PI * 2;
+/** Seconds a recipe change takes to cross-dissolve layers and blend the post preset. */
+const RECIPE_FADE_SEC = 10;
 
 /**
  * The Director owns the active recipe, reacts to structural audio events, and emits a
@@ -212,17 +214,28 @@ export function createDirector(options: DirectorOptions): Director {
         return;
       }
       entry.ready = true;
-      startTransition('melt', () => {
-        for (const s of slots) s.layer.dispose();
+      // A recipe change is a long cross-dissolve: old layers fade out while the new ones fade in,
+      // and the post preset glides over the same window. Nothing is swapped in one frame.
+      startTransition('drift', () => {
         if (standby) {
           standby.layer.dispose();
           standby = null;
         }
-        slots = entry.layers;
+        for (const s of slots) {
+          s.target = 0;
+          s.rate = 1 / RECIPE_FADE_SEC;
+          s.retireWhenDark = true;
+        }
+        for (const s of entry.layers) {
+          s.opacity = 0;
+          s.target = 1;
+          s.rate = 1 / RECIPE_FADE_SEC;
+        }
+        slots = [...slots, ...entry.layers];
         recipe = entry.recipe;
         pendingRecipe = null;
         cameraRig = recipe.rig ?? (rng() < 0.5 ? 'wander' : 'orbit');
-        if (recipe.post) options.post?.setPreset(PRESETS[recipe.post]);
+        if (recipe.post) options.post?.setPreset(PRESETS[recipe.post], RECIPE_FADE_SEC);
         camera.setPitch?.(recipe.cameraPitch ?? 0.2);
         prepareStandby();
       });

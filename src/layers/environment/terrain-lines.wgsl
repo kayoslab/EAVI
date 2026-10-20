@@ -1,7 +1,7 @@
 // Terrain grid lines: X-direction and Z-direction segments between neighbouring heightfield vertices.
 
 import { lineQuadVertex, lineQuadAcross } from "../../wgsl/lib/lines.wgsl";
-import { terrainHeight, terrainColor } from "./terrain-common.wgsl";
+import { terrainHeight, terrainColor, terrainCoord, terrainEdgeFade } from "./terrain-common.wgsl";
 
 struct Camera {
   view: mat4x4f,
@@ -15,7 +15,7 @@ struct Terrain {
   resolution: vec2f,
   rows: u32,
   cols: u32,
-  cell: f32,
+  extent: f32,
   scroll: f32,
   heightScale: f32,
   noiseScale: f32,
@@ -41,11 +41,12 @@ struct VertexOut {
   @location(0) across: f32,
   @location(1) color: vec3f,
   @location(2) depth: f32,
+  @location(3) edge: f32,
 }
 
 fn vertexAt(i: u32, j: u32) -> vec3f {
-  let x = (f32(i) - f32(terrain.cols) * 0.5) * terrain.cell;
-  let z = (f32(j) - f32(terrain.rows) * 0.5) * terrain.cell;
+  let x = terrainCoord(i, terrain.cols, terrain.extent);
+  let z = terrainCoord(j, terrain.rows, terrain.extent);
   let y = terrainHeight(x, z, terrain.scroll, terrain.noiseScale, terrain.heightScale, terrain.bass);
   return vec3f(x, y + terrain.yOffset, z);
 }
@@ -76,6 +77,7 @@ fn vertexAt(i: u32, j: u32) -> vec3f {
   let world = select(a, b, atB);
   let viewPos = camera.view * vec4f(world, 1.0);
   out.depth = max(-viewPos.z, 0.0);
+  out.edge = terrainEdgeFade(world.x, world.z, terrain.extent);
   let t = (world.y - terrain.yOffset) / max(terrain.heightScale, 0.001) * 0.5 + 0.5;
   out.color = terrainColor(t, terrain.hue, terrain.hueMix) * terrain.brightness;
   return out;
@@ -84,7 +86,7 @@ fn vertexAt(i: u32, j: u32) -> vec3f {
 @fragment fn fs_main(in: VertexOut) -> @location(0) vec4f {
   let edge = 1.0 - smoothstep(0.3, 1.0, abs(in.across));
   let fog = exp(-terrain.fogDensity * in.depth);
-  let a = edge * fog * terrain.opacity;
+  let a = edge * fog * in.edge * terrain.opacity;
   if (a <= 0.002) {
     discard;
   }

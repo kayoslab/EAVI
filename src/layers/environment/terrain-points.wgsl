@@ -1,6 +1,6 @@
 // Terrain vertex dots: a glowing point at every heightfield vertex, brighter on the peaks.
 
-import { terrainHeight, terrainColor } from "./terrain-common.wgsl";
+import { terrainHeight, terrainColor, terrainCoord, terrainEdgeFade } from "./terrain-common.wgsl";
 
 struct Camera {
   view: mat4x4f,
@@ -14,7 +14,7 @@ struct Terrain {
   resolution: vec2f,
   rows: u32,
   cols: u32,
-  cell: f32,
+  extent: f32,
   scroll: f32,
   heightScale: f32,
   noiseScale: f32,
@@ -50,8 +50,8 @@ struct VertexOut {
   let corner = quad[vertex % 6u];
   let i = instance % terrain.cols;
   let j = instance / terrain.cols;
-  let x = (f32(i) - f32(terrain.cols) * 0.5) * terrain.cell;
-  let z = (f32(j) - f32(terrain.rows) * 0.5) * terrain.cell;
+  let x = terrainCoord(i, terrain.cols, terrain.extent);
+  let z = terrainCoord(j, terrain.rows, terrain.extent);
   let y = terrainHeight(x, z, terrain.scroll, terrain.noiseScale, terrain.heightScale, terrain.bass);
   let world = vec3f(x, y + terrain.yOffset, z);
   let clip = camera.viewProjection * vec4f(world, 1.0);
@@ -67,9 +67,10 @@ struct VertexOut {
   let sizePx = terrain.pointSize * (0.7 + t * 0.8) * twinkle;
   out.position = vec4f(clip.xy + corner * sizePx / terrain.resolution * clip.w, clip.zw);
   let viewPos = camera.view * vec4f(world, 1.0);
-  let fog = exp(-terrain.fogDensity * max(-viewPos.z, 0.0));
+  // Dots thin out before the lines do, so the far field reads as a faint mesh fading to black.
+  let fog = exp(-terrain.fogDensity * 1.6 * max(-viewPos.z, 0.0));
   out.color = terrainColor(t, terrain.hue, terrain.hueMix) * terrain.brightness * (0.6 + t * 0.8);
-  out.alpha = fog * terrain.opacity;
+  out.alpha = fog * terrainEdgeFade(x, z, terrain.extent) * terrain.opacity;
   return out;
 }
 

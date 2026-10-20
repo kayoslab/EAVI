@@ -61,10 +61,10 @@ export const RECIPES: readonly Recipe[] = [
   { id: 'forest-warp', environment: 'starwarp', subject: 'tree', particles: null, cameraDistance: 4.2, post: 'crt' },
   { id: 'curl-cube', environment: null, subject: 'polytope', particles: 'curl', cameraDistance: 4.2, post: 'vhs', rig: 'wander' },
   // Warm valleys: the landscape carries the frame on its own, on presets that keep its colours.
-  { id: 'warm-valleys', environment: 'terrain-dramatic', subject: null, particles: null, cameraDistance: 5.2, cameraPitch: 0.5, weight: 3, post: 'clean', rig: 'orbit' },
-  { id: 'valley-drift', environment: 'terrain', subject: null, particles: 'curl', cameraDistance: 4.8, cameraPitch: 0.45, weight: 2, post: 'vhs', rig: 'wander' },
-  { id: 'valley-cube', environment: 'terrain-dramatic', subject: 'polytope', particles: null, cameraDistance: 5.0, cameraPitch: 0.4, post: 'clean', rig: 'wander' },
-  { id: 'valley-scope', environment: 'terrain', subject: 'scope', particles: null, cameraDistance: 4.6, cameraPitch: 0.4, minTier: 'medium', post: 'vhs' },
+  { id: 'warm-valleys', environment: 'terrain-dramatic', subject: null, particles: null, cameraDistance: 6.0, cameraPitch: 0.2, weight: 3, post: 'clean', rig: 'orbit' },
+  { id: 'valley-drift', environment: 'terrain', subject: null, particles: 'curl', cameraDistance: 5.2, cameraPitch: 0.18, weight: 2, post: 'vhs', rig: 'wander' },
+  { id: 'valley-cube', environment: 'terrain-dramatic', subject: 'polytope', particles: null, cameraDistance: 5.6, cameraPitch: 0.2, post: 'clean', rig: 'wander' },
+  { id: 'valley-scope', environment: 'terrain', subject: 'scope', particles: null, cameraDistance: 5.0, cameraPitch: 0.18, minTier: 'medium', post: 'vhs' },
 ];
 
 const TIER_RANK: Record<QualityTier, number> = { low: 0, medium: 1, high: 2 };

@@ -20,12 +20,13 @@ export interface TerrainConfig {
 export function createTerrainLayer(gpu: Gpu, config: TerrainConfig): Layer {
   const rng = createPRNG(config.seed + ':terrain');
   const dramatic = config.variant === 'dramatic';
-  const cols = config.tier === 'high' ? 160 : config.tier === 'medium' ? 110 : 70;
-  const rows = config.tier === 'high' ? 120 : config.tier === 'medium' ? 84 : 54;
-  const cell = 0.28;
+  const cols = config.tier === 'high' ? 200 : config.tier === 'medium' ? 140 : 90;
+  const rows = config.tier === 'high' ? 160 : config.tier === 'medium' ? 110 : 70;
+  // Half-extent in world units; the power-spaced grid keeps ~0.2-unit cells near the camera.
+  const extent = dramatic ? 220 : 180;
   const heightScale = dramatic ? 2.4 + rng() * 0.6 : 0.9 + rng() * 0.4;
   const noiseScale = dramatic ? 0.09 + rng() * 0.03 : 0.12 + rng() * 0.04;
-  const yOffset = dramatic ? -3.8 : -2.4;
+  const yOffset = dramatic ? -4.6 : -2.6;
   const hueMix = 0.08 + rng() * 0.1;
   const dprScale = Math.max(1, Math.min(2, config.dpr ?? 1));
   const lineCount = rows * (cols - 1) + cols * (rows - 1);
@@ -33,9 +34,9 @@ export function createTerrainLayer(gpu: Gpu, config: TerrainConfig): Layer {
   let scroll = rng() * 100;
 
   const uniforms = () => ({
-    resolution: [1, 1], rows, cols, cell, scroll, heightScale, noiseScale,
+    resolution: [1, 1], rows, cols, extent, scroll, heightScale, noiseScale,
     thickness: 1.1 * dprScale, pointSize: 2.2 * dprScale, hue: 200, hueMix,
-    bass: 0, treble: 0, fogDensity: 0.06, opacity: 0, yOffset, brightness: 0.7, time: 0, pad0: 0,
+    bass: 0, treble: 0, fogDensity: 0.02, opacity: 0, yOffset, brightness: 0.7, time: 0, pad0: 0,
   });
   const cameraInit = () => ({
     view: new Float32Array(16), projection: new Float32Array(16), viewProjection: new Float32Array(16),
@@ -77,7 +78,7 @@ export function createTerrainLayer(gpu: Gpu, config: TerrainConfig): Layer {
         hue: params.paletteHue,
         bass: params.bassEnergy,
         treble: params.trebleEnergy,
-        fogDensity: 0.045 + params.midEnergy * 0.04,
+        fogDensity: 0.034 + params.midEnergy * 0.014,
         opacity: frame.opacity,
         time: frame.timeSec,
       };
