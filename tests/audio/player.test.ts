@@ -102,20 +102,38 @@ describe('player', () => {
     expect(player).toBeDefined();
   });
 
-  it('initial state is muted', async () => {
+  it('starts with sound on when autoplay with sound is allowed', async () => {
     const player = await loadAndInit(true);
+    expect(player.muted).toBe(false);
+    expect(mockGainValue).toBe(1);
+  });
+
+  it('falls back to muted when autoplay is blocked and unmutes on the first gesture', async () => {
+    const player = await loadAndInit(false);
+    expect(player.muted).toBe(true);
+    expect(mockGainValue).toBe(0);
+    const changes: boolean[] = [];
+    player.onMutedChange((m) => changes.push(m));
+    mockPlay.mockResolvedValue(undefined);
+    window.dispatchEvent(new Event('pointerdown'));
+    expect(player.muted).toBe(false);
+    expect(changes).toEqual([false]);
+    expect(mockResume).toHaveBeenCalled();
+  });
+
+  it('a gesture does nothing once the visitor unmuted through the button', async () => {
+    const player = await loadAndInit(false);
+    player.setMuted(false);
+    player.setMuted(true);
+    window.dispatchEvent(new Event('keydown'));
     expect(player.muted).toBe(true);
   });
 
-  it('player starts muted with gain at 0 in dual-deck mode', async () => {
+  it('setMuted(true) sets gain to 0', async () => {
     const player = await loadAndInit(true);
-    // In dual-deck mode, masterGain starts at 0 (muted) while per-deck gains
-    // are set to 1 for the active deck. Since all gain nodes share one mock,
-    // we verify the player reports muted state correctly.
-    expect(player.muted).toBe(true);
-    // setMuted(true) should set gain to 0
     player.setMuted(true);
     expect(mockGainValue).toBe(0);
+    expect(player.muted).toBe(true);
   });
 
   it('state is "playing" when autoplay succeeds', async () => {
@@ -126,6 +144,15 @@ describe('player', () => {
   it('state is "suspended" when autoplay is blocked', async () => {
     const player = await loadAndInit(false);
     expect(player.state).toBe('suspended');
+  });
+
+  it('getPlayback reports the active deck track and position', async () => {
+    const player = await loadAndInit(true);
+    const playback = player.getPlayback();
+    expect(playback).not.toBeNull();
+    expect(playback!.trackPath).toMatch(/^\/audio\/.+\.mp3$/);
+    expect(playback!.currentTime).toBe(0);
+    expect(playback!.duration).toBe(0);
   });
 
   it('setMuted(false) sets gain to 1 and calls ctx.resume()', async () => {
@@ -183,9 +210,10 @@ describe('player', () => {
   });
 
   it('audio graph allows analysis while muted', async () => {
+    // (player is muted explicitly below; sound is on by default now)
     const player = await loadAndInit(true);
 
-    // Player is muted by default
+    player.setMuted(true);
     expect(player.muted).toBe(true);
     // Analyser is still available
     expect(player.getAnalyserNode()).not.toBeNull();
@@ -214,6 +242,7 @@ describe('player', () => {
 
     it('pipeline.poll() works when player is muted', async () => {
       const player = await loadAndInit(true);
+      player.setMuted(true);
       expect(player.muted).toBe(true);
       const pipeline = player.getPipeline();
       expect(() => pipeline!.poll()).not.toThrow();

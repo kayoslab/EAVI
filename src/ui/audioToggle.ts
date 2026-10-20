@@ -21,5 +21,8 @@ export function createMuteButton(player: AudioPlayer): HTMLButtonElement {
     update(btn, next);
   });
 
+  // The player may unmute itself on the first gesture after a blocked autoplay.
+  player.onMutedChange?.((muted) => update(btn, muted));
+
   return btn;
 }

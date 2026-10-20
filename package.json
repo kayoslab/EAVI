@@ -8,17 +8,25 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke:browser": "node scripts/browserSmoke.ts http://localhost:5173/?debug --chrome",
+    "analyze:tracks": "node scripts/analyzeTracks.ts",
+    "poster": "node --import ./scripts/registerWgsl.ts scripts/renderPoster.ts",
+    "typecheck:scripts": "tsc --noEmit -p scripts/tsconfig.json"
   },
   "devDependencies": {
-    "@types/three": "^0.183.1",
+    "@types/pngjs": "6.0.5",
     "jsdom": "^26.1.0",
+    "mpg123-decoder": "1.0.3",
+    "playwright": "1.56.1",
+    "pngjs": "7.0.0",
     "typescript": "~5.9.3",
     "vite": "^8.0.1",
     "vitest": "^3.1.1"
   },
   "dependencies": {
     "@vercel/functions": "^3.4.3",
-    "three": "^0.183.2"
+    "@vgpu/wgsl": "0.6.0",
+    "vgpu": "0.6.0"
   }
 }

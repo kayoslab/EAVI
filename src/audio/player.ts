@@ -7,9 +7,19 @@ export interface AudioPlayer {
   readonly state: AudioPlayerState;
   readonly muted: boolean;
   setMuted(muted: boolean): void;
+  /** Fires when the player changes its own mute state (e.g. auto-unmute on the first gesture). */
+  onMutedChange(cb: (muted: boolean) => void): () => void;
   getAnalyserNode(): AnalyserNode;
   getPipeline(): ReturnType<typeof createPipeline>;
+  /** Track path and playback position of the active deck; null before a track is loaded. */
+  getPlayback(): PlaybackInfo | null;
   destroy(): void;
+}
+
+export interface PlaybackInfo {
+  trackPath: string;
+  currentTime: number;
+  duration: number;
 }
 
 const CROSSFADE_DURATION = 2; // seconds
@@ -19,7 +29,7 @@ function createAudioElement(src: string): HTMLAudioElement {
   el.crossOrigin = 'anonymous';
   el.loop = false;
   el.preload = 'metadata';
-  el.muted = true;
+  el.muted = false;
   return el;
 }
 
@@ -32,7 +42,7 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
   analyser.smoothingTimeConstant = 0.8;
 
   const masterGain = ctx.createGain();
-  masterGain.gain.value = 0; // starts muted
+  masterGain.gain.value = 1; // sound on by default; the blocked-autoplay path mutes it
 
   analyser.connect(masterGain);
   masterGain.connect(ctx.destination);
@@ -44,6 +54,7 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
     el: HTMLAudioElement;
     source: MediaElementAudioSourceNode;
     gain: GainNode;
+    trackPath: string;
   }
 
   function createDeck(src: string): Deck {
@@ -59,7 +70,7 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
     source.connect(gain);
     gain.connect(analyser);
 
-    return { el, source, gain };
+    return { el, source, gain, trackPath: src };
   }
 
   let currentTrack = pickTrack();
@@ -72,8 +83,9 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
 
   let activeDeck: 'A' | 'B' = 'A';
   let playerState: AudioPlayerState = 'loading';
-  let isMuted = true;
+  let isMuted = false;
   let crossfading = false;
+  const mutedListeners = new Set<(muted: boolean) => void>();
   let preloadedNext = false;
   let nextTrackPreloaded: string | null = null;
 
@@ -92,6 +104,7 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
         const next = pickTrack(currentTrack);
         const inactive = getInactiveDeck();
         inactive.el.src = next;
+        inactive.trackPath = next;
         inactive.el.load();
         preloadedNext = true;
         nextTrackPreloaded = next;
@@ -117,6 +130,7 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
     onTrackChange?.(currentTrack);
 
     inDeck.el.src = currentTrack;
+    inDeck.trackPath = currentTrack;
     inDeck.el.load();
     inDeck.el.muted = isMuted;
 
@@ -160,18 +174,79 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
     if (activeDeck === 'B') void startCrossfade();
   });
 
-  // Start first deck
+  function applyMuted(muted: boolean): void {
+    isMuted = muted;
+    masterGain.gain.value = muted ? 0 : 1;
+    deckA.el.muted = muted;
+    deckB.el.muted = muted;
+    for (const cb of mutedListeners) cb(muted);
+  }
+
+  function resumePlayback(): void {
+    void ctx.resume();
+    const deck = getActiveDeck();
+    void deck.el.play()
+      .then(() => {
+        playerState = 'playing';
+      })
+      .catch((err) => {
+        if (deck.el.error) {
+          playerState = 'error';
+          console.error('[EAVI] play failed after unmute', deck.el.error, deck.el.currentSrc, err);
+        } else {
+          playerState = 'suspended';
+          console.warn('[EAVI] play still blocked after unmute', err);
+        }
+      });
+  }
+
+  // Browsers that block unmuted autoplay allow it after the first gesture: unmute then.
+  const GESTURES = ['pointerdown', 'keydown', 'touchstart'] as const;
+  let disarmGesture: (() => void) | null = null;
+  function armGestureUnmute(): void {
+    if (disarmGesture || typeof window === 'undefined') return;
+    const onGesture = () => {
+      disarmGesture?.();
+      applyMuted(false);
+      resumePlayback();
+    };
+    for (const ev of GESTURES) window.addEventListener(ev, onGesture, { passive: true });
+    disarmGesture = () => {
+      for (const ev of GESTURES) window.removeEventListener(ev, onGesture);
+      disarmGesture = null;
+    };
+  }
+
+  function fallBackToMuted(reason: unknown): void {
+    console.warn('[EAVI] autoplay with sound blocked; starting muted until the first gesture', reason);
+    applyMuted(true);
+    playerState = 'suspended';
+    armGestureUnmute();
+  }
+
+  // Start first deck with sound. Muted playback is the fallback, never the default.
   deckA.gain.gain.value = 1;
+  void ctx.resume();
   try {
     await deckA.el.play();
-    playerState = 'playing';
+    if (ctx.state === 'running') {
+      playerState = 'playing';
+    } else {
+      // The element plays but the context is locked, which would be silent: treat as blocked.
+      fallBackToMuted(`AudioContext ${ctx.state}`);
+      void deckA.el.play().catch(() => {});
+    }
   } catch (err) {
     if (deckA.el.error) {
       playerState = 'error';
       console.error('[EAVI] media error', deckA.el.error, deckA.el.currentSrc, err);
     } else {
-      playerState = 'suspended';
-      console.warn('[EAVI] initial play blocked or deferred', err);
+      fallBackToMuted(err);
+      try {
+        await deckA.el.play(); // muted autoplay is allowed almost everywhere
+      } catch (err2) {
+        console.warn('[EAVI] muted autoplay blocked too; waiting for a gesture', err2);
+      }
     }
   }
 
@@ -185,37 +260,21 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
     },
 
     setMuted(muted: boolean): void {
-      isMuted = muted;
-
-      // Mute affects master gain, not individual deck gains
-      masterGain.gain.value = muted ? 0 : 1;
-
-      // Also set HTML element muted for browser-level muting
-      deckA.el.muted = muted;
-      deckB.el.muted = muted;
-
+      // An explicit choice through the button wins over the automatic first-gesture unmute.
+      disarmGesture?.();
+      applyMuted(muted);
       if (!muted) {
-        void ctx.resume();
-
-        const deck = getActiveDeck();
-        void deck.el.play()
-          .then(() => {
-            playerState = 'playing';
-          })
-          .catch((err) => {
-            if (deck.el.error) {
-              playerState = 'error';
-              console.error('[EAVI] play failed after unmute', deck.el.error, deck.el.currentSrc, err);
-            } else {
-              playerState = 'suspended';
-              console.warn('[EAVI] play still blocked after unmute', err);
-            }
-          });
-      } else {
-        if (playerState === 'playing') {
-          playerState = 'suspended';
-        }
+        resumePlayback();
+      } else if (playerState === 'playing') {
+        playerState = 'suspended';
       }
+    },
+
+    onMutedChange(cb) {
+      mutedListeners.add(cb);
+      return () => {
+        mutedListeners.delete(cb);
+      };
     },
 
     getAnalyserNode(): AnalyserNode {
@@ -226,7 +285,16 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
       return pipeline;
     },
 
+    getPlayback(): PlaybackInfo | null {
+      if (playerState === 'error') return null;
+      const deck = getActiveDeck();
+      const currentTime = Number.isFinite(deck.el.currentTime) ? deck.el.currentTime : 0;
+      const duration = Number.isFinite(deck.el.duration) ? deck.el.duration : 0;
+      return { trackPath: deck.trackPath, currentTime, duration };
+    },
+
     destroy(): void {
+      disarmGesture?.();
       deckA.el.pause();
       deckA.el.src = '';
       deckB.el.pause();

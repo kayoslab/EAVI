@@ -15,13 +15,18 @@ The work is artistic and privacy-conscious:
 The mapping should be partially legible:
 visitor context influences the scene in ways a viewer can feel and loosely understand, but raw identifiers must never be shown.
 
+## Status
+
+v2 rewrite on the `v2` branch: phases 1–7 of `docs/REWRITE_PLAN.md` are implemented (some Phase 5 layers remain). Read the plan's status tables before touching rendering, audio-structure or composition code. Visual changes must be smooth and trippy, never flashy or fast: no cuts, snaps, glitches or instant jumps.
+
 ## Tech Stack
 
 - Runtime: browser on Vercel
 - App: Vite
-- Language: TypeScript preferred
-- Rendering: Three.js preferred
+- Language: TypeScript
+- Rendering: **vgpu** (https://vgpu.sh) on WebGPU. Shaders are plain `.wgsl` modules loaded through `@vgpu/wgsl`.
 - Audio: Web Audio API (`AudioContext`, `AnalyserNode`, `GainNode`)
+- Track structure: build-time analysis JSON in `public/audio/analysis/`
 
 ## Core Rules
 
@@ -29,43 +34,75 @@ visitor context influences the scene in ways a viewer can feel and loosely under
 - Do not transmit raw identifiers to third-party services
 - Only use coarse Vercel geo headers when available
 - Do not use browser Geolocation API
-- Autoplay should be attempted muted and must fail gracefully
+- Autoplay is attempted with sound on. If the browser blocks it, playback falls back to muted and unmutes on the first user gesture; it must never fail hard
 - Audio analysis must continue while muted
 - The experience must still render if audio autoplay is blocked
+- If WebGPU is unavailable, show the static on-aesthetic message page. There is no fallback renderer and no legacy code path. Never keep legacy code around.
+
+## Rendering (v2)
+
+- All vgpu calls go through `src/render/`. Pin the exact `vgpu` version; upgrades are deliberate and go through the Phase 1 spike checklist.
+- No GLSL. No Three.js. Shaders live in `src/wgsl/` (shared modules) and `src/post/wgsl/` (post stack).
+- Every `.wgsl` file must pass `npx vgpu check`.
+- Pipelines of the active recipe are compiled ahead during the intro fade; lazy first-frame compilation is not acceptable.
+
+## Visual Target (v2)
+
+- Aesthetic: 90s demoscene / hacker-culture cyberdelia. Wireframes, fractals, kaleidoscopes, tunnels, strange attractors, 4D polytopes, CRT/phosphor post-processing. Emissive geometry on black.
+- Forbidden: solid shaded terrain, skies, lit realistic surfaces, flat 2D screen-saver visuals, organic blob shapes as the subject.
+- The scene MUST be 3D: perspective camera, parallax, depth. Points, lines, raymarched fractals and compute particles are all valid primitives.
+- Every recipe declares its tier requirements and limits; recipes are filtered by device capability before seeded selection.
+
+## Audio Reactivity (v2)
+
+- Continuous: bass → macro deformation, treble → fine detail, mid → atmosphere. Must run while muted.
+- Structural: track analysis (offline JSON + live onset fallback) drives events: beat, bar, build, drop, breakdown, section. Events trigger transitions, cuts, and recipe changes. Timer-based mode switching is not acceptable.
+- Audio never binds to global brightness.
+
+## Composition (v2)
+
+- A session renders seeded **recipes** composed of environment + subject + particle layers + post preset + camera rig. The seed decides structure, not only colour.
+- The post stack sits over every recipe and is tweakable per preset via the `?debug` panel.
+
+## Photosensitivity (decided: no flashes)
+
+- No flashes, strobes, or white frames anywhere. Transitions are hard cuts, feedback smears, kaleidoscope wipes, folds, glitches and camera cuts — all luminance-neutral.
+- The composite pass luminance limiter is always on and clamps frame-to-frame brightness change.
+- `prefers-reduced-motion` disables feedback, kaleidoscope rotation, snap cuts and fast camera motion.
 
 ## Product Shape
 
 - Full-screen dark visual scene
-- Minimal UI only: mute toggle + info button
+- Minimal UI only: mute toggle + info button + brief generated track name on track change
 - Random track selection from `/public/audio`
-- Visuals react to bass and treble differently
 - Pointer input acts as entropy, not direct control
 - Scene evolves over time and should feel fleeting
 
-## Recommended Module Split
+## Module Layout (v2)
 
-- `src/input/signals.ts` — navigator, screen, preferences
-- `src/input/pointer.ts` — pointer/touch entropy
-- `src/input/geo.ts` — coarse Vercel geo hint plumbing
-- `src/seed/sessionSeed.ts` — hash + deterministic seeded params
-- `src/audio/player.ts` — track loading and playback
-- `src/audio/analyser.ts` — analyser accessors
-- `src/visual/mappings.ts` — partially legible mapping rules
-- `src/visual/scene.ts` — scene bootstrap
-- `src/visual/renderLoop.ts` — frame updates
-- `src/ui/infoOverlay.ts` — artwork/privacy overlay
-- `src/ui/audioToggle.ts` — mute control
+- `src/render/` — vgpu bootstrap, surface, targets, health gate, frame loop
+- `src/input/` — navigator, screen, preferences, pointer entropy, coarse geo
+- `src/seed/` — hash + deterministic seeded params
+- `src/audio/` — player, analyser; `audio/structure/` timeline + event bus
+- `src/director/` — recipes, rules, transitions, camera rigs
+- `src/layers/` — environment / subject / particles / texture layers
+- `src/post/` — effect chain, presets, modulators, `post/wgsl/`
+- `src/wgsl/lib/` — shared WGSL modules (palette, fold, sdf, raymarch, rotate4d, points, lines)
+- `src/visual/` — quality tiers, palette families, evolution, prng, mappings (kept from v1)
+- `src/ui/` — mute, info overlay, track display, debug overlay
+- `scripts/` — `analyzeTracks.ts` (build-time), `renderPoster.ts` (headless OG image)
 
 ## Mapping Guidance
 
 Prefer indirect but perceptible mappings:
-- coarse geo -> palette family
-- timezone/time -> cadence or modulation speed
-- DPR/capability -> density or structure range
+- coarse geo -> palette family and post preset bias
+- timezone/time -> cadence, grain, feedback baseline
+- DPR/capability -> tier, point budgets, raymarch steps
 - reduced-motion -> calmer motion profile
-- pointer entropy -> field disturbance
+- pointer entropy -> post distortion wobble, raymarch jitter, IFS perturbation
 - bass -> macro motion
 - treble -> fine detail / shimmer
+- track structure -> when things happen
 
 Do not display:
 - raw IP
@@ -75,20 +112,10 @@ Do not display:
 
 ## Performance Guidance
 
-- Keep first mode lightweight
-- Prefer buffer updates over per-frame object churn
-- Avoid expensive post-processing until core loop is stable
+- Prefer buffer updates over per-frame object churn; record unchanging draws as render bundles
+- Quality scaling MUST NOT shrink the canvas element's CSS size; lower tiers reduce DPR, point counts, raymarch steps and post stages
+- Auto-downgrade drops post stages before dropping DPR
 - Desktop is primary target, but mobile should degrade gracefully
-
-## Definition of Done
-
-A story is only complete when:
-- build passes
-- no console errors on normal load
-- no forbidden storage APIs are used
-- scene works with and without successful autoplay
-- mute toggle and info overlay still work
-
 
 ## Geo Handling (Important)
 
@@ -112,55 +139,23 @@ Client:
 - fetch('/api/geo')
 - merge into session inputs
 
-## Non-Negotiable Visual Target
-- Visuals MUST be 3D (perspective camera, visible depth/parallax).
-- The primary visual primitive MUST be a 3D point cloud (Three.js Points + BufferGeometry).
-- Canvas2D is NOT an acceptable final rendering backend (only optional fallback if WebGL is unavailable).
-
-## Mobile Full-Screen Requirement
-- Quality scaling MUST NOT shrink the canvas element’s CSS size.
-- Lower tiers reduce GPU cost via pixel ratio / point count / shader complexity, while remaining full-screen.
-
-## Audio Reactivity Requirement
-- Bass MUST drive macro 3D deformation.
-- Treble MUST drive fine detail behaviour (sparkle/micro-displacement/point size).
-- Audio reactivity must still run when muted.
-
-## Non-Negotiable Spatial Requirement
-
-The final visual MUST be three-dimensional.
-
-Flat 2D canvas-based implementations do NOT satisfy the artistic goal.
-The scene must include:
-- Perspective camera
-- Volumetric point cloud geometry
-- Shader-based 3D deformation
-- Visible depth/parallax
-
-Implementations that render only screen-space 2D particles or sine waves are invalid.
-
-## Shader Integrity Rules
-
-- Any ShaderMaterial ticket automatically fails if the browser console shows:
-  - shader compile errors
-  - WebGLProgram VALIDATE_STATUS errors
-  - invalid program errors
-
-- Every GLSL symbol used in expressions must be one of:
-  - a declared attribute
-  - a declared uniform
-  - a declared varying
-  - a declared local variable
-
-- Every custom GLSL attribute must be attached to BufferGeometry before first render.
-- Optional attributes must have a safe fallback path that still renders correctly.
-- A visually broken but "running" scene does not count as complete.
-
-## Render Completion Gate
+## Render Completion Gate (v2)
 
 Rendering work is only complete when:
-- shaders compile cleanly
-- no WebGL validation errors appear
-- geometry attributes are present and finite
-- the scene renders a stable first frame
-- the scene still renders in a safe baseline mode with optional modulation disabled
+- `npx vgpu check` passes for every `.wgsl` file
+- the health gate reports zero validation errors when compiling ahead every pipeline of the active recipe
+- no `uncapturederror` events during the first 5 seconds
+- a `vgpu/node` headless render of the recipe produces a non-black frame
+- the unsupported-WebGPU path shows the static message and starts nothing else
+- no stage binds audio to global brightness and the luminance limiter is in the chain
+
+## Definition of Done
+
+A story is only complete when:
+- build passes
+- `npx vgpu check` passes
+- no console errors on normal load
+- no forbidden storage APIs are used
+- scene works with and without successful autoplay
+- mute toggle and info overlay still work
+- no legacy code or dependencies remain from the replaced path

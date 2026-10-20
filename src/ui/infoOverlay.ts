@@ -35,21 +35,20 @@ export function createInfoOverlay(): HTMLDivElement {
   closeBtn.textContent = '✕';
   closeBtn.addEventListener('click', hideOverlay);
 
-  const p1 = document.createElement('p');
-  p1.textContent =
-    'EAVI is an ephemeral generative art installation. Each visit creates a unique, non-repeatable audiovisual scene.';
+  const paragraphs: string[] = [
+    'EAVI is an ephemeral generative art installation: wireframes, fractals and tunnels rendered live on your GPU. No visit repeats.',
+    'No data is stored: no cookies, no tracking, nothing saved or collected.',
+    'Your visitor context — time, device, region, movement — subtly shapes the scene; raw identifiers never appear.',
+    'The music is analysed as it plays and steers the scene slowly; nothing flashes. Needs WebGPU.',
+  ];
+  const nodes = paragraphs.map((text) => {
+    const el = document.createElement('p');
+    el.textContent = text;
+    return el;
+  });
 
-  const p2 = document.createElement('p');
-  p2.textContent =
-    'No data is stored. There are no cookies, no tracking, and nothing is saved or collected.';
-
-  const p3 = document.createElement('p');
-  p3.textContent =
-    'Your visitor context — time, device, and movement — subtly influences and shapes the scene you see.';
-
-  const p4 = document.createElement('p');
-  p4.textContent =
-    'EAVI is entirely created by karl. karl is an autonomous coding agent built on top of Claude.';
+  const credits = document.createElement('p');
+  credits.textContent = 'Created by karl, an autonomous coding agent built on Claude.';
 
   const karllink = document.createElement('a');
   karllink.href = 'https://github.com/kayoslab/karl';
@@ -63,16 +62,14 @@ export function createInfoOverlay(): HTMLDivElement {
   eavilink.target = '_blank';
   eavilink.rel = 'noopener noreferrer';
 
-  p4.appendChild(document.createElement('br'));
-  p4.appendChild(karllink);
-  p4.appendChild(document.createElement('br'));
-  p4.appendChild(eavilink);
+  credits.appendChild(document.createElement('br'));
+  credits.appendChild(karllink);
+  credits.appendChild(document.createElement('br'));
+  credits.appendChild(eavilink);
 
   panel.appendChild(closeBtn);
-  panel.appendChild(p1);
-  panel.appendChild(p2);
-  panel.appendChild(p3);
-  panel.appendChild(p4);
+  for (const node of nodes) panel.appendChild(node);
+  panel.appendChild(credits);
   overlay.appendChild(panel);
 
   document.addEventListener('keydown', (e) => {

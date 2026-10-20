@@ -14,8 +14,8 @@ if (typeof globalThis.AudioContext === 'undefined') {
 }
 
 // jsdom does not implement canvas getContext — provide a minimal 2d context mock
-const originalCreateElement = document.createElement.bind(document);
-document.createElement = ((tagName: string, options?: ElementCreationOptions) => {
+const originalCreateElement = typeof document === 'undefined' ? null : document.createElement.bind(document);
+if (originalCreateElement) document.createElement = ((tagName: string, options?: ElementCreationOptions) => {
   const el = originalCreateElement(tagName, options);
   if (tagName.toLowerCase() === 'canvas') {
     (el as HTMLCanvasElement).getContext = (() => {
