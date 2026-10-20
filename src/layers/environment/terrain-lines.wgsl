@@ -42,6 +42,23 @@ struct VertexOut {
   @location(1) color: vec3f,
   @location(2) depth: f32,
   @location(3) edge: f32,
+  @location(4) density: f32,
+}
+
+fn screenPx(world: vec3f) -> vec2f {
+  let c = camera.viewProjection * vec4f(world, 1.0);
+  return c.xy / max(c.w, 0.0001) * terrain.resolution * 0.5;
+}
+
+// Overlap compensation: neighbouring lines closer than the stroke width, or segments
+// foreshortened to less than it, would stack additively into white. Scale alpha so the
+// summed brightness stays level however the grid converges on screen.
+fn densityWeight(a: vec3f, b: vec3f, neighbour: vec3f) -> f32 {
+  let pa = screenPx(a);
+  let along = length(screenPx(b) - pa);
+  let across = length(screenPx(neighbour) - pa);
+  let w = terrain.thickness * 1.6;
+  return clamp(along / w, 0.05, 1.0) * clamp(across / w, 0.05, 1.0);
 }
 
 fn vertexAt(i: u32, j: u32) -> vec3f {
@@ -55,18 +72,22 @@ fn vertexAt(i: u32, j: u32) -> vec3f {
   let xSegments = terrain.rows * (terrain.cols - 1u);
   var a: vec3f;
   var b: vec3f;
+  var neighbour: vec3f;
   if (instance < xSegments) {
     let j = instance / (terrain.cols - 1u);
     let i = instance % (terrain.cols - 1u);
     a = vertexAt(i, j);
     b = vertexAt(i + 1u, j);
+    neighbour = vertexAt(i, select(j + 1u, j - 1u, j + 1u >= terrain.rows));
   } else {
     let k = instance - xSegments;
     let i = k / (terrain.rows - 1u);
     let j = k % (terrain.rows - 1u);
     a = vertexAt(i, j);
     b = vertexAt(i, j + 1u);
+    neighbour = vertexAt(select(i + 1u, i - 1u, i + 1u >= terrain.cols), j);
   }
+  let density = densityWeight(a, b, neighbour);
   let ca = camera.viewProjection * vec4f(a, 1.0);
   let cb = camera.viewProjection * vec4f(b, 1.0);
   let corner = vertex % 6u;
@@ -78,6 +99,7 @@ fn vertexAt(i: u32, j: u32) -> vec3f {
   let viewPos = camera.view * vec4f(world, 1.0);
   out.depth = max(-viewPos.z, 0.0);
   out.edge = terrainEdgeFade(world.x, world.z, terrain.extent);
+  out.density = density;
   let t = (world.y - terrain.yOffset) / max(terrain.heightScale, 0.001) * 0.5 + 0.5;
   out.color = terrainColor(t, terrain.hue, terrain.hueMix) * terrain.brightness;
   return out;
@@ -86,7 +108,7 @@ fn vertexAt(i: u32, j: u32) -> vec3f {
 @fragment fn fs_main(in: VertexOut) -> @location(0) vec4f {
   let edge = 1.0 - smoothstep(0.3, 1.0, abs(in.across));
   let fog = exp(-terrain.fogDensity * in.depth);
-  let a = edge * fog * in.edge * terrain.opacity;
+  let a = edge * fog * in.edge * in.density * terrain.opacity;
   if (a <= 0.002) {
     discard;
   }

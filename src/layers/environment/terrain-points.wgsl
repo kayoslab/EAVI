@@ -55,6 +55,19 @@ struct VertexOut {
   let y = terrainHeight(x, z, terrain.scroll, terrain.noiseScale, terrain.heightScale, terrain.bass);
   let world = vec3f(x, y + terrain.yOffset, z);
   let clip = camera.viewProjection * vec4f(world, 1.0);
+  // Dots stack the same way lines do: fade them where grid vertices crowd on screen.
+  let ni = select(i + 1u, i - 1u, i + 1u >= terrain.cols);
+  let nj = select(j + 1u, j - 1u, j + 1u >= terrain.rows);
+  let nx = terrainCoord(ni, terrain.cols, terrain.extent);
+  let nz = terrainCoord(nj, terrain.rows, terrain.extent);
+  let neighbourX = vec3f(nx, terrainHeight(nx, z, terrain.scroll, terrain.noiseScale, terrain.heightScale, terrain.bass) + terrain.yOffset, z);
+  let neighbourZ = vec3f(x, terrainHeight(x, nz, terrain.scroll, terrain.noiseScale, terrain.heightScale, terrain.bass) + terrain.yOffset, nz);
+  let cx = camera.viewProjection * vec4f(neighbourX, 1.0);
+  let cz = camera.viewProjection * vec4f(neighbourZ, 1.0);
+  let here = clip.xy / max(clip.w, 0.0001) * terrain.resolution * 0.5;
+  let sepX = length(cx.xy / max(cx.w, 0.0001) * terrain.resolution * 0.5 - here);
+  let sepZ = length(cz.xy / max(cz.w, 0.0001) * terrain.resolution * 0.5 - here);
+  let crowd = clamp(min(sepX, sepZ) / (terrain.pointSize * 1.5), 0.05, 1.0);
   var out: VertexOut;
   out.local = corner;
   if (clip.w <= 0.0) {
@@ -70,7 +83,7 @@ struct VertexOut {
   // Dots thin out before the lines do, so the far field reads as a faint mesh fading to black.
   let fog = exp(-terrain.fogDensity * 1.6 * max(-viewPos.z, 0.0));
   out.color = terrainColor(t, terrain.hue, terrain.hueMix) * terrain.brightness * (0.6 + t * 0.8);
-  out.alpha = fog * terrainEdgeFade(x, z, terrain.extent) * terrain.opacity;
+  out.alpha = fog * crowd * terrainEdgeFade(x, z, terrain.extent) * terrain.opacity;
   return out;
 }
 
