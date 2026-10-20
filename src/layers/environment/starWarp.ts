@@ -16,7 +16,8 @@ export interface StarWarpConfig {
 export function createStarWarpLayer(gpu: Gpu, config: StarWarpConfig): Layer {
   const count = Math.max(WORKGROUP, Math.floor(config.count));
   const rng = createPRNG(config.seed + ':starwarp');
-  const radius = 6;
+  // Wide enough that the corners of the frame are full even for stars right beside the camera.
+  const radius = 12;
   const length = 40;
   const init = new Float32Array(count * 4);
   for (let i = 0; i < count; i++) {

@@ -102,7 +102,7 @@ export const DEFAULT_POST: PostParams = {
   bleed: 0,
   scanlineIntensity: 0,
   scanlineCount: 480,
-  vignette: 0.35,
+  vignette: 0.12,
   grain: 0,
   dither: 0,
   rampStrength: 0,

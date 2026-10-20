@@ -62,11 +62,18 @@ describe.skipIf(!available)('every recipe renders headless with zero GPU errors'
       expect(await health.settle()).toBe(true);
       const px = await output.color.read({ mipLevel: 0, region: 'all' });
       let lit = 0;
-      for (let i = 0; i < px.length; i += 4) if (px[i] + px[i + 1] + px[i + 2] > 30) lit++;
+      let sum = 0;
+      for (let i = 0; i < px.length; i += 4) {
+        const v = px[i] + px[i + 1] + px[i + 2];
+        sum += v;
+        if (v > 30) lit++;
+      }
       const fraction = lit / (W * H);
-      console.info(`[recipes.headless] ${recipe.id}: lit ${(fraction * 100).toFixed(1)}%`);
+      const mean = sum / (W * H * 3 * 255);
+      console.info(`[recipes.headless] ${recipe.id}: lit ${(fraction * 100).toFixed(1)}%, mean ${mean.toFixed(3)}`);
       expect(fraction).toBeGreaterThan(0.01);
-      expect(fraction).toBeLessThan(0.98);
+      // Blow-out guard on mean brightness: a frame may be full, but it may not be white.
+      expect(mean).toBeLessThan(0.6);
       const outDir = resolve(__dirname, '../../.artifacts');
       mkdirSync(outDir, { recursive: true });
       const png = new PNG({ width: W, height: H });
