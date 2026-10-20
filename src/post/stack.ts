@@ -119,7 +119,7 @@ export function createPostStack(gpu: Gpu, targets: RenderTargets, options?: Post
     label: 'eavi-post-warp',
     set: {
       src: targets.composite, samp,
-      params: { resolution: [1, 1], segments: 0, angle: 0, rgbShift: 0, barrel: 0, pixelSize: 0, pad0: 0 },
+      params: { resolution: [1, 1], segments: 0, angle: 0, rgbShift: 0, barrel: 0, pixelSize: 0, kaleidoMix: 0 },
     },
   });
 
@@ -171,7 +171,7 @@ export function createPostStack(gpu: Gpu, targets: RenderTargets, options?: Post
       params: { bloomNear: bloomEnabled ? e.bloomNear : 0, bloomFar: bloomEnabled ? e.bloomFar : 0, exposure: e.exposure, fade },
     });
     if (warpEnabled) {
-      warp.set({ params: { segments: e.kaleidoSegments, angle: e.kaleidoAngle, rgbShift: e.rgbShift, barrel: e.barrel, pixelSize: e.pixelSize } });
+      warp.set({ params: { segments: e.kaleidoSegments, angle: e.kaleidoAngle, rgbShift: e.rgbShift, barrel: e.barrel, pixelSize: e.pixelSize, kaleidoMix: e.kaleidoMix } });
     }
     measure.set({ params: { slewUp: e.limiterSlewUp, slewDown: e.limiterSlewDown, agcTarget: e.agcTarget, agcRate: e.agcRate } });
     finish.set({
@@ -243,8 +243,8 @@ export function createPostStack(gpu: Gpu, targets: RenderTargets, options?: Post
         const u = Math.max(0, Math.min(1, (input.timeSec - blend.start) / Math.max(0.01, blend.seconds)));
         const k = u * u * (3 - 2 * u);
         for (const key of NUMERIC_PARAM_KEYS) base[key] = blend.from[key] + (params[key] - blend.from[key]) * k;
-        // Angles and integer-ish counts come straight from the blend; the kaleidoscope folds in step by step.
-        base.kaleidoSegments = Math.round(base.kaleidoSegments);
+        // The segment count is structural: take the target's at once and let kaleidoMix glide the fold in.
+        base.kaleidoSegments = params.kaleidoSegments > 0 ? params.kaleidoSegments : blend.from.kaleidoSegments;
         const mixedRamp = blend.fromRamp.map((stop, i) => stop.map((c, j) => c + (ramp[i][j] - c) * k)) as unknown as Ramp;
         finish.set({ params: rampVec(mixedRamp) });
         if (k < 0.5) modulators = blend.fromModulators;

@@ -51,7 +51,7 @@ export interface DirectorOptions {
   /** Post stack hook so a recipe can bring its own preset. */
   readonly post?: { setPreset(preset: PostPreset, blendSec?: number): void };
   /** Injectable for tests. */
-  readonly layerFactory?: (gpu: Gpu, kind: LayerKind, ctx: RecipeContext) => Layer;
+  readonly layerFactory?: (gpu: Gpu, kind: LayerKind, ctx: RecipeContext) => Layer | Layer[];
   readonly onError?: (err: unknown) => void;
 }
 
@@ -78,7 +78,7 @@ interface Slot {
 interface Standby {
   slot: ActiveLayer['slot'];
   kind: LayerKind;
-  layer: Layer;
+  layers: Layer[];
   ready: boolean;
 }
 
@@ -92,7 +92,7 @@ interface Transition {
 
 const TAU = Math.PI * 2;
 /** Seconds a recipe change takes to cross-dissolve layers and blend the post preset. */
-const RECIPE_FADE_SEC = 10;
+const RECIPE_FADE_SEC = 14;
 
 /**
  * The Director owns the active recipe, reacts to structural audio events, and emits a
@@ -129,15 +129,17 @@ export function createDirector(options: DirectorOptions): Director {
     seed: `${options.seed}:${seedSuffix}`, tier: options.tier, dpr: options.dpr,
   });
 
-  function makeSlot(kind: LayerKind, slot: ActiveLayer['slot'], seedSuffix: string, opacity: number): Slot {
-    return { kind, slot, layer: factory(gpu, kind, ctx(seedSuffix)), opacity, target: 1, rate: 1, retireWhenDark: false };
+  function makeSlots(kind: LayerKind, slot: ActiveLayer['slot'], seedSuffix: string, opacity: number): Slot[] {
+    const made = factory(gpu, kind, ctx(seedSuffix));
+    const layers = Array.isArray(made) ? made : [made];
+    return layers.map((layer) => ({ kind, slot, layer, opacity, target: 1, rate: 1, retireWhenDark: false }));
   }
 
   function recipeSlots(r: Recipe, seedSuffix: string, opacity: number): Slot[] {
     const out: Slot[] = [];
-    if (r.environment) out.push(makeSlot(r.environment, 'environment', `${seedSuffix}:env`, opacity));
-    if (r.subject) out.push(makeSlot(r.subject, 'subject', `${seedSuffix}:subj`, opacity));
-    if (r.particles) out.push(makeSlot(r.particles, 'particles', `${seedSuffix}:part`, opacity));
+    if (r.environment) out.push(...makeSlots(r.environment, 'environment', `${seedSuffix}:env`, opacity));
+    if (r.subject) out.push(...makeSlots(r.subject, 'subject', `${seedSuffix}:subj`, opacity));
+    if (r.particles) out.push(...makeSlots(r.particles, 'particles', `${seedSuffix}:part`, opacity));
     return out;
   }
 
@@ -157,25 +159,26 @@ export function createDirector(options: DirectorOptions): Director {
     if (standby || !recipe.subject) return;
     variant++;
     const kind = recipe.subject;
-    const layer = factory(gpu, kind, ctx(`v${variant}:subj`));
-    const entry: Standby = { slot: 'subject', kind, layer, ready: false };
+    const made = factory(gpu, kind, ctx(`v${variant}:subj`));
+    const layers = Array.isArray(made) ? made : [made];
+    const entry: Standby = { slot: 'subject', kind, layers, ready: false };
     standby = entry;
-    layer.compile(scene).then(() => {
+    Promise.all(layers.map((l) => l.compile(scene))).then(() => {
       entry.ready = true;
     }).catch((err) => {
       options.onError?.(err);
-      layer.dispose();
+      for (const l of layers) l.dispose();
       if (standby === entry) standby = null;
     });
   }
 
   function swapSubject(crossfadeSec: number): void {
     if (!standby || !standby.ready) return;
-    const fade = Math.max(1.5, crossfadeSec);
-    const incoming: Slot = {
-      kind: standby.kind, slot: 'subject', layer: standby.layer,
+    const fade = Math.max(5, crossfadeSec);
+    const incoming: Slot[] = standby.layers.map((layer) => ({
+      kind: standby!.kind, slot: 'subject', layer,
       opacity: 0, target: 1, rate: 1 / fade, retireWhenDark: false,
-    };
+    }));
     standby = null;
     for (const s of slots) {
       if (s.slot === 'subject') {
@@ -186,15 +189,15 @@ export function createDirector(options: DirectorOptions): Director {
     }
     // Keep draw order: environment, subject(s), particles.
     const idx = slots.findIndex((s) => s.slot === 'particles');
-    if (idx < 0) slots.push(incoming);
-    else slots.splice(idx, 0, incoming);
+    if (idx < 0) slots.push(...incoming);
+    else slots.splice(idx, 0, ...incoming);
     prepareStandby();
   }
 
   function startTransition(kind: TransitionKind, swap: () => void): void {
     if (transition) return; // one slow change at a time
-    const durations: Record<TransitionKind, number> = { melt: 4.5, fold: 5, drift: 4 };
-    if (kind === 'drift') camera.impulseDistance(0.86, 6);
+    const durations: Record<TransitionKind, number> = { melt: 8, fold: 9, drift: 8 };
+    if (kind === 'drift') camera.impulseDistance(0.9, 10);
     transition = { kind, start: now, duration: durations[kind], swapped: false, swap };
   }
 
@@ -218,7 +221,7 @@ export function createDirector(options: DirectorOptions): Director {
       // and the post preset glides over the same window. Nothing is swapped in one frame.
       startTransition('drift', () => {
         if (standby) {
-          standby.layer.dispose();
+          for (const l of standby.layers) l.dispose();
           standby = null;
         }
         for (const s of slots) {
@@ -270,7 +273,7 @@ export function createDirector(options: DirectorOptions): Director {
     kaleidoTarget += TAU / 3;
     // A drop is the biggest change, so it gets the slowest, deepest melt.
     const kind = pickTransition(['melt', 'fold', 'melt']);
-    startTransition(kind, () => swapSubject(3));
+    startTransition(kind, () => swapSubject(6));
   }));
   unsubscribe.push(bus.on('breakdown', () => {
     breakdown = true;
@@ -281,7 +284,7 @@ export function createDirector(options: DirectorOptions): Director {
     if (e.index === 0) return;
     breakdown = false;
     const kind = pickTransition(['drift', 'fold', 'melt']);
-    startTransition(kind, () => swapSubject(4));
+    startTransition(kind, () => swapSubject(8));
   }));
   let tracksSeen = 0;
   unsubscribe.push(bus.on('trackStart', (e) => {
@@ -370,11 +373,11 @@ export function createDirector(options: DirectorOptions): Director {
           switch (transition.kind) {
             case 'melt':
               // Long trails and a gentle zoom: the old subject dissolves into the new one.
-              postTransient = { feedbackDamp: 0.9 + 0.07 * smooth, feedbackZoom: 0.012 * smooth, feedbackRotate: 0.003 * smooth };
+              postTransient = { feedbackDamp: 0.9 + 0.05 * smooth, feedbackZoom: 0.008 * smooth, feedbackRotate: 0.002 * smooth };
               break;
             case 'fold':
-              // Kaleidoscope folds in to 8 segments and opens back out.
-              postTransient = { kaleidoSegments: Math.round(smooth * 8) };
+              // The kaleidoscope fold glides in and back out as a continuous mix.
+              postTransient = { kaleidoMix: smooth };
               break;
             case 'drift':
               postTransient = { feedbackDamp: 0.88 + 0.05 * smooth };
@@ -401,7 +404,7 @@ export function createDirector(options: DirectorOptions): Director {
       for (const u of unsubscribe) u();
       for (const s of slots) s.layer.dispose();
       slots = [];
-      standby?.layer.dispose();
+      if (standby) for (const l of standby.layers) l.dispose();
       standby = null;
       if (pendingRecipe) for (const s of pendingRecipe.layers) s.layer.dispose();
       pendingRecipe = null;

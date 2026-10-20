@@ -76,7 +76,7 @@ export function createWirePolyhedraLayer(gpu: Gpu, config: WirePolyhedraConfig):
       wire: {
         rotation: [0, 0, 0], scale: baseScale, resolution: [1, 1], thickness,
         bass: 0, treble: 0, beat: 0, hue: 200, saturation: 0.7, brightness: 0.8,
-        fogDensity: 0.1, opacity: 0, ripple, time: 0, pad0: 0, pad1: 0,
+        fogDensity: 0.1, opacity: 0, ripple, time: 0, reveal: 100, pad1: 0,
       },
     },
   });

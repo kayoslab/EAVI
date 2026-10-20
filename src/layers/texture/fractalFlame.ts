@@ -97,7 +97,7 @@ export function createFractalFlameLayer(gpu: Gpu, config: FractalFlameConfig): F
     label: 'eavi-flame-iterate',
     set: {
       points, hist,
-      params: { width, height, count, steps, time: 0, bass: 0, treble: 0, zoom: 0.55, ...fnUniforms() },
+      params: { width, height, count, steps, time: 0, bass: 0, treble: 0, zoom: 0.45, ...fnUniforms() },
     },
   });
   const expectedPerTexel = (count * steps) / texels;
@@ -142,7 +142,7 @@ export function createFractalFlameLayer(gpu: Gpu, config: FractalFlameConfig): F
     },
     update(frame: LayerFrame) {
       const { params, camera } = frame;
-      iterate.set({ params: { time: frame.timeSec, bass: params.bassEnergy, treble: params.trebleEnergy, zoom: 0.55 * params.radialScale } });
+      iterate.set({ params: { time: frame.timeSec, bass: params.bassEnergy, treble: params.trebleEnergy, zoom: 0.45 * params.radialScale } });
       resolve.set({ params: { hue: params.paletteHue, brightness: 0.5 + params.bassEnergy * 0.2 } });
       sheet.set({
         camera: {

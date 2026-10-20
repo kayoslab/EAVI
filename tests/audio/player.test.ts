@@ -102,31 +102,24 @@ describe('player', () => {
     expect(player).toBeDefined();
   });
 
-  it('starts with sound on when autoplay with sound is allowed', async () => {
-    const player = await loadAndInit(true);
-    expect(player.muted).toBe(false);
-    expect(mockGainValue).toBe(1);
+  it('starts muted whether or not autoplay is allowed (the mute button is the only control)', async () => {
+    const allowed = await loadAndInit(true);
+    expect(allowed.muted).toBe(true);
+    // All gain nodes share one mock, so the master gain cannot be asserted at init; muting is.
+    allowed.setMuted(true);
+    expect(mockGainValue).toBe(0);
+    const blocked = await loadAndInit(false);
+    expect(blocked.muted).toBe(true);
   });
 
-  it('falls back to muted when autoplay is blocked and unmutes on the first gesture', async () => {
+  it('never unmutes on a page gesture by itself', async () => {
     const player = await loadAndInit(false);
-    expect(player.muted).toBe(true);
-    expect(mockGainValue).toBe(0);
     const changes: boolean[] = [];
     player.onMutedChange((m) => changes.push(m));
-    mockPlay.mockResolvedValue(undefined);
     window.dispatchEvent(new Event('pointerdown'));
-    expect(player.muted).toBe(false);
-    expect(changes).toEqual([false]);
-    expect(mockResume).toHaveBeenCalled();
-  });
-
-  it('a gesture does nothing once the visitor unmuted through the button', async () => {
-    const player = await loadAndInit(false);
-    player.setMuted(false);
-    player.setMuted(true);
     window.dispatchEvent(new Event('keydown'));
     expect(player.muted).toBe(true);
+    expect(changes).toEqual([]);
   });
 
   it('setMuted(true) sets gain to 0', async () => {

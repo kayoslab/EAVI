@@ -6,9 +6,20 @@ import drawShader from './attractor-draw.wgsl';
 
 const WORKGROUP = 64;
 
+export type AttractorFamily = 'lorenz' | 'thomas' | 'aizawa' | 'halvorsen';
+const FAMILY_ID: Record<AttractorFamily, number> = { lorenz: 0, thomas: 1, aizawa: 2, halvorsen: 3 };
+// Attractor-space extent → world scale, centre, respawn radius, and integration speed per family.
+const FAMILY: Record<AttractorFamily, { scale: number; center: [number, number, number]; respawn: number; dt: number }> = {
+  lorenz: { scale: 0.085, center: [0, 0, 25], respawn: 6, dt: 1 },
+  thomas: { scale: 0.5, center: [0, 0, 0], respawn: 2.5, dt: 0.8 },
+  aizawa: { scale: 1.3, center: [0, 0, 0.6], respawn: 1.0, dt: 0.9 },
+  halvorsen: { scale: 0.28, center: [0, 0, 0], respawn: 3, dt: 0.6 },
+};
+
 export interface AttractorConfig {
   readonly count: number;
   readonly seed: string;
+  readonly family?: AttractorFamily;
   /** Base point size in device pixels. */
   readonly pointSize?: number;
 }
@@ -29,10 +40,22 @@ export function createAttractorLayer(gpu: Gpu, config: AttractorConfig): Layer {
     initial[i * 4 + 2] = 5 + rng() * 40;
     initial[i * 4 + 3] = 0.2 + rng() * 2.8;
   }
+  // Non-Lorenz families live near the origin; seeding them there avoids a long settle.
+  const seedRng = createPRNG(config.seed + ':attractor-seed');
+  const famPeek = config.family ?? (['lorenz', 'thomas', 'aizawa', 'halvorsen'] as AttractorFamily[])[Math.floor(createPRNG(config.seed + ':attractor-fam')() * 4) % 4];
+  if (famPeek !== 'lorenz') {
+    for (let i = 0; i < count; i++) {
+      initial[i * 4] = (seedRng() * 2 - 1) * 2;
+      initial[i * 4 + 1] = (seedRng() * 2 - 1) * 2;
+      initial[i * 4 + 2] = (seedRng() * 2 - 1) * 2;
+    }
+  }
   const particles: StorageBuffer = storage(gpu, initial.byteLength, 'read-write');
   particles.write(initial);
 
   const seedU32 = Math.floor(rng() * 0xffffffff) >>> 0;
+  const family = famPeek;
+  const fam = FAMILY[family];
 
   const sim: Compute = compute(gpu, simShader, {
     label: 'eavi-attractor-sim',
@@ -40,8 +63,8 @@ export function createAttractorLayer(gpu: Gpu, config: AttractorConfig): Layer {
       particles,
       params: {
         dt: 0.004, time: 0, bass: 0, treble: 0,
-        sigma: 10, rho: 28, beta: 8 / 3, respawnRadius: 6,
-        count, seed: seedU32, pad0: 0, pad1: 0,
+        sigma: 10, rho: 28, beta: 8 / 3, respawnRadius: fam.respawn,
+        count, seed: seedU32, family: FAMILY_ID[family], pad1: 0,
       },
     },
   });
@@ -60,7 +83,7 @@ export function createAttractorLayer(gpu: Gpu, config: AttractorConfig): Layer {
         position: [0, 0, 0], time: 0,
       },
       view: {
-        center: [0, 0, 25], worldScale: 0.085, resolution: [1, 1],
+        center: fam.center, worldScale: fam.scale, resolution: [1, 1],
         pointSize: config.pointSize ?? 1.6, hue: 200, saturation: 0.7, brightness: 0.9, treble: 0, opacity: 0,
       },
     },
@@ -69,7 +92,7 @@ export function createAttractorLayer(gpu: Gpu, config: AttractorConfig): Layer {
   let dispatches = 0;
 
   return {
-    name: 'attractor',
+    name: `attractor:${family}`,
     pointCount: count,
     async compile(scene: Target) {
       await Promise.all([sim.compile(), points.compile(scene)]);
@@ -77,7 +100,7 @@ export function createAttractorLayer(gpu: Gpu, config: AttractorConfig): Layer {
     update(frame: LayerFrame) {
       const { params, camera } = frame;
       // Lorenz needs a small, bounded step; speed scales with cadence and a little with bass.
-      const dt = Math.min(0.05, Math.max(0.001, frame.deltaSec)) * 0.16 * (0.6 + params.cadence * 0.5) * (1 + params.bassEnergy * 0.3);
+      const dt = Math.min(0.05, Math.max(0.001, frame.deltaSec)) * 0.16 * fam.dt * (0.6 + params.cadence * 0.5) * (1 + params.bassEnergy * 0.3);
       sim.set({ params: { dt, time: frame.timeSec, bass: params.bassEnergy, treble: params.trebleEnergy } });
       dispatches = Math.ceil(count / WORKGROUP);
       // Additive density normalisation: many points per pixel must not pile up into white.
@@ -95,7 +118,7 @@ export function createAttractorLayer(gpu: Gpu, config: AttractorConfig): Layer {
           brightness: (0.6 + params.bassEnergy * 0.3) * density,
           treble: params.trebleEnergy,
           opacity: frame.opacity,
-          worldScale: 0.085 * params.radialScale,
+          worldScale: fam.scale * params.radialScale,
         },
       });
     },

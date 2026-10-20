@@ -58,7 +58,7 @@ export function createFractalTreeLayer(gpu: Gpu, config: FractalTreeConfig): Lay
       wire: {
         rotation: [0, 0, 0], scale: 0.8, resolution: [1, 1], thickness,
         bass: 0, treble: 0, beat: 0, hue: 200, saturation: 0.7, brightness: 0.8,
-        fogDensity: 0.1, opacity: 0, ripple: 0.08, time: 0, pad0: 0, pad1: 0,
+        fogDensity: 0.1, opacity: 0, ripple: 0.08, time: 0, reveal: 100, pad1: 0,
       },
     },
   });

@@ -29,7 +29,7 @@ function createAudioElement(src: string): HTMLAudioElement {
   el.crossOrigin = 'anonymous';
   el.loop = false;
   el.preload = 'metadata';
-  el.muted = false;
+  el.muted = true;
   return el;
 }
 
@@ -42,7 +42,7 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
   analyser.smoothingTimeConstant = 0.8;
 
   const masterGain = ctx.createGain();
-  masterGain.gain.value = 1; // sound on by default; the blocked-autoplay path mutes it
+  masterGain.gain.value = 0; // starts muted: the mute button is the only control (reliable on iOS)
 
   analyser.connect(masterGain);
   masterGain.connect(ctx.destination);
@@ -83,7 +83,7 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
 
   let activeDeck: 'A' | 'B' = 'A';
   let playerState: AudioPlayerState = 'loading';
-  let isMuted = false;
+  let isMuted = true;
   let crossfading = false;
   const mutedListeners = new Set<(muted: boolean) => void>();
   let preloadedNext = false;
@@ -200,53 +200,19 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
       });
   }
 
-  // Browsers that block unmuted autoplay allow it after the first gesture: unmute then.
-  const GESTURES = ['pointerdown', 'keydown', 'touchstart'] as const;
-  let disarmGesture: (() => void) | null = null;
-  function armGestureUnmute(): void {
-    if (disarmGesture || typeof window === 'undefined') return;
-    const onGesture = () => {
-      disarmGesture?.();
-      applyMuted(false);
-      resumePlayback();
-    };
-    for (const ev of GESTURES) window.addEventListener(ev, onGesture, { passive: true });
-    disarmGesture = () => {
-      for (const ev of GESTURES) window.removeEventListener(ev, onGesture);
-      disarmGesture = null;
-    };
-  }
-
-  function fallBackToMuted(reason: unknown): void {
-    console.warn('[EAVI] autoplay with sound blocked; starting muted until the first gesture', reason);
-    applyMuted(true);
-    playerState = 'suspended';
-    armGestureUnmute();
-  }
-
-  // Start first deck with sound. Muted playback is the fallback, never the default.
+  // Start the first deck muted. Muted autoplay is allowed almost everywhere; sound comes on
+  // only through the mute button, which is the one path that behaves consistently on iOS.
   deckA.gain.gain.value = 1;
-  void ctx.resume();
   try {
     await deckA.el.play();
-    if (ctx.state === 'running') {
-      playerState = 'playing';
-    } else {
-      // The element plays but the context is locked, which would be silent: treat as blocked.
-      fallBackToMuted(`AudioContext ${ctx.state}`);
-      void deckA.el.play().catch(() => {});
-    }
+    playerState = 'playing';
   } catch (err) {
     if (deckA.el.error) {
       playerState = 'error';
       console.error('[EAVI] media error', deckA.el.error, deckA.el.currentSrc, err);
     } else {
-      fallBackToMuted(err);
-      try {
-        await deckA.el.play(); // muted autoplay is allowed almost everywhere
-      } catch (err2) {
-        console.warn('[EAVI] muted autoplay blocked too; waiting for a gesture', err2);
-      }
+      playerState = 'suspended';
+      console.warn('[EAVI] initial play blocked or deferred', err);
     }
   }
 
@@ -260,8 +226,6 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
     },
 
     setMuted(muted: boolean): void {
-      // An explicit choice through the button wins over the automatic first-gesture unmute.
-      disarmGesture?.();
       applyMuted(muted);
       if (!muted) {
         resumePlayback();
@@ -294,7 +258,6 @@ export async function initAudio(onTrackChange?: (trackPath: string) => void): Pr
     },
 
     destroy(): void {
-      disarmGesture?.();
       deckA.el.pause();
       deckA.el.src = '';
       deckB.el.pause();

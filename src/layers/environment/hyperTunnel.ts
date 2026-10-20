@@ -1,4 +1,4 @@
-import { draw, type Draw, type FramePass, type Gpu, type Target } from 'vgpu';
+import { draw, sampler, texture, type Draw, type FramePass, type Gpu, type Target, type Texture } from 'vgpu';
 import type { Layer, LayerFrame } from '../Layer';
 import { createPRNG } from '../../visual/prng';
 import tunnelShader from './tunnel.wgsl';
@@ -7,6 +7,8 @@ export interface HyperTunnelConfig {
   readonly seed: string;
   readonly radius?: number;
   readonly segments?: number;
+  /** Emissive skin for the walls (a Julia or flame texture); omitted → plain grooves. */
+  readonly wall?: Texture;
 }
 
 /** Kaleidoscopic raymarched tunnel environment that always extends ahead of the camera. */
@@ -17,6 +19,10 @@ export function createHyperTunnelLayer(gpu: Gpu, config: HyperTunnelConfig): Lay
   const twist = (0.05 + rng() * 0.15) * (rng() < 0.5 ? -1 : 1);
   const ripple = 0.06 + rng() * 0.1;
   let scroll = 0;
+  const wallMix = config.wall ? 1 : 0;
+  // A 1×1 placeholder keeps the binding valid when there is no skin.
+  const wall = config.wall ?? texture(gpu, { kind: '2d', size: [1, 1], format: 'rgba16float', usage: ['texture_binding', 'copy_dst'], label: 'eavi-tunnel-nowall' });
+  const wallSamp = sampler(gpu, { minFilter: 'linear', magFilter: 'linear', addressModeU: 'repeat', addressModeV: 'repeat' });
 
   const tube: Draw = draw(gpu, {
     label: 'eavi-tunnel',
@@ -31,8 +37,10 @@ export function createHyperTunnelLayer(gpu: Gpu, config: HyperTunnelConfig): Lay
       },
       tunnel: {
         radius, segments, scroll: 0, twist, bass: 0, treble: 0, beat: 0, hue: 200, saturation: 0.7,
-        brightness: 1, fogDensity: 0.09, opacity: 0, ripple, time: 0, pad0: 0, pad1: 0,
+        brightness: 1, fogDensity: 0.09, opacity: 0, ripple, time: 0, wallMix, pad1: 0,
       },
+      wallTex: wall,
+      wallSamp,
     },
   });
 

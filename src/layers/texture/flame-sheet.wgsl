@@ -53,9 +53,11 @@ struct VertexOut {
 @fragment fn fs_main(in: VertexOut) -> @location(0) vec4f {
   let t = textureSampleLevel(flame, samp, in.uv, 0.0);
   let fade = select(0.8, 0.3, in.layer > 0.5);
-  let a = t.a * sheet.opacity * fade;
+  // The sheet has no visible border: density fades out toward the quad's edges.
+  let edge = smoothstep(0.0, 0.3, min(in.uv.x, 1.0 - in.uv.x)) * smoothstep(0.0, 0.3, min(in.uv.y, 1.0 - in.uv.y));
+  let a = t.a * sheet.opacity * fade * edge;
   if (a <= 0.002) {
     discard;
   }
-  return vec4f(t.rgb * sheet.opacity * fade, a);
+  return vec4f(t.rgb * sheet.opacity * fade * edge, a);
 }

@@ -28,12 +28,14 @@ struct Tunnel {
   opacity: f32,
   ripple: f32,
   time: f32,
-  pad0: f32,
+  wallMix: f32,      // 0 = plain grooves, 1 = texture-lit walls
   pad1: f32,
 }
 
 @group(0) @binding(0) var<uniform> camera: Camera;
 @group(0) @binding(1) var<uniform> tunnel: Tunnel;
+@group(0) @binding(2) var wallTex: texture_2d<f32>;
+@group(0) @binding(3) var wallSamp: sampler;
 
 struct VertexOut {
   @builtin(position) position: vec4f,
@@ -130,6 +132,10 @@ struct FragmentOut {
   let base = hueToRgb(tunnel.hue + f.z * 40.0, tunnel.saturation, 1.0);
   let accent = hueToRgb(tunnel.hue + 180.0, min(1.0, tunnel.saturation + 0.2), 1.0);
   var color = base * (0.04 + 0.08 * facing) + accent * lines * (0.9 + tunnel.treble * 0.8) + base * lines * 0.4;
+  // Optional fractal skin on the walls: unwrapped by fold angle and travel distance.
+  let wallUv = vec2f(fract(z * 0.08), fract(f.z / 6.2831853 * max(tunnel.segments, 3.0) * 0.5 + 0.5));
+  let skin = textureSampleLevel(wallTex, wallSamp, wallUv, 0.0);
+  color = mix(color, color * 0.4 + skin.rgb * skin.a * (0.35 + 0.25 * facing) * (1.0 + tunnel.bass * 0.3), tunnel.wallMix);
   color *= tunnel.brightness;
 
   let fog = exp(-tunnel.fogDensity * t);

@@ -70,13 +70,13 @@ describe.skipIf(!available)('director on a real device', () => {
     bus.emit({ kind: 'drop:anticipate', t: 2, strength: 1, secondsUntil: 2 });
     run(20);
     bus.emit({ kind: 'drop', t: 4, strength: 1 });
-    run(320);                             // through the 4.5–5 s melt and the 3 s crossfade
+    run(900);                             // through the 8 s melt and the 6 s crossfade
     await settle();
     const second = director.state.layers.find((l) => l.slot === 'subject')!.layer;
     expect(second).not.toBe(first);
 
     bus.emit({ kind: 'section', t: 8, label: 'verse', index: 2 });
-    run(400);                             // slow transition and 4 s crossfade fully elapse
+    run(1100);                            // slow transition and 8 s crossfade fully elapse
     await settle();
 
     bus.emit({ kind: 'breakdown', t: 12, strength: 1 });

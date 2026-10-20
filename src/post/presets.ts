@@ -20,7 +20,6 @@ const COMMON_MODULATORS: readonly Modulator[] = [
   { param: 'rgbShift', source: 'treble', amount: 0.0025, curve: 1.6 },
   { param: 'feedbackDamp', source: 'beat', amount: -0.04 },
   { param: 'barrel', source: 'pointer', amount: 0.02 },
-  { param: 'grain', source: 'timeOfDay', amount: 0.02 },
 ];
 
 function params(overrides: Partial<PostParams>): PostParams {
@@ -31,7 +30,7 @@ export const PRESETS: Record<PresetName, PostPreset> = {
   clean: {
     name: 'clean',
     ramp: NEUTRAL_RAMP,
-    params: params({ feedbackDamp: 0.8, bloomNear: 0.7, bloomFar: 0.45, grain: 0.015, vignette: 0.3, rgbShift: 0.001 }),
+    params: params({ feedbackDamp: 0.8, bloomNear: 0.7, bloomFar: 0.45, grain: 0, vignette: 0.3, rgbShift: 0.001 }),
     modulators: [
       { param: 'bloomNear', source: 'bass', amount: 0.4, curve: 1.3 },
       { param: 'feedbackDamp', source: 'beat', amount: -0.04 },
@@ -42,8 +41,8 @@ export const PRESETS: Record<PresetName, PostPreset> = {
     ramp: PHOSPHOR_GREEN,
     params: params({
       feedbackDamp: 0.86, feedbackZoom: 0.003, bloomNear: 1.0, bloomFar: 0.7, bloomThreshold: 0.4,
-      barrel: 0.09, bleed: 0.45, scanlineIntensity: 0.38, scanlineCount: 540, vignette: 0.5,
-      grain: 0.04, rampStrength: 0.9, rgbShift: 0.0008,
+      barrel: 0.09, bleed: 0.45, scanlineIntensity: 0.28, scanlineCount: 540, vignette: 0.5,
+      grain: 0, rampStrength: 0.9, rgbShift: 0.0008,
     }),
     modulators: [
       ...COMMON_MODULATORS,
@@ -56,8 +55,8 @@ export const PRESETS: Record<PresetName, PostPreset> = {
     ramp: PHOSPHOR_AMBER,
     params: params({
       feedbackDamp: 0.86, bloomNear: 0.9, bloomFar: 0.75, bloomThreshold: 0.45,
-      barrel: 0.1, bleed: 0.35, scanlineIntensity: 0.3, scanlineCount: 480, vignette: 0.55,
-      grain: 0.035, rampStrength: 0.85, rgbShift: 0.0006,
+      barrel: 0.1, bleed: 0.35, scanlineIntensity: 0.22, scanlineCount: 480, vignette: 0.55,
+      grain: 0, rampStrength: 0.85, rgbShift: 0.0006,
     }),
     modulators: [...COMMON_MODULATORS, { param: 'bleed', source: 'mid', amount: 0.2 }],
   },
@@ -66,7 +65,7 @@ export const PRESETS: Record<PresetName, PostPreset> = {
     ramp: WARM_CRT,
     params: params({
       feedbackDamp: 0.88, feedbackZoom: 0.002, bloomNear: 0.7, bloomFar: 0.5,
-      bleed: 0.5, rgbShift: 0.003, grain: 0.07, scanlineIntensity: 0.15, scanlineCount: 360,
+      bleed: 0.5, rgbShift: 0.003, grain: 0, scanlineIntensity: 0.15, scanlineCount: 360,
       vignette: 0.4, rampStrength: 0.25, barrel: 0.03,
     }),
     modulators: [
@@ -80,12 +79,11 @@ export const PRESETS: Record<PresetName, PostPreset> = {
     ramp: WARM_CRT,
     params: params({
       feedbackDamp: 0.82, bloomNear: 0.85, bloomFar: 0.5,
-      barrel: 0.13, bleed: 0.3, scanlineIntensity: 0.45, scanlineCount: 600, vignette: 0.6,
-      grain: 0.04, dither: 0.35, pixelSize: 0, rampStrength: 0.2, rgbShift: 0.0012,
+      barrel: 0.13, bleed: 0.3, scanlineIntensity: 0.3, scanlineCount: 600, vignette: 0.6,
+      grain: 0, dither: 0, pixelSize: 0, rampStrength: 0.2, rgbShift: 0.0012,
     }),
     modulators: [
       ...COMMON_MODULATORS,
-      { param: 'dither', source: 'treble', amount: 0.2 },
     ],
   },
   acid: {
@@ -94,8 +92,8 @@ export const PRESETS: Record<PresetName, PostPreset> = {
     params: params({
       feedbackDamp: 0.88, feedbackZoom: 0.005, feedbackRotate: 0.002,
       bloomNear: 0.8, bloomFar: 0.6, bloomThreshold: 0.55,
-      kaleidoSegments: 6, kaleidoSpin: 0.03, rgbShift: 0.004, hueCycle: 0.08,
-      vignette: 0.3, grain: 0.03, rampStrength: 0,
+      kaleidoSegments: 6, kaleidoMix: 1, kaleidoSpin: 0.03, rgbShift: 0.004, hueCycle: 0.08,
+      vignette: 0.3, grain: 0, rampStrength: 0,
     }),
     modulators: [
       ...COMMON_MODULATORS,

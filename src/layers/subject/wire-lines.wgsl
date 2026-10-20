@@ -30,13 +30,13 @@ struct Wire {
   opacity: f32,
   ripple: f32,
   time: f32,
-  pad0: f32,
+  reveal: f32,       // edges with level < reveal are shown; the front is soft
   pad1: f32,
 }
 
 struct Segment {
   a: vec4f,   // xyz + random
-  b: vec4f,
+  b: vec4f,   // xyz + level (or random for plain wires)
 }
 
 @group(0) @binding(0) var<storage, read> segments: array<Segment>;
@@ -48,6 +48,7 @@ struct VertexOut {
   @location(0) across: f32,
   @location(1) color: vec3f,
   @location(2) depth: f32,
+  @location(3) visible: f32,
 }
 
 fn deform(p: vec3f, seedv: f32) -> vec3f {
@@ -74,6 +75,12 @@ fn deform(p: vec3f, seedv: f32) -> vec3f {
   let world = select(wa, wb, atB);
   let viewPos = camera.view * vec4f(world, 1.0);
   out.depth = max(-viewPos.z, 0.0);
+  // Overlap compensation: segments foreshortened below the stroke width would stack into white.
+  let pa = ca.xy / max(ca.w, 0.0001) * wire.resolution * 0.5;
+  let pb = cb.xy / max(cb.w, 0.0001) * wire.resolution * 0.5;
+  let along = length(pb - pa);
+  let weight = clamp(along / (thickness * 2.5), 0.05, 1.0);
+  out.visible = smoothstep(s.b.w - 0.6, s.b.w + 0.4, wire.reveal) * weight;
   let r = select(s.a.w, s.b.w, atB);
   let shimmer = 1.0 + wire.treble * 0.6 * sin(wire.time * 9.0 + r * 40.0);
   out.color = hueToRgb(wire.hue + r * 40.0, wire.saturation, 1.0) * wire.brightness * shimmer;
@@ -83,7 +90,7 @@ fn deform(p: vec3f, seedv: f32) -> vec3f {
 @fragment fn fs_main(in: VertexOut) -> @location(0) vec4f {
   let edge = 1.0 - smoothstep(0.3, 1.0, abs(in.across));
   let fog = exp(-wire.fogDensity * in.depth);
-  let a = edge * fog * wire.opacity;
+  let a = edge * fog * in.visible * wire.opacity;
   if (a <= 0.002) {
     discard;
   }

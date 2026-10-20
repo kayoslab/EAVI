@@ -60,7 +60,7 @@ describe('director', () => {
     bus.emit({ kind: 'drop', t: 10, strength: 1 });
     let state = director.update(1.016, 0.016);
     // melt/fold take 4.5–5 s; the swap happens part-way and the old subject fades out over 3 s.
-    for (let t = 1.03; t < 12; t += 0.016) state = director.update(t, 0.016);
+    for (let t = 1.03; t < 18; t += 0.016) state = director.update(t, 0.016);
     const subjects = state.layers.filter((l) => l.slot === 'subject');
     expect(subjects.length).toBe(1);
     expect(subjects[0].layer).not.toBe(before);
@@ -156,7 +156,7 @@ describe('director', () => {
     let overlapSeen = false;
     let maxOpacityStep = 0;
     const lastOpacity = new Map<unknown, number>();
-    for (let t = 0.032; t < 14; t += 0.016) {
+    for (let t = 0.032; t < 24; t += 0.016) {
       state = director.update(t, 0.016);
       const hasOld = state.layers.some((l) => oldLayers.includes(l.layer));
       const hasNew = state.layers.some((l) => !oldLayers.includes(l.layer));

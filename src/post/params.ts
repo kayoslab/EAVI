@@ -13,6 +13,8 @@ export interface PostParams {
   exposure: number;
   // Warp (kaleidoscope, chromatic shift, CRT barrel, pixelation)
   kaleidoSegments: number;
+  /** 0 = no fold, 1 = fully folded; blended continuously so folds glide in. */
+  kaleidoMix: number;
   kaleidoAngle: number;
   kaleidoSpin: number;
   rgbShift: number;
@@ -52,6 +54,7 @@ export const PARAM_RANGES: Record<NumericParamKey, readonly [number, number, num
   bloomFar: [0, 3, 0.01],
   exposure: [0.1, 4, 0.01],
   kaleidoSegments: [0, 16, 1],
+  kaleidoMix: [0, 1, 0.01],
   kaleidoAngle: [0, 6.2832, 0.01],
   kaleidoSpin: [-1, 1, 0.005],
   rgbShift: [0, 0.03, 0.0005],
@@ -89,7 +92,8 @@ export const DEFAULT_POST: PostParams = {
   bloomNear: 0.8,
   bloomFar: 0.55,
   exposure: 1.0,
-  kaleidoSegments: 0,
+  kaleidoSegments: 6,
+  kaleidoMix: 0,
   kaleidoAngle: 0,
   kaleidoSpin: 0,
   rgbShift: 0.0015,
@@ -99,7 +103,7 @@ export const DEFAULT_POST: PostParams = {
   scanlineIntensity: 0,
   scanlineCount: 480,
   vignette: 0.35,
-  grain: 0.03,
+  grain: 0,
   dither: 0,
   rampStrength: 0,
   hueShift: 0,

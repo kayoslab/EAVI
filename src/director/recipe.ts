@@ -16,8 +16,13 @@ import { createFractalFlameLayer } from '../layers/texture/fractalFlame';
 import { createHarmonographLayer } from '../layers/subject/harmonograph';
 import { createFractalTreeLayer } from '../layers/subject/fractalTree';
 import { createCurlFieldLayer } from '../layers/particles/curlField';
+import { createFractalZoomLayer } from '../layers/subject/fractalZoom';
+import { createWireCathedralLayer } from '../layers/environment/wireCathedral';
+import { createIfsCloudLayer } from '../layers/particles/ifsCloud';
+import { createFractalWireLayer } from '../layers/subject/fractalWire';
+import { createJuliaTextureLayer } from '../layers/texture/juliaTexture';
 
-export type LayerKind = 'gridvoid' | 'tunnel' | 'starwarp' | 'terrain' | 'terrain-dramatic' | 'menger' | 'wire' | 'attractor' | 'polytope' | 'scope' | 'flame' | 'harmonograph' | 'tree' | 'curl';
+export type LayerKind = 'gridvoid' | 'tunnel' | 'starwarp' | 'terrain' | 'terrain-dramatic' | 'menger' | 'wire' | 'attractor' | 'polytope' | 'scope' | 'flame' | 'harmonograph' | 'tree' | 'curl' | 'fractal' | 'cathedral' | 'ifs' | 'fractalwire' | 'tunnel-julia' | 'tunnel-flame';
 
 export interface Recipe {
   readonly id: string;
@@ -65,6 +70,21 @@ export const RECIPES: readonly Recipe[] = [
   { id: 'valley-drift', environment: 'terrain', subject: null, particles: 'curl', cameraDistance: 5.2, cameraPitch: 0.18, weight: 2, post: 'vhs', rig: 'wander' },
   { id: 'valley-cube', environment: 'terrain-dramatic', subject: 'polytope', particles: null, cameraDistance: 5.6, cameraPitch: 0.2, post: 'clean', rig: 'wander' },
   { id: 'valley-scope', environment: 'terrain', subject: 'scope', particles: null, cameraDistance: 5.0, cameraPitch: 0.18, minTier: 'medium', post: 'vhs' },
+  // Fractals
+  { id: 'bulb-void', environment: null, subject: 'fractal', particles: null, cameraDistance: 4.2, weight: 2, minTier: 'medium', post: 'vhs' },
+  { id: 'fractal-grid', environment: 'gridvoid', subject: 'fractal', particles: null, cameraDistance: 4.4, minTier: 'medium', post: 'clean', rig: 'wander' },
+  { id: 'fractal-ifs', environment: null, subject: 'fractal', particles: 'ifs', cameraDistance: 4.4, minTier: 'high', post: 'vhs' },
+  { id: 'fractal-cathedral', environment: 'cathedral', subject: 'fractal', particles: null, cameraDistance: 4.2, minTier: 'high', post: 'crt' },
+  { id: 'cathedral-cube', environment: 'cathedral', subject: 'polytope', particles: null, cameraDistance: 4.2, weight: 2, minTier: 'medium', post: 'phosphor' },
+  { id: 'cathedral-scope', environment: 'cathedral', subject: 'scope', particles: 'ifs', cameraDistance: 4.0, minTier: 'high', post: 'amber', rig: 'wander' },
+  { id: 'ifs-garden', environment: 'gridvoid', subject: null, particles: 'ifs', cameraDistance: 4.2, weight: 2, post: 'clean', rig: 'wander' },
+  { id: 'ifs-tunnel', environment: 'tunnel', subject: null, particles: 'ifs', cameraDistance: 4.2, minTier: 'medium', post: 'acid' },
+  { id: 'wire-sierpinski', environment: 'gridvoid', subject: 'fractalwire', particles: null, cameraDistance: 4.2, weight: 2, post: 'phosphor', rig: 'wander' },
+  { id: 'wire-fractal-warp', environment: 'starwarp', subject: 'fractalwire', particles: null, cameraDistance: 4.4, post: 'crt' },
+  { id: 'wire-fractal-void', environment: null, subject: 'fractalwire', particles: 'attractor', cameraDistance: 4.2, minTier: 'medium', post: 'vhs' },
+  { id: 'julia-tunnel', environment: 'tunnel-julia', subject: 'polytope', particles: null, cameraDistance: 4.2, weight: 2, minTier: 'medium', post: 'clean' },
+  { id: 'julia-tunnel-scope', environment: 'tunnel-julia', subject: 'scope', particles: null, cameraDistance: 4.0, minTier: 'medium', post: 'vhs' },
+  { id: 'flame-tunnel', environment: 'tunnel-flame', subject: 'fractalwire', particles: null, cameraDistance: 4.2, minTier: 'high', post: 'acid' },
 ];
 
 const TIER_RANK: Record<QualityTier, number> = { low: 0, medium: 1, high: 2 };
@@ -91,7 +111,7 @@ export interface RecipeContext {
   readonly dpr: number;
 }
 
-export function createLayer(gpu: Gpu, kind: LayerKind, ctx: RecipeContext): Layer {
+export function createLayer(gpu: Gpu, kind: LayerKind, ctx: RecipeContext): Layer | Layer[] {
   const { seed, tier } = ctx;
   switch (kind) {
     case 'gridvoid':
@@ -104,6 +124,17 @@ export function createLayer(gpu: Gpu, kind: LayerKind, ctx: RecipeContext): Laye
       return createStarWarpLayer(gpu, { seed, count: tier === 'high' ? 120_000 : tier === 'medium' ? 60_000 : 20_000, thickness: 1.1 * Math.max(1, Math.min(2, ctx.dpr)) });
     case 'tunnel':
       return createHyperTunnelLayer(gpu, { seed });
+    case 'tunnel-julia': {
+      // Bundled: the texture generator runs first (compute only), the tunnel wears it.
+      const julia = createJuliaTextureLayer(gpu, { seed, width: tier === 'high' ? 768 : 512, height: tier === 'high' ? 384 : 256 });
+      return [julia, createHyperTunnelLayer(gpu, { seed, wall: julia.texture })];
+    }
+    case 'tunnel-flame': {
+      const flame = createFractalFlameLayer(gpu, { seed, width: 640, height: 320, points: 65_536, steps: 10 });
+      return [flame, createHyperTunnelLayer(gpu, { seed, wall: flame.texture })];
+    }
+    case 'fractalwire':
+      return createFractalWireLayer(gpu, { seed, tier, thickness: 1.1 * Math.max(1, Math.min(2, ctx.dpr)) });
     case 'menger':
       return createMengerLayer(gpu, { seed, iterations: tier === 'high' ? 4 : 3, scale: 1.1 });
     case 'wire':
@@ -124,6 +155,12 @@ export function createLayer(gpu: Gpu, kind: LayerKind, ctx: RecipeContext): Laye
       return createFractalTreeLayer(gpu, { seed, tier, thickness: 1.0 * Math.max(1, Math.min(2, ctx.dpr)) });
     case 'curl':
       return createCurlFieldLayer(gpu, { seed, count: tier === 'high' ? 200_000 : tier === 'medium' ? 80_000 : 30_000, pointSize: 1.3 * Math.max(1, Math.min(2, ctx.dpr)) });
+    case 'fractal':
+      return createFractalZoomLayer(gpu, { seed, tier });
+    case 'cathedral':
+      return createWireCathedralLayer(gpu, { seed, tier, dpr: ctx.dpr });
+    case 'ifs':
+      return createIfsCloudLayer(gpu, { seed, count: tier === 'high' ? 300_000 : tier === 'medium' ? 120_000 : 40_000, pointSize: 1.3 * Math.max(1, Math.min(2, ctx.dpr)) });
     case 'attractor': {
       const count = tier === 'high' ? 400_000 : tier === 'medium' ? 150_000 : 50_000;
       return createAttractorLayer(gpu, { seed, count, pointSize: 1.3 * Math.max(1, Math.min(2, ctx.dpr)) });
@@ -134,5 +171,5 @@ export function createLayer(gpu: Gpu, kind: LayerKind, ctx: RecipeContext): Laye
 /** Instantiate a recipe's layers in draw order: environment, subject, particles. */
 export function instantiateRecipe(gpu: Gpu, recipe: Recipe, ctx: RecipeContext): Layer[] {
   const kinds = [recipe.environment, recipe.subject, recipe.particles].filter((k): k is LayerKind => k !== null);
-  return kinds.map((kind) => createLayer(gpu, kind, ctx));
+  return kinds.flatMap((kind) => createLayer(gpu, kind, ctx));
 }

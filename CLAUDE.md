@@ -34,7 +34,7 @@ v2 rewrite on the `v2` branch: phases 1–7 of `docs/REWRITE_PLAN.md` are implem
 - Do not transmit raw identifiers to third-party services
 - Only use coarse Vercel geo headers when available
 - Do not use browser Geolocation API
-- Autoplay is attempted with sound on. If the browser blocks it, playback falls back to muted and unmutes on the first user gesture; it must never fail hard
+- Playback starts muted; the mute button is the only way sound comes on (automatic unmuting on gestures proved unreliable on iOS). Autoplay must fail gracefully
 - Audio analysis must continue while muted
 - The experience must still render if audio autoplay is blocked
 - If WebGPU is unavailable, show the static on-aesthetic message page. There is no fallback renderer and no legacy code path. Never keep legacy code around.
@@ -62,7 +62,7 @@ v2 rewrite on the `v2` branch: phases 1–7 of `docs/REWRITE_PLAN.md` are implem
 ## Composition (v2)
 
 - A session renders seeded **recipes** composed of environment + subject + particle layers + post preset + camera rig. The seed decides structure, not only colour.
-- The post stack sits over every recipe and is tweakable per preset via the `?debug` panel.
+- The post stack sits over every recipe and is tweakable per preset via the `?debug` panel. No film grain or dither noise anywhere: the user wants clean visuals.
 
 ## Photosensitivity (decided: no flashes)
 

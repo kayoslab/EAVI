@@ -231,7 +231,7 @@ scene (HDR)
  → grade.wgsl           palette LUT (1D ramp texture per family) + ACES            ~50 lines
  → composite.wgsl       final output to canvas                                    ~40 lines
 ```
-- Presets: `phosphor` (green/amber mono CRT), `vhs` (bleed + shift + grain), `crt` (barrel + scanlines), `acid` (kaleidoscope + heavy feedback + hue cycling), `clean` (bloom only, low tier).
+- Presets: `phosphor` (green mono CRT), `amber`, `vhs` (bleed + shift), `crt` (barrel + scanlines), `acid` (kaleidoscope + feedback + hue cycling), `clean` (bloom only). Grain and dither are 0 everywhere by decision (2026-10-20: "I like cleaner visuals").
 - Modulators (declarative bindings): bass→bloom strength, treble→rgbShift amount, beat→feedback damp dip, drop→kaleidoscope segment jump, build→feedback ramp, pointer entropy→barrel wobble, time of day→grain amount.
 - Luminance cap before bloom; feedback + bloom blows out to white otherwise.
 - **Luminance limiter (decided: no flashes).** The composite pass tracks mean frame luminance in a 1×1 readback-free target and clamps frame-to-frame change to a fixed slew rate, so no stage can produce a flash even by accident. Modulators never bind audio to global brightness; they bind to geometry, size, colour, fold, feedback and distortion instead.
@@ -325,7 +325,7 @@ interface Recipe {
 | `src/director/director.ts`: recipe lifecycle, standby subject compiled ahead so cuts are instant, per-slot opacity fades, envelopes (`build`, `drop`, timeline `beatPulse`), breakdown/anticipation modes | done; 7 unit tests + 1 on-device test |
 | Grammar (revised 2026-10-20 after "smooth and trippy, not flashy and fast"): beat → subtle pulse; bar → kaleidoscope glides one segment, wander camera eases a turn over 8 s every 4 bars; build-start → build ramp (+gentle motion); drop:anticipate → particles dim, motion slows, all eased; drop → `melt` or `fold` (4.5–5 s) into the standby subject with a 3 s crossfade, drop envelope decays over 2.5 s; breakdown → desaturate, particles fade out, motion halves, eased over seconds; section → `drift`/`fold`/`melt` with a 4 s crossfade; trackStart → new seeded recipe prepared then melted in. No cuts, snaps, glitches or instant jumps anywhere | done |
 | Transitions are luminance-neutral by construction; transients may never touch exposure or limiter (enforced in `PostStack.setTransient`); periodic offsets wrap instead of clamping | done |
-| Recipe changes (new track) cross-dissolve old and new layers over 10 s and glide the post preset over the same window (`PostStack.setPreset(preset, seconds)`); nothing is swapped in one frame | done (2026-10-20, after "valleys → kaleidoscope was abrupt") |
+| Recipe changes (new track) cross-dissolve old and new layers over 14 s and glide the post preset over the same window (`PostStack.setPreset(preset, seconds)`); nothing is swapped in one frame. Melt/fold/drift take 8–9 s with 6–8 s crossfades; the kaleidoscope fold is a continuous `kaleidoMix`, never a segment step | done (2026-10-20) |
 | Camera rigs: `orbit`, `wander` (eased yaw/pitch turns, bell-shaped distance drift) | done; `fly`/`tumble4D` not yet |
 | Per-recipe grammar overrides, palette constraints, post preset per recipe | not yet (post preset is seeded per session) |
 
@@ -374,9 +374,15 @@ Each layer: look, technique, audio grammar, seed variance. Rendering primitives 
 | FractalTree | subject, L-system wire branches (reuses `wire-lines.wgsl`) | done |
 | CurlField | particles, curl-noise advection in compute (reuses the point shader) | done |
 | Terrain (gentle / dramatic) | environment, procedural heightfield as grid lines + vertex dots, warm indigo→amber ramp, aerial drift (restores the pre-rewrite valleys the user liked) | done (2026-10-20) |
-| WireCathedral, Boids, Plasma, MatrixRain | — | not started |
+| FractalZoom | subject, raymarched Mandelbulb / Mandelbox / quaternion Julia / Apollonian / Sierpinski with orbit traps and slow parameter drift | done (2026-10-20) |
+| WireCathedral | environment, endless instanced box-frame lattice with a slow twist (line-based, not raymarched) | done |
+| IfsCloud | particles, 3D chaos game over 8 affine maps, morphs between systems over ~18 s | done |
+| FractalWire | subject, Sierpinski tetrahedron, Menger sponge and 3D Hilbert curve as lines with a breathing depth reveal | done |
+| JuliaTexture + tunnel wall skin; FractalFlame as tunnel skin | texture layers bundled into `tunnel-julia` / `tunnel-flame` | done |
+| Attractor families Thomas, Aizawa, Halvorsen | particles | done |
+| Boids, Plasma, MatrixRain | — | not started |
 
-Shared WGSL: `lines.wgsl` (segment → screen quad), `color.wgsl`, `transform.wgsl`. Seeded recipe catalogue in `src/director/recipe.ts` (23 recipes, tier-gated, each with a post preset and optional camera rig); every recipe is rendered headless by `tests/render/recipes.headless.test.ts` with zero GPU errors.
+Shared WGSL: `lines.wgsl` (segment → screen quad), `color.wgsl`, `transform.wgsl`. Seeded recipe catalogue in `src/director/recipe.ts` (45 recipes, tier-gated, each with a post preset and optional camera rig/pitch; one kind may bundle several layers); every recipe is rendered headless by `tests/render/recipes.headless.test.ts` with zero GPU errors.
 
 ### Phase 6 — Tiers, fallback, mobile
 - Tier → point budgets, raymarch step counts, post stages enabled, DPR cap (`surface(gpu, canvas, { dpr: [1, max] })`).
