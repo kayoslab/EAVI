@@ -22,8 +22,9 @@ export function createFractalZoomLayer(gpu: Gpu, config: FractalZoomConfig): Lay
     ? [...FRACTAL_FAMILIES]
     : config.tier === 'medium' ? ['mandelbulb', 'julia', 'sierpinski', 'mandelbox'] : ['sierpinski', 'mandelbox'];
   const family = config.family ?? pool[Math.floor(rng() * pool.length) % pool.length];
-  const iterations = { high: 10, medium: 7, low: 5 }[config.tier];
-  const steps = { high: 110, medium: 80, low: 60 }[config.tier];
+  // Raymarched fractals are the most expensive layer: keep the budgets modest even at high tier.
+  const iterations = { high: 8, medium: 6, low: 5 }[config.tier];
+  const steps = { high: 72, medium: 56, low: 44 }[config.tier];
   const baseScale = { mandelbulb: 1.25, mandelbox: 1.1, julia: 1.3, apollonian: 1.1, sierpinski: 1.15 }[family];
   const spin = (0.02 + rng() * 0.03) * (rng() < 0.5 ? -1 : 1);
   const warm = config.warm ?? rng() < 0.5;

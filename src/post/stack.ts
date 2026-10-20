@@ -37,8 +37,8 @@ export interface PostStack {
   setLimiterEnabled(enabled: boolean): void;
   /** Persistent additive offsets from the Director (e.g. kaleidoscope angle steps on bars). */
   setOffsets(offsets: Partial<PostParams>): void;
-  /** One-frame overrides from a running transition; null clears. Applied after modulators. */
-  setTransient(overrides: Partial<PostParams> | null): void;
+  /** One-frame additive deltas from a running transition; null clears. Added after modulators, then clamped. */
+  setTransient(deltas: Partial<PostParams> | null): void;
   /** Intro fade 0-1; the only time-varying global brightness control. */
   setFade(fade: number): void;
   /** Resolve modulators + time terms and write uniforms for this frame. */
@@ -265,7 +265,7 @@ export function createPostStack(gpu: Gpu, targets: RenderTargets, options?: Post
       if (transient) {
         for (const key of NUMERIC_PARAM_KEYS) {
           const v = transient[key];
-          if (typeof v === 'number' && Number.isFinite(v) && !(FORBIDDEN_MODULATION_TARGETS as readonly string[]).includes(key)) e[key] = clampParam(key, v);
+          if (typeof v === 'number' && Number.isFinite(v) && !(FORBIDDEN_MODULATION_TARGETS as readonly string[]).includes(key)) e[key] = clampParam(key, e[key] + v);
         }
       }
       // Time-derived terms.

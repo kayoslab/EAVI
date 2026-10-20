@@ -3,7 +3,6 @@ import type { Layer } from '../layers/Layer';
 import type { QualityTier } from '../visual/quality';
 import { createPRNG } from '../visual/prng';
 import type { PresetName } from '../post/presets';
-import { createGridVoidLayer } from '../layers/environment/gridVoid';
 import { createHyperTunnelLayer } from '../layers/environment/hyperTunnel';
 import { createStarWarpLayer } from '../layers/environment/starWarp';
 import { createTerrainLayer } from '../layers/environment/terrain';
@@ -17,12 +16,11 @@ import { createHarmonographLayer } from '../layers/subject/harmonograph';
 import { createFractalTreeLayer } from '../layers/subject/fractalTree';
 import { createCurlFieldLayer } from '../layers/particles/curlField';
 import { createFractalZoomLayer } from '../layers/subject/fractalZoom';
-import { createWireCathedralLayer } from '../layers/environment/wireCathedral';
 import { createIfsCloudLayer } from '../layers/particles/ifsCloud';
 import { createFractalWireLayer } from '../layers/subject/fractalWire';
 import { createJuliaTextureLayer } from '../layers/texture/juliaTexture';
 
-export type LayerKind = 'gridvoid' | 'tunnel' | 'starwarp' | 'terrain' | 'terrain-dramatic' | 'menger' | 'wire' | 'attractor' | 'polytope' | 'scope' | 'flame' | 'harmonograph' | 'tree' | 'curl' | 'fractal' | 'cathedral' | 'ifs' | 'fractalwire' | 'tunnel-julia' | 'tunnel-flame';
+export type LayerKind = 'tunnel' | 'starwarp' | 'terrain' | 'terrain-dramatic' | 'menger' | 'wire' | 'attractor' | 'polytope' | 'scope' | 'flame' | 'harmonograph' | 'tree' | 'curl' | 'fractal' | 'ifs' | 'fractalwire' | 'tunnel-julia' | 'tunnel-flame';
 
 export interface Recipe {
   readonly id: string;
@@ -38,31 +36,29 @@ export interface Recipe {
   readonly post?: PresetName;
   /** Camera behaviour; omitted → seeded. */
   readonly rig?: 'orbit' | 'wander';
+  /** GPU-heavy (raymarched fractals): pixel ratio is capped lower for these. */
+  readonly heavy?: boolean;
 }
 
 /** Phase 4 will grow this into the full catalogue with post presets, camera rigs and grammar. */
 export const RECIPES: readonly Recipe[] = [
   { id: 'sponge-storm', environment: null, subject: 'menger', particles: 'attractor', cameraDistance: 4.4, weight: 2, post: 'vhs' },
-  { id: 'grid-cathedral', environment: 'gridvoid', subject: 'wire', particles: null, cameraDistance: 4.0, weight: 2, post: 'phosphor', rig: 'wander' },
-  { id: 'grid-sponge', environment: 'gridvoid', subject: 'menger', particles: null, cameraDistance: 4.6, post: 'amber' },
   { id: 'wire-storm', environment: null, subject: 'wire', particles: 'attractor', cameraDistance: 4.2, minTier: 'medium', post: 'crt' },
-  { id: 'full-stack', environment: 'gridvoid', subject: 'wire', particles: 'attractor', cameraDistance: 4.4, minTier: 'high', post: 'vhs', rig: 'wander' },
-  { id: 'hypercube', environment: 'gridvoid', subject: 'polytope', particles: null, cameraDistance: 4.2, weight: 2, post: 'acid' },
+  { id: 'full-stack', environment: 'tunnel', subject: 'wire', particles: 'attractor', cameraDistance: 4.4, minTier: 'high', post: 'vhs', rig: 'wander' },
+  { id: 'hypercube', environment: null, subject: 'polytope', particles: null, cameraDistance: 4.2, weight: 2, post: 'acid' },
   { id: 'polytope-storm', environment: null, subject: 'polytope', particles: 'attractor', cameraDistance: 4.4, minTier: 'medium', post: 'crt' },
-  { id: 'scope-grid', environment: 'gridvoid', subject: 'scope', particles: null, cameraDistance: 4.0, post: 'phosphor' },
   { id: 'scope-sponge', environment: null, subject: 'menger', particles: 'scope', cameraDistance: 4.6, minTier: 'medium', post: 'amber' },
   { id: 'tunnel-cube', environment: 'tunnel', subject: 'polytope', particles: null, cameraDistance: 4.2, weight: 2, minTier: 'medium', post: 'crt', rig: 'orbit' },
   { id: 'tunnel-wire', environment: 'tunnel', subject: 'wire', particles: 'attractor', cameraDistance: 4.2, minTier: 'high', post: 'vhs' },
   { id: 'tunnel-scope', environment: 'tunnel', subject: 'scope', particles: null, cameraDistance: 4.0, minTier: 'medium', post: 'phosphor' },
   { id: 'acid-flame', environment: 'tunnel', subject: 'flame', particles: null, cameraDistance: 4.4, weight: 2, minTier: 'medium', post: 'acid' },
   { id: 'flame-cube', environment: null, subject: 'polytope', particles: 'flame', cameraDistance: 4.4, minTier: 'medium', post: 'acid', rig: 'wander' },
-  { id: 'flame-grid', environment: 'gridvoid', subject: 'flame', particles: 'attractor', cameraDistance: 4.2, minTier: 'high', post: 'clean' },
   { id: 'warp-cube', environment: 'starwarp', subject: 'polytope', particles: null, cameraDistance: 4.2, weight: 2, post: 'phosphor' },
   { id: 'warp-wire', environment: 'starwarp', subject: 'wire', particles: null, cameraDistance: 4.0, post: 'crt' },
   { id: 'warp-sponge', environment: 'starwarp', subject: 'menger', particles: 'scope', cameraDistance: 4.6, minTier: 'medium', post: 'vhs' },
-  { id: 'harmonic-grid', environment: 'gridvoid', subject: 'harmonograph', particles: null, cameraDistance: 4.0, post: 'phosphor', rig: 'wander' },
+  { id: 'harmonic-valley', environment: 'terrain', subject: 'harmonograph', particles: null, cameraDistance: 4.0, post: 'phosphor', rig: 'wander' },
   { id: 'harmonic-tunnel', environment: 'tunnel', subject: 'harmonograph', particles: 'curl', cameraDistance: 4.2, minTier: 'medium', post: 'acid' },
-  { id: 'wire-forest', environment: 'gridvoid', subject: 'tree', particles: 'curl', cameraDistance: 4.4, minTier: 'medium', post: 'amber' },
+  { id: 'wire-forest', environment: 'terrain', subject: 'tree', particles: 'curl', cameraDistance: 4.4, minTier: 'medium', post: 'amber' },
   { id: 'forest-warp', environment: 'starwarp', subject: 'tree', particles: null, cameraDistance: 4.2, post: 'crt' },
   { id: 'curl-cube', environment: null, subject: 'polytope', particles: 'curl', cameraDistance: 4.2, post: 'vhs', rig: 'wander' },
   // Warm valleys: the landscape carries the frame on its own, on presets that keep its colours.
@@ -71,20 +67,15 @@ export const RECIPES: readonly Recipe[] = [
   { id: 'valley-cube', environment: 'terrain-dramatic', subject: 'polytope', particles: null, cameraDistance: 5.6, cameraPitch: 0.2, post: 'clean', rig: 'wander' },
   { id: 'valley-scope', environment: 'terrain', subject: 'scope', particles: null, cameraDistance: 5.0, cameraPitch: 0.18, minTier: 'medium', post: 'vhs' },
   // Fractals
-  { id: 'bulb-void', environment: null, subject: 'fractal', particles: null, cameraDistance: 4.2, weight: 2, minTier: 'medium', post: 'vhs' },
-  { id: 'fractal-grid', environment: 'gridvoid', subject: 'fractal', particles: null, cameraDistance: 4.4, minTier: 'medium', post: 'clean', rig: 'wander' },
-  { id: 'fractal-ifs', environment: null, subject: 'fractal', particles: 'ifs', cameraDistance: 4.4, minTier: 'high', post: 'vhs' },
-  { id: 'fractal-cathedral', environment: 'cathedral', subject: 'fractal', particles: null, cameraDistance: 4.2, minTier: 'high', post: 'crt' },
-  { id: 'cathedral-cube', environment: 'cathedral', subject: 'polytope', particles: null, cameraDistance: 4.2, weight: 2, minTier: 'medium', post: 'phosphor' },
-  { id: 'cathedral-scope', environment: 'cathedral', subject: 'scope', particles: 'ifs', cameraDistance: 4.0, minTier: 'high', post: 'amber', rig: 'wander' },
-  { id: 'ifs-garden', environment: 'gridvoid', subject: null, particles: 'ifs', cameraDistance: 4.2, weight: 2, post: 'clean', rig: 'wander' },
+  { id: 'bulb-void', environment: null, subject: 'fractal', particles: null, cameraDistance: 4.2, weight: 2, minTier: 'medium', post: 'vhs', heavy: true },
+  { id: 'fractal-ifs', environment: null, subject: 'fractal', particles: 'ifs', cameraDistance: 4.4, minTier: 'high', post: 'vhs', heavy: true },
+  { id: 'ifs-garden', environment: 'terrain', subject: null, particles: 'ifs', cameraDistance: 4.2, weight: 2, post: 'clean', rig: 'wander' },
   { id: 'ifs-tunnel', environment: 'tunnel', subject: null, particles: 'ifs', cameraDistance: 4.2, minTier: 'medium', post: 'acid' },
-  { id: 'wire-sierpinski', environment: 'gridvoid', subject: 'fractalwire', particles: null, cameraDistance: 4.2, weight: 2, post: 'phosphor', rig: 'wander' },
   { id: 'wire-fractal-warp', environment: 'starwarp', subject: 'fractalwire', particles: null, cameraDistance: 4.4, post: 'crt' },
   { id: 'wire-fractal-void', environment: null, subject: 'fractalwire', particles: 'attractor', cameraDistance: 4.2, minTier: 'medium', post: 'vhs' },
   { id: 'julia-tunnel', environment: 'tunnel-julia', subject: 'polytope', particles: null, cameraDistance: 4.2, weight: 2, minTier: 'medium', post: 'clean' },
   { id: 'julia-tunnel-scope', environment: 'tunnel-julia', subject: 'scope', particles: null, cameraDistance: 4.0, minTier: 'medium', post: 'vhs' },
-  { id: 'flame-tunnel', environment: 'tunnel-flame', subject: 'fractalwire', particles: null, cameraDistance: 4.2, minTier: 'high', post: 'acid' },
+  { id: 'flame-tunnel', environment: 'tunnel-flame', subject: 'fractalwire', particles: null, cameraDistance: 4.2, minTier: 'high', post: 'acid', heavy: true },
 ];
 
 const TIER_RANK: Record<QualityTier, number> = { low: 0, medium: 1, high: 2 };
@@ -114,8 +105,6 @@ export interface RecipeContext {
 export function createLayer(gpu: Gpu, kind: LayerKind, ctx: RecipeContext): Layer | Layer[] {
   const { seed, tier } = ctx;
   switch (kind) {
-    case 'gridvoid':
-      return createGridVoidLayer(gpu, { seed, halfLines: tier === 'high' ? 28 : tier === 'medium' ? 20 : 12 });
     case 'terrain':
       return createTerrainLayer(gpu, { seed, tier, variant: 'gentle', dpr: ctx.dpr });
     case 'terrain-dramatic':
@@ -157,8 +146,6 @@ export function createLayer(gpu: Gpu, kind: LayerKind, ctx: RecipeContext): Laye
       return createCurlFieldLayer(gpu, { seed, count: tier === 'high' ? 200_000 : tier === 'medium' ? 80_000 : 30_000, pointSize: 1.3 * Math.max(1, Math.min(2, ctx.dpr)) });
     case 'fractal':
       return createFractalZoomLayer(gpu, { seed, tier });
-    case 'cathedral':
-      return createWireCathedralLayer(gpu, { seed, tier, dpr: ctx.dpr });
     case 'ifs':
       return createIfsCloudLayer(gpu, { seed, count: tier === 'high' ? 300_000 : tier === 'medium' ? 120_000 : 40_000, pointSize: 1.3 * Math.max(1, Math.min(2, ctx.dpr)) });
     case 'attractor': {

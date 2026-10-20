@@ -41,7 +41,7 @@ describe.skipIf(!available)('director on a real device', () => {
     const health = createHealthGate(g);
     const director = createDirector({
       gpu: g, seed, tier: 'medium', dpr: 1, bus, scene: targets.scene, camera,
-      initialRecipe: { id: 'headless', environment: 'gridvoid', subject: 'polytope', particles: 'attractor', cameraDistance: 4.2 },
+      initialRecipe: { id: 'headless', environment: 'starwarp', subject: 'polytope', particles: 'attractor', cameraDistance: 4.2 },
       onError: (err) => { throw err; },
     });
     const post = createPostStack(g, targets, { bloom: true, warp: true, preset: PRESETS.acid });

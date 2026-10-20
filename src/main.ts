@@ -50,20 +50,20 @@ async function boot(): Promise<void> {
   const quality = computeQuality(signals);
   console.debug('[EAVI] quality tier:', quality.tier);
 
-  const canvas = document.createElement('canvas');
-  app.appendChild(canvas);
-  let maxDpr = quality.tier === 'high' ? 2 : quality.tier === 'medium' ? 1.5 : 1;
-  let canvasSurface = surface(gpu, canvas, { dpr: [1, maxDpr], label: 'eavi-canvas' });
-
   // 2. Session identity: coarse geo + device signals + time → seed.
   const geo = await fetchGeoHint();
   const seed = initSessionSeed(signals, geo);
   console.debug('[EAVI] session seed:', seed);
-
-  // 3. Targets, camera, layers, post. Seeded recipe until the Director (Phase 4) takes over.
-  const targets = createTargets(gpu, canvasSurface.size);
   const recipe = selectRecipe(seed, quality.tier);
   console.debug('[EAVI] recipe:', recipe.id);
+
+  // 3. Canvas, targets, camera, layers, post. Heavy (raymarched) recipes get a lower pixel-ratio cap.
+  const canvas = document.createElement('canvas');
+  app.appendChild(canvas);
+  let maxDpr = quality.tier === 'high' ? 2 : quality.tier === 'medium' ? 1.5 : 1;
+  if (recipe.heavy) maxDpr = Math.min(maxDpr, 1.25);
+  let canvasSurface = surface(gpu, canvas, { dpr: [1, maxDpr], label: 'eavi-canvas' });
+  const targets = createTargets(gpu, canvasSurface.size);
   const camera = createCamera(seed, { distance: recipe.cameraDistance, pitch: recipe.cameraPitch ?? 0.2 });
   const sync = createTrackSync();
   const director = createDirector({

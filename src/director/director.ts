@@ -93,6 +93,8 @@ interface Transition {
 const TAU = Math.PI * 2;
 /** Seconds a recipe change takes to cross-dissolve layers and blend the post preset. */
 const RECIPE_FADE_SEC = 14;
+/** Minimum seconds between section-driven subject changes. */
+const SECTION_COOLDOWN_SEC = 50;
 
 /**
  * The Director owns the active recipe, reacts to structural audio events, and emits a
@@ -124,6 +126,7 @@ export function createDirector(options: DirectorOptions): Director {
   let kaleidoOffset = 0;
   let kaleidoTarget = 0;
   let barCount = 0;
+  let lastSubjectChange = -1e9;
 
   const ctx = (seedSuffix: string): RecipeContext => ({
     seed: `${options.seed}:${seedSuffix}`, tier: options.tier, dpr: options.dpr,
@@ -271,9 +274,12 @@ export function createDirector(options: DirectorOptions): Director {
     breakdown = false;
     anticipating = 0;
     kaleidoTarget += TAU / 3;
-    // A drop is the biggest change, so it gets the slowest, deepest melt.
+    // A drop is the biggest change, so it gets the slowest, deepest melt — but only when a new
+    // subject is ready to come in; a transition with nothing to reveal just looks like a wobble.
+    if (!standby?.ready) return;
     const kind = pickTransition(['melt', 'fold', 'melt']);
     startTransition(kind, () => swapSubject(6));
+    lastSubjectChange = now;
   }));
   unsubscribe.push(bus.on('breakdown', () => {
     breakdown = true;
@@ -283,8 +289,11 @@ export function createDirector(options: DirectorOptions): Director {
     if (e.label === 'drop' || e.label === 'breakdown') return; // handled by their events
     if (e.index === 0) return;
     breakdown = false;
+    // Sections come every 15–30 s; a change at every one keeps the scene in permanent flux.
+    if (!standby?.ready || now - lastSubjectChange < SECTION_COOLDOWN_SEC) return;
     const kind = pickTransition(['drift', 'fold', 'melt']);
     startTransition(kind, () => swapSubject(8));
+    lastSubjectChange = now;
   }));
   let tracksSeen = 0;
   unsubscribe.push(bus.on('trackStart', (e) => {

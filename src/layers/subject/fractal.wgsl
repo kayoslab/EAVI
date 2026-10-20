@@ -200,11 +200,22 @@ struct FragmentOut {
   let ro = invRot * camera.position;
   let rd = invRot * dirWorld;
 
-  var t = 0.0;
+  // Bounding sphere: most pixels never touch the fractal, so they never march.
+  let radius = params.scale * 1.9;
+  let oc = ro;
+  let b = dot(oc, rd);
+  let c = dot(oc, oc) - radius * radius;
+  let disc = b * b - c;
+  if (disc < 0.0) {
+    discard;
+  }
+  let tEnter = max(-b - sqrt(disc), 0.0);
+  let tExit = -b + sqrt(disc);
+  var t = tEnter;
   var hit = false;
   var trap = 0.0;
   var steps = 0.0;
-  let maxDist = 30.0;
+  let maxDist = tExit;
   for (var i = 0u; i < params.steps; i++) {
     let p = ro + rd * t;
     let h = sceneSdf(p);
@@ -214,7 +225,7 @@ struct FragmentOut {
       trap = h.trap;
       break;
     }
-    t += h.d * 0.8;
+    t += h.d * 0.85;
     steps += 1.0;
     if (t > maxDist) { break; }
   }
