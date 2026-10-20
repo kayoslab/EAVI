@@ -18,7 +18,7 @@ Touchstones: Future Crew *Second Reality*, Winamp AVS / MilkDrop, *Tron*, *Hacke
 ### Design principles
 
 1. **Always 3D.** Perspective camera, parallax, depth fog. Flat screen-savers are out.
-2. **Void, not world.** Black space. No terrain surfaces, no sky, no lit solids. Emissive geometry on black.
+2. **Void, not world.** Black space. No terrain *surfaces*, no sky, no lit solids. Emissive geometry on black — wire-and-dot landscapes qualify.
 3. **Geometric, not organic.** Lines, points, facets, folds, grids, lattices. Noise is a modulator, not the subject.
 4. **Trippy via recursion and symmetry.** Fractals, kaleidoscope folds, feedback loops, infinite tunnels.
 5. **Music makes things happen.** Drops cut, builds ramp, breakdowns strip. Timer-based mode switching is gone.
@@ -372,6 +372,7 @@ Each layer: look, technique, audio grammar, seed variance. Rendering primitives 
 | Harmonograph | subject, damped 3D Lissajous ribbon generated in the vertex stage | done |
 | FractalTree | subject, L-system wire branches (reuses `wire-lines.wgsl`) | done |
 | CurlField | particles, curl-noise advection in compute (reuses the point shader) | done |
+| Terrain (gentle / dramatic) | environment, procedural heightfield as grid lines + vertex dots, warm indigo→amber ramp, aerial drift (restores the pre-rewrite valleys the user liked) | done (2026-10-20) |
 | WireCathedral, Boids, Plasma, MatrixRain | — | not started |
 
 Shared WGSL: `lines.wgsl` (segment → screen quad), `color.wgsl`, `transform.wgsl`. Seeded recipe catalogue in `src/director/recipe.ts` (23 recipes, tier-gated, each with a post preset and optional camera rig); every recipe is rendered headless by `tests/render/recipes.headless.test.ts` with zero GPU errors.

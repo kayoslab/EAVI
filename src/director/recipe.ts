@@ -6,6 +6,7 @@ import type { PresetName } from '../post/presets';
 import { createGridVoidLayer } from '../layers/environment/gridVoid';
 import { createHyperTunnelLayer } from '../layers/environment/hyperTunnel';
 import { createStarWarpLayer } from '../layers/environment/starWarp';
+import { createTerrainLayer } from '../layers/environment/terrain';
 import { createMengerLayer } from '../layers/subject/menger';
 import { createWirePolyhedraLayer } from '../layers/subject/wirePolyhedra';
 import { createAttractorLayer } from '../layers/particles/attractor';
@@ -16,7 +17,7 @@ import { createHarmonographLayer } from '../layers/subject/harmonograph';
 import { createFractalTreeLayer } from '../layers/subject/fractalTree';
 import { createCurlFieldLayer } from '../layers/particles/curlField';
 
-export type LayerKind = 'gridvoid' | 'tunnel' | 'starwarp' | 'menger' | 'wire' | 'attractor' | 'polytope' | 'scope' | 'flame' | 'harmonograph' | 'tree' | 'curl';
+export type LayerKind = 'gridvoid' | 'tunnel' | 'starwarp' | 'terrain' | 'terrain-dramatic' | 'menger' | 'wire' | 'attractor' | 'polytope' | 'scope' | 'flame' | 'harmonograph' | 'tree' | 'curl';
 
 export interface Recipe {
   readonly id: string;
@@ -24,6 +25,8 @@ export interface Recipe {
   readonly subject: LayerKind | null;
   readonly particles: LayerKind | null;
   readonly cameraDistance: number;
+  /** Camera elevation in radians (default 0.2); landscapes are seen from higher up. */
+  readonly cameraPitch?: number;
   readonly weight?: number;
   readonly minTier?: QualityTier;
   /** Post preset this recipe is designed for; omitted → seeded per session. */
@@ -57,6 +60,11 @@ export const RECIPES: readonly Recipe[] = [
   { id: 'wire-forest', environment: 'gridvoid', subject: 'tree', particles: 'curl', cameraDistance: 4.4, minTier: 'medium', post: 'amber' },
   { id: 'forest-warp', environment: 'starwarp', subject: 'tree', particles: null, cameraDistance: 4.2, post: 'crt' },
   { id: 'curl-cube', environment: null, subject: 'polytope', particles: 'curl', cameraDistance: 4.2, post: 'vhs', rig: 'wander' },
+  // Warm valleys: the landscape carries the frame on its own, on presets that keep its colours.
+  { id: 'warm-valleys', environment: 'terrain-dramatic', subject: null, particles: null, cameraDistance: 5.2, cameraPitch: 0.5, weight: 3, post: 'clean', rig: 'orbit' },
+  { id: 'valley-drift', environment: 'terrain', subject: null, particles: 'curl', cameraDistance: 4.8, cameraPitch: 0.45, weight: 2, post: 'vhs', rig: 'wander' },
+  { id: 'valley-cube', environment: 'terrain-dramatic', subject: 'polytope', particles: null, cameraDistance: 5.0, cameraPitch: 0.4, post: 'clean', rig: 'wander' },
+  { id: 'valley-scope', environment: 'terrain', subject: 'scope', particles: null, cameraDistance: 4.6, cameraPitch: 0.4, minTier: 'medium', post: 'vhs' },
 ];
 
 const TIER_RANK: Record<QualityTier, number> = { low: 0, medium: 1, high: 2 };
@@ -88,6 +96,10 @@ export function createLayer(gpu: Gpu, kind: LayerKind, ctx: RecipeContext): Laye
   switch (kind) {
     case 'gridvoid':
       return createGridVoidLayer(gpu, { seed, halfLines: tier === 'high' ? 28 : tier === 'medium' ? 20 : 12 });
+    case 'terrain':
+      return createTerrainLayer(gpu, { seed, tier, variant: 'gentle', dpr: ctx.dpr });
+    case 'terrain-dramatic':
+      return createTerrainLayer(gpu, { seed, tier, variant: 'dramatic', dpr: ctx.dpr });
     case 'starwarp':
       return createStarWarpLayer(gpu, { seed, count: tier === 'high' ? 120_000 : tier === 'medium' ? 60_000 : 20_000, thickness: 1.1 * Math.max(1, Math.min(2, ctx.dpr)) });
     case 'tunnel':

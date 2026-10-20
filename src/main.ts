@@ -64,7 +64,7 @@ async function boot(): Promise<void> {
   const targets = createTargets(gpu, canvasSurface.size);
   const recipe = selectRecipe(seed, quality.tier);
   console.debug('[EAVI] recipe:', recipe.id);
-  const camera = createCamera(seed, { distance: recipe.cameraDistance });
+  const camera = createCamera(seed, { distance: recipe.cameraDistance, pitch: recipe.cameraPitch ?? 0.2 });
   const sync = createTrackSync();
   const director = createDirector({
     gpu, seed, tier: quality.tier, dpr: canvasSurface.dpr, bus: sync.bus, scene: targets.scene, camera,

@@ -35,6 +35,7 @@ export type TransitionKind = 'melt' | 'fold' | 'drift';
 
 export interface DirectorCamera {
   turn(yawDelta: number, seconds: number, pitchDelta?: number): void;
+  setPitch?(pitch: number): void;
   impulseDistance(multiplier: number, seconds: number): void;
 }
 
@@ -222,6 +223,7 @@ export function createDirector(options: DirectorOptions): Director {
         pendingRecipe = null;
         cameraRig = recipe.rig ?? (rng() < 0.5 ? 'wander' : 'orbit');
         if (recipe.post) options.post?.setPreset(PRESETS[recipe.post]);
+        camera.setPitch?.(recipe.cameraPitch ?? 0.2);
         prepareStandby();
       });
     });

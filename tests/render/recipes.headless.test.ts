@@ -47,7 +47,7 @@ describe.skipIf(!available)('every recipe renders headless with zero GPU errors'
       const output = target(g, { size: [W, H], label: `recipe-${recipe.id}` });
       const targets = createTargets(g, [W, H]);
       const seed = `recipe-${recipe.id}`;
-      const camera = createCamera(seed, { distance: recipe.cameraDistance });
+      const camera = createCamera(seed, { distance: recipe.cameraDistance, pitch: recipe.cameraPitch ?? 0.2 });
       camera.setViewport(W, H);
       const layers = instantiateRecipe(g, recipe, { seed, tier: 'medium', dpr: 1 });
       const post = createPostStack(g, targets, { bloom: true, warp: true, preset: PRESETS.phosphor });

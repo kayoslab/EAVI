@@ -49,7 +49,7 @@ v2 rewrite on the `v2` branch: phases 1–7 of `docs/REWRITE_PLAN.md` are implem
 ## Visual Target (v2)
 
 - Aesthetic: 90s demoscene / hacker-culture cyberdelia. Wireframes, fractals, kaleidoscopes, tunnels, strange attractors, 4D polytopes, CRT/phosphor post-processing. Emissive geometry on black.
-- Forbidden: solid shaded terrain, skies, lit realistic surfaces, flat 2D screen-saver visuals, organic blob shapes as the subject.
+- Forbidden: solid shaded terrain, skies, lit realistic surfaces, flat 2D screen-saver visuals, organic blob shapes as the subject. Wire-and-dot landscapes (the warm valleys) are explicitly wanted; they are lines and points, never a surface.
 - The scene MUST be 3D: perspective camera, parallax, depth. Points, lines, raymarched fractals and compute particles are all valid primitives.
 - Every recipe declares its tier requirements and limits; recipes are filtered by device capability before seeded selection.
 

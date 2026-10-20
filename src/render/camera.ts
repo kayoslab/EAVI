@@ -17,6 +17,8 @@ export interface Camera {
   setViewport(width: number, height: number): void;
   /** Advance the autonomous rig. No audio influence: only visuals react to music. */
   update(timeSec: number, motionAmplitude: number): void;
+  /** Base elevation in radians; eased in by the next turns. */
+  setPitch(pitch: number): void;
   /** Slow eased yaw/pitch turn over `seconds`; never an instant jump. */
   turn(yawDelta: number, seconds: number, pitchDelta?: number): void;
   /** Ease the distance toward `multiplier` and back to normal over `seconds`. */
@@ -27,10 +29,11 @@ const LANDSCAPE_FOV = 60;
 const PORTRAIT_FOV = 75;
 
 /** Seeded autonomous orbit: slow yaw drift, pitch and distance breathing on incommensurate periods. */
-export function createCamera(seed: string, options?: { distance?: number }): Camera {
+export function createCamera(seed: string, options?: { distance?: number; pitch?: number }): Camera {
   const rng = createPRNG(seed + ':camera');
   const baseDistance = options?.distance ?? 4.2;
-  const rig = orbitRig({ yaw: rng() * Math.PI * 2, pitch: 0.2, distance: baseDistance });
+  let basePitch = options?.pitch ?? 0.2;
+  const rig = orbitRig({ yaw: rng() * Math.PI * 2, pitch: basePitch, distance: baseDistance });
   const yaw0 = rig.yaw;
   const yawSpeed = (0.025 + rng() * 0.035) * (rng() < 0.5 ? -1 : 1);
   const pitchAmp = 0.15 + rng() * 0.25;
@@ -99,12 +102,24 @@ export function createCamera(seed: string, options?: { distance?: number }): Cam
         pitchOffset = pitchFrom + (pitchTo - pitchFrom) * e;
       }
       rig.yaw = yaw0 + yawOffset + yawSpeed * timeSec * (0.25 + 0.75 * ma);
-      const pitch = 0.2 + pitchOffset + pitchAmp * ma * Math.sin(timeSec * pitchFreq + pitchPhase);
+      const pitch = basePitch + pitchOffset + pitchAmp * ma * Math.sin(timeSec * pitchFreq + pitchPhase);
       rig.pitch = Math.max(-1.3, Math.min(1.3, pitch));
       const dist = baseDistance + distAmp * ma * Math.sin(timeSec * distFreq + distPhase);
       rig.distance = Math.max(0.5, dist * distanceMul);
       rigPose(rig, pose);
       viewMatrices(pose, projection, matrices);
+    },
+    setPitch(pitch) {
+      // Ease via the turn machinery so a recipe change never snaps the view.
+      const delta = Math.max(-1.3, Math.min(1.3, pitch)) - basePitch;
+      basePitch += delta;
+      pitchFrom = pitchOffset - delta;
+      pitchTo = pitchOffset;
+      pitchOffset = pitchFrom;
+      yawFrom = yawOffset;
+      yawTo = yawOffset;
+      turnElapsed = 0;
+      turnTotal = 6;
     },
     turn(yawDelta, seconds, pitchDelta = 0) {
       yawFrom = yawOffset;

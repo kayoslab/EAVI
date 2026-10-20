@@ -36,7 +36,7 @@ const recipe = recipeId ? RECIPES.find((r) => r.id === recipeId) ?? selectRecipe
 const preset = PRESETS[presetName || recipe.post || 'crt'];
 const output = target(gpu, { size: [W, H], label: 'poster' });
 const targets = createTargets(gpu, [W, H]);
-const camera = createCamera(seed, { distance: recipe.cameraDistance });
+const camera = createCamera(seed, { distance: recipe.cameraDistance, pitch: recipe.cameraPitch ?? 0.2 });
 camera.setViewport(W, H);
 const layers = instantiateRecipe(gpu, recipe, { seed, tier: 'high', dpr: 1 });
 const post = createPostStack(gpu, targets, { bloom: true, warp: true, preset });
