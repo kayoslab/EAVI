@@ -12,15 +12,17 @@ export interface MandelbrotConfig {
 
 /** Deep-zoom targets reachable in single precision: the set keeps reproducing itself on the way in. */
 const TARGETS: readonly [number, number][] = [
-  [-0.7453, 0.1127],          // seahorse valley
-  [0.2775, 0.0084],           // elephant valley
-  [-0.761574, -0.0847596],    // double spiral
-  [-1.25066, 0.02012],        // period-3 minibrot shore
-  [-0.1011, 0.9563],          // Misiurewicz point
-  [-1.768, 0.0],              // the spike's minibrot
+  // Points with boundary on every side, so the frame stays full at every magnification
+  // (valley and tail points leave half the frame to the set's interior).
+  [-0.10109636, 0.95628651],   // Misiurewicz point on the top filaments
+  [-0.235125, 0.827215],       // Misiurewicz point, dendrites
+  [0.00164372, -0.82246763],   // the spiral
+  [-1.2537, 0.0247],           // period-3 minibrot shore
+  [-0.54, 0.6],                // dendrite field above the main cardioid
+  [0.3245, 0.0486],            // elephant valley spirals
 ];
 
-const START_HALF = 1.6;
+const START_HALF = 0.35;       // start tight on the boundary so the frame is full of filaments
 const END_HALF = 6e-5;        // single-precision floor; the next zoom takes over before artefacts show
 const HANDOVER_AT = 0.82;     // fraction of the run at which the next zoom starts fading in
 const HANDOVER_SEC = 14;
@@ -70,7 +72,7 @@ export function createMandelbrotLayer(gpu: Gpu, config: MandelbrotConfig): Layer
           position: [0, 0, 0], time: 0,
         },
         sheet: {
-          resolution: [1, 1], halfSize: 1.5, depthSpan: 2.4, sheets: sheetCount, width, height, pad0: 0,
+          resolution: [1, 1], halfSize: 1.08, depthSpan: 2.4, sheets: sheetCount, width, height, pad0: 0,
           hue: 200, saturation: 0.7, brightness: 0.95, bass: 0, opacity: 0, bandWidth: 1, pad1: 0, pad2: 0,
         },
         field: tex,
@@ -140,7 +142,7 @@ export function createMandelbrotLayer(gpu: Gpu, config: MandelbrotConfig): Layer
           },
           sheet: {
             resolution: [frame.resolution[0], frame.resolution[1]],
-            halfSize: 1.5 * params.radialScale,
+            halfSize: 1.08,
             hue: params.paletteHue + hueOffset,
             saturation: Math.min(1, params.paletteSaturation + 0.2),
             brightness: 0.7 + params.trebleEnergy * 0.15,

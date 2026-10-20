@@ -14,7 +14,7 @@ struct Camera {
 
 struct Sheet {
   resolution: vec2f,
-  halfSize: f32,       // half-extent of the stack at the origin plane, world units
+  halfSize: f32,       // overscan factor on the view-filling extent (1 = exactly the frame)
   depthSpan: f32,      // total depth of the stack along the view axis
   sheets: u32,
   width: u32,
@@ -58,7 +58,9 @@ struct VertexOut {
   let scale = (camDist + z) / camDist;
   let center = back * z;
   let aspect = sheet.resolution.x / max(sheet.resolution.y, 1.0);
-  let world = center + right * corner.x * sheet.halfSize * aspect * scale + up * corner.y * sheet.halfSize * scale;
+  // Fill the view: the frame's half-height at the origin plane is camDist · tan(fov/2) = camDist / P[1][1].
+  let halfH = camDist / max(camera.projection[1][1], 0.01) * sheet.halfSize;
+  let world = center + right * corner.x * halfH * aspect * scale + up * corner.y * halfH * scale;
   var out: VertexOut;
   out.position = camera.viewProjection * vec4f(world, 1.0);
   out.uv = vec2f(corner.x * 0.5 + 0.5, 0.5 - corner.y * 0.5);
@@ -69,7 +71,7 @@ struct VertexOut {
 @fragment fn fs_main(in: VertexOut) -> @location(0) vec4f {
   let texel = vec2i(vec2f(in.uv) * vec2f(f32(sheet.width), f32(sheet.height)));
   let iter = textureLoad(field, texel, 0).x;
-  if (iter < 3.0) {
+  if (iter < 1.5) {
     discard; // inside the set, or the near-infinity zone where every count is the same
   }
   let n = f32(sheet.sheets);
