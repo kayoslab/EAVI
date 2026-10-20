@@ -25,8 +25,8 @@ struct Sheet {
   brightness: f32,
   bass: f32,
   opacity: f32,
-  bandWidth: f32,      // iterations covered by one sheet's band
-  pad1: f32,
+  density: f32,        // contour levels per octave of distance
+  logHalf: f32,        // log2 of the current view half-height, so levels are scale-invariant
   pad2: f32,
 }
 
@@ -69,24 +69,38 @@ struct VertexOut {
 }
 
 @fragment fn fs_main(in: VertexOut) -> @location(0) vec4f {
-  let texel = vec2i(vec2f(in.uv) * vec2f(f32(sheet.width), f32(sheet.height)));
-  let iter = textureLoad(field, texel, 0).x;
-  if (iter < 1.5) {
-    discard; // inside the set, or the near-infinity zone where every count is the same
+  // Bilinear sample of the field (r32float is not filterable, so blend four texels by hand);
+  // a texel inside the set poisons the sample, which keeps the silhouette crisp.
+  let size = vec2f(f32(sheet.width), f32(sheet.height));
+  let p = in.uv * size - 0.5;
+  let p0 = floor(p);
+  let f = p - p0;
+  let i0 = vec2i(clamp(p0, vec2f(0.0), size - 1.0));
+  let i1 = vec2i(clamp(p0 + 1.0, vec2f(0.0), size - 1.0));
+  let v00 = textureLoad(field, vec2i(i0.x, i0.y), 0).x;
+  let v10 = textureLoad(field, vec2i(i1.x, i0.y), 0).x;
+  let v01 = textureLoad(field, vec2i(i0.x, i1.y), 0).x;
+  let v11 = textureLoad(field, vec2i(i1.x, i1.y), 0).x;
+  if (min(min(v00, v10), min(v01, v11)) < -1.0e5) {
+    discard; // inside the set
   }
+  let logDist = mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
   let n = f32(sheet.sheets);
-  // Contour lines: this sheet draws the integer crossings of its residue class, as thin
-  // glowing lines (never filled bands, which would slab over slowly varying regions).
-  let level = iter / sheet.bandWidth - in.layer;
-  let r = fract(level / n + 0.5) - 0.5;              // distance to the nearest own crossing, in units of n
-  let lineHalf = 0.22 / n;                            // ±0.22 iterations
-  // Where counts change faster than a pixel, widen the line to a pixel so it stays continuous.
-  let aa = max(lineHalf, fwidth(r) * 0.8);
+  // Equidistant contours around the set, measured in octaves of distance relative to the
+  // view size, so the line density looks the same at every magnification. This sheet draws
+  // the crossings of its residue class as thin lines.
+  let level = (sheet.logHalf - logDist) * sheet.density - in.layer;
+  if (level < 0.0) {
+    discard; // farther from the set than the view is wide: open space
+  }
+  let r = fract(level / n + 0.5) - 0.5;
+  let lineHalf = 0.2 / n;
+  let aa = max(lineHalf, fwidth(r) * 0.9);
   var band = 1.0 - smoothstep(0.0, aa, abs(r));
-  // Overlap compensation: where more than one of this sheet's crossings lands on a pixel, the
-  // lines would stack additively into white; scale by how many crossings the pixel spans.
+  // Where contours crowd denser than pixels (right at the boundary) they cannot be drawn as
+  // curves; fade them out rather than leaving speckle.
   let crossingsPerPixel = fwidth(level) / n;
-  band /= max(1.0, crossingsPerPixel * 2.0);
+  band *= 1.0 - smoothstep(0.12, 0.45, crossingsPerPixel);
   if (band <= 0.003) {
     discard;
   }

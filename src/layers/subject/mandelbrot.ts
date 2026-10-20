@@ -47,7 +47,7 @@ export function createMandelbrotLayer(gpu: Gpu, config: MandelbrotConfig): Layer
   const rng = createPRNG(config.seed + ':mandelbrot');
   const width = config.tier === 'high' ? 768 : 576;
   const height = Math.round(width * 9 / 16);
-  const sheetCount = config.tier === 'high' ? 28 : 20;
+  const sheetCount = config.tier === 'high' ? 20 : 14;
   const maxIterCap = config.tier === 'high' ? 420 : 300;
   let nextTarget = Math.floor(rng() * TARGETS.length) % TARGETS.length;
   const hueOffset = rng() * 60;
@@ -73,7 +73,7 @@ export function createMandelbrotLayer(gpu: Gpu, config: MandelbrotConfig): Layer
         },
         sheet: {
           resolution: [1, 1], halfSize: 1.08, depthSpan: 2.4, sheets: sheetCount, width, height, pad0: 0,
-          hue: 200, saturation: 0.7, brightness: 0.95, bass: 0, opacity: 0, bandWidth: 1, pad1: 0, pad2: 0,
+          hue: 200, saturation: 0.7, brightness: 0.95, bass: 0, opacity: 0, density: 2.0, logHalf: 0, pad2: 0,
         },
         field: tex,
       },
@@ -148,8 +148,8 @@ export function createMandelbrotLayer(gpu: Gpu, config: MandelbrotConfig): Layer
             brightness: 0.7 + params.trebleEnergy * 0.15,
             bass: params.bassEnergy,
             opacity: frame.opacity * z.opacity,
-            // Bands widen as counts grow so the terraces stay readable at depth.
-            bandWidth: Math.max(1, maxIter / 160),
+            density: 2.0,
+            logHalf: Math.log2(half),
           },
         });
       }
